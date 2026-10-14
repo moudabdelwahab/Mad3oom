@@ -482,9 +482,11 @@ test('حساب الشركة يتنقّل بين كل الأقسام دون مغ�
     if (!chromiumPath) return t.skip('no chromium');
     const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fixtures());
 
-    // كل عنصر في القائمة، بالترتيب، كما يضغطه المستخدم
+    // كل عنصر ظاهر في القائمة، بالترتيب، كما يضغطه المستخدم (المخفي بقرار القاعدة — صندوق الرسائل
+    // والميزة مطفأة — لا يضغطه أحد؛ تغطيته مفعّلًا في الاختبار التالي)
     const tabs = await page.evaluate(() =>
-        [...document.querySelectorAll('#sidebar .sidebar-item[data-tab]')].map(a => a.getAttribute('data-tab')));
+        [...document.querySelectorAll('#sidebar .sidebar-item[data-tab]')]
+            .filter(a => !a.hidden && a.style.display !== 'none').map(a => a.getAttribute('data-tab')));
 
     assert.ok(tabs.length >= 8, `عدد أقسام القائمة أقل من المتوقع: ${tabs.length}`);
 
@@ -504,6 +506,19 @@ test('حساب الشركة يتنقّل بين كل الأقسام دون مغ�
     assert.deepEqual(departures(visited), [],
         `غادر المستخدم لوحة الشركة أثناء التنقّل: ${visited.join(' → ')}`);
     assert.equal(visited.filter(u => u.includes('login.html')).length, 0);
+    await context.close();
+});
+
+test('102: مع صندوق رسائل للحساب يظهر رابطه ويُفتح قسمه داخل اللوحة', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const fx = fixtures({ rpc: { company_inbox_summary: { scope: 'all', open: 0, unread: 0 },
+                                 company_inbox_list: { permissions: { assign: true, close: true }, assignees: [], conversations: [] } } });
+    const { page, context, visited } = await openCompanyDashboard(browser, baseUrl, fx);
+    await page.locator('.sidebar-item[data-tab="inbox"]').waitFor({ state: 'visible' });
+    await openSection(page, 'inbox');
+    await page.waitForSelector('#companyInboxList .state-block');
+    assert.match(await page.locator('#inboxTabContent').innerText(), /لا محادثات هنا/);
+    assert.deepEqual(departures(visited), []);
     await context.close();
 });
 
@@ -1140,5 +1155,77 @@ test('085: عميل الشركة يرى ما رجّعته القاعدة فقط�
     assert.doesNotMatch(text, /owner@company\.test|null|undefined/, 'بريد المدير أو قيمة فارغة ظهرت');
     assert.equal(await page.locator('#addMemberBtn').isHidden(), true);
     assert.equal(await page.locator('[data-remove-member]').count(), 0);
+    await context.close();
+});
+
+/* ── 098: الفريق يعمل على تذاكر نطاق الشركة بصلاحياته ─────────────────── */
+
+const TEAM_AGENT_ID = '33333333-3333-4333-8333-333333333399';
+function teamFixtures(permissions) {
+    const base = { user_id: CUSTOMER_ID, description: 'وصف', status: 'open', created_at: '2026-09-03T00:00:00Z', archived_by_customer: false };
+    return fixtures({
+        rpc: {
+            my_company_permissions: { enabled: true, company_id: COMPANY_ID, role: 'supervisor', permissions,
+                                      assignees: [{ id: TEAM_AGENT_ID, name: 'موظف الدعم' }] },
+            company_ticket_set_status: { id: 'tk-scope', status: 'in-progress', changed: true },
+            company_ticket_assign: { id: 'tk-scope', assigned_to: TEAM_AGENT_ID },
+            // القاعدة تحصر القائمة؛ صف مدعوم هنا يثبت أن الواجهة تُسقطه أيضًا
+            company_tickets_list: [
+                { user_id: CUSTOMER_ID, description: 'وصف', status: 'open', created_at: '2026-09-03T00:00:00Z', archived_by_customer: false,
+                  id: 'tk-scope', ticket_number: 401, title: 'تذكرة نطاق الشركة', scope: 'company', company_id: COMPANY_ID,
+                  profiles: { full_name: 'عميل الشركة', email: 'cust1@company.test' } },
+                { user_id: CUSTOMER_ID, description: 'وصف', status: 'open', created_at: '2026-09-03T00:00:00Z', archived_by_customer: false,
+                  id: 'tk-billing', ticket_number: 402, title: 'فوترة العميل الشخصية', scope: 'mad3oom_support', company_id: null }
+            ]
+        },
+        tables: {
+            tickets: [
+                { ...base, id: 'tk-scope', ticket_number: 401, title: 'تذكرة نطاق الشركة', scope: 'company', company_id: COMPANY_ID },
+                { ...base, id: 'tk-billing', ticket_number: 402, title: 'فوترة العميل الشخصية', scope: 'mad3oom_support', company_id: null },
+                { ...base, id: 'tk-other', ticket_number: 403, title: 'تذكرة شركة أخرى', scope: 'company', company_id: 'other-company' }
+            ]
+        }
+    });
+}
+
+test('098: مع تفعيل الصلاحيات، «تذاكر العملاء» = تذاكر نطاق الشركة، والحالة والإسناد عبر الدالتين', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const fx = teamFixtures({ 'tickets.view': true, 'tickets.status': true, 'tickets.assign': true });
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
+    await openSection(page, 'customerTickets');
+    await page.waitForSelector('[data-stream-ticket="tk-scope"]', { timeout: 10000 });
+    const text = await page.locator('#customerTicketsTabContent').innerText();
+    assert.doesNotMatch(text, /فوترة العميل الشخصية|تذكرة شركة أخرى/);
+    assert.equal(await page.evaluate(() => (window.__RPC_CALLS__ || []).includes('company_tickets_list')), true);
+
+    await page.locator('[data-stream-ticket="tk-scope"]').click();
+    await page.waitForSelector('#customersTicketTeamStatus', { timeout: 10000 });
+    assert.equal(await page.locator('#customersTicketCloseBtn').count(), 0, 'زر الإغلاق القديم مع أدوات الفريق');
+    await page.locator('#customersTicketTeamStatus').selectOption('in-progress');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'company_ticket_set_status'));
+    await page.waitForSelector('#customersTicketTeamAssign', { timeout: 10000 });
+    await page.locator('#customersTicketTeamAssign').selectOption(TEAM_AGENT_ID);
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'company_ticket_assign'));
+    const args = await page.evaluate(() => window.__RPC_ARGS__
+        .filter(([n]) => n === 'company_ticket_set_status' || n === 'company_ticket_assign'));
+    assert.deepEqual(args, [
+        ['company_ticket_set_status', { p_ticket: 'tk-scope', p_status: 'in-progress' }],
+        ['company_ticket_assign', { p_ticket: 'tk-scope', p_assignee: TEAM_AGENT_ID }]
+    ]);
+    const writes = await page.evaluate(() => window.__WRITES__ || []);
+    assert.equal(writes.some(w => w.table === 'tickets' && w.op === 'update'), false, 'تعديل مباشر للتذكرة');
+    await context.close();
+});
+
+test('098: بلا صلاحية الحالة والإسناد لا تظهر أدواتهما', async (t) => {
+    if (!chromiumPath) return t.skip('no chromium');
+    const fx = teamFixtures({ 'tickets.view_assigned': true, 'tickets.reply': true });
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
+    await openSection(page, 'customerTickets');
+    await page.waitForSelector('[data-stream-ticket="tk-scope"]', { timeout: 10000 });
+    await page.locator('[data-stream-ticket="tk-scope"]').click();
+    await page.waitForSelector('#customersTicketReplyForm', { timeout: 10000 });
+    assert.equal(await page.locator('#customersTicketTeamStatus').count(), 0);
+    assert.equal(await page.locator('#customersTicketTeamAssign').count(), 0);
     await context.close();
 });

@@ -15,7 +15,7 @@ import path from 'node:path';
 const ROOT = path.resolve(import.meta.dirname, '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
-const { validateMemberForm, canManageMembers } =
+const { validateMemberForm, canManageMembers, customersPanelView, validateInviteEmail, invitationStatusInfo, isCompanyScopedTicket, teamTicketControls } =
     await import('../assets/js/company/company-model.js');
 
 /* ── التحقق من النموذج ──────────────────────────────────────────────────── */
@@ -196,4 +196,44 @@ test('085: الواجهة لا تقرر النطاق ولا ترسل معرّف 
     assert.ok(data.includes("supabase.rpc('company_members')"), 'company_members تُنادى بلا مُعاملات');
     const dash = read('assets/js/company/company-dashboard.js');
     assert.ok(dash.includes('membersScopeIsSelf(result.data)'), 'النطاق يُقرأ من حمولة القاعدة');
+});
+
+/* ── 096: لوحة العملاء والدعوات ─────────────────────────────────────────── */
+
+test('096: الدعوة لمن رجّعت له القاعدة can_manage والمفتاح مفعّل فقط', () => {
+    const p = (o) => ({ company_id: 'c', customers: [], ...o });
+    assert.equal(customersPanelView(p({ can_manage: true, invitations_enabled: true }), 'admin').canInvite, true);
+    assert.equal(customersPanelView(p({ can_manage: true, invitations_enabled: false }), 'admin').show, false);
+    assert.equal(customersPanelView(p({ can_manage: false, invitations_enabled: true }), 'admin').show, false);
+    assert.equal(customersPanelView(p({ can_manage: 'true', invitations_enabled: true }), 'admin').canInvite, false);
+    const sup = customersPanelView(p({ can_manage: false, invitations_enabled: true, customers: [{ id: 'u' }] }), 'supervisor');
+    assert.equal(sup.show && sup.showList && !sup.canInvite, true);
+    assert.equal(customersPanelView(null, 'admin').show, false);
+});
+
+test('096: تحقق بريد الدعوة وحالاتها', () => {
+    assert.equal(validateInviteEmail('  a@b.co ').email, 'a@b.co');
+    assert.equal(validateInviteEmail('').ok, false);
+    assert.equal(validateInviteEmail('no-at').ok, false);
+    assert.equal(validateInviteEmail('a@b.co'.padStart(330, 'x')).ok, false);
+    assert.equal(invitationStatusInfo('pending').label, 'بانتظار الرد');
+    assert.equal(invitationStatusInfo('weird').label, 'غير معروفة');
+});
+
+test('097: تذاكر العملاء في لوحة الشركة = نطاق الشركة فقط', () => {
+    assert.equal(isCompanyScopedTicket({ scope: 'company', company_id: 'c' }), true);
+    assert.equal(isCompanyScopedTicket({ scope: 'mad3oom_support', company_id: null }), false);
+    assert.equal(isCompanyScopedTicket({ id: 'قبل 097' }), true);
+    assert.equal(isCompanyScopedTicket(null), false);
+});
+
+test('098: أدوات الفريق من رد my_company_permissions فقط', () => {
+    assert.equal(teamTicketControls(null).enabled, false);
+    assert.equal(teamTicketControls({ enabled: false, company_id: 'c', permissions: { 'tickets.view': true } }).enabled, false);
+    const sup = teamTicketControls({ enabled: true, company_id: 'c', permissions: { 'tickets.view': true, 'tickets.status': true, 'tickets.assign': true },
+                                     assignees: [{ id: 'u1', name: 'أ' }, { name: 'بلا معرّف' }] });
+    assert.deepEqual(sup, { enabled: true, companyId: 'c', canStatus: true, canAssign: true, assignees: [{ id: 'u1', name: 'أ' }] });
+    const agent = teamTicketControls({ enabled: true, company_id: 'c', permissions: { 'tickets.view_assigned': true, 'tickets.assign': 'true' } });
+    assert.equal(agent.enabled && !agent.canStatus && !agent.canAssign, true);
+    assert.equal(teamTicketControls({ enabled: true, company_id: 'c', permissions: {} }).enabled, false, 'بلا صلاحية عرض');
 });

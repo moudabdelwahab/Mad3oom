@@ -92,6 +92,32 @@ export function companyAccess(dashboard) {
     };
 }
 
+/**
+ * 095: من يرى لوحة الشركة وبأي قدر — كما قرّرته القاعدة في viewer_role.
+ *   admin       مالك الشركة: كل الأقسام.
+ *   supervisor  مشرف، agent موظف دعم: بلا الاشتراكات ولا مفاتيح API (القاعدة لا ترسل
+ *               بياناتهما أصلًا؛ إخفاء القسمين تنظيم للعرض لا حماية).
+ * حمولة بلا viewer_role = خادم قبل 095، وكانت تُرسل للمالك والأعضاء معًا؛ نعاملها
+ * كما كانت تُعرض (admin) حتى لا يتغير شيء قبل تطبيق الترحيل.
+ */
+export const ADMIN_ONLY_SECTIONS = Object.freeze(['subscriptions', 'api']);
+
+export function viewerRoleOf(dashboard) {
+    const role = dashboard?.viewer_role;
+    if (role === undefined || role === null) return 'admin';
+    return ['admin', 'supervisor', 'agent'].includes(role) ? role : 'agent';
+}
+
+export function sectionAllowed(section, viewerRole) {
+    return viewerRole === 'admin' || !ADMIN_ONLY_SECTIONS.includes(section);
+}
+
+export const VIEWER_ROLE_LABELS = Object.freeze({
+    admin: 'مدير الشركة',
+    supervisor: 'مشرف في فريق الشركة',
+    agent: 'موظف دعم في فريق الشركة'
+});
+
 /** هل تملك الشركة هذا الامتياز فعلًا (حسب ما رجّعته القاعدة)؟ */
 export function hasEntitlement(dashboard, featureKey) {
     return (dashboard?.entitlements || []).some(e => e.feature_key === featureKey);
@@ -319,6 +345,77 @@ export function validateMemberForm(values) {
     }
 
     return { isValid: Object.keys(errors).length === 0, errors };
+}
+
+/**
+ * 097: «تذاكر العملاء» = تذاكر نطاق الشركة. تذكرة العميل مع مدعوم (فوترته الشخصية) ليست
+ * للشركة؛ القاعدة تحجبها والعزل مفعّل، والواجهة لا تعرضها في كل الأحوال. قبل 097: بلا scope.
+ */
+export function isCompanyScopedTicket(ticket) {
+    return !!ticket && (!('scope' in ticket) || ticket.scope === 'company');
+}
+
+/* ── صلاحيات الفريق (098) ─────────────────────────────────────────────── */
+
+export const TEAM_STATUS_OPTIONS = Object.freeze([
+    { value: 'open', label: 'مفتوحة' },
+    { value: 'in-progress', label: 'قيد المعالجة' },
+    { value: 'resolved', label: 'تم الحل' },
+    { value: 'rejected', label: 'مرفوضة' }
+]);
+
+/**
+ * ماذا يملك الفريق في قسم «تذاكر العملاء» من رد my_company_permissions() — خالص.
+ * المفتاح مطفأ أو قبل 098: لا شيء (يبقى القسم كما كان: تذاكر التابعين للمالك).
+ */
+export function teamTicketControls(payload) {
+    const off = { enabled: false, companyId: null, canStatus: false, canAssign: false, assignees: [] };
+    if (!payload || payload.enabled !== true || !payload.company_id) return off;
+    const perms = payload.permissions || {};
+    return {
+        enabled: perms['tickets.view'] === true || perms['tickets.view_assigned'] === true,
+        companyId: String(payload.company_id),
+        canStatus: perms['tickets.status'] === true,
+        canAssign: perms['tickets.assign'] === true,
+        assignees: Array.isArray(payload.assignees)
+            ? payload.assignees.filter(a => a && a.id).map(a => ({ id: String(a.id), name: String(a.name || '—') }))
+            : []
+    };
+}
+
+/* ── دعوات العملاء (096) ──────────────────────────────────────────────── */
+
+export const INVITATION_STATUS_LABELS = Object.freeze({
+    pending:   { label: 'بانتظار الرد', pill: 'status-tone-warning' },
+    accepted:  { label: 'مقبولة',       pill: 'status-tone-success' },
+    declined:  { label: 'مرفوضة',       pill: 'status-neutral' },
+    cancelled: { label: 'ملغاة',        pill: 'status-neutral' },
+    expired:   { label: 'منتهية',       pill: 'status-neutral' }
+});
+
+/**
+ * ماذا يظهر في لوحة العملاء من رد company_customers_list() — خالص.
+ * الدعوة لمن رجّعت له القاعدة can_manage والمفتاح مفعّل؛ قائمة العملاء للمشرف
+ * (المدير يرى العملاء في «مستخدمو الشركة» أصلًا).
+ */
+export function customersPanelView(payload, viewerRole) {
+    if (!payload || typeof payload !== 'object') return { show: false, canInvite: false, showList: false, customers: [] };
+    const canInvite = payload.can_manage === true && payload.invitations_enabled === true;
+    const showList = viewerRole === 'supervisor';
+    const customers = Array.isArray(payload.customers) ? payload.customers : [];
+    return { show: canInvite || showList, canInvite, showList, customers };
+}
+
+export function invitationStatusInfo(status) {
+    return INVITATION_STATUS_LABELS[status] || { label: 'غير معروفة', pill: 'status-neutral' };
+}
+
+/** تحقّق عرض لبريد الدعوة؛ القاعدة تتحقق مرة أخرى (22023). */
+export function validateInviteEmail(value) {
+    const email = String(value || '').trim();
+    if (!email) return { ok: false, error: 'اكتب البريد الإلكتروني للعميل' };
+    if (email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'بريد إلكتروني غير صالح' };
+    return { ok: true, email };
 }
 
 /**

@@ -67,6 +67,22 @@ export const TICKET_STREAMS = Object.freeze({
         // اسم العميل يظهر في القائمة: بدونه المسار غير مفهوم
         showsCustomer: true,
         load: fetchMemberTickets
+    },
+    // 095 (D8): بوابة عملاء الشركة — العميل يرى تذاكره هو مع شركته، ويفتح جديدة ويردّ
+    // ويغلق ويعيد الفتح. القراءة هي نفسها fetchUserTickets (tickets.user_id = أنا)،
+    // والقاعدة تحصر الصفوف فيه (tickets_select_policy).
+    portal: {
+        key: 'portal',
+        containerId: 'portalTickets',
+        title: 'تذاكري',
+        subtitle: 'طلبات الدعم التي فتحتها لدى الشركة',
+        emptyTitle: 'لا توجد تذاكر بعد',
+        emptyText: 'افتح تذكرة عندما تحتاج مساعدة من فريق الشركة.',
+        canCreate: true,
+        autoTransition: true,
+        showsCustomer: false,
+        otherLabel: 'فريق الشركة',
+        load: fetchUserTickets
     }
 });
 
@@ -74,11 +90,16 @@ export const TICKET_STREAMS = Object.freeze({
  * ينشئ قسم تذاكر لمسار واحد. الحالة محصورة داخل المصنع، فالمساران لا
  * يتشاركان أي متغيّر — وده اللي بيمنع اختلاطهما في الواجهة.
  */
-export function createTicketStream(stream, { userId, onNewTicket } = {}) {
+export function createTicketStream(stream, { userId, onNewTicket, keep = null } = {}) {
     const spec = TICKET_STREAMS[stream];
     if (!spec) throw new Error(`مسار تذاكر غير معروف: ${stream}`);
 
     let tickets = [];
+    // 098: مصدر بديل (تذاكر نطاق الشركة للفريق) وأدوات الفريق (الحالة والإسناد) — configure() بعد قراءة الصلاحيات
+    let source = null;
+    let team = null;
+    // 097: الصفوف تحمل نطاقها؛ المسار يعرض ما يخصه فقط (القاعدة تحرس الرؤية نفسها)
+    const loadRows = async () => (((await (source || spec.load)()) || []).filter(t => (keep ? keep(t) : true)));
     let activeView = 'all';
     let searchTerm = '';
     let openTicketId = null;
@@ -94,7 +115,7 @@ export function createTicketStream(stream, { userId, onNewTicket } = {}) {
         renderSkeletonLines(box, 4);
 
         try {
-            tickets = (await spec.load()) || [];
+            tickets = await loadRows();
         } catch (err) {
             console.error(`[CompanyTickets:${spec.key}]`, err?.message || err);
             renderState(box, {
@@ -261,12 +282,13 @@ export function createTicketStream(stream, { userId, onNewTicket } = {}) {
 
                 <div class="company-form-actions">
                     <button type="submit" class="btn btn-primary" id="${uid('ReplyBtn')}">إرسال الردّ</button>
-                    ${actions.canReopen ? `
+                    ${!team && actions.canReopen ? `
                     <button type="button" class="btn btn-secondary" id="${uid('ReopenBtn')}">إعادة الفتح</button>` : ''}
-                    ${actions.canClose ? `
+                    ${!team && actions.canClose ? `
                     <button type="button" class="btn btn-secondary" id="${uid('CloseBtn')}">إغلاق التذكرة</button>` : ''}
                 </div>
-            </form>`;
+            </form>
+            ${team ? teamControlsHtml(ticket) : ''}`;
 
         await renderReplies(ticketId);
         // سياق ووكومرس/سلة/دفترة لتذاكر العملاء فقط؛ القاعدة تقرر من يراه
@@ -274,7 +296,55 @@ export function createTicketStream(stream, { userId, onNewTicket } = {}) {
         el(uid('ReplyForm'))?.addEventListener('submit', (e) => onReply(e, ticketId));
         el(uid('ReopenBtn'))?.addEventListener('click', () => onStatusAction(ticketId, 'reopen'));
         el(uid('CloseBtn'))?.addEventListener('click', () => onStatusAction(ticketId, 'close'));
+        el(uid('TeamStatus'))?.addEventListener('change', (e) => onTeamChange(ticketId, 'status', e.target));
+        el(uid('TeamAssign'))?.addEventListener('change', (e) => onTeamChange(ticketId, 'assign', e.target));
         panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    /** 098: أدوات الفريق — الحالة والإسناد بحسب الصلاحية (القاعدة تقرر عند التنفيذ). */
+    function teamControlsHtml(ticket) {
+        if (!team.canStatus && !team.canAssign) return '';
+        return `
+            <div class="company-form company-team-controls">
+                ${team.canStatus ? `
+                <label class="form-field">
+                    <span>الحالة</span>
+                    <select id="${uid('TeamStatus')}" class="form-control">
+                        ${team.statusOptions.map(o => `
+                        <option value="${escapeHtml(o.value)}"${o.value === ticket.status ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}
+                    </select>
+                </label>` : ''}
+                ${team.canAssign ? `
+                <label class="form-field">
+                    <span>مسندة إلى</span>
+                    <select id="${uid('TeamAssign')}" class="form-control">
+                        <option value="">بلا إسناد</option>
+                        ${team.assignees.map(a => `
+                        <option value="${escapeHtml(a.id)}"${String(a.id) === String(ticket.assigned_to || '') ? ' selected' : ''}>${escapeHtml(a.name)}</option>`).join('')}
+                    </select>
+                </label>` : ''}
+                <p class="field-error" id="${uid('TeamError')}" role="alert" hidden></p>
+            </div>`;
+    }
+
+    async function onTeamChange(ticketId, kind, select) {
+        const error = el(uid('TeamError'));
+        if (error) error.hidden = true;
+        select.disabled = true;
+        try {
+            if (kind === 'status') await team.setStatus(ticketId, select.value);
+            else await team.assign(ticketId, select.value || null);
+            tickets = await loadRows();
+            openTicketId = ticketId;
+            render();
+            ui?.showToast?.(kind === 'status' ? 'تم تحديث الحالة' : 'تم تحديث الإسناد', 'success');
+        } catch (err) {
+            select.disabled = false;
+            if (error) {
+                error.textContent = err?.message || 'تعذّر تنفيذ الإجراء. حاول مرة أخرى.';
+                error.hidden = false;
+            }
+        }
     }
 
     async function renderReplies(ticketId) {
@@ -320,7 +390,7 @@ export function createTicketStream(stream, { userId, onNewTicket } = {}) {
     function authorLabel(reply, ticket) {
         if (reply.user_id === userId) return 'أنت';
         if (spec.showsCustomer && ticket && reply.user_id === ticket.user_id) return 'العميل';
-        return 'فريق مدعوم';
+        return spec.otherLabel || 'فريق مدعوم';
     }
 
     async function onReply(event, ticketId) {
@@ -345,7 +415,7 @@ export function createTicketStream(stream, { userId, onNewTicket } = {}) {
             await addTicketReply(ticketId, message, false, { autoTransition: spec.autoTransition });
             input.value = '';
             // الحالة قد تتغيّر بالردّ (إعادة فتح)، فنعيد القراءة من المصدر
-            tickets = (await spec.load()) || [];
+            tickets = await loadRows();
             render();
         } catch (err) {
             // الفشل يظل رسالة في مكانه — بلا أي تحويل
@@ -390,7 +460,7 @@ export function createTicketStream(stream, { userId, onNewTicket } = {}) {
 
         try {
             await meta.run(ticketId);
-            tickets = (await spec.load()) || [];
+            tickets = await loadRows();
             render();
             ui?.showToast?.(meta.done, 'success');
         } catch (err) {
@@ -455,5 +525,11 @@ export function createTicketStream(stream, { userId, onNewTicket } = {}) {
     }
 
     // rows() تسمح للتقارير بقراءة نفس الصفوف المعروضة، بلا جلب ثانٍ
-    return { key: spec.key, load, open, has, rows: () => tickets.slice() };
+    /** 098: مصدر الصفوف وأدوات الفريق بعد قراءة الصلاحيات من القاعدة. */
+    function configure({ load: loader = null, team: teamTools = null } = {}) {
+        source = loader;
+        team = teamTools;
+    }
+
+    return { key: spec.key, load, open, has, configure, rows: () => tickets.slice() };
 }

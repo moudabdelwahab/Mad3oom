@@ -133,6 +133,19 @@
                         </div>
                     </form>
                 </section>
+
+                <!-- 100: مستندات الشركة (مدير الشركة، والميزة مفعّلة). الملف يُرفع إلى دالة طرفية تتحقق منه
+                     ويبقى «بانتظار الفحص الأمني» حتى نتيجة فحص موقَّعة؛ لا تنزيل قبلها لأي أحد. -->
+                <section class="panel" aria-labelledby="companyDocumentsHeading" id="companyDocumentsPanel" hidden>
+                    <div class="panel-header">
+                        <div>
+                            <h2 class="panel-title" id="companyDocumentsHeading">مستندات الشركة</h2>
+                            <p class="panel-subtitle">PDF أو PNG أو JPEG حتى 10 ميجابايت. كل ملف يُفحص أمنيًا قبل مراجعته أو تنزيله.</p>
+                        </div>
+                    </div>
+                    <div id="companyDocuments"></div>
+                    <p class="field-error" id="companyDocumentsError" role="alert" hidden></p>
+                </section>
             </section>
 
             <!-- ═══ مستخدمو الشركة ═════════════════════════════════════════ -->
@@ -159,6 +172,63 @@
                         تظهر هنا بياناتك ومدير شركتك فقط. قائمة مستخدمي الشركة الكاملة متاحة لمدير الشركة.
                     </p>
                     <div id="companyMembers"></div>
+                </section>
+
+                <!-- 096: عملاء الشركة. الدعوة بالبريد للمدير والمفتاح مفعّل (الرد واحد لكل بريد:
+                     لا يكشف وجود حساب)؛ وقائمة العملاء للمشرف. لا أثر لعضويات العميل في شركات أخرى. -->
+                <section class="panel" aria-labelledby="companyCustomersHeading" id="companyCustomersPanel" hidden>
+                    <div class="panel-header">
+                        <div>
+                            <h2 class="panel-title" id="companyCustomersHeading">عملاء الشركة</h2>
+                            <p class="panel-subtitle">العميل ينضم بقبوله دعوتك من بوابة العملاء.</p>
+                        </div>
+                    </div>
+                    <form id="companyInviteForm" class="company-form" novalidate hidden>
+                        <div class="form-field is-full">
+                            <label for="companyInviteEmail">بريد العميل</label>
+                            <input id="companyInviteEmail" name="email" type="email" class="form-control" maxlength="320" autocomplete="off">
+                        </div>
+                        <p class="field-error" id="companyInviteError" role="alert" hidden></p>
+                        <div class="company-form-actions">
+                            <button type="submit" class="btn btn-primary" id="companyInviteSubmit">إرسال دعوة</button>
+                        </div>
+                    </form>
+                    <div id="companyInvitations"></div>
+                    <div id="companyCustomers"></div>
+                </section>
+
+                <!-- 101: نقل العملاء بين الشركات والاطلاع التاريخي — لمدير الشركة، خلف customer_transfers_enabled
+                     وhistorical_access_enabled (مطفآن). لا تظهر هوية الشركة الأخرى، ولا تاريخ إلا بموافقة العميل ثم مدعوم. -->
+                <section class="panel" aria-labelledby="companyMovesHeading" id="companyMovesPanel" hidden>
+                    <div class="panel-header">
+                        <div>
+                            <h2 class="panel-title" id="companyMovesHeading">نقل العملاء وتاريخهم</h2>
+                            <p class="panel-subtitle">النقل يكتمل بموافقة الشركتين وتأكيد العميل. التذاكر السابقة تبقى في شركتها.</p>
+                        </div>
+                    </div>
+                    <div id="companyTransfersBox" hidden>
+                        <h3 class="panel-title">طلبات النقل</h3>
+                        <div id="companyTransfers"></div>
+                    </div>
+                    <div id="companyHistoryBox" hidden>
+                        <h3 class="panel-title">الاطلاع على تذاكر سابقة لعميل</h3>
+                        <form id="companyHistoryForm" class="company-form" novalidate hidden>
+                            <div class="form-field">
+                                <label for="companyHistoryCustomer">العميل</label>
+                                <select id="companyHistoryCustomer" class="form-control"></select>
+                            </div>
+                            <div class="form-field is-full">
+                                <label for="companyHistoryPurpose">الغرض (يراه العميل ومدعوم)</label>
+                                <textarea id="companyHistoryPurpose" class="form-control" rows="3" maxlength="1000"></textarea>
+                            </div>
+                            <p class="field-error" id="companyHistoryError" role="alert" hidden></p>
+                            <div class="company-form-actions">
+                                <button type="submit" class="btn btn-primary" id="companyHistorySubmit">إرسال الطلب للعميل</button>
+                            </div>
+                        </form>
+                        <div id="companyHistoryRequests"></div>
+                        <div id="companyHistoryView" class="company-history-view" hidden></div>
+                    </div>
                 </section>
             </section>
 
@@ -208,6 +278,46 @@
                  يستخدمان نفس كود العرض بمصدرَي قراءة مختلفين. -->
             <section class="tab-content" id="customerTicketsTabContent">
                 <div id="companyCustomerTickets"></div>
+            </section>
+
+            <!-- ═══ صندوق الرسائل (102) ══════════════════════════════════
+                 محادثات عملاء الشركة معها من بوابتهم. خاص بالشركة: لا يراه طاقم
+                 مدعوم. المدير يرى الكل؛ الموظف بصلاحيته (كل المحادثات أو المسندة). -->
+            <section class="tab-content" id="inboxTabContent">
+                <section class="panel" aria-labelledby="companyInboxHeading">
+                    <div class="panel-header">
+                        <div>
+                            <h2 class="panel-title" id="companyInboxHeading">صندوق الرسائل</h2>
+                            <p class="panel-subtitle">رسائل عملاء الشركة. الملاحظات الداخلية لا تصل العميل، ولا يرى العميل اسم من ردّ.</p>
+                        </div>
+                        <div class="company-inbox-controls">
+                            <label for="companyInboxFilter" class="visually-hidden">عرض</label>
+                            <select id="companyInboxFilter" class="form-control"></select>
+                            <button type="button" class="btn btn-secondary" id="companyInboxRefresh">تحديث</button>
+                        </div>
+                    </div>
+                    <div class="company-inbox">
+                        <div id="companyInboxList"></div>
+                        <div id="companyInboxThread" class="company-inbox-thread" hidden>
+                            <h3 class="panel-title" id="companyInboxSubject"></h3>
+                            <p class="company-sub-dates" id="companyInboxMeta"></p>
+                            <div class="company-inbox-tools" id="companyInboxTools"></div>
+                            <ul class="company-inbox-messages" id="companyInboxMessages"></ul>
+                            <form id="companyInboxReply" class="company-form" novalidate hidden>
+                                <div class="form-field is-full">
+                                    <label for="companyInboxReplyBody">الرسالة</label>
+                                    <textarea id="companyInboxReplyBody" class="form-control" rows="3" maxlength="5000"></textarea>
+                                </div>
+                                <label class="company-check" id="companyInboxInternalWrap" hidden>
+                                    <input type="checkbox" id="companyInboxInternal"> ملاحظة داخلية (لا يراها العميل)</label>
+                                <p class="field-error" id="companyInboxReplyError" role="alert" hidden></p>
+                                <div class="company-form-actions">
+                                    <button type="submit" class="btn btn-primary" id="companyInboxReplySubmit">إرسال</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </section>
             </section>
 
             <!-- ═══ مركز الدعم ═════════════════════════════════════════════

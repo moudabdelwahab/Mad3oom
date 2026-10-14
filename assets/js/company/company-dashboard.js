@@ -30,15 +30,27 @@ import {
     escapeHtml, formatDate, renderState, renderSkeletonLines
 } from '/assets/js/customer/portal-ui.js';
 import { ui } from '/ui-service.js';
+import { renderCompanyDocuments } from '/assets/js/company/company-documents.js';
+import { initCompanyMoves } from '/assets/js/company/company-moves.js';
+import { fetchInboxSummary, applyInboxBadge, loadCompanyInbox } from '/assets/js/company/company-inbox.js';
 import {
     fetchCompanyDashboard,
+    fetchAccountKind,
     fetchCompanyMembers,
     createCompanyMember,
     removeCompanyMember,
     fetchCompanyStaff,
     setCompanyStaffRole,
     revokeCompanyStaff,
-    saveCompany
+    saveCompany,
+    fetchCompanyCustomers,
+    fetchCompanyInvitations,
+    inviteCompanyCustomer,
+    cancelCompanyInvitation,
+    fetchMyCompanyPermissions,
+    fetchCompanyScopeTickets,
+    setCompanyTicketStatus,
+    assignCompanyTicket
 } from '/assets/js/company/company-data.js';
 import {
     subscriptionStatusInfo,
@@ -56,6 +68,15 @@ import {
     staffChangeFor,
     STAFF_ROLE_OPTIONS,
     hasEntitlement,
+    viewerRoleOf,
+    sectionAllowed,
+    VIEWER_ROLE_LABELS,
+    customersPanelView,
+    isCompanyScopedTicket,
+    teamTicketControls,
+    TEAM_STATUS_OPTIONS,
+    invitationStatusInfo,
+    validateInviteEmail,
     validateCompanyForm,
     validateMemberForm
 } from '/assets/js/company/company-model.js';
@@ -63,12 +84,22 @@ import {
 let dashboard = null;
 let currentUserId = null;
 
+/** 095: دور الناظر كما قرّرته القاعدة (admin | supervisor | agent). */
+let viewerRole = 'admin';
+
+/** القائمة الجانبية تُجلب بعد التحميل؛ إخفاء أقسام المدير ينتظرها. */
+let shellReady = Promise.resolve();
+
 /** المساران المستقلان — لكل واحد حالته وحاويته ومصدر قراءته. */
 let platformTickets = null;   // الشركة ↔ مدعوم
 let customerTickets = null;   // العميل ↔ الشركة
 
 /** أعضاء الشركة كما رجّعتهم القاعدة — تُقرأ منها التقارير وقسم API. */
 let companyMembers = [];
+// 096: عملاء الشركة كما رجّعتهم القاعدة — لاختيار العميل في طلب الاطلاع التاريخي (101)
+let companyCustomerList = [];
+// 102: ملخص صندوق الرسائل كما رجّعته القاعدة — null يعني لا رابط في القائمة
+let inboxSummary = null;
 
 /** آخر قرار قرأناه من القاعدة لإدارة المستخدمين — للعرض فقط، لا للتفويض. */
 let canManageMembersNow = false;
@@ -88,7 +119,7 @@ async function init() {
 
     // قشرة الشركة: قائمتها الخاصة، وكل عناصرها أقسام في هذه الصفحة.
     // onTabChange بيخلي عناصر القائمة تبدّل الأقسام بدل ما تنقل لأي صفحة.
-    initCompanyShell({
+    shellReady = initCompanyShell({
         onTabChange: showSection,
         // الجرس يفتح نافذة منبثقة ولا يبدّل القسم؛ «عرض الكل» وحده ينقل إليه.
         notificationsPopover: true,
@@ -107,7 +138,7 @@ async function init() {
         userId: currentUserId,
         onNewTicket: () => showSection('support')
     });
-    customerTickets = createTicketStream('customers', { userId: currentUserId });
+    customerTickets = createTicketStream('customers', { userId: currentUserId, keep: isCompanyScopedTicket });
 
     // إنشاء المفتاح صار في مكانه: نافذة داخل اللوحة تنادي الدالة المنشورة
     // create-api-token. التوجيه السابق لمركز الدعم كان مبنيًا على قراءة
@@ -126,9 +157,11 @@ async function init() {
 
     wireForm();
     wireAddMember();
+    wireInviteCustomer();
     wireSectionRouting();
 
     await load();
+    inboxSummary = await fetchInboxSummary();
 
     // البحث في الشريط العلوي بيوصل هنا كـ?q= (بيت القشرة هو لوحة الشركة
     // نفسها)، فبنفتح التذاكر عليه بدل ما يضيع.
@@ -153,6 +186,7 @@ const SECTIONS = [
     'overview', 'members', 'subscriptions',
     'tickets',          // ① الشركة ↔ مدعوم
     'customerTickets',  // ② العميل  ↔ الشركة
+    'inbox',            // ③ رسائل العملاء مع الشركة (102)
     'support', 'notifications',
     'api', 'integrations', 'reports', 'activity',
     'profile', 'security'
@@ -162,6 +196,7 @@ const SECTIONS = [
 const LOADERS = {
     tickets: () => platformTickets.load(),
     customerTickets: () => customerTickets.load(),
+    inbox: () => loadCompanyInbox(),
     support: () => loadCompanySupport(),
     notifications: () => loadCompanyNotifications(),
     profile: () => loadCompanyProfile(),
@@ -181,7 +216,9 @@ function sectionFromHash() {
 }
 
 export function showSection(name, { updateHash = true } = {}) {
-    const section = SECTIONS.includes(name) ? name : 'overview';
+    // 095: أقسام المدير لا تُفتح لغيره حتى بالرابط المباشر (#subscriptions) — والقاعدة
+    // لا ترسل بياناتها أصلًا لغير المدير.
+    const section = SECTIONS.includes(name) && sectionAllowed(name, viewerRole) ? name : 'overview';
 
     SECTIONS.forEach(key => {
         const el = document.getElementById(`${key}TabContent`);
@@ -268,7 +305,19 @@ async function load() {
     gate.hidden = false;
     content.hidden = true;
 
-    const result = await fetchCompanyDashboard();
+    const [result, kindResult] = await Promise.all([fetchCompanyDashboard(), fetchAccountKind()]);
+
+    // 095 (D8): عميل الشركة له بوابة منفصلة. رسالة في مكانها وزر يدوي — بلا تحويل
+    // تلقائي (قاعدة page-guard). القاعدة ترد null لحمولته على أي حال.
+    if (kindResult.ok && kindResult.data === 'company_customer') {
+        renderState(document.getElementById('companyGateBody'), {
+            variant: 'empty',
+            title: 'هذه اللوحة لفريق الشركة',
+            text: 'حسابك مسجّل كعميل لدى هذه الشركة. تذاكرك ومراسلاتك معها في بوابة العملاء.',
+            action: { label: 'فتح بوابة العملاء', goto: '/portal/', variant: 'btn-primary' }
+        });
+        return;
+    }
 
     if (!result.ok) {
         renderState(document.getElementById('companyGateBody'), {
@@ -296,15 +345,47 @@ async function load() {
     gate.hidden = true;
     content.hidden = false;
 
+    viewerRole = viewerRoleOf(dashboard);
+    applyViewerRole();
+
     // الاستحقاقات كما رجّعتها القاعدة — الواجهة تقرأ ولا تحسب.
     setCompanyApiEntitlement(hasEntitlement(dashboard, 'api_tokens'));
 
     renderBanner();
     renderKpis();
     renderProfile();
-    renderSubscriptions();
+    if (viewerRole === 'admin') renderSubscriptions();
     renderEntitlements();
     await renderMembers();
+    await renderCustomers();
+    await configureTeamTickets();
+    // 100: مستندات الشركة — للمدير وحده، والميزة مفعّلة (القاعدة تقرر)
+    if (viewerRole === 'admin') await renderCompanyDocuments();
+    // 101: قرارات نقل العملاء وطلبات الاطلاع التاريخي — للمدير وحده، والمفتاحان مفعّلان (القاعدة تقرر)
+    if (viewerRole === 'admin') await initCompanyMoves({ customers: () => companyCustomerList });
+}
+
+/**
+ * 098: مع تفعيل صلاحيات الفريق، «تذاكر العملاء» = تذاكر نطاق الشركة كما تسمح بها القاعدة
+ * لكل عضو (كلها للمشرف، المسندة لموظف الدعم افتراضيًا)، مع أدوات الحالة والإسناد بحسب
+ * الصلاحية. مطفأ أو قبل 098: القسم كما كان.
+ */
+async function configureTeamTickets() {
+    const result = await fetchMyCompanyPermissions();
+    const controls = teamTicketControls(result.ok ? result.data : null);
+    if (!controls.enabled) return;
+    customerTickets.configure({
+        load: fetchCompanyScopeTickets,
+        team: {
+            canStatus: controls.canStatus,
+            canAssign: controls.canAssign,
+            assignees: controls.assignees,
+            statusOptions: TEAM_STATUS_OPTIONS,
+            setStatus: setCompanyTicketStatus,
+            assign: assignCompanyTicket
+        }
+    });
+    if (loadedOnce.has('customerTickets')) await customerTickets.load();
 }
 
 /* ── مستخدمو الشركة ─────────────────────────────────────────────────────── */
@@ -483,6 +564,103 @@ async function onRemoveMember(memberId, memberName) {
     await renderMembers();
 }
 
+/* ── عملاء الشركة ودعواتهم (096) ─────────────────────────────────────────── */
+
+/**
+ * القرار في القاعدة: company_customers_list() للمدير والمشرف (null لغيرهما، وقبل 096)،
+ * والدعوة لمن رجّعت له can_manage والمفتاح مفعّل. الدعوة ترد بنفس الرسالة لأي بريد،
+ * فالواجهة لا تقول «الحساب موجود» أو «غير موجود» أبدًا.
+ */
+async function renderCustomers() {
+    const panel = document.getElementById('companyCustomersPanel');
+    if (!panel) return;
+    const result = await fetchCompanyCustomers();
+    const view = customersPanelView(result.ok ? result.data : null, viewerRole);
+    companyCustomerList = Array.isArray(view.customers) ? view.customers : [];
+    panel.hidden = !view.show;
+    if (!view.show) return;
+
+    document.getElementById('companyInviteForm').hidden = !view.canInvite;
+    const invitationsBox = document.getElementById('companyInvitations');
+    invitationsBox.innerHTML = '';
+    if (view.canInvite) {
+        const inv = await fetchCompanyInvitations();
+        const rows = inv.ok && Array.isArray(inv.data) ? inv.data : [];
+        invitationsBox.innerHTML = rows.length ? `
+            <ul class="company-sub-list">
+                ${rows.map(i => {
+                    const info = invitationStatusInfo(i.status);
+                    return `
+                    <li class="company-sub">
+                        <div class="company-sub-main">
+                            <p class="company-sub-plan">${escapeHtml(i.email || '—')}</p>
+                            <p class="company-sub-dates">أُرسلت ${escapeHtml(formatDate(i.created_at))}</p>
+                        </div>
+                        <div class="company-sub-side">
+                            <span class="pill ${escapeHtml(info.pill)}">${escapeHtml(info.label)}</span>
+                            ${i.status === 'pending' ? `
+                            <button type="button" class="panel-link is-danger" data-cancel-invitation="${escapeHtml(i.id)}">إلغاء الدعوة</button>` : ''}
+                        </div>
+                    </li>`;
+                }).join('')}
+            </ul>` : '';
+        invitationsBox.querySelectorAll('[data-cancel-invitation]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                btn.disabled = true;
+                const r = await cancelCompanyInvitation(btn.getAttribute('data-cancel-invitation'));
+                if (!r.ok) ui?.showToast?.(r.error || 'تعذّر إلغاء الدعوة', 'error');
+                await renderCustomers();
+            });
+        });
+    }
+
+    const list = document.getElementById('companyCustomers');
+    if (!view.showList) { list.innerHTML = ''; return; }
+    if (!view.customers.length) {
+        renderState(list, { variant: 'empty', title: 'لا يوجد عملاء بعد', text: 'يظهر هنا عملاء الشركة بعد انضمامهم.' });
+        return;
+    }
+    list.innerHTML = `
+        <ul class="company-sub-list">
+            ${view.customers.map(c => `
+            <li class="company-sub" data-customer="${escapeHtml(c.id)}">
+                <div class="company-sub-main">
+                    <p class="company-sub-plan">${escapeHtml(c.name || '—')}</p>
+                    <p class="company-sub-dates">${escapeHtml(c.email || '')}${c.phone ? ` · ${escapeHtml(c.phone)}` : ''}</p>
+                </div>
+            </li>`).join('')}
+        </ul>`;
+}
+
+function wireInviteCustomer() {
+    const form = document.getElementById('companyInviteForm');
+    if (!form) return;
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const errorBox = document.getElementById('companyInviteError');
+        errorBox.hidden = true;
+        const check = validateInviteEmail(document.getElementById('companyInviteEmail').value);
+        if (!check.ok) {
+            errorBox.textContent = check.error;
+            errorBox.hidden = false;
+            return;
+        }
+        const btn = document.getElementById('companyInviteSubmit');
+        btn.disabled = true;
+        const result = await inviteCompanyCustomer(check.email);
+        btn.disabled = false;
+        if (!result.ok) {
+            errorBox.textContent = result.error || 'تعذّر إرسال الدعوة';
+            errorBox.hidden = false;
+            return;
+        }
+        form.reset();
+        // نفس الرسالة لأي بريد: لا تأكيد لوجود حساب
+        ui?.showToast?.('سُجّلت الدعوة. إن كان للبريد حساب مؤهل فستصله في بوابة العملاء.', 'success');
+        await renderCustomers();
+    });
+}
+
 /* ── نافذة إضافة مستخدم ─────────────────────────────────────────────────── */
 
 /**
@@ -597,6 +775,24 @@ async function onCreateMember(event) {
     await renderMembers();
 }
 
+/* ── دور الناظر (095) ──────────────────────────────────────────────────── */
+
+/** يُخفي من القائمة أقسام المدير عن المشرف وموظف الدعم. تنظيم عرض: الحماية في القاعدة. */
+function applyViewerRole() {
+    const current = (window.location.hash || '').replace(/^#/, '');
+    if (current && !sectionAllowed(current, viewerRole)) showSection('overview');
+    // display صريح لا الخاصية hidden: أنماط القائمة تفرض display على العنصر
+    Promise.resolve(shellReady).catch(() => {}).then(() => {
+        document.querySelectorAll('.sidebar-item[data-tab]').forEach(item => {
+            const tab = item.getAttribute('data-tab');
+            const allowed = sectionAllowed(tab, viewerRole) && (tab !== 'inbox' || inboxSummary !== null);
+            item.hidden = !allowed;
+            item.style.display = allowed ? '' : 'none';
+        });
+        applyInboxBadge(inboxSummary);
+    });
+}
+
 /* ── شريط المستوى ───────────────────────────────────────────────────────── */
 
 function renderBanner() {
@@ -608,12 +804,18 @@ function renderBanner() {
 
     const parts = [];
     if (dashboard.company.cr_number) parts.push(`سجل تجاري: ${dashboard.company.cr_number}`);
-    parts.push(access.isOwner ? 'أنت مالك الحساب' : 'أنت عضو في هذه الشركة');
+    // viewer_role يأتي من 095؛ بدونه (خادم أقدم) تبقى العبارة كما كانت
+    const roleLabel = dashboard.viewer_role ? VIEWER_ROLE_LABELS[viewerRole] : null;
+    parts.push(access.isOwner ? 'أنت مالك الحساب' : (roleLabel || 'أنت عضو في هذه الشركة'));
     document.getElementById('companyMeta').textContent = parts.join(' • ');
 
     const pill = document.getElementById('companyAccessPill');
     pill.hidden = false;
-    if (access.hasActiveSubscription) {
+    if (viewerRole !== 'admin') {
+        // تفاصيل الاشتراكات لمدير الشركة وحده؛ الفريق يرى أن الخدمة مفعّلة أم لا فقط
+        pill.className = access.hasActiveSubscription ? 'pill status-tone-success' : 'pill status-tone-danger';
+        pill.textContent = access.hasActiveSubscription ? 'خدمات الشركة مفعّلة' : 'خدمات الشركة غير مفعّلة';
+    } else if (access.hasActiveSubscription) {
         pill.className = 'pill status-tone-success';
         pill.textContent = `${access.activePlans.length} اشتراك فعّال`;
     } else {
@@ -668,7 +870,10 @@ function renderKpis() {
         }
     ];
 
-    document.getElementById('companyKpis').innerHTML = cards.map(card => `
+    // 095: الاشتراكات والسجل التجاري لمدير الشركة وحده (القاعدة لا ترسلهما لغيره)
+    const visibleCards = viewerRole === 'admin' ? cards : cards.slice(3);
+
+    document.getElementById('companyKpis').innerHTML = visibleCards.map(card => `
         <div class="kpi ${toneClass[card.tone] || ''}">
             <p class="kpi-label">${escapeHtml(card.label)}</p>
             <p class="kpi-value">${escapeHtml(card.value)}</p>
@@ -686,7 +891,7 @@ function renderProfile() {
     // المالك فقط هو اللي بيعدّل — والقاعدة بترفض غيره حتى لو ظهر الزر
     document.getElementById('editCompanyBtn').hidden = !access.isOwner;
 
-    const rows = [
+    const rows = viewerRole !== 'admin' ? [['اسم الشركة', company.name]] : [
         ['اسم الشركة', company.name],
         ['رقم السجل التجاري', company.cr_number],
         ['انتهاء السجل التجاري', company.cr_expiry ? formatDate(company.cr_expiry) : null],

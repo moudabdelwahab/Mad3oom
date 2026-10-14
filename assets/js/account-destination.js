@@ -33,8 +33,19 @@ export const DESTINATIONS = {
     ownerContexts: '/owner-contexts.html',
     admin: 'admin-dashboard.html',
     company: '/company-dashboard/',
+    // 095 (D8): عميل الشركة له بوابة منفصلة، لا لوحة الشركة الداخلية
+    companyPortal: '/portal/',
     customer: 'customer-dashboard.html'
 };
+
+/**
+ * أنواع الحسابات كما تحسبها القاعدة (my_account_kind، الترحيل 095).
+ * النوع يُقرأ من الخادم ولا يُستنتج في المتصفح؛ الصلاحية الفعلية في كل دالة وسياسة.
+ */
+export const ACCOUNT_KINDS = Object.freeze([
+    'platform_owner', 'platform_staff', 'company_admin',
+    'company_employee', 'company_customer', 'independent'
+]);
 
 /**
  * مالك المنصة لا «بيت» له — له شاشة اختيار سياق.
@@ -48,13 +59,25 @@ export const PLATFORM_OWNER_ROLE = 'platform_owner';
 
 /**
  * القاعدة نفسها كدالة خالصة — بلا شبكة ولا DOM، عشان تتّختبر مباشرة.
- * الأولوية: فريق المنصة ← الشركة ← العميل الفرد.
- * @param {{role?: string, hasCompany?: boolean}} state
+ * الأولوية: فريق المنصة ← نوع الحساب من الخادم (إن وُجد) ← الشركة ← العميل الفرد.
+ *
+ * kind (095) يحسم بين فريق الشركة وعملائها: كلاهما «له شركة»، لكن العميل يذهب
+ * لبوابة العملاء لا للوحة الداخلية (D8). بلا kind (خادم قبل 095) يبقى السلوك القديم.
+ * @param {{role?: string, hasCompany?: boolean, kind?: string}} state
  * @returns {string}
  */
 export function accountHomeFor(state = {}) {
     if (state.role === PLATFORM_OWNER_ROLE) return DESTINATIONS.ownerContexts;
     if (STAFF_ROLES.includes(state.role)) return DESTINATIONS.admin;
+    switch (state.kind) {
+        case 'platform_owner': return DESTINATIONS.ownerContexts;
+        case 'platform_staff': return DESTINATIONS.admin;
+        case 'company_admin':
+        case 'company_employee': return DESTINATIONS.company;
+        case 'company_customer': return DESTINATIONS.companyPortal;
+        case 'independent': return DESTINATIONS.customer;
+        default: break;
+    }
     if (state.hasCompany === true) return DESTINATIONS.company;
     return DESTINATIONS.customer;
 }
@@ -69,6 +92,14 @@ export async function resolveAccountHome(supabaseClient, profile) {
     const role = profile?.role;
     if (role === PLATFORM_OWNER_ROLE) return DESTINATIONS.ownerContexts;
     if (STAFF_ROLES.includes(role)) return DESTINATIONS.admin;
+
+    // 095: نوع الحساب من الخادم أولًا. قبل تطبيق 095 الدالة غير موجودة، فنرجع للقراءة القديمة.
+    try {
+        const { data, error } = await supabaseClient.rpc('my_account_kind');
+        if (!error && ACCOUNT_KINDS.includes(data)) return accountHomeFor({ role, kind: data });
+    } catch (err) {
+        console.error('[AccountDestination] account kind lookup failed:', err?.message || err);
+    }
 
     let hasCompany = false;
     try {

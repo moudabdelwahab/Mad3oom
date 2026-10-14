@@ -112,6 +112,7 @@ const FUNCTION_INVENTORY = [
     { name: 'الاشتراكات',       section: 'subscriptions' },
     { name: 'تذاكري مع مدعوم',  section: 'tickets' },
     { name: 'تذاكر العملاء',    section: 'customerTickets' },
+    { name: 'صندوق الرسائل',    section: 'inbox' },
     { name: 'مركز الدعم',       section: 'support' },
     { name: 'مقالات المساعدة',  section: 'support' },
     { name: 'حالة النظام',      section: 'support' },
@@ -171,7 +172,7 @@ test('كل قسم معلَن له حاوية في الصفحة ومُحمِّل 
     }
 
     // الأقسام التي تُحمَّل عند الفتح لازم تكون مسجّلة في LOADERS
-    for (const section of ['tickets', 'customerTickets', 'support', 'notifications',
+    for (const section of ['tickets', 'customerTickets', 'inbox', 'support', 'notifications',
                            'api', 'integrations', 'reports', 'activity', 'profile', 'security']) {
         assert.match(js, new RegExp(`${section}:\\s*\\(\\)\\s*=>`),
             `القسم ${section} بلا مُحمِّل — سيفتح فارغًا`);
@@ -562,7 +563,39 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //   094 — المجدول والتذكيرات والتصعيد (D1–D4، R3/R4/R7): مهام وصندوق تسليم بلا نص، إشعارات داخل
     //         المنصة بقوالب ثابتة، تصعيد للمشرفين ينتظر ساعات العمل بتوقيت القاهرة، احتفاظ 180 يومًا.
     //         المفتاحان مطفآن افتراضيًا. مقيسٌ في tests/sql/continuity-reminders.test.sql.
-    assert.equal(migrations[migrations.length - 1], '094_continuity_reminders.sql',
+    //   095 — حدود الحسابات (أمر التنفيذ 2026-10-14، القرار D8 والسؤال 11): لوحة الشركة لفريقها فقط،
+    //         عميل الشركة لبوابة /portal/، وأسرار الحساب (رموز API وسجلاتها، التكاملات الشخصية،
+    //         IP والجهاز، النقاط) لأصحابها. مقيسٌ في tests/sql/account-boundaries.test.sql
+    //         (والتراجع يعيد النصوص حرفيًا بنهايات CRLF كما في الإنتاج).
+    //   096 — العضويات المتعددة (السؤال 4): company_memberships مصدرًا مرجعيًا و super_user_id مرآة
+    //         الأساسية، ودعوات بقبول صاحب الحساب، وسياق عميل يتحقق منه الخادم. مفتاح
+    //         multi_company_memberships_enabled مطفأ افتراضيًا (السلوك حرفيًا كما قبل 096).
+    //         مقيسٌ في tests/sql/company-memberships.test.sql.
+    //   097 — نطاق التذاكر والعزل (D9، السؤال 8 و16 و17): tickets.scope/company_id مختومان عند الإنشاء،
+    //         سياسات تقييدية خلف company_isolation_enforced (مطفأ)، بوابات القنوات الجانبية، وطلبات
+    //         وصول مؤقت بموافقة المالك وحده مع تسجيل كل قراءة (data_access_grants_enabled مطفأ).
+    //         إصلاح دائم: مرفقات الملاحظات الداخلية لم تعد ظاهرة لصاحب التذكرة.
+    //         مقيسٌ في tests/sql/ticket-isolation.test.sql.
+    //   098 — صلاحيات الفريق وسجل الاستهلاك (السؤال 9 و10 و11): كتالوج ثابت بإعداد للدور وللحساب،
+    //         وصول الفريق لتذاكر الشركة خلف company_permissions_enabled (مطفأ)، الحالة والإسناد
+    //         عبر دالتين، وسجل استهلاك إلحاقي بقواعد مُرقَّمة في وضع الظل يطابق الحساب الحالي.
+    //         مقيسٌ في tests/sql/company-permissions-ledger.test.sql.
+    //   099 — الهيكل الإداري (السؤال 1–3): وحدات متداخلة، أعضاء من طاقم المنصة مفصولون عن الشركات،
+    //         إسناد الشركات بتاريخ، تفويض بقدرات من كتالوج ثابت لا يفتح بيانات الشركات، إيقاف بنطاق
+    //         (delegation_enabled وcompany_suspension_enforced مطفآن)، ومراجعة الإداريين بعد تسليم العمل.
+    //         مقيسٌ في tests/sql/admin-hierarchy.test.sql.
+    //   100 — مستندات الشركات (السؤال 12–15): إصدارات بمسار يولّده الخادم في مستودع خاص بلا سياسة،
+    //         عزل pending_scan حتى نتيجة فحص موقَّعة (لا عامل فحص منشور)، تنزيل 60 ثانية مسجَّل، مراجعة
+    //         بالمالك أو المراجع المسند، احتفاظ وحجز قانوني بتجربة جافة فقط. company_documents_enabled مطفأ.
+    //         مقيسٌ في tests/sql/company-documents.test.sql.
+    //   101 — النقل والنسخ والوصول التاريخي (السؤال 5–7): نقل الشركة الأساسية بموافقة المديرين وتأكيد
+    //         العميل (ونقل استثنائي للمالك بسبب)، نسخ تذاكر يختارها العميل بمحتواه وحده دون حصة أو فوترة
+    //         مزدوجة، ووصول تاريخي بموافقة العميل ثم المالك. customer_transfers_enabled وticket_carry_enabled
+    //         وhistorical_access_enabled مطفأة. مقيسٌ في tests/sql/customer-transfers-carry.test.sql.
+    //   102 — محادثات الشركة وصندوقها (المرحلتان C وD): جداول خاصة بالشركة من البداية بلا منح مباشرة
+    //         ولا سياسة لطاقم المنصة ولا Realtime، العميل يراسل شركته الحالية، والفريق بصلاحيات 098
+    //         (conversations.*). company_inbox_enabled مطفأ. مقيسٌ في tests/sql/company-conversations.test.sql.
+    assert.equal(migrations[migrations.length - 1], '102_company_conversations.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

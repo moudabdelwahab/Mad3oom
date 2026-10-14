@@ -114,7 +114,7 @@ async function createSubscriptionRequest(actor: Actor, plan: string, billingCycl
     description = `طلب اشتراك جديد\n\nالخطة: ${planLabel}\nنوع الفترة: ${billingLabel}\nالمدة: ${durationLabel}\nسيتم احتساب تاريخ البداية والنهاية الفعلي عند تأكيد الطلب من فريق الدعم.`;
   }
 
-  const { data: ticket, error: ticketError } = await supabase.from("tickets").insert({ user_id: actor.id, title: `${isRenewal ? "طلب تجديد اشتراك" : "طلب اشتراك"} - ${planLabel} (${billingLabel})`, description, status: "open", priority: "high" }).select().single();
+  const { data: ticket, error: ticketError } = await supabase.from("tickets").insert({ user_id: actor.id, title: `${isRenewal ? "طلب تجديد اشتراك" : "طلب اشتراك"} - ${planLabel} (${billingLabel})`, description, status: "open", priority: "high", category: "subscription" }).select().single();
   if (ticketError) throw ticketError;
 
   const { data: subscription, error: subError } = await supabase.from("whatsapp_subscriptions").insert({ user_id: actor.id, ticket_id: ticket.id, plan, billing_cycle: billingCycle, start_date: placeholderStart.toISOString(), end_date: placeholderEnd.toISOString(), status: "pending", is_renewal: isRenewal, duration_days: durationDays, previous_end_date: previousEndDate ? previousEndDate.toISOString() : null }).select().single();

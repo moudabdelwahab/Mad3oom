@@ -1,12 +1,19 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import type { Actor } from "./actor.ts";
 import { canAccessTicket, getVisibleUserIds } from "./authz.ts";
+import { statsColumns, tenancyFromRpc, ticketVisibleUnderIsolation } from "./ticket-isolation.js";
 
 export class ForbiddenError extends Error { constructor(m?: string) { super(m); this.name = "ForbiddenError"; } }
 export class NotFoundError extends Error { constructor(m?: string) { super(m); this.name = "NotFoundError"; } }
 
 function db() {
   return createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+}
+
+// 097: مفتاح الخدمة يتجاوز RLS، فنطبّق قرار العزل نفسه هنا (مطفأ = كما كان).
+async function tenancy(actor: Actor) {
+  const { data, error } = await db().rpc("mcp_ticket_tenancy", { p_actor: actor.id });
+  return tenancyFromRpc(data, error);
 }
 
 export async function listTickets(actor: Actor, filters: { status?: string; limit?: number; offset?: number } = {}) {
@@ -20,7 +27,8 @@ export async function listTickets(actor: Actor, filters: { status?: string; limi
   q = q.range(offset, offset + limit - 1);
   const { data, error } = await q;
   if (error) throw error;
-  return data || [];
+  const ctx = await tenancy(actor);
+  return (data || []).filter((t: any) => ticketVisibleUnderIsolation(actor, t, ctx));
 }
 
 async function fetchTicketWithOwner(ticketId: string) {
@@ -36,6 +44,8 @@ export async function getTicket(actor: Actor, ticketId: string) {
   const found = await fetchTicketWithOwner(ticketId);
   if (!found) throw new NotFoundError("Ticket not found");
   if (!canAccessTicket(actor, (found.ticket as any).user_id, found.ownerSuperUserId)) throw new ForbiddenError("Access denied");
+  // 097: تذكرة خارج نطاق الفاعل والعزل مفعّل = غير موجودة (لا كشف لوجودها)
+  if (!ticketVisibleUnderIsolation(actor, found.ticket, await tenancy(actor))) throw new NotFoundError("Ticket not found");
   return found.ticket;
 }
 
@@ -62,6 +72,7 @@ export async function createTicket(actor: Actor, payload: {
 export async function updateTicket(actor: Actor, ticketId: string, payload: Record<string, unknown>) {
   const found = await fetchTicketWithOwner(ticketId);
   if (!found) throw new NotFoundError("Ticket not found");
+  if (!ticketVisibleUnderIsolation(actor, found.ticket, await tenancy(actor))) throw new NotFoundError("Ticket not found");
 
   const supabase = db();
   const elevated = actor.isMainAdmin || actor.isAdmin;
@@ -106,12 +117,14 @@ export async function closeTicket(actor: Actor, ticketId: string) {
 export async function getDashboardStats(actor: Actor) {
   const supabase = db();
   const visibility = await getVisibleUserIds(actor);
-  let q = supabase.from("tickets").select("status");
+  const ctx = await tenancy(actor);
+  let q = supabase.from("tickets").select(statsColumns(ctx));
   if (!visibility.all) q = q.in("user_id", visibility.ids);
   const { data, error } = await q;
   if (error) throw error;
-  const stats: Record<string, number> = { total: data?.length || 0 };
-  for (const row of data || []) {
+  const rows = (data || []).filter((t: any) => ticketVisibleUnderIsolation(actor, t, ctx));
+  const stats: Record<string, number> = { total: rows.length };
+  for (const row of rows) {
     const s = (row as any).status || "unknown";
     stats[s] = (stats[s] || 0) + 1;
   }

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>بوابة العملاء - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/company-dashboard.css">
+    <script>
+        /* نفس سكربت صفحات البوابة: الثيم قبل أول رسم، بلا وميض. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+    <style>
+        /* بوابة العملاء: صفحة واحدة بلا قائمة جانبية — العميل لا يحتاج أقسام الشركة */
+        .portal-shell .admin-main { margin: 0 auto; max-width: 960px; padding: var(--sp-4, 16px); }
+        .portal-topbar {
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            margin-bottom: var(--sp-4, 16px);
+        }
+        .portal-topbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .portal-level-tag { font-size: 0.85rem; opacity: 0.8; }
+        .portal-companies { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+        .portal-companies label { font-weight: 600; }
+        .portal-companies select { min-width: 200px; width: auto; }
+        .portal-invitation { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+        .portal-invitation-actions { display: flex; gap: 8px; }
+        .portal-check { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+        .portal-carry { display: grid; gap: 8px; margin-top: 12px; }
+        .portal-carry select { max-width: 320px; }
+        .portal-carry-item, .portal-history-pick label { display: flex; gap: 8px; align-items: flex-start; }
+        .portal-carry-item small { display: block; color: var(--color-text-secondary); }
+        .portal-history-pick { border: 0; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; width: 100%; }
+        .portal-history-pick legend { font-weight: 600; margin-bottom: 4px; }
+        .portal-history { flex-wrap: wrap; }
+        .portal-conversation-open { all: unset; cursor: pointer; display: grid; gap: 4px; width: 100%; }
+        .portal-conversation.is-unread .company-sub-plan { font-weight: 800; }
+        .portal-messages { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
+        .portal-message { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--color-border); max-width: 85%; }
+        .portal-message.is-mine { justify-self: start; }
+        .portal-message.is-company { justify-self: end; background: var(--color-surface); }
+        .portal-message-who { font-weight: 700; font-size: .85rem; }
+        .portal-message-body { white-space: pre-wrap; margin: 4px 0; overflow-wrap: anywhere; }
+    </style>
+</head>
+<body class="customer-shell company-shell portal-shell">
+    <main class="admin-main" id="portalMain">
+
+        <!-- بوابة عملاء الشركة (D8): تذاكر العميل مع شركته فقط. لا أقسام داخلية للشركة،
+             ولا شراء باقات مدعوم — الشراء الشخصي من بوابة مدعوم الرسمية. -->
+        <header class="company-banner portal-topbar">
+            <div class="company-banner-main">
+                <span class="company-level-tag portal-level-tag">بوابة العملاء</span>
+                <h1 class="company-name" id="portalCompanyName">—</h1>
+                <p class="company-meta">تواصلك مع فريق الشركة: تذاكرك وردودها في مكان واحد.</p>
+            </div>
+            <div class="portal-topbar-actions">
+                <!-- السؤال 10: الاشتراك الشخصي من بوابة مدعوم الرسمية وحدها، منفصل عن الشركة -->
+                <a class="btn btn-secondary" href="/customer-dashboard.html" id="portalPersonalAccount">حسابي الشخصي في مدعوم</a>
+                <a class="btn btn-secondary" href="/customer-security-settings.html">إعدادات الحساب</a>
+                <a class="btn btn-secondary" href="#" id="portalSignOut">تسجيل الخروج</a>
+            </div>
+        </header>
+
+        <p class="preview-strip company-notice" id="portalPreviewStrip" hidden>
+            أنت في منظور عضو الشركة — العرض للقراءة فقط.
+        </p>
+
+        <!-- 096: دعوات الانضمام المعلّقة. تظهر حتى لمن ليس عميل شركة بعد (الإشعار يقود إلى هنا). -->
+        <section class="panel" id="invitations" hidden aria-labelledby="portalInvitationsHeading">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title" id="portalInvitationsHeading">دعوات الانضمام</h2>
+                    <p class="panel-subtitle">شركة تدعوك لتكون من عملائها. لا تنضم إلا بموافقتك.</p>
+                </div>
+            </div>
+            <ul class="company-sub-list" id="portalInvitationList"></ul>
+            <p class="field-error" id="portalInvitationError" role="alert" hidden></p>
+        </section>
+
+        <!-- 096: محوّل الشركات — لعميل في أكثر من شركة. القاعدة تتحقق من العضوية في كل تبديل. -->
+        <section class="panel portal-companies" id="portalCompanies" hidden>
+            <label for="portalCompanySwitch">الشركة الحالية</label>
+            <select id="portalCompanySwitch" class="form-control"></select>
+            <span class="pill" id="portalPrimaryTag" hidden>الأساسية</span>
+            <button type="button" class="btn btn-secondary" id="portalSetPrimary" hidden>تعيينها شركتي الأساسية</button>
+            <button type="button" class="panel-link is-danger" id="portalLeave" hidden>مغادرة هذه الشركة</button>
+            <p class="field-error" id="portalCompaniesError" role="alert" hidden></p>
+        </section>
+
+        <!-- 101: نقل الشركة الأساسية ونسخ التذاكر — مفتاحان مطفآن افتراضيًا (customer_transfers_enabled،
+             ticket_carry_enabled). كل إجراء يمر بالقاعدة. -->
+        <section class="panel" id="portalMoves" hidden aria-labelledby="portalMovesHeading">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title" id="portalMovesHeading">شركتك الأساسية وتذاكرك</h2>
+                    <p class="panel-subtitle">لا شيء ينتقل تلقائيًا: النقل بموافقة الشركتين، والنسخ لما تختاره فقط.</p>
+                </div>
+            </div>
+            <div id="portalTransferBox" hidden>
+                <label class="portal-check"><input type="checkbox" id="portalKeepSource">
+                    أبقِ شركتي الأساسية الحالية شركةً إضافية (إن سمحت بذلك)</label>
+                <button type="button" class="btn btn-primary" id="portalTransferBtn">طلب جعل «<span id="portalTransferTarget"></span>» شركتي الأساسية</button>
+            </div>
+            <ul class="company-sub-list" id="portalTransferList"></ul>
+            <div id="portalCarryBox" class="portal-carry" hidden>
+                <label for="portalCarrySource">انسخ تذاكري من</label>
+                <select id="portalCarrySource" class="form-control"></select>
+                <ul class="company-sub-list" id="portalCarryList"></ul>
+                <button type="button" class="btn btn-secondary" id="portalCarryBtn" disabled>نسخ المختار إلى «<span id="portalCarryTarget"></span>»</button>
+            </div>
+            <p class="field-error" id="portalMovesError" role="alert" hidden></p>
+        </section>
+
+        <!-- 101: طلبات اطلاع شركة على تذاكرك السابقة (historical_access_enabled مطفأ). إشعار الطلب يقود إلى هنا. -->
+        <section class="panel" id="history-requests" hidden aria-labelledby="portalHistoryHeading">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title" id="portalHistoryHeading">طلبات الاطلاع على تذاكرك السابقة</h2>
+                    <p class="panel-subtitle">لا يُعرض شيء دون موافقتك واختيارك، ثم مراجعة مدعوم، ولمدة محدودة.</p>
+                </div>
+            </div>
+            <ul class="company-sub-list" id="portalHistoryList"></ul>
+            <p class="field-error" id="portalHistoryError" role="alert" hidden></p>
+        </section>
+
+        <section id="portalGate" class="panel">
+            <div id="portalGateBody"></div>
+        </section>
+
+        <div id="portalContent" hidden>
+            <!-- 102: رسائلك مع الشركة (company_inbox_enabled مطفأ). خاصة بك وبفريق الشركة وحدهما. -->
+            <section class="panel" id="messages" hidden aria-labelledby="portalMessagesHeading">
+                <div class="panel-header">
+                    <div>
+                        <h2 class="panel-title" id="portalMessagesHeading">رسائلي مع الشركة</h2>
+                        <p class="panel-subtitle">محادثة مباشرة مع فريق الشركة. للطلبات التي تحتاج متابعة موثّقة افتح تذكرة.</p>
+                    </div>
+                    <button type="button" class="btn btn-primary" id="portalNewConversationBtn" hidden>رسالة جديدة</button>
+                </div>
+                <form id="portalNewConversation" class="company-form" novalidate hidden>
+                    <div class="form-field is-full">
+                        <label for="portalConversationSubject">الموضوع</label>
+                        <input id="portalConversationSubject" class="form-control" maxlength="200" autocomplete="off">
+                    </div>
+                    <div class="form-field is-full">
+                        <label for="portalConversationBody">رسالتك</label>
+                        <textarea id="portalConversationBody" class="form-control" rows="4" maxlength="5000"></textarea>
+                    </div>
+                    <p class="field-error" id="portalConversationError" role="alert" hidden></p>
+                    <div class="company-form-actions">
+                        <button type="submit" class="btn btn-primary" id="portalConversationSubmit">إرسال</button>
+                        <button type="button" class="btn btn-secondary" id="portalConversationCancel">إلغاء</button>
+                    </div>
+                </form>
+                <ul class="company-sub-list" id="portalConversationList"></ul>
+                <div id="portalThread" class="portal-thread" hidden>
+                    <button type="button" class="panel-link" id="portalThreadBack">→ كل الرسائل</button>
+                    <h3 class="panel-title" id="portalThreadSubject"></h3>
+                    <ul class="portal-messages" id="portalThreadMessages"></ul>
+                    <form id="portalReplyForm" class="company-form" novalidate hidden>
+                        <div class="form-field is-full">
+                            <label for="portalReplyBody">ردّك</label>
+                            <textarea id="portalReplyBody" class="form-control" rows="3" maxlength="5000"></textarea>
+                        </div>
+                        <p class="field-error" id="portalReplyError" role="alert" hidden></p>
+                        <div class="company-form-actions">
+                            <button type="submit" class="btn btn-primary" id="portalReplySubmit">إرسال</button>
+                        </div>
+                    </form>
+                    <p class="company-sub-dates" id="portalThreadReadOnly" hidden>لم تعد عميلًا لهذه الشركة — المحادثة للقراءة فقط.</p>
+                </div>
+                <p class="field-error" id="portalMessagesError" role="alert" hidden></p>
+            </section>
+
+            <section class="panel" id="portalNewTicket" hidden aria-labelledby="portalNewTicketHeading">
+                <div class="panel-header">
+                    <div>
+                        <h2 class="panel-title" id="portalNewTicketHeading">تذكرة جديدة</h2>
+                        <p class="panel-subtitle">صف طلبك وسيصلك ردّ فريق الشركة هنا.</p>
+                    </div>
+                </div>
+                <form id="portalNewTicketForm" class="company-form" novalidate>
+                    <div class="form-field is-full">
+                        <label for="portalTicketTitle">العنوان</label>
+                        <input id="portalTicketTitle" name="title" class="form-control" maxlength="200" required>
+                    </div>
+                    <div class="form-field is-full">
+                        <label for="portalTicketDescription">التفاصيل</label>
+                        <textarea id="portalTicketDescription" name="description" class="form-control" rows="5" maxlength="5000" required></textarea>
+                    </div>
+                    <p class="field-error" id="portalTicketError" role="alert" hidden></p>
+                    <div class="company-form-actions">
+                        <button type="submit" class="btn btn-primary" id="portalTicketSubmit">إرسال</button>
+                        <button type="button" class="btn btn-secondary" id="portalTicketCancel">إلغاء</button>
+                    </div>
+                </form>
+            </section>
+
+            <div class="company-form-actions">
+                <button type="button" class="btn btn-primary" id="portalNewTicketBtn">فتح تذكرة جديدة</button>
+            </div>
+
+            <div id="portalTickets"></div>
+        </div>
+    </main>
+
+    <script type="module" src="/assets/js/portal/portal.js"></script>
+</body>
+</html>

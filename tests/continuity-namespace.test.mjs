@@ -27,6 +27,7 @@ const ALLOWED_FILES = new Map([
     ['tests/continuity-model.test.mjs', 'يقرأ migrations/074_relay_phase_c.sql كما كُتب'],
     ['tests/continuity-phase-c.render.test.mjs', 'يشير لملف SQL التاريخي tests/sql/relay-phase-c.test.sql'],
     ['tests/company-navigation.test.mjs', 'سجل الترحيلات بأسماء ملفاتها'],
+    ['tests/fixtures/prod-shape/chain-to-093.sql', 'يطبّق 073/074/076 بأسماء ملفاتها، ويفعّل relay_workspaces كما في الإنتاج قبل 077'],
     ['assets/js/continuity/continuity-contract.js', 'تعليق يشير لـ migrations/073_relay_core.sql'],
     ['assets/js/continuity/continuity-data.js', 'E11: الاسم القديم للأغلفة الـ19 فقط وفقط لو القاعدة قبل 077'],
     ['assets/js/admin/sidebar.js', 'E11: relay_my_access فقط لو continuity_my_access غير موجودة'],
