@@ -581,7 +581,11 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         إسناد الشركات بتاريخ، تفويض بقدرات من كتالوج ثابت لا يفتح بيانات الشركات، إيقاف بنطاق
     //         (delegation_enabled وcompany_suspension_enforced مطفآن)، ومراجعة الإداريين بعد تسليم العمل.
     //         مقيسٌ في tests/sql/admin-hierarchy.test.sql.
-    assert.equal(migrations[migrations.length - 1], '099_admin_hierarchy.sql',
+    //   100 — مستندات الشركات (السؤال 12–15): إصدارات بمسار يولّده الخادم في مستودع خاص بلا سياسة،
+    //         عزل pending_scan حتى نتيجة فحص موقَّعة (لا عامل فحص منشور)، تنزيل 60 ثانية مسجَّل، مراجعة
+    //         بالمالك أو المراجع المسند، احتفاظ وحجز قانوني بتجربة جافة فقط. company_documents_enabled مطفأ.
+    //         مقيسٌ في tests/sql/company-documents.test.sql.
+    assert.equal(migrations[migrations.length - 1], '100_company_documents.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
