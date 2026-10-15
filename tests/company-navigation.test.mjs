@@ -9,6 +9,7 @@
  * الفصل مقصود: الضوابط الثابتة تكشف رابطًا مضافًا في مراجعة كود حتى لو لم
  * يمرّ عليه اختبار سلوكي.
  */
+import { COMPANY_ROUTES } from '../assets/js/company/company-routes.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -109,6 +110,11 @@ test('كل روابط قائمة الشركة تبقى داخل /company-dashboa
 const FUNCTION_INVENTORY = [
     { name: 'نظرة عامة',        section: 'overview' },
     { name: 'مستخدمو الشركة',   section: 'members' },
+    { name: 'عملاء الشركة',     section: 'customers' },
+    { name: 'الأدوار والصلاحيات', section: 'permissions' },
+    { name: 'سجل وصول مدعوم',   section: 'accessLog' },
+    { name: 'الخدمات والامتيازات', section: 'entitlements' },
+    { name: 'بيانات الشركة',     section: 'company' },
     { name: 'الاشتراكات',       section: 'subscriptions' },
     { name: 'تذاكري مع مدعوم',  section: 'tickets' },
     { name: 'تذاكر العملاء',    section: 'customerTickets' },
@@ -127,7 +133,7 @@ const FUNCTION_INVENTORY = [
     { name: 'التقارير',         section: 'reports' },
     { name: 'النشاط',           section: 'activity' },
 
-    { name: 'الاستهلاك والحدود', dropped: 'استهلاك فردي — استحقاقات الشركة تظهر في قسم الاشتراكات' },
+    { name: 'الاستهلاك والحدود', section: 'usage' },
     { name: 'المكافآت والنقاط',  dropped: 'برنامج ولاء فردي لا معنى له لكيان شركة' },
     { name: 'الشارات',           dropped: 'إنجازات فردية' },
     { name: 'مجتمع مدعوم',       dropped: 'مساحة مستخدمين أفراد' },
@@ -135,14 +141,14 @@ const FUNCTION_INVENTORY = [
     { name: 'المحادثة الفورية',  dropped: 'قناة دعم فردية — دعم الشركة عبر التذاكر بأثر موثّق' }
 ];
 
-/** الأقسام المعلَنة في موجّه لوحة الشركة. */
+/**
+ * الأقسام المعلَنة: خريطة الصفحات في company-routes.js هي المصدر الواحد، والموجّه
+ * (company-dashboard.js) يستعملها كما هي (const SECTIONS = COMPANY_ROUTES).
+ */
 function declaredSections() {
-    const src = read('assets/js/company/company-dashboard.js');
-    const match = src.match(/const SECTIONS = \[([^\]]*)\]/);
-    assert.ok(match, 'قائمة الأقسام غير موجودة في موجّه لوحة الشركة');
-    // القائمة تحمل تعليقات توضّح كل مسار — نستخرج النصوص المقتبسة وحدها
-    // بدل التقسيم على الفواصل، وإلا التقطنا نص التعليق مع اسم القسم.
-    return [...match[1].matchAll(/['"]([A-Za-z][A-Za-z0-9_]*)['"]/g)].map(m => m[1]);
+    const router = read('assets/js/company/company-dashboard.js');
+    assert.match(router, /const SECTIONS = COMPANY_ROUTES;/, 'الموجّه لا يقرأ خريطة الصفحات');
+    return [...COMPANY_ROUTES];
 }
 
 test('كل وظيفة في الجرد إما قسم حقيقي في لوحة الشركة أو استُبعدت بسبب معلن', () => {
@@ -172,7 +178,8 @@ test('كل قسم معلَن له حاوية في الصفحة ومُحمِّل 
     }
 
     // الأقسام التي تُحمَّل عند الفتح لازم تكون مسجّلة في LOADERS
-    for (const section of ['tickets', 'customerTickets', 'inbox', 'support', 'notifications',
+    for (const section of ['overview', 'tickets', 'customerTickets', 'inbox', 'support', 'notifications',
+                           'members', 'customers', 'permissions', 'accessLog', 'usage', 'company',
                            'api', 'integrations', 'reports', 'activity', 'profile', 'security']) {
         assert.match(js, new RegExp(`${section}:\\s*\\(\\)\\s*=>`),
             `القسم ${section} بلا مُحمِّل — سيفتح فارغًا`);

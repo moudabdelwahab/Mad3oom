@@ -416,3 +416,62 @@ export async function assignCompanyTicket(ticketId, assigneeId) {
     if (error) throw error;
     return data;
 }
+
+/* ── الأدوار والصلاحيات (098) ─────────────────────────────────────────────
+   company_permissions_matrix() تُقرأ لمدير الشركة وحده (null لغيره) حتى والمفتاح
+   مطفأ، وتحمل enabled. الكتابة company_set_role_permission ترفضها القاعدة ما دام
+   company_permissions_enabled مطفأً (55000) — الواجهة تعرض ذلك ولا تتجاوزه. */
+export async function fetchCompanyPermissionsMatrix() {
+    return safe('companyPermissionsMatrix', async () => {
+        const { data, error } = await supabase.rpc('company_permissions_matrix');
+        if (error && ['PGRST202', '42883'].includes(error.code)) return null;
+        if (error) throw error;
+        return data || null;
+    });
+}
+
+export async function setCompanyRolePermission(role, key, allowed) {
+    return safe('companyRolePermission', async () => {
+        const { data, error } = await supabase.rpc('company_set_role_permission', {
+            p_role: role, p_key: key, p_allowed: allowed === true
+        });
+        if (error) throw error;
+        return data;
+    });
+}
+
+/* ── سجل وصول مدعوم لبيانات الشركة (097) ──────────────────────────────────
+   company_access_log(): منح الوصول المؤقت لطاقم مدعوم وعدد القراءات — لمدير الشركة
+   وحده (null لغيره). قراءة فقط. */
+export async function fetchCompanyAccessLog() {
+    return safe('companyAccessLog', async () => {
+        const { data, error } = await supabase.rpc('company_access_log');
+        if (error && ['PGRST202', '42883'].includes(error.code)) return null;
+        if (error) throw error;
+        return data;
+    });
+}
+
+/* ── رصيد التذاكر (065) ───────────────────────────────────────────────────
+   my_ticket_wallet(): نفس الدالة التي يطبّق بها محفّز tickets_enforce_quota الحدّ. */
+export async function fetchCompanyTicketWallet() {
+    return safe('ticketWallet', async () => {
+        const { data, error } = await supabase.rpc('my_ticket_wallet');
+        if (error) throw error;
+        return data || null;
+    });
+}
+
+/* ── إلغاء طلب اشتراك قيد المراجعة (023) ──────────────────────────────────
+   cancel_my_subscription_request يحذف صفًا pending يملكه المنادي فقط، ويرجّع false
+   إن لم يجده (ليس له، أو لم يعد pending) — false فشلٌ يُعرض، لا نجاح. */
+export async function cancelSubscriptionRequest(subscriptionId) {
+    return safe('cancelSubscriptionRequest', async () => {
+        const { data, error } = await supabase.rpc('cancel_my_subscription_request', {
+            p_subscription_id: subscriptionId
+        });
+        if (error) throw error;
+        if (data !== true) throw new Error('تعذّر إلغاء الطلب: لم يعد قيد المراجعة أو ليس من طلباتك');
+        return true;
+    });
+}

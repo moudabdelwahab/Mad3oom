@@ -108,9 +108,10 @@ export function createTicketStream(stream, { userId, onNewTicket, keep = null } 
     const container = () => el(spec.containerId);
     const uid = (suffix) => `${spec.key}Ticket${suffix}`;
 
+    /** يرجع true عند نجاح القراءة فقط — ملخّص النظرة العامة لا يعرض أصفارًا لقراءة فشلت. */
     async function load({ focusTicketId = null, search = null } = {}) {
         const box = container();
-        if (!box) return;
+        if (!box) return false;
         if (search !== null) searchTerm = search;
         renderSkeletonLines(box, 4);
 
@@ -124,11 +125,12 @@ export function createTicketStream(stream, { userId, onNewTicket, keep = null } 
                 text: 'تحقق من اتصالك ثم أعد المحاولة.',
                 action: { label: 'إعادة المحاولة', retry: spec.key, variant: 'btn-primary' }
             });
-            return;
+            return false;
         }
 
         if (focusTicketId) openTicketId = focusTicketId;
         render();
+        return true;
     }
 
     /** فتح تذكرة بعينها — يستدعيها موجّه الإشعارات. */

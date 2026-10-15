@@ -956,7 +956,10 @@ test('لا تمرير أفقي في أي قسم، على الموبايل وسط
     await page.setViewportSize({ width: 390, height: 844 });
 
     const tabs = await page.evaluate(() =>
-        [...document.querySelectorAll('#sidebar .sidebar-item[data-tab]')].map(a => a.getAttribute('data-tab')));
+        // الروابط الظاهرة وحدها: صفحة مخفية (صندوق رسائل بلا صندوق من القاعدة) تعود للنظرة العامة
+        [...document.querySelectorAll('#sidebar .sidebar-item[data-tab]')]
+            .filter(a => !a.hidden && a.style.display !== 'none')
+            .map(a => a.getAttribute('data-tab')));
 
     for (const tab of tabs) {
         await page.evaluate((t2) => { window.location.hash = `#${t2}`; }, tab);

@@ -57,6 +57,10 @@ function builder(table, mode = 'select') {
     };
 
     const run = () => {
+        // قراءة فاشلة: tableErrors[table] = رسالة خطأ كما تصل من PostgREST
+        const readFailure = FX().tableErrors?.[table];
+        if (readFailure) return { data: null, error: { message: readFailure, code: 'P0001' }, count: null };
+
         let rows = resolveRows(table);
         for (const [col, value] of state.filters) {
             rows = rows.filter(r => {

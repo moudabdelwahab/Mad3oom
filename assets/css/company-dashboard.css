@@ -754,3 +754,749 @@ body.customer-shell .modal-content.modal-lg {
 .company-inbox-body { white-space: pre-wrap; margin: 4px 0; overflow-wrap: anywhere; }
 .sidebar-badge { margin-inline-start: auto; min-width: 20px; padding: 0 6px; border-radius: 10px; font-size: .75rem;
                  background: var(--color-accent); color: #fff; text-align: center; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   لوحة الشركة — طبقة الصقل (UI/UX)
+   كل القواعد هنا محصورة في body.company-app (صفحة /company-dashboard/ وحدها):
+   بوابة عملاء الشركة (/portal/) تحمل company-shell أيضًا ولا تتأثر.
+
+   المبادئ:
+   - أزرق المنصة هو اللون الأساسي الوحيد؛ البنفسجي القديم لهوية المستوى ألغي
+     لصالح علامة نصية ومسار تنقّل واضحين.
+   - أسطح مصمتة بحدود خفيفة وظل خفيف بدل الزجاج والتوهّج: أوضح للقراءة اليومية.
+   - الأرقام الكبيرة بلون النص؛ الحالة تُقرأ من أيقونة ملوّنة وخط جانبي،
+     فلا تتحوّل الصفحة إلى أرقام بنية وخضراء كبيرة.
+   - مقاسات لمس ≥ 40px، وحلقة تركيز واحدة لكل العناصر التفاعلية.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+html body.company-app.company-shell {
+    --company-accent: var(--color-accent);
+    --company-accent-soft: var(--on-accent);
+    --company-tint: var(--tint-accent);
+    --company-border: var(--tint-accent-border);
+
+    --ca-radius: .875rem;
+    --ca-radius-sm: .625rem;
+    --ca-surface: var(--color-surface);
+    --ca-surface-2: var(--color-surface-2);
+    --ca-shadow: 0 1px 2px rgba(15, 27, 45, .04), 0 2px 6px -2px rgba(15, 27, 45, .06);
+    --ca-focus: 0 0 0 3px var(--focus-ring, rgba(0, 119, 204, .28));
+}
+
+:root[data-theme='dark'] body.company-app.company-shell,
+:root:not([data-theme]) body.company-app.company-shell {
+    --ca-shadow: none;
+}
+
+/* خلفية هادئة: بلا توهّج ولا نقاط زخرفية خلف المحتوى */
+body.company-app::before,
+body.company-app::after { display: none; }
+
+body.company-app .admin-main { padding-top: var(--sp-5); }
+
+/* ── الأسطح المشتركة ─────────────────────────────────────────────────────── */
+body.company-app .panel,
+body.company-app .kpi,
+body.company-app .company-banner {
+    background: var(--ca-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--ca-radius);
+    box-shadow: var(--ca-shadow);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+body.company-app .panel { padding: var(--sp-5); margin-bottom: var(--sp-4); }
+
+body.company-app .panel-header {
+    align-items: flex-start;
+    margin-bottom: var(--sp-4);
+}
+
+body.company-app .panel-title {
+    font-size: 1.02rem;
+    line-height: 1.5;
+}
+
+body.company-app .panel-title svg { color: var(--color-accent); }
+
+body.company-app .panel-subtitle { line-height: 1.7; }
+
+/* ── شريط الشركة ────────────────────────────────────────────────────────── */
+body.company-app .company-banner {
+    padding: var(--sp-4) var(--sp-5);
+    margin-bottom: var(--sp-4);
+    gap: var(--sp-3) var(--sp-4);
+}
+
+.company-banner-identity {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    min-width: 0;
+    flex: 1 1 18rem;
+}
+
+.company-mark {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: var(--ca-radius-sm, .625rem);
+    background: var(--tint-accent);
+    border: 1px solid var(--tint-accent-border);
+    color: var(--on-accent);
+    font-size: 1.25rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.company-crumbs ol {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .35rem;
+    margin: 0 0 .2rem;
+    padding: 0;
+    list-style: none;
+    font-size: var(--fs-xs);
+    color: var(--color-text-secondary);
+}
+
+.company-crumbs li + li::before {
+    content: '/';
+    margin-inline-end: .35rem;
+    color: var(--color-text-3);
+}
+
+.company-crumbs li[aria-current='page'] {
+    color: var(--color-text);
+    font-weight: 700;
+}
+
+/* «لوحة الشركة» صار أول عنصر في المسار: نص لا شارة ملوّنة */
+body.company-app .company-level-tag {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--on-accent);
+    font-size: inherit;
+    font-weight: 700;
+}
+
+body.company-app .company-name {
+    font-size: var(--fs-lg);
+    line-height: 1.35;
+}
+
+body.company-app .company-meta {
+    margin-top: .15rem;
+    font-size: var(--fs-sm);
+}
+
+body.company-app .company-banner .pill {
+    font-size: var(--fs-xs);
+    padding: .3rem .75rem;
+}
+
+/* ── بطاقات الأرقام ─────────────────────────────────────────────────────── */
+body.company-app .kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-4);
+}
+
+body.company-app .kpi {
+    position: relative;
+    padding: var(--sp-4) var(--sp-5);
+    gap: var(--sp-2);
+    overflow: hidden;
+}
+
+body.company-app .kpi-label { color: var(--color-text-secondary); }
+body.company-app .kpi-label svg { width: 16px; height: 16px; color: var(--color-accent); }
+
+body.company-app .kpi-value {
+    font-size: 1.75rem;
+    color: var(--color-text);
+}
+
+body.company-app .kpi-hint { color: var(--color-text-secondary); }
+
+/* الحالة: خط جانبي وأيقونة ملوّنة؛ الرقم يبقى بلون النص إلا الخطر */
+body.company-app .kpi--success .kpi-value,
+body.company-app .kpi--warning .kpi-value,
+body.company-app .kpi--accent .kpi-value,
+body.company-app .kpi--info .kpi-value { color: var(--color-text); }
+body.company-app .kpi--danger .kpi-value { color: var(--on-danger); }
+
+body.company-app .kpi--success .kpi-label svg { color: var(--on-success); }
+body.company-app .kpi--warning .kpi-label svg { color: var(--on-warning); }
+body.company-app .kpi--danger .kpi-label svg { color: var(--on-danger); }
+
+body.company-app .kpi--warning,
+body.company-app .kpi--danger { border-inline-start-width: 3px; }
+body.company-app .kpi--warning { border-inline-start-color: var(--color-warning); }
+body.company-app .kpi--danger { border-inline-start-color: var(--color-danger); }
+
+/* ── النظرة العامة: التذاكر + الإجراءات ─────────────────────────────────── */
+.company-overview-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0 var(--sp-4);
+}
+
+@media (min-width: 1024px) {
+    .company-overview-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+.company-stats,
+.company-actions {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--sp-2);
+}
+
+.company-stat,
+.company-action {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    min-height: 3.5rem;
+    padding: var(--sp-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--ca-radius-sm, .625rem);
+    background: var(--ca-surface-2, var(--color-surface-2));
+    color: var(--color-text);
+    text-decoration: none;
+    transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.company-stat:hover,
+.company-action:hover {
+    border-color: var(--tint-accent-border-strong);
+    background: var(--tint-accent);
+}
+
+.company-stat:focus-visible,
+.company-action:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+.company-stat-icon,
+.company-action-icon {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: .55rem;
+    background: var(--tint-accent);
+    color: var(--on-accent);
+}
+
+.company-stat-body,
+.company-action-body {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    min-width: 0;
+    flex: 1;
+}
+
+.company-stat-label,
+.company-action-title {
+    font-weight: 700;
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+}
+
+.company-stat-hint,
+.company-action-text {
+    font-size: var(--fs-xs);
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+}
+
+.company-stat-value {
+    flex: none;
+    min-width: 2.5ch;
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1;
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+}
+
+/* «بانتظار ردّك» بقيمة > 0: يستحق الانتباه */
+.company-stat.is-attention { border-inline-start: 3px solid var(--color-warning); }
+.company-stat.is-attention .company-stat-icon { background: var(--tint-warning); color: var(--on-warning); }
+
+.company-action-go { flex: none; color: var(--color-text-3); }
+html[dir='ltr'] .company-action-go { transform: scaleX(-1); }
+
+@media (min-width: 640px) and (max-width: 1023.98px), (min-width: 1280px) {
+    .company-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ── بيانات الشركة ──────────────────────────────────────────────────────── */
+body.company-app .company-facts {
+    grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
+    gap: var(--sp-4) var(--sp-5);
+}
+
+body.company-app .company-fact {
+    padding-bottom: var(--sp-3);
+    border-bottom: 1px dashed var(--color-border);
+}
+
+body.company-app .company-fact dd { font-weight: 600; }
+
+/* الأرقام والبريد والهاتف داخل نص عربي: اتجاهها الطبيعي محفوظ */
+body.company-app .company-fact dd,
+body.company-app .company-sub-dates { unicode-bidi: plaintext; text-align: right; }
+html[dir='ltr'] body.company-app .company-fact dd,
+html[dir='ltr'] body.company-app .company-sub-dates { text-align: left; }
+
+/* ── الأزرار والروابط ───────────────────────────────────────────────────── */
+/* الإجراء الأساسي في رأس كل لوحة كان رابطًا نصيًا يصعب ملاحظته: صار زرًا ثانويًا واضحًا */
+body.company-app .panel-header > .panel-link,
+body.company-app .panel-head-actions > .panel-link {
+    min-height: 2.5rem;
+    padding: 0 1rem;
+    border: 1px solid var(--tint-accent-border-strong);
+    border-radius: var(--ca-radius-sm, .625rem);
+    background: var(--tint-accent);
+    color: var(--on-accent);
+    text-decoration: none;
+    transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+
+body.company-app .panel-header > .panel-link:hover,
+body.company-app .panel-head-actions > .panel-link:hover {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: #fff;
+    text-decoration: none;
+}
+
+body.company-app .panel-head-actions > .panel-link.is-danger {
+    border-color: var(--tint-danger);
+    background: var(--tint-danger);
+    color: var(--on-danger);
+}
+
+body.company-app .btn {
+    min-height: 2.5rem;
+    border-radius: var(--ca-radius-sm, .625rem);
+    font-weight: 700;
+}
+
+body.company-app .btn-sm { min-height: 2rem; }
+
+body.company-app .btn:focus-visible,
+body.company-app .panel-link:focus-visible,
+body.company-app .view-tab:focus-visible,
+body.company-app .filter-chip:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+body.company-app .btn[aria-busy='true'] { cursor: progress; }
+
+/* زر الإغلاق في النوافذ: هدف لمس كافٍ وحلقة تركيز */
+body.company-app .modal-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    border-radius: .5rem;
+}
+body.company-app .modal-close:hover { background: var(--hover-bg); }
+body.company-app .modal-close:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* ── الحقول ─────────────────────────────────────────────────────────────── */
+body.company-app .form-control {
+    min-height: 2.6rem;
+    border-radius: var(--ca-radius-sm, .625rem);
+}
+
+body.company-app textarea.form-control { min-height: 6rem; }
+
+body.company-app .form-control:focus,
+body.company-app .form-control:focus-visible {
+    border-color: var(--color-accent);
+    box-shadow: var(--ca-focus);
+    outline: none;
+}
+
+body.company-app .form-field label { font-weight: 700; }
+
+/* ── القوائم (اشتراكات، أعضاء، تذاكر) ──────────────────────────────────── */
+body.company-app .company-sub {
+    border-radius: var(--ca-radius-sm, .625rem);
+    background: var(--ca-surface-2, var(--color-surface-2));
+    padding: var(--sp-3) var(--sp-4);
+}
+
+body.company-app .company-sub.is-clickable:hover {
+    border-color: var(--tint-accent-border-strong);
+    background: var(--tint-accent);
+}
+
+body.company-app .company-sub-plan { line-height: 1.6; }
+
+body.company-app .company-feature {
+    border-radius: var(--ca-radius-sm, .625rem);
+    background: var(--ca-surface-2, var(--color-surface-2));
+}
+
+/* ── تبويبات العرض: سطر واحد قابل للتمرير على الشاشات الضيقة ───────────── */
+body.company-app .view-tabs { margin-bottom: var(--sp-4); }
+
+@media (max-width: 640px) {
+    body.company-app .view-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+    }
+    body.company-app .view-tab { flex: none; }
+}
+
+/* ── الجداول ─────────────────────────────────────────────────────────────── */
+body.company-app .table-scroll {
+    border: 1px solid var(--color-border);
+    border-radius: var(--ca-radius-sm, .625rem);
+}
+
+body.company-app .report-table thead th {
+    background: var(--ca-surface-2, var(--color-surface-2));
+    border-bottom-width: 1px;
+    font-size: var(--fs-xs);
+}
+
+body.company-app .report-table td { font-variant-numeric: tabular-nums; }
+
+/* ── حالات الفراغ والتحميل ──────────────────────────────────────────────── */
+body.company-app .state-block {
+    border: 1px dashed var(--color-border-strong);
+    border-radius: var(--ca-radius-sm, .625rem);
+    background: var(--ca-surface-2, var(--color-surface-2));
+}
+
+/* ── القائمة الجانبية (لوحة الشركة) ─────────────────────────────────────── */
+body.company-app .sidebar-group-label {
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    color: var(--color-text-3);
+}
+
+body.company-app .sidebar-item { min-height: 2.75rem; font-weight: 600; }
+
+body.company-app .sidebar-item.active {
+    font-weight: 800;
+    color: var(--on-accent);
+}
+
+body.company-app .sidebar-item.active svg { color: var(--color-accent); }
+
+/* ── الشاشات المتوسطة والصغيرة ───────────────────────────────────────────── */
+/* بين الجوال والشاشة العريضة: بطاقتان في الصف بدل 3 + بطاقة يتيمة */
+@media (min-width: 641px) and (max-width: 1099.98px) {
+    body.company-app .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 768px) {
+    body.company-app .admin-main { padding: var(--sp-4) var(--sp-4) var(--sp-6); }
+    body.company-app .panel { padding: var(--sp-4); }
+    /* الشريط يبقى صفًا ملتفًّا؛ العمودي القديم كان يحوّل أساس المرونة إلى ارتفاع فارغ */
+    body.company-app .company-banner {
+        flex-direction: row;
+        align-items: center;
+        padding: var(--sp-4);
+    }
+    body.company-app .company-banner-identity { flex: 1 1 100%; }
+    body.company-app .company-banner-side { width: auto; }
+    body.company-app .company-name { font-size: var(--fs-md); }
+    .company-mark { width: 2.5rem; height: 2.5rem; font-size: 1.05rem; }
+}
+
+/* على الجوال: بطاقتان في الصف بدل بطاقة تملأ الشاشة */
+@media (max-width: 640px) {
+    body.company-app .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
+    body.company-app .kpi { padding: var(--sp-3); }
+    body.company-app .kpi-value { font-size: 1.3rem; }
+    body.company-app .kpi-label { font-size: var(--fs-xs); }
+    body.company-app .panel-header > .panel-link,
+    body.company-app .panel-head-actions > .panel-link { min-height: 2.75rem; }
+}
+
+@media (max-width: 360px) {
+    body.company-app .kpi-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.company-app .tab-content.active { animation: none; }
+    body.company-app .company-stat,
+    body.company-app .company-action,
+    body.company-app .kpi { transition: none; }
+}
+
+/* حقل البحث فوق قائمة التذاكر: مسافة تفصله عن أول بطاقة */
+body.company-app .view-tabs + .form-field { margin-bottom: var(--sp-3); }
+
+/* ════════════════════════════════════════════════════════════════════════
+   صفحات مستقلة: رأس المجال، شريط الصفحات، التنبيهات، الموجز، المصفوفة، الرصيد
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* رأس المجال: عنوان ووصف وشريط الصفحات الشقيقة (company-routes.js → pageHeadFor) */
+body.company-app .company-page-head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    margin: 0 0 var(--sp-4);
+}
+
+.company-page-title {
+    margin: 0;
+    font-size: var(--fs-lg);
+    font-weight: 800;
+    line-height: 1.4;
+    color: var(--color-text);
+}
+
+.company-page-desc {
+    margin: .2rem 0 0;
+    font-size: var(--fs-sm);
+    line-height: 1.7;
+    color: var(--color-text-secondary);
+}
+
+.company-subnav {
+    display: flex;
+    gap: var(--sp-1);
+    padding: .25rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--ca-radius-sm, .625rem);
+    background: var(--ca-surface, var(--color-surface));
+    overflow-x: auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    align-self: flex-start;
+    max-width: 100%;
+}
+
+.company-subnav-item {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.5rem;
+    padding: 0 1rem;
+    border-radius: .5rem;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.company-subnav-item:hover { background: var(--hover-bg); color: var(--color-text); }
+
+.company-subnav-item.is-current {
+    background: var(--tint-accent);
+    color: var(--on-accent);
+    box-shadow: inset 0 0 0 1px var(--tint-accent-border);
+}
+
+.company-subnav-item:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+/* التنبيهات: سطر لكل قرار، بلونه وأيقونته وإجرائه */
+.company-alerts { margin-bottom: var(--sp-4); }
+
+.company-alert-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--sp-2);
+}
+
+.company-alert {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    border: 1px solid var(--color-border);
+    border-inline-start-width: 3px;
+    border-radius: var(--ca-radius-sm, .625rem);
+    background: var(--ca-surface, var(--color-surface));
+}
+
+.company-alert.is-danger  { border-inline-start-color: var(--color-danger); }
+.company-alert.is-warning { border-inline-start-color: var(--color-warning); }
+.company-alert.is-info    { border-inline-start-color: var(--color-accent); }
+
+.company-alert-icon { flex: none; display: inline-flex; }
+.company-alert.is-danger .company-alert-icon  { color: var(--on-danger); }
+.company-alert.is-warning .company-alert-icon { color: var(--on-warning); }
+.company-alert.is-info .company-alert-icon    { color: var(--on-accent); }
+
+.company-alert-body { display: flex; flex-direction: column; gap: .1rem; min-width: 0; flex: 1; }
+.company-alert-title { font-size: var(--fs-sm); font-weight: 800; color: var(--color-text); }
+.company-alert-text { font-size: var(--fs-xs); color: var(--color-text-secondary); line-height: 1.6; }
+
+.company-alert-action {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    padding: 0 .85rem;
+    border-radius: .5rem;
+    border: 1px solid var(--color-border-strong);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    color: var(--color-text);
+    text-decoration: none;
+}
+.company-alert-action:hover { background: var(--hover-bg); }
+.company-alert-action:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+@media (max-width: 640px) {
+    .company-alert { flex-wrap: wrap; }
+    .company-alert-action { margin-inline-start: auto; }
+}
+
+/* موجز مختصر (آخر الإشعارات / آخر النشاط) */
+.company-feed {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+}
+
+.company-feed > li + li { border-top: 1px solid var(--color-border); }
+
+.company-feed-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-3);
+    padding: var(--sp-3) .25rem;
+    color: var(--color-text);
+    text-decoration: none;
+    border-radius: .5rem;
+}
+
+a.company-feed-item:hover { background: var(--hover-bg); }
+a.company-feed-item:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+.company-feed-dot {
+    flex: none;
+    width: .5rem;
+    height: .5rem;
+    margin-top: .45rem;
+    border-radius: 50%;
+    background: var(--color-border-strong);
+}
+
+.company-feed-item.is-unread .company-feed-dot { background: var(--color-accent); }
+.company-feed-item.is-unread .company-feed-title { font-weight: 800; }
+
+.company-feed-body { display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
+.company-feed-title { font-size: var(--fs-sm); font-weight: 600; line-height: 1.6; overflow-wrap: anywhere; }
+.company-feed-meta { font-size: var(--fs-xs); color: var(--color-text-secondary); }
+
+/* حالة الفراغ داخل لوحة صغيرة: بلا إطار مزدوج */
+.company-feed + .state-block,
+#companyRecentNotifications .state-block,
+#companyRecentActivity .state-block { padding: var(--sp-4); }
+
+/* مصفوفة الصلاحيات */
+body.company-app .company-matrix th[scope='row'] { white-space: normal; min-width: 14rem; }
+.company-matrix-label { display: block; font-weight: 700; color: var(--color-text); }
+.company-matrix-desc { display: block; margin-top: .15rem; font-size: var(--fs-xs); font-weight: 400; color: var(--color-text-secondary); line-height: 1.6; }
+body.company-app .report-table .is-center { text-align: center; }
+/* عمودا الدورين متساويان: لا تمييز «المسار الثاني» الخاص بجداول التقارير هنا */
+body.company-app .company-matrix thead th:last-child,
+body.company-app .company-matrix tbody td:last-child { background: transparent; }
+
+.company-switch { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; cursor: pointer; }
+.company-switch input {
+    appearance: none;
+    -webkit-appearance: none;
+    position: relative;
+    width: 2.5rem;
+    height: 1.4rem;
+    margin: 0;
+    border-radius: 999px;
+    background: var(--track-bg);
+    border: 1px solid var(--color-border-strong);
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease);
+}
+.company-switch input::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    inset-inline-start: .15rem;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+    transform: translateY(-50%);
+    transition: inset-inline-start var(--dur-fast) var(--ease);
+}
+.company-switch input:checked { background: var(--color-accent); border-color: var(--color-accent); }
+.company-switch input:checked::after { inset-inline-start: calc(100% - 1.15rem); }
+.company-switch input:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.company-switch input:disabled { opacity: .5; cursor: progress; }
+
+/* رصيد التذاكر */
+.company-usage {
+    padding: var(--sp-4);
+    margin-bottom: var(--sp-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--ca-radius-sm, .625rem);
+    background: var(--ca-surface-2, var(--color-surface-2));
+}
+.company-usage.is-warning { border-inline-start: 3px solid var(--color-warning); }
+.company-usage.is-danger { border-inline-start: 3px solid var(--color-danger); }
+
+.company-usage-figure { display: flex; align-items: baseline; flex-wrap: wrap; gap: .5rem; margin: 0 0 var(--sp-3); }
+.company-usage-big { font-size: 2rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: var(--color-text); }
+.company-usage-of { font-size: var(--fs-sm); color: var(--color-text-secondary); }
+.company-usage-sub { margin: var(--sp-2) 0 0; font-size: var(--fs-sm); color: var(--color-text-secondary); }
+
+body.company-app .company-usage-meter { height: .6rem; border-radius: 999px; background: var(--track-bg); overflow: hidden; }
+body.company-app .company-usage-meter .meter-fill { height: 100%; border-radius: inherit; background: var(--color-accent); }
+
+@media (prefers-reduced-motion: reduce) {
+    .company-switch input,
+    .company-switch input::after,
+    .company-subnav-item { transition: none; }
+}
+body.company-app .company-usage-meter .meter-fill--warning { background: var(--color-warning); }
+body.company-app .company-usage-meter .meter-fill--danger { background: var(--color-danger); }
+
+/* تنبيه معلوماتي (بلا نبرة): خلفية خفيفة حتى لا يبدو نصًا سائبًا */
+body.company-app .company-notice:not(.company-notice--warning):not(.company-notice--danger) {
+    background: var(--tint-accent);
+    color: var(--color-text);
+    border: 1px solid var(--tint-accent-border);
+}

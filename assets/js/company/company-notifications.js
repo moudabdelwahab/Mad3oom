@@ -23,17 +23,19 @@ import { escapeHtml, timeAgo, renderState, renderSkeletonLines }
 
 /** الأقسام الموجودة فعلًا في لوحة الشركة. أي وجهة خارجها تُهمَل بأمان. */
 const COMPANY_SECTIONS = new Set([
-    'overview', 'members', 'subscriptions', 'tickets', 'customerTickets',
-    'support', 'notifications', 'api', 'reports', 'activity', 'profile', 'security'
+    'overview', 'members', 'customers', 'subscriptions', 'entitlements', 'usage',
+    'tickets', 'customerTickets', 'support', 'notifications', 'api', 'integrations',
+    'reports', 'activity', 'company', 'profile', 'security'
 ]);
 
 /**
  * ترجمة أقسام بوابة العميل إلى ما يكافئها في لوحة الشركة.
- * ما لا مكافئ له (المكافآت، الشارات، الاستهلاك…) يسقط إلى النظرة العامة —
+ * ما لا مكافئ له (المكافآت، الشارات…) يسقط إلى النظرة العامة —
  * لا يخرج بالمستخدم إلى بوابة أخرى.
  */
 const SECTION_ALIASES = {
-    usage: 'subscriptions',
+    // استهلاك الرصيد صار له صفحة «الاستخدام والحدود» في لوحة الشركة
+    usage: 'usage',
     rewards: 'overview',
     badges: 'overview'
     // activity لها الآن قسم مستقل في لوحة الشركة، فلا تحتاج ترجمة

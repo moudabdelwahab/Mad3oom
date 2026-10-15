@@ -39,19 +39,27 @@
   <link rel="stylesheet" href="/assets/responsive-global.css">
   <script src="/assets/responsive-global.js" defer></script>
 </head>
-<body class="customer-shell company-shell">
+<!-- company-app: يحصر أنماط هذه اللوحة فيها؛ بوابة عملاء الشركة (/portal/) تحمل company-shell أيضًا -->
+<body class="customer-shell company-shell company-app">
     <div id="sidebar-container"></div>
 
     <main class="admin-main" id="companyMain">
 
-        <!-- شريط المستوى: أوضح فرق بصري بين لوحة العميل ولوحة الشركة.
-             نفس نظام التصميم (نفس التوكنز والمكوّنات)، لكن هوية لونية
-             ومستوى معلن، عشان المستخدم يعرف إنه في سياق الشركة مش سياقه هو. -->
+        <!-- شريط الشركة: سياق ثابت مختصر فوق كل قسم — أي شركة، بأي دور، وفي أي قسم.
+             المستوى معلن («لوحة الشركة») عشان المستخدم يعرف إنه في سياق الشركة مش سياقه هو. -->
         <header class="company-banner" id="companyBanner" hidden>
-            <div class="company-banner-main">
-                <span class="company-level-tag">لوحة الشركة</span>
-                <h1 class="company-name" id="companyName">—</h1>
-                <p class="company-meta" id="companyMeta"></p>
+            <div class="company-banner-identity">
+                <span class="company-mark" id="companyMark" aria-hidden="true">—</span>
+                <div class="company-banner-main">
+                    <nav class="company-crumbs" aria-label="مسار التنقّل">
+                        <ol id="companyCrumbs">
+                            <li><span class="company-level-tag">لوحة الشركة</span></li>
+                            <li id="companySectionCrumb" aria-current="page">نظرة عامة</li>
+                        </ol>
+                    </nav>
+                    <h1 class="company-name" id="companyName">—</h1>
+                    <p class="company-meta" id="companyMeta"></p>
+                </div>
             </div>
             <!-- لا زر خروج إلى بوابة العميل: لوحة الشركة هي اللوحة الرسمية
                  لهذا الحساب، والملف الشخصي والأمان قسمان هنا. -->
@@ -67,9 +75,71 @@
 
         <div id="companyContent" hidden>
 
+            <!-- رأس المجال: عنوانه ووصفه وشريط صفحاته الشقيقة (company-routes.js → pageHeadFor) -->
+            <div id="companyPageHead" class="company-page-head" hidden></div>
+
             <!-- ═══ نظرة عامة ══════════════════════════════════════════════ -->
             <section class="tab-content" id="overviewTabContent">
+                <!-- تنبيهات تحتاج قرارًا الآن — من حمولة اللوحة نفسها؛ كل تنبيه يشير إلى صفحته -->
+                <div id="companyAlerts" class="company-alerts" aria-live="polite" hidden></div>
                 <div class="kpi-grid" id="companyKpis" aria-live="polite"></div>
+
+                <!-- ملخّص التذاكر من صفوف المسارين نفسها، واختصارات لأقسام قائمة فعلًا -->
+                <div class="company-overview-grid">
+                    <section class="panel" aria-labelledby="companyOverviewTicketsHeading">
+                        <div class="panel-header">
+                            <div>
+                                <h2 class="panel-title" id="companyOverviewTicketsHeading">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                                    التذاكر
+                                </h2>
+                                <p class="panel-subtitle">ما ينتظر المتابعة في مسارَي الدعم</p>
+                            </div>
+                        </div>
+                        <div id="companyOverviewTickets" aria-live="polite"></div>
+                    </section>
+                    <section class="panel" aria-labelledby="companyQuickActionsHeading">
+                        <div class="panel-header">
+                            <div>
+                                <h2 class="panel-title" id="companyQuickActionsHeading">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                                    إجراءات سريعة
+                                </h2>
+                                <p class="panel-subtitle">اختصارات لأكثر الأعمال اليومية</p>
+                            </div>
+                        </div>
+                        <div id="companyQuickActions"></div>
+                    </section>
+                </div>
+
+
+                <div class="company-overview-grid">
+                    <section class="panel" aria-labelledby="companyRecentNotificationsHeading">
+                        <div class="panel-header">
+                            <div>
+                                <h2 class="panel-title" id="companyRecentNotificationsHeading">آخر الإشعارات</h2>
+                                <p class="panel-subtitle">أحدث ما وصلك — التفاصيل والتعليم كمقروء في صفحة الإشعارات</p>
+                            </div>
+                            <a class="panel-link" href="/company-dashboard/#notifications" data-tab="notifications">كل الإشعارات</a>
+                        </div>
+                        <div id="companyRecentNotifications"></div>
+                    </section>
+                    <section class="panel" aria-labelledby="companyRecentActivityHeading">
+                        <div class="panel-header">
+                            <div>
+                                <h2 class="panel-title" id="companyRecentActivityHeading">آخر النشاط</h2>
+                                <p class="panel-subtitle">آخر ما جرى على حسابك</p>
+                            </div>
+                            <a class="panel-link" href="/company-dashboard/#activity" data-tab="activity">السجل كاملًا</a>
+                        </div>
+                        <div id="companyRecentActivity"></div>
+                    </section>
+                </div>
+            </section>
+
+            <!-- ═══ بيانات الشركة ═══════════════════════════════════════════
+                 صفحة مستقلة: هوية الشركة وبيانات التواصل والمستندات — منفصلة عن حسابك الشخصي. -->
+            <section class="tab-content" id="companyTabContent">
                 <section class="panel" aria-labelledby="companyProfileHeading">
                     <div class="panel-header">
                         <div>
@@ -148,6 +218,7 @@
                 </section>
             </section>
 
+
             <!-- ═══ مستخدمو الشركة ═════════════════════════════════════════ -->
             <section class="tab-content" id="membersTabContent">
                 <section class="panel" aria-labelledby="companyMembersHeading" id="companyMembersPanel" hidden>
@@ -173,6 +244,11 @@
                     </p>
                     <div id="companyMembers"></div>
                 </section>
+            </section>
+
+            <!-- ═══ عملاء الشركة ═══════════════════════════════════════════ -->
+            <section class="tab-content" id="customersTabContent">
+                <div id="companyCustomersNote"></div>
 
                 <!-- 096: عملاء الشركة. الدعوة بالبريد للمدير والمفتاح مفعّل (الرد واحد لكل بريد:
                      لا يكشف وجود حساب)؛ وقائمة العملاء للمشرف. لا أثر لعضويات العميل في شركات أخرى. -->
@@ -232,6 +308,19 @@
                 </section>
             </section>
 
+            <!-- ═══ الأدوار والصلاحيات (098) ═══════════════════════════════
+                 قراءة company_permissions_matrix لمدير الشركة؛ التعديل لا يُتاح إلا والمفتاح مفعّل في القاعدة. -->
+            <section class="tab-content" id="permissionsTabContent">
+                <div id="companyPermissions"></div>
+            </section>
+
+            <!-- ═══ سجل وصول مدعوم (097): قراءة فقط لمدير الشركة ════════════ -->
+            <section class="tab-content" id="accessLogTabContent">
+                <div id="companyAccessLog"></div>
+            </section>
+
+            </section>
+
             <!-- ═══ الاشتراكات والخدمات ════════════════════════════════════
                  «استعراض الباقات» يذهب إلى /subscriptions.html — صفحة الأسعار
                  العامة، لا صفحة بوابة العميل. هي نفسها التي تعالج باقات
@@ -251,6 +340,10 @@
                     </div>
                     <div id="companySubscriptions"></div>
                 </section>
+            </section>
+
+            <!-- ═══ الخدمات والامتيازات ═════════════════════════════════════ -->
+            <section class="tab-content" id="entitlementsTabContent">
                 <section class="panel" aria-labelledby="companyServicesHeading">
                     <div class="panel-header">
                         <div>
@@ -263,6 +356,11 @@
                     </div>
                     <div id="companyEntitlements"></div>
                 </section>
+            </section>
+
+            <!-- ═══ الاستخدام والحدود: رصيد التذاكر من my_ticket_wallet (نفس حدّ القاعدة) ═══ -->
+            <section class="tab-content" id="usageTabContent">
+                <div id="companyUsage"></div>
             </section>
 
             <!-- ═══ تذاكري مع مدعوم ════════════════════════════════════════
