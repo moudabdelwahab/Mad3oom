@@ -602,7 +602,11 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //   102 — محادثات الشركة وصندوقها (المرحلتان C وD): جداول خاصة بالشركة من البداية بلا منح مباشرة
     //         ولا سياسة لطاقم المنصة ولا Realtime، العميل يراسل شركته الحالية، والفريق بصلاحيات 098
     //         (conversations.*). company_inbox_enabled مطفأ. مقيسٌ في tests/sql/company-conversations.test.sql.
-    assert.equal(migrations[migrations.length - 1], '102_company_conversations.sql',
+    //   103 — حدّ المعدل على مستوى المنصة (مطلوب صراحةً): دلو SIE نفسه معمَّمًا (sie_rl_spend تفوّض
+    //         إليه بنفس النتيجة)، سياسات قابلة للضبط بلا نشر، rate_limit_hit لدور الخدمة وحده بمواضيع
+    //         مُجزَّأة بفلفل لا يغادر القاعدة، وكنس للدلاء الخاملة. لا يمكن أن يكون تغيير واجهة: العدّاد
+    //         الذري المشترك بين نسخ الدوال مكانه القاعدة. مقيسٌ في tests/sql/platform-rate-limiting.test.sql.
+    assert.equal(migrations[migrations.length - 1], '103_platform_rate_limiting.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

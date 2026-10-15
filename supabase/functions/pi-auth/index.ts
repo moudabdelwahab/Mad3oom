@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { checkRateLimit, rateLimitResponse, trustedClientIp } from "../_shared/rate-limit.js";
 
 /**
  * pi-auth — تبادل توكن Pi بجلسة على المنصة.
@@ -72,6 +73,19 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  );
+
+  // ── 0) حدّ المعدل لكل IP — قبل أي نداء لـPi وقبل البحث في المستخدمين ─────
+  //
+  // كل طلب هنا يكلّف نداءً خارجيًا وقد يقرأ حتى 50 صفحة من المستخدمين وقد
+  // ينشئ حسابًا. يفشل **مغلقًا**: نقطة إصدار جلسات بلا سقف أخطر من رفض مؤقت.
+  const rate = await checkRateLimit(admin, "auth.exchange.ip", trustedClientIp(req), { failClosed: true });
+  if (!rate.allowed) return rateLimitResponse(rate, CORS);
+
   let accessToken: string;
   try {
     const body = await req.json();
@@ -102,12 +116,6 @@ Deno.serve(async (req: Request) => {
   const piUid = piUser.uid;
   const piUsername = piUser.username || `pi_${piUid.slice(0, 8)}`;
   const email = piEmailFor(piUid);
-
-  const admin = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  );
 
   try {
     // ── 2) الهوية من بيانات المستخدم التي يكتبها الخادم، لا من جدول العميل ──

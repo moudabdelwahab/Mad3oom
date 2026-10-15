@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { checkRateLimit, clientIp } from "./_shared/rate-limit.ts";
+import { checkRateLimit, rateLimitHeaders, rateLimitStatus, trustedClientIp } from "../_shared/rate-limit.js";
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -24,10 +24,10 @@ const CORS_HEADERS: Record<string, string> = {
 const PUBLIC_SITE_ORIGIN = Deno.env.get("PUBLIC_SITE_ORIGIN") ?? "https://mad3oom.com";
 const CONSENT_PAGE_URL = `${PUBLIC_SITE_ORIGIN}/admin/oauth-consent.html`;
 
-function err(desc: string, status = 400) {
+function err(desc: string, status = 400, extra: Record<string, string> = {}) {
   return new Response(JSON.stringify({ error: "invalid_request", error_description: desc }), {
     status,
-    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS, ...extra },
   });
 }
 
@@ -45,14 +45,17 @@ Deno.serve(async (req: Request) => {
   const state = p.get("state") || "";
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const ip = clientIp(req);
+  // IP من المنصة لا من X-Forwarded-For؛ عدّاد ذرّي يفشل مغلقًا (103).
+  const ip = trustedClientIp(req);
 
-  const ipGuard = await checkRateLimit(admin, "oauth-authorize:ip", ip, 60, 60);
-  if (!ipGuard.ok) return err("طلبات كثيرة جدًا - حاول بعد قليل", 429);
+  const ipGuard = await checkRateLimit(admin, "oauth.authorize.ip", ip);
+  if (!ipGuard.allowed) return err("طلبات كثيرة جدًا - حاول بعد قليل", rateLimitStatus(ipGuard), rateLimitHeaders(ipGuard));
 
   if (clientId) {
-    const perClient = await checkRateLimit(admin, "oauth-authorize:client-ip", `${clientId}:${ip}`, 20, 60);
-    if (!perClient.ok) return err("طلبات كثيرة جدًا لهذا التطبيق - حاول بعد قليل", 429);
+    const perClient = await checkRateLimit(admin, "oauth.authorize.client_ip", `${clientId}|${ip ?? ""}`);
+    if (!perClient.allowed) {
+      return err("طلبات كثيرة جدًا لهذا التطبيق - حاول بعد قليل", rateLimitStatus(perClient), rateLimitHeaders(perClient));
+    }
   }
 
   if (!clientId) return err("client_id مطلوب");

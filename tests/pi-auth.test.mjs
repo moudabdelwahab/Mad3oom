@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { stripTypeScriptTypes } from 'node:module';
+import * as rateLimit from '../supabase/functions/_shared/rate-limit.js';
 
 const SRC = path.resolve(import.meta.dirname, '../supabase/functions/pi-auth/index.ts');
 const PI_UID = 'pi-uid-of-the-victim';
@@ -22,7 +23,8 @@ function loadHandler({ createClient, fetchImpl }) {
     // جديد في المصدر كان سيكسر الاختبار بلا علاقة بالسلوك المُختبَر.
     const raw = fs.readFileSync(SRC, 'utf8')
         .replace(/^import\s+"jsr:@supabase\/functions-js\/edge-runtime\.d\.ts";\s*$/m, '')
-        .replace(/^import\s+\{\s*createClient\s*\}\s+from\s+"jsr:@supabase\/supabase-js@2";\s*$/m, '');
+        .replace(/^import\s+\{\s*createClient\s*\}\s+from\s+"jsr:@supabase\/supabase-js@2";\s*$/m, '')
+        .replace(/^import\s+\{[^}]*\}\s+from\s+"\.\.\/_shared\/rate-limit\.js";\s*$/m, '');
     const src = stripTypeScriptTypes(raw, { mode: 'strip' });
 
     let handler;
@@ -31,7 +33,9 @@ function loadHandler({ createClient, fetchImpl }) {
         env: { get: (k) => ({ SUPABASE_URL: 'https://stub.local', SUPABASE_SERVICE_ROLE_KEY: 'svc' })[k] || '' }
     };
     // eslint-disable-next-line no-new-func
-    new Function('Deno', 'createClient', 'fetch', 'crypto', src)(Deno, createClient, fetchImpl, globalThis.crypto);
+    const { checkRateLimit, rateLimitResponse, trustedClientIp } = rateLimit;
+    new Function('Deno', 'createClient', 'fetch', 'crypto', 'checkRateLimit', 'rateLimitResponse', 'trustedClientIp', src)(
+        Deno, createClient, fetchImpl, globalThis.crypto, checkRateLimit, rateLimitResponse, trustedClientIp);
     if (!handler) throw new Error('لم يُلتقط المعالج — تغيّر شكل Deno.serve؟');
     return handler;
 }
@@ -41,11 +45,19 @@ function loadHandler({ createClient, fetchImpl }) {
  * @param {boolean} s.piTokenValid   هل يقبل مزوّد Pi التوكن
  * @param {boolean} s.userExists     هل يوجد حساب مسبق بالبريد المشتق
  * @param {boolean} [s.rotateFails]  هل يفشل إبطال بيانات الاعتماد
+ * @param {'allow'|'deny'|'down'} [s.limiter]  ردّ rate_limit_hit
  */
 function makeEnv(s) {
-    const calls = { created: null, updated: null, linkFor: null, listPages: 0, piCalled: 0 };
+    const calls = { created: null, updated: null, linkFor: null, listPages: 0, piCalled: 0, rpc: [] };
 
     const adminClient = {
+        rpc: async (fn, args) => {
+            calls.rpc.push({ fn, args });
+            if (s.limiter === 'down') return { data: null, error: { message: 'connection refused' } };
+            const deny = s.limiter === 'deny';
+            return { data: [{ allowed: !deny, enforced: true, would_block: deny, limit_total: 10, window_seconds: 600,
+                              remaining: deny ? 0 : 9, reset_seconds: 60, retry_after: deny ? 60 : 0 }], error: null };
+        },
         auth: {
             admin: {
                 listUsers: async ({ page }) => {
@@ -97,8 +109,8 @@ function makeEnv(s) {
     return { createClient: () => adminClient, fetchImpl, calls };
 }
 
-const req = (body) => new Request('https://stub.local/pi-auth', {
-    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
+const req = (body, headers = {}) => new Request('https://stub.local/pi-auth', {
+    method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body)
 });
 
 test('التوكن الصالح يُصدر جلسة عبر توكن لمرة واحدة، لا كلمة مرور', async () => {
@@ -183,3 +195,35 @@ test('طلب بلا accessToken مرفوض قبل أي نداء خارجي', asy
     assert.equal(res.status, 400);
     assert.equal(env.calls.piCalled, 0);
 });
+
+/* ── حدّ المعدل (103) ─────────────────────────────────────────────────── */
+
+test('حدّ المعدل: الطلب الزائد يُرفض 429 قبل أي نداء لـPi أو بحث في المستخدمين', async () => {
+    const env = makeEnv({ piTokenValid: true, userExists: true, limiter: 'deny' });
+    const res = await loadHandler(env)(req({ accessToken: 'valid-pi-token' }, { 'cf-connecting-ip': '203.0.113.5' }));
+    const body = await res.json();
+    assert.equal(res.status, 429);
+    assert.equal(body.code, 'RATE_LIMIT_EXCEEDED');
+    assert.equal(typeof body.error, 'string', 'عقد الأخطاء: error نصّ');
+    assert.equal(res.headers.get('Retry-After'), '60');
+    assert.equal(env.calls.piCalled, 0);
+    assert.equal(env.calls.listPages, 0);
+    assert.equal(env.calls.linkFor, null);
+});
+
+test('حدّ المعدل: تعذّر استشارته يفشل مغلقًا (503) ولا تُصدر جلسة', async () => {
+    const env = makeEnv({ piTokenValid: true, userExists: true, limiter: 'down' });
+    const res = await loadHandler(env)(req({ accessToken: 'valid-pi-token' }));
+    assert.equal(res.status, 503);
+    assert.equal((await res.json()).code, 'RATE_LIMIT_UNAVAILABLE');
+    assert.equal(env.calls.piCalled, 0);
+    assert.equal(env.calls.linkFor, null);
+});
+
+test('حدّ المعدل: الموضوع هو IP المنصة، لا X-Forwarded-For الذي يكتبه المتصل', async () => {
+    const env = makeEnv({ piTokenValid: true, userExists: true, limiter: 'allow' });
+    await loadHandler(env)(req({ accessToken: 'valid-pi-token' },
+        { 'cf-connecting-ip': '198.51.100.20', 'x-forwarded-for': '1.1.1.1', 'x-real-ip': '2.2.2.2' }));
+    assert.deepEqual(env.calls.rpc[0], { fn: 'rate_limit_hit', args: { p_policy: 'auth.exchange.ip', p_subject: '198.51.100.20' } });
+});
+

@@ -55,6 +55,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { CORS_HEADERS } from './_shared/cors.ts';
+import { checkRateLimit, rateLimitResponse, trustedClientIp } from '../_shared/rate-limit.js';
 import {
   provisionLiveCredentials,
   revokeCredentialsForLostChannels,
@@ -98,6 +99,19 @@ function adminClient() {
   }
   return createClient(url, serviceKey, {
     db: { schema: 'aqar' },
+    auth: { persistSession: false },
+  });
+}
+
+/**
+ * عميل **المنصة** بصلاحية الخدمة — لحدّ المعدل وحده.
+ *
+ * عكس adminClient() أعلاه عن قصد: عدّاد الحد يعيش في قاعدة المنصة (103)، وهي
+ * المشروع المضيف، فالاسمان المحقونان هما الصحيحان هنا. لا يُقرأ به ولا يُكتب
+ * أي شيء غير public.rate_limit_hit.
+ */
+function limiterClient() {
+  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
     auth: { persistSession: false },
   });
 }
@@ -255,6 +269,11 @@ Deno.serve(async (req: Request) => {
   if (route !== 'exchange') {
     return json({ error: `مسار غير معروف: ${route}`, available: ['exchange'] }, 404);
   }
+
+  // حدّ المعدل لكل IP قبل التحقق من التوكن: كل تبادل ينادي المنصة ويقرأ قائمة
+  // مستخدمي عقار وقد ينشئ حسابًا. يفشل مغلقًا — نقطة إصدار جلسات.
+  const rate = await checkRateLimit(limiterClient(), 'auth.exchange.ip', trustedClientIp(req), { failClosed: true });
+  if (!rate.allowed) return rateLimitResponse(rate, CORS_HEADERS);
 
   try {
     const body = (await req.json().catch(() => ({}))) as { platform_access_token?: string };

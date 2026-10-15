@@ -2,6 +2,7 @@
 // عام عمداً (verify_jwt=false) لأن الزائر غير مسجّل، لكنه لا يكشف أي سر:
 // مفتاح Resend و service role يبقيان داخل بيئة الدالة فقط.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { checkRateLimit, rateLimitResponse, restRpcClient, trustedClientIp } from "../_shared/rate-limit.js";
 
 const RESEND_API_URL = "https://api.resend.com/emails";
 const FROM_EMAIL = "no-reply@mad3oom.online"; // ضمن النطاق الموثّق في Resend
@@ -63,6 +64,13 @@ Deno.serve(async (req: Request) => {
           ...(init.headers || {}),
         },
       });
+
+    // حدّ لكل IP قبل أي كتابة أو بريد. البريد في الجسم يختاره المرسل، فحدّه
+    // وحده (أدناه) يُتجاوز بتغيير العنوان. يفشل مغلقًا: نموذج عام يرسل بريدًا.
+    const rate = await checkRateLimit(
+      restRpcClient(SUPABASE_URL, SERVICE_ROLE_KEY), "public.form.ip", trustedClientIp(req), { failClosed: true },
+    );
+    if (!rate.allowed) return rateLimitResponse(rate, corsHeaders);
 
     // حد معدل بسيط: 3 طلبات لكل بريد خلال 10 دقائق
     const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();

@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rate-limit.js";
 
 // ============================================================
 // generate-ai-chat-reply
@@ -132,6 +133,12 @@ Deno.serve(async (req: Request) => {
     if (!sessionRow) return jsonResponse({ error: "الجلسة مش موجودة أو ممنوع الوصول" }, 403);
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    // حدّ الدفعات لكل مستخدم (103) — قبل الحصة الساعية فلا يستهلكها طلب مرفوض،
+    // ويشمل الحسابات المستحقة غير المحدودة بالحصة. الهوية من JWT متحقَّق منه.
+    // يفشل مغلقًا: كل طلب هنا نداء مدفوع لمزوّد خارجي.
+    const burst = await checkRateLimit(adminClient, "ai.generate.user", userData.user.id, { failClosed: true });
+    if (!burst.allowed) return rateLimitResponse(burst, CORS_HEADERS);
 
     // [Phase A] حد الاستخدام الساعي - قبل أي عمل مكلف (نداء مزود خارجي).
     // الحسابات المستحقة (has_chatbot_entitlement) غير محدودة ومش بتتعدّ أصلاً.

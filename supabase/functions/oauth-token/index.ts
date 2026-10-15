@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { checkRateLimit, clientIp } from "./_shared/rate-limit.ts";
+import { checkRateLimit, rateLimitHeaders, rateLimitStatus, trustedClientIp } from "../_shared/rate-limit.js";
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -10,10 +10,10 @@ const CORS_HEADERS: Record<string, string> = {
 const ACCESS_TOKEN_TTL_SECONDS = 3600;
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
-function json(body: unknown, status = 200) {
+function json(body: unknown, status = 200, extra: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store", Pragma: "no-cache", ...CORS_HEADERS },
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store", Pragma: "no-cache", ...CORS_HEADERS, ...extra },
   });
 }
 function randomHex(n: number) {
@@ -149,14 +149,22 @@ Deno.serve(async (req: Request) => {
   const grantType = params.get("grant_type");
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-  const ip = clientIp(req);
+  // IP من المنصة (cf-connecting-ip)، لا من X-Forwarded-For الذي يكتبه المتصل.
+  // العدّاد ذرّي في القاعدة (103) ويفشل مغلقًا: نقطة إصدار توكنات.
+  const ip = trustedClientIp(req);
   const rawClientId = peekClientId(req, params);
 
-  const ipGuard = await checkRateLimit(admin, "oauth-token:ip", ip, 40, 60);
-  if (!ipGuard.ok) return json({ error: "slow_down", error_description: "طلبات كثيرة جدًا" }, 429);
+  const ipGuard = await checkRateLimit(admin, "oauth.token.ip", ip);
+  if (!ipGuard.allowed) {
+    return json({ error: ipGuard.degraded ? "temporarily_unavailable" : "slow_down", error_description: "طلبات كثيرة جدًا" },
+      rateLimitStatus(ipGuard), rateLimitHeaders(ipGuard));
+  }
 
-  const perClient = await checkRateLimit(admin, "oauth-token:client-ip", `${rawClientId}:${ip}`, 15, 60);
-  if (!perClient.ok) return json({ error: "slow_down", error_description: "طلبات كثيرة جدًا لهذا التطبيق" }, 429);
+  const perClient = await checkRateLimit(admin, "oauth.token.client_ip", `${rawClientId}|${ip ?? ""}`);
+  if (!perClient.allowed) {
+    return json({ error: perClient.degraded ? "temporarily_unavailable" : "slow_down", error_description: "طلبات كثيرة جدًا لهذا التطبيق" },
+      rateLimitStatus(perClient), rateLimitHeaders(perClient));
+  }
 
   const clientCheck = await verifyClient(admin, req, params);
   if (!clientCheck.ok) return json({ error: clientCheck.error, error_description: clientCheck.description }, 401);

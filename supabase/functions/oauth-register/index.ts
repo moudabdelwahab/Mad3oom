@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { checkRateLimit, clientIp } from "./_shared/rate-limit.ts";
+import { checkRateLimit, rateLimitHeaders, rateLimitStatus, trustedClientIp } from "../_shared/rate-limit.js";
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -57,15 +57,17 @@ Deno.serve(async (req: Request) => {
   }
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const ip = clientIp(req);
+  // IP من المنصة لا من X-Forwarded-For (كان يُتجاوز بترويسة عشوائية لكل طلب).
+  const trustedIp = trustedClientIp(req);
+  const ip = trustedIp ?? "unknown";
   const userAgent = req.headers.get("user-agent") || "";
 
-  const rl = await checkRateLimit(admin, "oauth-register", ip, 5, 3600);
-  if (!rl.ok) {
+  const rl = await checkRateLimit(admin, "oauth.register.ip", trustedIp);
+  if (!rl.allowed) {
     return json(
-      { error: "invalid_request", error_description: "محاولات تسجيل كثيرة جدًا - حاول لاحقًا" },
-      429,
-      { "Retry-After": String(rl.retryAfter) },
+      { error: rl.degraded ? "temporarily_unavailable" : "invalid_request", error_description: "محاولات تسجيل كثيرة جدًا - حاول لاحقًا" },
+      rateLimitStatus(rl),
+      rateLimitHeaders(rl),
     );
   }
 

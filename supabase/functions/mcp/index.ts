@@ -68,7 +68,7 @@ Deno.serve(async (req: Request) => {
   if (!auth.ok) {
     const extraHeaders = auth.status === 401
       ? { "WWW-Authenticate": `Bearer resource_metadata="${PROTECTED_RESOURCE_METADATA_URL}"` }
-      : {};
+      : (auth.headers ?? {});
     return httpJson(rpcError(null, -32001, auth.error), auth.status, extraHeaders);
   }
 

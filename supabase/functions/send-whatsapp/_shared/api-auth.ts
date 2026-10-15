@@ -8,6 +8,7 @@
 // يتحقق كمان من expires_at لو موجود. لا يفترض وجود أي عمود غير موجود.
 // ============================================================
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { checkRateLimit, rateLimitHeaders } from "../../_shared/rate-limit.js";
 
 export interface VerifiedToken {
   id: string;
@@ -18,7 +19,7 @@ export interface VerifiedToken {
 
 export type VerifyResult =
   | { ok: true; token: VerifiedToken }
-  | { ok: false; status: number; error: string };
+  | { ok: false; status: number; error: string; headers?: Record<string, string> };
 
 async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
@@ -33,7 +34,6 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-const RATE_LIMIT_MAX_PER_MINUTE = 60;
 const TOKEN_COLUMNS = "id, user_id, name, api_key, secret_hash, bearer_token_hash, is_active, revoked_at, scopes, expires_at, credential_type";
 
 export async function verifyApiToken(req: Request, requestEndpoint: string): Promise<VerifyResult> {
@@ -76,15 +76,14 @@ export async function verifyApiToken(req: Request, requestEndpoint: string): Pro
     return { ok: false, status: 401, error: "Token has expired" };
   }
 
-  const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
-  const { count } = await admin
-    .from("api_token_usage_logs")
-    .select("id", { count: "exact", head: true })
-    .eq("token_id", row.id)
-    .gte("created_at", oneMinuteAgo);
-
-  if ((count ?? 0) >= RATE_LIMIT_MAX_PER_MINUTE) {
-    return { ok: false, status: 429, error: "Rate limit exceeded (60 req/min)" };
+  // حدّ لكل توكن — بعد التحقق منه، فالموضوع معرّف موثوق لا قيمة من الطلب.
+  // كان عدًّا لسجل الاستخدام خلال دقيقة: سباق بين الطلبات المتزامنة، والسجل
+  // نفسه يُكتب لاحقًا بلا انتظار. الآن دلو ذرّي (سياسة api.token، 60/دقيقة).
+  // يفشل مفتوحًا كما كان: التوكن موثَّق، والنطاقات والحصص تُفرض في أماكنها،
+  // وتعطّل القاعدة لحظيًا لا يصح أن يوقف كل التكاملات. الفشل يُسجَّل.
+  const rate = await checkRateLimit(admin, "api.token", row.id, { failClosed: false });
+  if (!rate.allowed) {
+    return { ok: false, status: 429, error: `Rate limit exceeded (${rate.limit} requests per ${rate.windowSeconds}s)`, headers: rateLimitHeaders(rate) };
   }
 
   const ip = req.headers.get("x-forwarded-for") || "";

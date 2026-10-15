@@ -24,6 +24,7 @@
 // نقبل الاسمين معًا حتى لا يتعلّق الإصلاح على ترتيب نشر الواجهة.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { trustedClientIp } from "../_shared/rate-limit.js"
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
@@ -73,7 +74,9 @@ Deno.serve(async (req) => {
     // نقبل `otp` و`code`: الواجهة كانت ترسل الثاني والدالة تقرأ الأول.
     const otp = String(body?.otp ?? body?.code ?? "").trim()
 
-    const ip = req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for") || "unknown"
+    // IP من المنصة (cf-connecting-ip) لا من X-Forwarded-For: حدّ الـIP في
+    // otp_attempt_gate كان يُتجاوز بتغيير الترويسة في كل محاولة.
+    const ip = trustedClientIp(req) ?? "unknown"
     const userAgent = req.headers.get("user-agent") || "unknown"
 
     if (!otp) {

@@ -3,10 +3,10 @@ import { CORS_HEADERS } from "./_shared/cors.ts";
 import { verifyApiToken, requireScope } from "./_shared/api-auth.ts";
 import { sendTextMessage, sendTemplateMessage } from "./_shared/whatsapp-service.ts";
 
-function json(body: unknown, status = 200) {
+function json(body: unknown, status = 200, extra: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS, ...extra },
   });
 }
 
@@ -15,7 +15,7 @@ Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json({ error: "Only POST is supported" }, 405);
 
   const auth = await verifyApiToken(req, "/send-whatsapp");
-  if (!auth.ok) return json({ error: auth.error }, auth.status);
+  if (!auth.ok) return json({ error: auth.error }, auth.status, auth.headers ?? {});
 
   const scopeErr = requireScope(auth.token, "whatsapp:send");
   if (scopeErr) return json({ error: scopeErr.error }, scopeErr.status);
