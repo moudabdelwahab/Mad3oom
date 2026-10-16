@@ -14,7 +14,8 @@ import { chromium } from 'playwright';
 // الوحدة تستورد authority-center بمسار مطلق للمتصفح؛ الأجزاء الخالصة لا تحتاجه
 const govSrc = fs.readFileSync(new URL('../assets/js/owner/tenancy-governance.js', import.meta.url), 'utf8')
     .replace("import { applyCriticalState } from '/assets/js/owner/authority-center.js';", 'const applyCriticalState = () => {};');
-const { reasonError, flattenUnits, reviewRow, GUARDED_SWITCHES, historicalHours, exceptionalTransferError } = await import('data:text/javascript,' + encodeURIComponent(govSrc));
+const { reasonError, flattenUnits, reviewRow, GUARDED_SWITCHES, historicalHours, exceptionalTransferError,
+        delegationExpiry, defaultDelegationExpiry } = await import('data:text/javascript,' + encodeURIComponent(govSrc));
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
@@ -45,6 +46,7 @@ function resolveChromium() {
 const OWNER = '11111111-1111-4111-8111-111111111111';
 const ADMIN = '44444444-4444-4444-8444-444444444444';
 const UNIT = 'u0000000-0000-4000-8000-000000000001';
+const SUPPORT = '55555555-5555-4555-8555-555555555555';
 
 function fixtures({ fresh = false, missing = false } = {}) {
     const gov = missing ? {} : {
@@ -59,8 +61,14 @@ function fixtures({ fresh = false, missing = false } = {}) {
         owner_decide_access_request: { status: 'approved' },
         owner_admin_reviews: [{ user_id: ADMIN, name: 'إداري', decision: 'pending', mfa_ready: false, ready_to_apply: false,
                                 snapshot: { role: 'admin' }, now: { role: 'admin', authority: null, open_assigned_tickets: 1,
-                                                                    open_continuity_owned: 0, active_delegations: 0 } }],
+                                                                    open_continuity_owned: 0, active_delegations: 0,
+                                                                    open_company_tickets: 2 } },
+                              { user_id: SUPPORT, name: 'دعم', decision: 'keep', mfa_ready: true, ready_to_apply: false,
+                                applied_at: '2026-10-14T10:00:00Z', snapshot: { role: 'support' },
+                                now: { role: 'support', open_assigned_tickets: 0, open_continuity_owned: 0, active_delegations: 0 } }],
         owner_decide_admin_review: { decision: 'keep' },
+        owner_reassign_admin_tickets: { tickets: 1 },
+        owner_grant_delegation: { delegation_id: 'g1' },
         owner_hierarchy: { enabled: false, capabilities: [{ key: 'companies.view_registry', label: 'سجل الشركات' }],
                            units: [{ id: UNIT, parent_id: null, name: 'الإدارة العامة', members: [], companies: [], delegations: [] }],
                            unassigned_companies: [{ company_id: 'c1', name: 'شركة أ', status: 'active' }] },
@@ -91,7 +99,8 @@ function fixtures({ fresh = false, missing = false } = {}) {
         tables: {
             profiles: [
                 { id: OWNER, email: 'owner@example.com', full_name: 'محمود', role: 'platform_owner' },
-                { id: ADMIN, email: 'admin@example.com', full_name: 'إداري', role: 'admin' }
+                { id: ADMIN, email: 'admin@example.com', full_name: 'إداري', role: 'admin' },
+                { id: SUPPORT, email: 'support@example.com', full_name: 'دعم', role: 'support' }
             ],
             platform_authority: [{ user_id: OWNER, level: 'owner', granted_at: '2026-09-15T00:00:00Z' }],
             platform_capability_grants: [], privileged_audit: [], owner_context_audit: [], companies: [{ id: 'c1' }],
@@ -139,6 +148,18 @@ test('الأجزاء الخالصة: السبب، الشجرة، صف المرا
                           now: { role: 'admin', open_assigned_tickets: 2, open_continuity_owned: 1, active_delegations: 0 } });
     assert.equal(r.openWork, 3);
     assert.equal(r.canApply, false);
+    // 103: تذاكر الشركات للعلم فقط، والقرار المطبَّق نهائي
+    const r2 = reviewRow({ user_id: 'y', decision: 'keep', applied_at: '2026-10-14T00:00:00Z',
+                           now: { open_assigned_tickets: 1, open_company_tickets: 4 } });
+    assert.deepEqual([r2.supportTickets, r2.companyTickets, r2.openWork, r2.applied], [1, 4, 1, true]);
+    // 103 L3: تاريخ انتهاء التفويض مطلوب، بعد الآن، وخلال 90 يومًا
+    const now = new Date('2026-10-14T10:00:00Z');
+    assert.equal(defaultDelegationExpiry(now), '2026-10-21');
+    assert.deepEqual(delegationExpiry('2026-10-21', now), { iso: '2026-10-21T23:59:59.000Z' });
+    assert.ok(delegationExpiry('', now).error);
+    assert.ok(delegationExpiry('2026-10-13', now).error);
+    assert.ok(delegationExpiry('2027-01-13', now).error);
+    assert.equal(delegationExpiry('2027-01-11', now).iso, '2027-01-11T23:59:59.000Z');
     assert.deepEqual(GUARDED_SWITCHES, ['company_isolation_enforced', 'data_access_grants_enabled', 'historical_access_enabled']);
     // 101
     assert.deepEqual([historicalHours('0'), historicalHours(500), historicalHours('x'), historicalHours('48')], [1, 168, 24, 48]);
@@ -206,6 +227,42 @@ test('الموافقة على طلب وصول، وقرار مراجعة، وإس
     await page.click('#govAssignForm button');
     await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_assign_company_unit'));
     assert.deepEqual((await calls(page, 'owner_assign_company_unit'))[0], { p_company: 'c1', p_unit: UNIT, p_reason: 'مراجعة مبررة وموثقة' });
+    await context.close();
+});
+
+test('103: تسليم تذاكر مدعوم قبل التحويل، القرار المطبَّق نهائي، والتفويض بتاريخ انتهاء', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openOwner(browser, baseUrl, fixtures({ fresh: true }));
+    await page.waitForSelector(`[data-handover="${ADMIN}"]:not([disabled])`);
+    assert.match(await page.textContent('#govReviews'), /تذاكر شركات مسندة \(للعلم\): 2/);
+    assert.equal(await page.locator(`[data-review-decision="${SUPPORT}"]`).count(), 0, 'تغيير قرار مطبَّق');
+    assert.equal(await page.locator(`[data-review-save="${SUPPORT}"]`).count(), 0);
+    assert.equal(await page.locator(`[data-handover="${SUPPORT}"]`).count(), 0, 'تسليم بلا تذاكر');
+    assert.match(await page.textContent(`[data-review-row="${SUPPORT}"]`), /القرار نهائي/);
+    // التسليم: المستلم ثم السبب
+    await page.click(`[data-handover="${ADMIN}"]`);
+    assert.match(await page.textContent('#govStatus'), /من يستلم/);
+    await page.selectOption(`[data-handover-to="${ADMIN}"]`, SUPPORT);
+    assert.equal(await page.locator(`[data-handover-to="${ADMIN}"] option[value="${ADMIN}"]`).count(), 0, 'التسليم للنفس');
+    await page.fill('#govReason', 'تسليم قبل تحويل الحساب');
+    await page.click(`[data-handover="${ADMIN}"]`);
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_reassign_admin_tickets'));
+    assert.deepEqual((await calls(page, 'owner_reassign_admin_tickets'))[0], { p_from: ADMIN, p_to: SUPPORT, p_reason: 'تسليم قبل تحويل الحساب' });
+    // التفويض: تاريخ الانتهاء الافتراضي 7 أيام، ومطلوب
+    await page.waitForSelector('#govDelegateForm button:not([disabled])');
+    assert.equal(await page.inputValue('#govDelegateExpiry'), new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10));
+    await page.check('#govDelegateForm [data-cap]');
+    await page.fill('#govDelegateExpiry', '');
+    await page.click('#govDelegateForm button');
+    assert.match(await page.textContent('#govStatus'), /تاريخ انتهاء/);
+    assert.deepEqual(await calls(page, 'owner_grant_delegation'), []);
+    const date = new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10);
+    await page.fill('#govDelegateExpiry', date);
+    await page.click('#govDelegateForm button');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_grant_delegation'));
+    const [g] = await calls(page, 'owner_grant_delegation');
+    assert.equal(g.p_expires_at, `${date}T23:59:59.000Z`);
+    assert.deepEqual(g.p_capabilities, ['companies.view_registry']);
+    assert.deepEqual(errors, []);
     await context.close();
 });
 

@@ -60,7 +60,8 @@ export function safeEqualHex(a, b) {
 
 /**
  * يتحقق من رأسَي التوقيع والطابع الزمني. hmac(secret, message) ⇒ hex (يُحقن: Web Crypto في Deno، crypto في Node).
- * ⇒ { ok: true } أو { ok: false, status, code }.
+ * ⇒ { ok: true, nonce } أو { ok: false, status, code }. nonce = التوقيع المتحقَّق منه (hex): القاعدة تقبله مرة واحدة
+ * (104 L5)، فإعادة إرسال الطلب الموقَّع نفسه خلال نافذة الدقائق الخمس تُرفض.
  */
 export async function verifyScanSignature({ secret, signature, timestamp, body, now, hmac }) {
     if (!secret || secret.length < 32) return { ok: false, status: 503, code: 'scanner_not_configured' };
@@ -69,7 +70,7 @@ export async function verifyScanSignature({ secret, signature, timestamp, body, 
     if (Math.abs(Math.floor(now / 1000) - ts) > SCAN_MAX_SKEW_SECONDS) return { ok: false, status: 401, code: 'stale_signature' };
     const given = String(signature || '').replace(/^sha256=/, '').toLowerCase();
     const expected = await hmac(secret, `${ts}.${body}`);
-    return safeEqualHex(given, expected) ? { ok: true } : { ok: false, status: 401, code: 'bad_signature' };
+    return safeEqualHex(given, expected) ? { ok: true, nonce: expected } : { ok: false, status: 401, code: 'bad_signature' };
 }
 
 /** جسم نتيجة الفحص. ⇒ { version_id, result, engine, detail } أو null. */

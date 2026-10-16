@@ -3,9 +3,15 @@
 --
 -- حماية البيانات: يرفض التراجع إن كان المفتاح مفعّلًا، أو وُجد أي مستند أو إصدار أو سجل أو حجز
 -- قانوني أو تشغيل احتفاظ، أو أي ملف في المستودع — مستندات الشركات وسجلها لا تُحذف بتراجع.
+--
+-- الترتيب (REVIEW_FOLLOWUPS L5): 104 قبل 100، و100 قبل 099. يرفض قبل أي تغيير إن كان 104 مطبَّقًا.
+-- يُشغَّل في معاملة واحدة: psql --single-transaction -v ON_ERROR_STOP=1 -f <هذا الملف>
 -- ============================================================================
 do $$
 begin
+  if to_regprocedure('public.document_upload_commit_server(uuid,uuid,text)') is not null then
+    raise exception 'التراجع عن 100 مرفوض: 104 مطبَّق — تراجع عن 104 أولًا';
+  end if;
   if exists (select 1 from public.platform_feature_switches where key = 'company_documents_enabled' and enabled) then
     raise exception 'التراجع عن 100 مرفوض: مفتاح المستندات مفعّل — أطفئه أولًا';
   end if;

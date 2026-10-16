@@ -3,9 +3,19 @@
 --
 -- حماية البيانات: يرفض التراجع إن كان مفتاح من مفاتيح 099 مفعّلًا، أو وُجدت وحدة أو تفويض أو سجل
 -- هيكل (إلحاقي)، أو قرار مراجعة مُتَّخذ — تاريخ إداري لا يُحذف بتراجع.
+--
+-- الترتيب (REVIEW_FOLLOWUPS L5): 104 ← 103 ← 102 ← 101 ← 100 ← 099. يرفض قبل أي تغيير إن كان 100 أو 103
+-- مطبَّقًا (company_documents.assigned_unit يشير إلى admin_units، فكان الحذف يفشل في منتصفه).
+-- يُشغَّل في معاملة واحدة: psql --single-transaction -v ON_ERROR_STOP=1 -f <هذا الملف>
 -- ============================================================================
 do $$
 begin
+  if to_regclass('public.company_documents') is not null then
+    raise exception 'التراجع عن 099 مرفوض: 100 مطبَّق — تراجع عن 100 أولًا';
+  end if;
+  if to_regprocedure('public._hierarchy_release_user(uuid,text)') is not null then
+    raise exception 'التراجع عن 099 مرفوض: 103 مطبَّق — تراجع عن 103 أولًا';
+  end if;
   if exists (select 1 from public.platform_feature_switches
               where key in ('delegation_enabled', 'company_suspension_enforced') and enabled) then
     raise exception 'التراجع عن 099 مرفوض: مفتاح التفويض أو الإيقاف مفعّل — أطفئه أولًا';
