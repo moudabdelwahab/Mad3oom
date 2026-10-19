@@ -262,7 +262,7 @@ function requestForm(d) {
     const companies = (options.companies || []).filter(c => c.status !== 'suspended')
         .map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
     const types = Object.entries(REQUEST_TYPES).map(([k, v]) =>
-        `<option value="${esc(k)}">${esc(v)}${k === 'transfer_direct_to_company' ? ' — التنفيذ غير متاح بعد' : ''}</option>`).join('');
+        `<option value="${esc(k)}">${esc(v)}</option>`).join('');
     return `<form class="cm-form" id="cmRequestForm" novalidate data-key="${esc(newIdempotencyKey())}">
         <strong>طلب حساب (يقرره مالك المنصة)</strong>
         <p class="cm-note cm-muted">إرسال الطلب لا يغيّر ارتباط العميل ولا ملكيته. العميل يُحدَّد بمعرّفه الثابت، والبريد للتحقق فقط.</p>
@@ -271,7 +271,7 @@ function requestForm(d) {
         <label>بريد آخر للتواصل (اختياري — لن يتغير بريد الدخول)<input id="cmReqTarget" type="email" class="cm-ltr" maxlength="320" autocomplete="off"></label>
         <label>الشركة الوجهة<select id="cmReqCompany"><option value="">اختر شركة…</option>${companies}</select></label>
         <label>السبب<textarea id="cmReqReason" maxlength="500"></textarea></label>
-        <p class="cm-note cm-tone-warn" id="cmReqTransferNote" hidden>النقل الكامل غير متاح بعد: يمكن إرسال الطلب ومراجعته، لكن لا يمكن الموافقة عليه وتنفيذه حتى يكتمل تصميم النقل.</p>
+        <p class="cm-note cm-tone-warn" id="cmReqTransferNote" hidden>النقل يُنهي علاقة العميل المباشرة بالمنصة ويجعله عميلًا للشركة بنفس حسابه. تذاكره ومحادثاته السابقة تبقى خاصة به، واشتراكاته باسمه، وحصة تذاكره الجديدة على خطة الشركة. يُرفض إن كان له اشتراك شخصي نشط.</p>
         <div class="cm-actions"><button type="submit" class="btn btn-primary btn-sm">إرسال الطلب</button></div>
         <p class="cm-status" id="cmReqStatus" role="status" aria-live="polite"></p>
     </form>`;

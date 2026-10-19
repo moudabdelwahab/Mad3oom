@@ -611,7 +611,10 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //   105 — هيكل الحسابات: «عميل مباشر» علاقة صريحة، مدير الحساب مسؤولية بلا صلاحية، دليل عملاء على الخادم
     //         لمن يقرأ الحسابات اليوم، وطلبات الحسابات بقرار المالك وحده (لا موافقة بلا تنفيذ؛ النقل الكامل
     //         غير متاح بعد). account_request_execution_enabled مطفأ. مقيسٌ في tests/sql/account-hierarchy-customers.test.sql.
-    assert.equal(migrations[migrations.length - 1], '105_account_hierarchy_customers.sql',
+    //   106 — تنفيذ طلبات الحسابات فعليًا: الإضافة والنقل (نفس الهوية، العلاقة المباشرة ومدير الحساب يُنهيان، التاريخ
+    //         خاص بالعزل، اشتراك شخصي نشط يمنع التنفيذ)، والفشل يُسجَّل والطلب قابل للاستئناف. مشروط بالمفاتيح
+    //         المطفأة نفسها. مقيسٌ في tests/sql/account-request-execution.test.sql.
+    assert.equal(migrations[migrations.length - 1], '106_account_request_execution.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
