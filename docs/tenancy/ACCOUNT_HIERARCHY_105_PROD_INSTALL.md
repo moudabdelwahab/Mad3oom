@@ -44,7 +44,7 @@ select count(*) from public.platform_feature_switches where enabled;            
 ```
 
 4. Deploy the frontend files listed in `ACCOUNT_HIERARCHY_105.md` §6. Before 105 is applied, the pages show an error state because the RPCs are missing.
-5. No Edge Function and no secret is involved.
+5. **Edge Function (separate approval):** redeploy `create-sub-user` from the merged commit. It now marks company-created accounts with `app_metadata.company_created`. Until it is redeployed, the database fallback ends the direct relationship it would otherwise create. No secret is involved.
 
 ## Rollback
 
@@ -52,7 +52,7 @@ select count(*) from public.platform_feature_switches where enabled;            
 psql --single-transaction -v ON_ERROR_STOP=1 -f migrations/_rollback/105_account_hierarchy_customers.down.sql
 ```
 
-The rollback refuses before changing anything while:
+The rollback first takes exclusive locks on its tables, so nothing can be written between its checks and the drops. It refuses before changing anything while:
 - the execution switch is on;
 - any account request or manager assignment exists;
 - any membership came from a request;

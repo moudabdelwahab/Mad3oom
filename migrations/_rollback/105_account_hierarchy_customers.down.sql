@@ -10,6 +10,9 @@
 -- ============================================================================
 do $$
 begin
+  -- أقفال أولًا: لا طلب ولا إسناد يُكتب بين الفحص والحذف (تبقى حتى نهاية المعاملة مع --single-transaction)
+  lock table public.account_requests, public.customer_account_managers, public.platform_direct_customers,
+             public.company_memberships, public.platform_capability_grants in exclusive mode;
   if exists (select 1 from public.platform_feature_switches where key = 'account_request_execution_enabled' and enabled) then
     raise exception 'التراجع عن 105 مرفوض: account_request_execution_enabled مفعّل — أطفئه أولًا';
   end if;
@@ -63,7 +66,7 @@ drop function if exists public.account_request_submit(text, uuid, text, text, uu
 drop function if exists public._account_request_notify_owners();
 drop function if exists public._account_request_execution(text, uuid);
 drop function if exists public._account_request_first_failure(jsonb);
-drop function if exists public._account_request_checks(text, uuid, text, text, uuid, uuid);
+drop function if exists public._account_request_checks(text, uuid, text, text, uuid, uuid, uuid);
 drop function if exists public._email_norm(text);
 drop function if exists public.customer_manager_assign(uuid, uuid, text);
 drop function if exists public.admin_customer_details(uuid);

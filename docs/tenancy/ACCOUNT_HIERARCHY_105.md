@@ -75,23 +75,28 @@ A direct relationship is **independent** of company memberships. A direct custom
 
 | Object | Purpose |
 |---|---|
-| `platform_direct_customers(id, user_id, since, source backfill/signup, ended_at, ended_by, end_cause)` | Explicit direct relationship. Backfill covers `role = 'user'`, no `super_user_id`, no active membership and no company (33 in production). Trigger `trg_direct_customer_on_signup` covers each new self-signup with no company |
+| `platform_direct_customers(id, user_id, since, source backfill/signup, ended_at, ended_by, end_cause)` | Explicit direct relationship. Backfill covers `role` in (`user`, `customer`), no `super_user_id`, no active membership and no company (33 in production). Trigger `trg_direct_customer_on_signup` covers each new account with no company, **except** accounts that `create-sub-user` marks with the service-only `app_metadata.company_created` flag |
 | `customer_account_managers(id, customer_id, manager_id, scope 'platform', company_id null, assigned_by, assigned_at, reason, ended_*)` | One active per (customer, scope, company). `scope = 'company'` is reserved; the check widens with `company_id` when needed |
 | `account_requests(id, request_type, customer_id, customer_email, target_email, company_id, reason, requested_by, requested_at, idempotency_key, snapshot, status, decided_by, decided_at, decision_reason, outcome)` | One pending per customer (unique partial index); `(requested_by, idempotency_key)` unique; `requested_by <> decided_by` enforced by a CHECK |
 | `trg_customer_history_guard` | No delete. Only ending/deciding a row in place. A finalized request is immutable; material fields of a pending one are immutable |
-| `trg_customer_relationships_on_profile` | On delete: end direct, manager rows and pending requests. On role/ban change: end that manager's active assignments (`manager_ineligible`, not revived on unban) |
+| `trg_customer_relationships_on_profile` | On delete: end direct, manager rows and pending requests. On role/ban change: end that manager's active assignments (`manager_ineligible`, not revived on unban) and cancel that requester's pending requests (`requester_ineligible`). If the service role attaches a fresh `signup` account to a company (the pre-flag `create-sub-user` path), the direct row ends with `company_created` |
 | `trg_account_requests_company_deleted` | Cancels pending requests of a deleted company |
 | `_guard_isolation_after_transfers` (101, extended) | Isolation and 098 cannot be turned off after an approved request |
 | `platform_capability_grants` check | + `customers.assign_manager` |
 | `company_memberships.joined_via` check | + `account_request` |
 | Switch `account_request_execution_enabled` | OFF. Required, with isolation and 098, to execute an approval |
 
-**Reads that are new for platform admins** (deliberate; review them):
-- company **names and status** (directory column, filter list). Admins already see company data in the 068 request list; `companies` itself is not readable by them directly.
+**Reads that are new for platform admins** (role `admin`, or the owner in staff/admin context). These are deliberate; please review them:
+- company **names and status**, including suspended companies (directory column, filter list). Admins already see company data in the 068 request list; `companies` itself is not readable by them directly.
+- a customer's **company-staff role and company** (from `company_staff`, which admins cannot read directly).
+- a customer's **memberships**: current and ended, primary flag, how they joined, end cause.
 - a customer's **membership history** (`company_membership_events`: action, company, actor, time).
+- a **pending 101 transfer** flag and count for a customer.
+- **every account request** about a customer (type, status, company), including other admins' requests. «My requests» shows only your own.
+- **account-manager assignments**: manager, who assigned them, reason, end cause.
 - `whatsapp_subscriptions`, which admins already read (`is_admin()` policy).
 
-Nothing else widens.
+Nothing else widens. `privileged_audit` rows stay owner-only, and the company contact email is shown only to the owner, in request details.
 
 All three tables have RLS on, a restrictive `gate_account_active` policy, **no permissive policy** and no grants (`revoke all … from public, anon, authenticated, service_role`). There are no foreign keys to accounts or companies (the 086/096/101/103 convention). The self-check refuses if any RLS policy mentions the new tables.
 
@@ -131,10 +136,11 @@ All three tables have RLS on, a restrictive `gate_account_active` policy, **no p
   4. not self;
   5. execution available;
   6. lock the customer;
-  7. re-run every check: email unchanged, customer not suspended, still a customer, company exists and is active, not already a member, no pending transfer, no other pending request;
+  7. re-run every check: email unchanged, customer not suspended, still a customer, company exists and is active, not already a member, no pending transfer, no other pending request, **requester still an admin and not suspended**;
   8. insert the membership (primary if none, else secondary) + 096 event + mirror;
-  9. **verify the result** (an active customer membership; the mirror points to the company owner);
-  10. mark approved; audit; notify.
+  9. (the locks: company `FOR SHARE` → customer profile → request; feature switches `FOR SHARE`, so switching isolation off at the same moment waits and is then refused by the guard — tested with two sessions)
+  10. **verify the result** (an active customer membership; the mirror points to the company owner);
+  11. mark approved; audit; notify.
 
   Any failure raises and rolls back everything, so the request stays pending (tested with an injected failure).
 - **Replay and concurrency:**
@@ -226,4 +232,6 @@ Being an account manager grants **nothing**: no RLS policy reads `customer_accou
 3. **Full transfer** (direct → company ownership, billing, history): design only, see `CUSTOMER_TRANSFER_DESIGN.md`.
 4. **Legacy screens** (`super-users.js`, `my-users.js`, MCP visibility) still list followers through `super_user_id`. Decide whether to migrate them to memberships, which would be a separate change.
 5. **Account managers in support role**: allowed (they are platform staff). Restrict to `admin` if preferred; it is a one-line change in `_account_manager_eligible`.
-6. **Company-scope account managers**: reserved (`scope = 'company'`). They would be assigned by company admins under 098 permissions.
+6. **Deploy `create-sub-user`** from this commit together with applying 105. It sets the `company_created` flag. Until then, the database fallback ends the direct row it creates for company sub-users.
+7. **101 transfers (follow-up):** `_transfer_execute` does not take the same `FOR SHARE` lock on the isolation switches, so a transfer completing at the exact moment the owner switches isolation off could slip past the guard. This is not exploitable while transfers are off. Fix it in a forward migration before `customer_transfers_enabled` is turned on.
+8. **Company-scope account managers**: reserved (`scope = 'company'`). They would be assigned by company admins under 098 permissions.

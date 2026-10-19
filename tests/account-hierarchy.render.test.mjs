@@ -386,6 +386,15 @@ test('لا مالك ولا مقدّم طلبات: رسالة صريحة بلا �
     await context.close();
 });
 
+test('create-sub-user يعلّم حساب الشركة بعلامة الخدمة وحده (لا علاقة مباشرة له)', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'supabase/functions/create-sub-user/index.ts'), 'utf8');
+    assert.match(src, /\.\.\.\(attachToCompany \? \{ app_metadata: \{ company_created: true \} \} : \{\}\)/);
+    // العلامة في app_metadata (لا يكتبها المستخدم)، لا في user_metadata
+    assert.doesNotMatch(src, /user_metadata:[^}]*company_created/);
+    const mig = fs.readFileSync(path.join(ROOT, 'migrations/105_account_hierarchy_customers.sql'), 'utf8');
+    assert.match(mig, /raw_app_meta_data ->> 'company_created'/);
+});
+
 test('الواجهة لا تحمل مفتاح خدمة ولا تكتب في جداول 105 مباشرةً', () => {
     for (const f of ['assets/js/admin/customers.js', 'assets/js/admin/account-requests.js', 'assets/js/admin/customers-model.js',
                      'admin/customers.html', 'admin/account-requests.html']) {

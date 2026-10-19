@@ -78,7 +78,7 @@ create table if not exists public.platform_direct_customers (
   source    text not null check (source in ('backfill', 'signup')),
   ended_at  timestamptz,
   ended_by  uuid,
-  end_cause text check (end_cause in ('account_deleted', 'transferred')),
+  end_cause text check (end_cause in ('account_deleted', 'transferred', 'company_created')),
   constraint platform_direct_customers_ended_iff check ((ended_at is null) = (end_cause is null))
 );
 comment on table public.platform_direct_customers is
@@ -216,11 +216,12 @@ end $$;
 -- ============================================================================
 -- 3) العلاقة المباشرة: ملء أولي + كل تسجيل جديد بلا شركة
 -- ============================================================================
--- الحساب الفردي القائم: رتبة user، لا يتبع مالك شركة، ولا عضوية نشطة له. (الإنتاج 2026-10-19: 33)
+-- الحساب الفردي القائم: رتبة user (أو customer: حساب مستقل أنشأه الطاقم، 035)، لا يتبع مالك شركة، ولا عضوية
+-- نشطة له. (الإنتاج 2026-10-19: 33)
 insert into public.platform_direct_customers (user_id, since, source)
 select p.id, coalesce(p.created_at, now()), 'backfill'
   from public.profiles p
- where coalesce(p.role, 'user') = 'user'
+ where coalesce(p.role, 'user') in ('user', 'customer')
    and p.super_user_id is null
    and not exists (select 1 from public.company_memberships m where m.user_id = p.id and m.status = 'active')
    and not exists (select 1 from public.companies c where c.user_id = p.id)
@@ -233,8 +234,11 @@ security definer
 set search_path to 'public'
 as $$
 begin
-  -- حساب أنشأته شركة (super_user_id مضبوط) أو برتبة طاقم: ليس عميلًا مباشرًا
-  if new.super_user_id is null and coalesce(new.role, 'user') = 'user' then
+  -- حساب أنشأته شركة أو برتبة طاقم: ليس عميلًا مباشرًا. create-sub-user يُنشئ الحساب أولًا (handle_new_user:
+  -- رتبة user بلا super_user_id) ثم يربطه بالشركة؛ فيعلّمه بـ app_metadata.company_created (لا يكتبها إلا
+  -- مفتاح الخدمة). وللنسخ المنشورة قبل هذه العلامة: الربط بالخدمة بعد الإنشاء مباشرة يُنهي العلاقة (القسم 9).
+  if new.super_user_id is null and coalesce(new.role, 'user') in ('user', 'customer')
+     and coalesce((select u.raw_app_meta_data ->> 'company_created' from auth.users u where u.id = new.id), '') <> 'true' then
     insert into public.platform_direct_customers (user_id, since, source)
     values (new.id, coalesce(new.created_at, now()), 'signup')
     on conflict do nothing;
@@ -511,6 +515,9 @@ declare
   p public.profiles;
 begin
   perform public._customer_directory_require();
+  if p_customer is null then
+    raise exception 'الحساب غير موجود في دليل العملاء' using errcode = 'P0002', detail = '{"code":"not_found"}';
+  end if;
   select * into a from public._customer_accounts(p_customer);
   if a.id is null or a.account_type = 'platform_staff' then
     raise exception 'الحساب غير موجود في دليل العملاء' using errcode = 'P0002', detail = '{"code":"not_found"}';
@@ -680,7 +687,8 @@ as $$ select nullif(lower(btrim(coalesce(p, ''))), '') $$;
 
 -- كل شروط الطلب، تُحسب الآن (عند الإرسال وعند القرار ولعرض المالك). البريد للتحقق وحده.
 create or replace function public._account_request_checks(p_type text, p_customer uuid, p_customer_email text,
-                                                          p_target_email text, p_company uuid, p_exclude uuid default null)
+                                                          p_target_email text, p_company uuid, p_exclude uuid default null,
+                                                          p_requester uuid default null)
 returns jsonb
 language plpgsql
 stable
@@ -731,6 +739,11 @@ begin
   r := r || jsonb_build_object('code', 'no_conflicting_request', 'ok',
               not exists (select 1 from public.account_requests q
                            where q.customer_id = p_customer and q.status = 'pending' and q.id is distinct from p_exclude));
+  -- عند القرار: مقدّم الطلب ما زال إداريًا غير محظور (طلب من أُقيل أو حُظر لا يُنفَّذ)
+  if p_requester is not null then
+    r := r || jsonb_build_object('code', 'requester_eligible', 'ok',
+                exists (select 1 from public.profiles p where p.id = p_requester and p.role = 'admin' and not public.is_banned(p.id)));
+  end if;
   return r;
 end $$;
 
@@ -842,14 +855,24 @@ begin
   end if;
 
   select * into a from public._customer_accounts(p_customer);
-  insert into public.account_requests (request_type, customer_id, customer_email, target_email, company_id, reason,
-                                       requested_by, idempotency_key, snapshot)
-  values (p_type, p_customer, public._email_norm(p_customer_email),
-          case when v_target = public._email_norm(a.email) then null else v_target end,
-          p_company, v_reason, v_uid, p_idempotency_key,
-          jsonb_build_object('account_type', a.account_type, 'is_direct', a.is_direct,
-                             'primary_company_id', a.primary_company_id, 'member_company_ids', to_jsonb(a.member_company_ids)))
-  returning * into x;
+  begin
+    insert into public.account_requests (request_type, customer_id, customer_email, target_email, company_id, reason,
+                                         requested_by, idempotency_key, snapshot)
+    values (p_type, p_customer, public._email_norm(p_customer_email),
+            case when v_target = public._email_norm(a.email) then null else v_target end,
+            p_company, v_reason, v_uid, p_idempotency_key,
+            jsonb_build_object('account_type', a.account_type, 'is_direct', a.is_direct,
+                               'primary_company_id', a.primary_company_id, 'member_company_ids', to_jsonb(a.member_company_ids)))
+    returning * into x;
+  exception when unique_violation then
+    -- ضغطتان متزامنتان بنفس المفتاح: الثانية تعيد الطلب نفسه
+    select * into x from public.account_requests where requested_by = v_uid and idempotency_key = p_idempotency_key;
+    if x.id is not null then
+      return jsonb_build_object('request_id', x.id, 'status', x.status, 'replayed', true);
+    end if;
+    raise exception 'تعذّر إرسال الطلب: no_conflicting_request' using errcode = '23505',
+      detail = '{"code":"no_conflicting_request"}';
+  end;
   perform public.log_privileged('account_request.submitted', p_customer, null,
                                 jsonb_build_object('request_id', x.id, 'type', p_type, 'company_id', p_company));
   perform public._account_request_notify_owners();
@@ -1035,7 +1058,7 @@ begin
         'owner_name', public._profile_name(c.user_id)) end,
     'checks', case when r.status = 'pending'
                    then public._account_request_checks(r.request_type, r.customer_id, r.customer_email, r.target_email,
-                                                       r.company_id, r.id) end,
+                                                       r.company_id, r.id, r.requested_by) end,
     'execution', case when r.status = 'pending' then public._account_request_execution(r.request_type, r.customer_id) end,
     'self_requested', r.requested_by = auth.uid(),
     'can_decide', r.status = 'pending' and r.requested_by <> auth.uid() and coalesce(public.owner_critical_ok(), false));
@@ -1056,6 +1079,7 @@ declare
   v_primary boolean;
   v_mid     uuid;
   v_owner   uuid;
+  v_ids     record;
 begin
   if v_uid is null or not coalesce(public.account_is_active(), false) or coalesce(public.preview_mode(), true) then
     raise exception 'غير مصرّح' using errcode = '42501', detail = '{"code":"not_authorized"}';
@@ -1066,6 +1090,11 @@ begin
   if p_approve is null then
     raise exception 'القرار مطلوب' using errcode = '22023', detail = '{"code":"decision_required"}';
   end if;
+  -- ترتيب الأقفال ثابت: الشركة ← حساب العميل ← الطلب — نفس ترتيب حذف الشركة أو الحساب (يقفلان صفّهما ثم
+  -- يلغيان الطلب المعلّق بمحفّز)، فلا قفل متبادل. الشركة بقفل مشترك: لا إيقاف ولا حذف أثناء القرار.
+  select customer_id, company_id into v_ids from public.account_requests where id = p_request;
+  perform 1 from public.companies where id = v_ids.company_id for share;
+  perform 1 from public.profiles where id = v_ids.customer_id for update;
   -- القفل يرتّب قرارين متزامنين؛ الثاني يجد الطلب نهائيًا
   select * into r from public.account_requests where id = p_request for update;
   if r.id is null then
@@ -1091,16 +1120,21 @@ begin
     return jsonb_build_object('request_id', r.id, 'status', 'rejected');
   end if;
 
-  -- الموافقة = التنفيذ. ما لا يمكن تنفيذه لا يُوافَق عليه: يبقى الطلب معلّقًا
+  -- الموافقة = التنفيذ. ما لا يمكن تنفيذه لا يُوافَق عليه: يبقى الطلب معلّقًا.
+  -- قفل مشترك على مفاتيح التنفيذ: إطفاء العزل في اللحظة نفسها ينتظر هذه المعاملة ثم يرى الموافقة فيرفضه الحارس
+  perform 1 from public.platform_feature_switches
+   where key in ('account_request_execution_enabled', 'company_isolation_enforced', 'company_permissions_enabled',
+                 'multi_company_memberships_enabled')
+   for share;
   v_exec := public._account_request_execution(r.request_type, r.customer_id);
   if not coalesce((v_exec ->> 'available')::boolean, false) then
     raise exception 'لا يمكن تنفيذ هذا الطلب بعد (%) — يبقى معلّقًا', v_exec ->> 'code'
       using errcode = '0A000', detail = jsonb_build_object('code', v_exec ->> 'code', 'missing', v_exec -> 'missing')::text;
   end if;
 
-  perform 1 from public.profiles where id = r.customer_id for update;
   v_fail := public._account_request_first_failure(
-              public._account_request_checks(r.request_type, r.customer_id, r.customer_email, r.target_email, r.company_id, r.id));
+              public._account_request_checks(r.request_type, r.customer_id, r.customer_email, r.target_email, r.company_id, r.id,
+                                             r.requested_by));
   if v_fail is not null then
     raise exception 'تغيّر حال العميل أو الشركة منذ الطلب (%) — لم يُنفَّذ شيء', v_fail
       using errcode = '55000', detail = jsonb_build_object('code', 'revalidation_failed', 'check', v_fail)::text;
@@ -1186,11 +1220,23 @@ begin
     update public.customer_account_managers set ended_at = now(), ended_by = auth.uid(), end_cause = 'manager_ineligible'
      where manager_id = new.id and ended_at is null;
   end if;
+  -- مقدّم طلب لم يعد إداريًا أو حُظر: طلباته المعلّقة تُلغى (لا تُنفَّذ باسمه ولا تبقى بلا من يلغيها)
+  if new.role is distinct from 'admin' or public.is_banned(new.id) then
+    update public.account_requests set status = 'cancelled', decided_at = now(), decision_reason = 'requester_ineligible'
+     where status = 'pending' and requested_by = new.id;
+  end if;
+  -- create-sub-user قبل علامة company_created: الخدمة (بلا مستخدم) تربط الحساب بشركة بعد إنشائه مباشرة ⇒ لم يكن
+  -- عميلًا مباشرًا قط. مسار الإدارة العليا (بمستخدم) ومرآة 096 لا يمرّان من هنا.
+  if old.super_user_id is null and new.super_user_id is not null and auth.uid() is null
+     and coalesce(current_setting('app.membership_sync', true), '') <> 'on' then
+    update public.platform_direct_customers set ended_at = now(), end_cause = 'company_created'
+     where user_id = new.id and ended_at is null and source = 'signup' and since > now() - interval '15 minutes';
+  end if;
   return new;
 end $$;
 drop trigger if exists trg_customer_relationships_on_profile on public.profiles;
 create trigger trg_customer_relationships_on_profile
-  after update of role, ban_status, ban_until or delete on public.profiles
+  after update of role, ban_status, ban_until, super_user_id or delete on public.profiles
   for each row execute function public._customer_relationships_on_profile();
 
 create or replace function public._account_requests_on_company_deleted()
@@ -1242,7 +1288,7 @@ begin
     'public._customer_history_guard()', 'public._direct_customer_on_signup()', 'public._customer_accounts(uuid)',
     'public._customer_directory_require()', 'public._account_manager_eligible(uuid)', 'public._can_assign_managers()',
     'public._profile_name(uuid)', 'public._account_request_requester_ok()', 'public._email_norm(text)',
-    'public._account_request_checks(text,uuid,text,text,uuid,uuid)', 'public._account_request_first_failure(jsonb)',
+    'public._account_request_checks(text,uuid,text,text,uuid,uuid,uuid)', 'public._account_request_first_failure(jsonb)',
     'public._account_request_execution(text,uuid)', 'public._account_request_notify_owners()',
     'public._account_request_row(public.account_requests)', 'public._customer_relationships_on_profile()',
     'public._account_requests_on_company_deleted()'] loop
@@ -1287,7 +1333,7 @@ begin
     raise exception '105: جدول مفتوح للقراءة المباشرة';
   end if;
   if has_function_privilege('authenticated', 'public._customer_accounts(uuid)', 'execute')
-     or has_function_privilege('authenticated', 'public._account_request_checks(text,uuid,text,text,uuid,uuid)', 'execute')
+     or has_function_privilege('authenticated', 'public._account_request_checks(text,uuid,text,text,uuid,uuid,uuid)', 'execute')
      or has_function_privilege('anon', 'public.admin_customer_directory(jsonb)', 'execute')
      or has_function_privilege('anon', 'public.owner_decide_account_request(uuid,boolean,text)', 'execute') then
     raise exception '105: دالة داخلية أو واجهة مفتوحة لغير المسجَّل';

@@ -71,7 +71,8 @@ export const CHECK_LABELS = Object.freeze({
     not_company_owner: 'العميل ليس مالك الشركة',
     not_already_member: 'العميل ليس عضوًا فيها بالفعل',
     no_pending_transfer: 'لا نقل معلّق للعميل',
-    no_conflicting_request: 'لا طلب آخر معلّق للعميل'
+    no_conflicting_request: 'لا طلب آخر معلّق للعميل',
+    requester_eligible: 'مقدّم الطلب ما زال إداريًا غير موقوف'
 });
 
 // متطلبات التنفيذ (_account_request_execution)

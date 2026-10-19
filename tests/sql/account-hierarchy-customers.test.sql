@@ -59,7 +59,10 @@ CREATE FUNCTION t.x(p text) RETURNS uuid LANGUAGE sql IMMUTABLE AS $$
                  when 'K3' then '1e000000-0000-4000-8000-000000000003' when 'K4' then '1e000000-0000-4000-8000-000000000004'
                  when 'K5' then '1e000000-0000-4000-8000-000000000005' when 'K6' then '1e000000-0000-4000-8000-000000000006'
                  when 'K7' then '1e000000-0000-4000-8000-000000000007' when 'K8' then '1e000000-0000-4000-8000-000000000008'
-                 when 'K9' then '1e000000-0000-4000-8000-000000000009' end)::uuid $$;
+                 when 'K9' then '1e000000-0000-4000-8000-000000000009'
+                 when 'S1' then '0e000000-0000-4000-8000-0000000000c4' when 'S2' then '0e000000-0000-4000-8000-0000000000c5'
+                 when 'S3' then '0e000000-0000-4000-8000-0000000000c6' when 'RC' then '0e000000-0000-4000-8000-0000000000c3'
+                 when 'RE' then '0e000000-0000-4000-8000-0000000000c7' end)::uuid $$;
 CREATE FUNCTION t.sv(p text) RETURNS uuid LANGUAGE sql AS $$ select v::uuid from t.saved where k = p $$;
 CREATE FUNCTION t.dir(p uuid, p_filters jsonb) RETURNS jsonb LANGUAGE sql AS $$
   select t.call(p, format('public.admin_customer_directory(%L::jsonb)', p_filters)) $$;
@@ -87,7 +90,7 @@ DO $$ BEGIN
                  ('public.platform_direct_customers'::regclass, 'public.customer_account_managers'::regclass, 'public.account_requests'::regclass)),
                'OBJ no FKs');
   PERFORM t.ok(NOT has_function_privilege('authenticated', 'public._customer_accounts(uuid)', 'execute')
-           AND NOT has_function_privilege('service_role', 'public._account_request_checks(text,uuid,text,text,uuid,uuid)', 'execute')
+           AND NOT has_function_privilege('service_role', 'public._account_request_checks(text,uuid,text,text,uuid,uuid,uuid)', 'execute')
            AND NOT has_function_privilege('anon', 'public.admin_customer_directory(jsonb)', 'execute')
            AND NOT has_function_privilege('anon', 'public.owner_decide_account_request(uuid,boolean,text)', 'execute')
            AND has_function_privilege('authenticated', 'public.admin_customer_directory(jsonb)', 'execute'), 'OBJ privileges');
@@ -124,6 +127,22 @@ BEGIN
            AND NOT EXISTS (SELECT 1 FROM public.platform_direct_customers WHERE user_id = t.x('SU'))
            AND EXISTS (SELECT 1 FROM public.company_memberships WHERE user_id = t.x('SU') AND company_id = t.u('CA') AND is_primary AND joined_via = 'legacy'),
            'SUBUSER legacy path unchanged');
+  -- المسار الحقيقي لـ create-sub-user: auth.users ثم handle_new_user (رتبة user بلا super_user_id) ثم UPDATE بالخدمة
+  -- (أ) بعلامة app_metadata.company_created: لا علاقة مباشرة أصلًا
+  INSERT INTO auth.users (id, email, raw_app_meta_data) VALUES (t.x('S1'), 's1@tenancy.test', '{"company_created": true}'),
+    (t.x('S2'), 's2@tenancy.test', '{}'), (t.x('S3'), 's3@tenancy.test', '{}');
+  INSERT INTO public.profiles (id, email, role) VALUES (t.x('S1'), 's1@tenancy.test', 'user'), (t.x('S2'), 's2@tenancy.test', 'user'),
+    (t.x('S3'), 's3@tenancy.test', 'user');
+  PERFORM t.act(null);
+  UPDATE public.profiles SET role = 'customer', super_user_id = t.u('OA') WHERE id IN (t.x('S1'), t.x('S2'));
+  -- (ج) حساب مستقل أنشأه الطاقم (role customer بلا شركة): عميل مباشر
+  UPDATE public.profiles SET role = 'customer' WHERE id = t.x('S3');
+  PERFORM t.ok(NOT EXISTS (SELECT 1 FROM public.platform_direct_customers WHERE user_id = t.x('S1'))
+           AND (SELECT a.account_type FROM public._customer_accounts(t.x('S1')) a) = 'company_customer', 'SUBUSER flagged: never direct');
+  -- (ب) نسخة الدالة المنشورة قبل العلامة: الربط بالخدمة بعد الإنشاء مباشرة يُنهي العلاقة (company_created)
+  PERFORM t.ok((SELECT end_cause FROM public.platform_direct_customers WHERE user_id = t.x('S2')) = 'company_created'
+           AND (SELECT a.account_type FROM public._customer_accounts(t.x('S2')) a) = 'company_customer', 'SUBUSER unflagged: direct ended');
+  PERFORM t.ok((SELECT a.account_type FROM public._customer_accounts(t.x('S3')) a) = 'direct', 'STANDALONE customer role is direct');
   -- المسار القديم للإدارة العليا (تغيير super_user_id) ما زال كما هو: عضوية legacy، والعلاقة المباشرة لا تُمسّ
   PERFORM t.ok(t.exec(t.u('EA'), format('update public.profiles set super_user_id = %L where id = %L', t.u('OB'), t.u('DH'))) = 'ok', 'LEGACY main admin write');
   PERFORM t.ok((SELECT a.account_type FROM public._customer_accounts(t.u('DH')) a) = 'direct_and_company', 'LEGACY direct + company');
@@ -164,7 +183,7 @@ BEGIN
   -- الفلاتر على الخادم
   r := t.dir(t.u('AD'), '{"view":"direct"}');
   PERFORM t.ok((SELECT array_agg(x ORDER BY x) FROM unnest(t.ids(r)) x)
-               = (SELECT array_agg(x ORDER BY x) FROM unnest(array[t.u('PU'), t.u('DG'), t.u('DH'), t.x('NS')]) x), 'DIR view direct');
+               = (SELECT array_agg(x ORDER BY x) FROM unnest(array[t.u('PU'), t.u('DG'), t.u('DH'), t.x('NS'), t.x('S3')]) x), 'DIR view direct');
   r := t.dir(t.u('AD'), '{"view":"company"}');
   PERFORM t.ok(t.ids(r) @> array[t.u('A1'), t.u('B1'), t.u('DH'), t.x('SU')] AND NOT (t.ids(r) && array[t.u('PU'), t.u('OA'), t.u('AS')]), 'DIR view company');
   r := t.dir(t.u('AD'), format('{"company_id":"%s","account_type":"company_customer"}', t.u('CB'))::jsonb);
@@ -502,6 +521,80 @@ BEGIN
 END $$;
 SELECT t.dblink_disconnect('s1'), t.dblink_disconnect('s2');
 
+-- (ب) إطفاء العزل في لحظة الموافقة: ينتظر المعاملة ثم يرى الموافقة فيرفضه الحارس
+CREATE FUNCTION t.conn_super(p_name text) RETURNS void LANGUAGE plpgsql AS $$
+begin
+  perform t.dblink_connect(p_name, format('dbname=%s port=%s host=%s user=postgres', current_database(),
+          current_setting('port'), split_part(current_setting('unix_socket_directories'), ',', 1)));
+  perform t.dblink_exec(p_name, $s$set lock_timeout = '10s'$s$);
+end $$;
+DO $$ BEGIN
+  INSERT INTO auth.users (id, email) VALUES (t.x('RC'), 'rc@tenancy.test');
+  INSERT INTO public.profiles (id, email, role) VALUES (t.x('RC'), 'rc@tenancy.test', 'user');
+  PERFORM t.sw('account_request_execution_enabled', true);
+  PERFORM t.ok(t.submit(t.u('AD'), 'add_to_company', t.x('RC'), 'rc@tenancy.test', t.u('CA'), '1e000000-0000-4000-8000-0000000000aa'::uuid) = 'ok', 'RACE2 request');
+  PERFORM t.ctx('owner');
+  PERFORM t.stepup(t.u('OW'));
+END $$;
+SELECT t.conn('s1', t.u('OW')), t.conn_super('s2');
+DO $$
+DECLARE v_req uuid; r1 text; r2 text; blocked boolean;
+BEGIN
+  SELECT id INTO v_req FROM public.account_requests WHERE customer_id = t.x('RC') AND status = 'pending';
+  PERFORM t.dblink_exec('s1', 'begin');
+  r1 := (SELECT x FROM t.dblink('s1', format('select (public.owner_decide_account_request(%L::uuid, true, null))::text', v_req)) AS r(x text));
+  PERFORM t.dblink_send_query('s2', 'update public.platform_feature_switches set enabled = false where key = ''company_isolation_enforced'' returning key');
+  blocked := t.wait_blocked('s2');
+  PERFORM t.dblink_exec('s1', 'commit');
+  BEGIN
+    r2 := (SELECT x FROM t.dblink_get_result('s2') AS r(x text));
+  EXCEPTION WHEN others THEN
+    r2 := sqlstate || ':' || sqlerrm;
+  END;
+  PERFORM t.dblink_get_result('s2', false);
+  PERFORM t.ok(blocked, 'RACE2 switch-off waited for the approval');
+  PERFORM t.ok(r1 LIKE '%"approved"%' AND r2 LIKE '%55000%', 'RACE2 ' || r1 || ' / ' || coalesce(r2, 'null'));
+  PERFORM t.ok(public._feature_on('company_isolation_enforced') AND NOT t.sees('OA', 'TPU'), 'RACE2 isolation held');
+  PERFORM t.sw('account_request_execution_enabled', false);
+  PERFORM t.ctx(null);
+  RAISE NOTICE 'PASS ⑦ب(ب) إطفاء العزل أثناء الموافقة ينتظرها ثم يُرفض — لا نافذة تكشف التاريخ';
+END $$;
+SELECT t.dblink_disconnect('s1'), t.dblink_disconnect('s2');
+
+-- (ج) العكس: إطفاء مفتاح تنفيذ قيد المعاملة ⇒ الموافقة تنتظره ثم ترى القيمة الملتزمة فترفض بلا أثر
+DO $$ BEGIN
+  INSERT INTO auth.users (id, email) VALUES (t.x('RE'), 're@tenancy.test');
+  INSERT INTO public.profiles (id, email, role) VALUES (t.x('RE'), 're@tenancy.test', 'user');
+  PERFORM t.sw('account_request_execution_enabled', true);
+  PERFORM t.ok(t.submit(t.u('AD'), 'add_to_company', t.x('RE'), 're@tenancy.test', t.u('CA'), '1e000000-0000-4000-8000-0000000000ab'::uuid) = 'ok', 'RACE3 request');
+  PERFORM t.ctx('owner');
+  PERFORM t.stepup(t.u('OW'));
+END $$;
+SELECT t.conn('s1', t.u('OW')), t.conn_super('s2');
+DO $$
+DECLARE v_req uuid; r1 text; blocked boolean;
+BEGIN
+  SELECT id INTO v_req FROM public.account_requests WHERE customer_id = t.x('RE') AND status = 'pending';
+  PERFORM t.dblink_exec('s2', 'begin');
+  PERFORM t.dblink_exec('s2', 'update public.platform_feature_switches set enabled = false where key = ''account_request_execution_enabled''');
+  PERFORM t.dblink_send_query('s1', format('select (public.owner_decide_account_request(%L::uuid, true, null))::text', v_req));
+  blocked := t.wait_blocked('s1');
+  PERFORM t.dblink_exec('s2', 'commit');
+  BEGIN
+    r1 := (SELECT x FROM t.dblink_get_result('s1') AS r(x text));
+  EXCEPTION WHEN others THEN
+    r1 := sqlstate || ':' || sqlerrm;
+  END;
+  PERFORM t.dblink_get_result('s1', false);
+  PERFORM t.ok(blocked, 'RACE3 approval waited for the switch change');
+  PERFORM t.ok(r1 LIKE '0A000%', 'RACE3 ' || coalesce(r1, 'null'));
+  PERFORM t.ok((SELECT status FROM public.account_requests WHERE id = v_req) = 'pending'
+           AND NOT EXISTS (SELECT 1 FROM public.company_memberships WHERE user_id = t.x('RE')), 'RACE3 nothing executed');
+  PERFORM t.ctx(null);
+  RAISE NOTICE 'PASS ⑦ب(ج) إطفاء مفتاح التنفيذ قبل الموافقة بلحظة: الموافقة تنتظر ثم تُرفض ولا يتغير شيء';
+END $$;
+SELECT t.dblink_disconnect('s1'), t.dblink_disconnect('s2');
+
 -- ══ ⑧ الحذف ═══════════════════════════════════════════════════════════════
 DO $$
 DECLARE v_dg uuid;
@@ -519,7 +612,13 @@ BEGIN
   PERFORM t.ok(t.submit(t.u('AD'), 'add_to_company', t.u('B1'), 'b1@tenancy.test', t.u('CW'), t.x('K7')) = 'ok', 'DEL B1 request');
   PERFORM t.ok(t.err_super_ok(format('delete from public.companies where id = %L', t.u('CW'))) = 'ok', 'DEL company deleted');
   PERFORM t.ok((SELECT decision_reason FROM public.account_requests WHERE customer_id = t.u('B1') AND company_id = t.u('CW')) = 'company_deleted', 'DEL company request cancelled');
-  RAISE NOTICE 'PASS ⑧ الحذف: الحساب والشركة يُحذفان، والطلب المعلّق يُلغى، والإسناد والعلاقة المباشرة تنتهي وتبقى سجلًا';
+  -- مقدّم طلب حُظر: طلبه المعلّق يُلغى، ولا يعود برفع الحظر
+  PERFORM t.ok(t.submit(t.u('EA'), 'add_to_company', t.x('S3'), 's3@tenancy.test', t.u('CB'), t.x('K9')) = 'ok', 'REQ by EA');
+  UPDATE public.profiles SET ban_status = 'banned' WHERE id = t.u('EA');
+  PERFORM t.ok((SELECT status || ':' || decision_reason FROM public.account_requests WHERE customer_id = t.x('S3')) = 'cancelled:requester_ineligible', 'REQ requester banned ⇒ cancelled');
+  UPDATE public.profiles SET ban_status = 'none' WHERE id = t.u('EA');
+  PERFORM t.ok((SELECT status FROM public.account_requests WHERE customer_id = t.x('S3')) = 'cancelled', 'REQ not revived');
+  RAISE NOTICE 'PASS ⑧ الحذف: الحساب والشركة يُحذفان، والطلب المعلّق يُلغى، والإسناد والعلاقة المباشرة تنتهي وتبقى سجلًا؛ وطلب من حُظر يُلغى';
 END $$;
 
 -- ══ ⑨ الإشعارات عامة ═══════════════════════════════════════════════════════

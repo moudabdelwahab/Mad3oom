@@ -152,6 +152,9 @@ Deno.serve(async (req: Request) => {
       password,
       email_confirm: true,
       user_metadata: { full_name: fullName },
+      // 105: حساب تُنشئه شركة ليس «عميلًا مباشرًا» للمنصة. app_metadata لا يكتبها إلا مفتاح الخدمة،
+      // ومحفّز التسجيل يقرؤها فلا يسجّل علاقة مباشرة لحساب سيُربط بالشركة في الخطوة التالية.
+      ...(attachToCompany ? { app_metadata: { company_created: true } } : {}),
     });
 
     if (createError || !newUser?.user) {
