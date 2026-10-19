@@ -1,7 +1,7 @@
 # Account request execution (106) and isolation readiness (107) — design, data policy, prerequisites and release plan
 
-> **Status:** implemented and tested on branch `claude/dazzling-hypatia-lh1o9i-transfers`, which is stacked on PR #138 (105).
-> **Not applied to production.** Every switch stays OFF. No real customer was added or transferred. No Edge Function was deployed and no secret was changed.
+> **Status:** implemented and tested; merged to `main` through PR #139, with the MCP follow-up fix in PR #141 (merge commit `3aab6fe`).
+> **Applied to production on 2026-10-19** (105 → 106 → 107); see §6 "Applied". Every switch stays OFF. No real customer was added or transferred. No Edge Function was deployed and no secret was changed.
 
 ## 1. What now works end to end
 
@@ -62,22 +62,22 @@ There were no CRITICAL or HIGH findings.
 
 ## 3. Prerequisite matrix
 
-This combines the production read-only audit of 2026-10-19 with the work in this PR. Production currently has 1 company, 1 linked customer with no data, 39 platform tickets, 0 company tickets, 0 company staff, and every switch OFF.
+This combines the production read-only audit of 2026-10-19 with the work in this PR. The rows for the migrations, the MCP deploy and `account_request_execution_enabled` were updated after the apply in §6; the other rows are kept as audited before it. Production currently has 1 company, 1 linked customer with no data, 39 platform tickets, 0 company tickets, 0 company staff, and every switch OFF.
 
 | Prerequisite | Current production state | Required action | Verification |
 |---|---|---|---|
-| Migrations 095–104 | Applied (head `104_company_documents_followups`) | none | `select name from supabase_migrations.schema_migrations order by version desc limit 1` |
-| 105 (hierarchy, requests) | Not applied (PR #138) | Review and merge #138, then apply 105 | `ACCOUNT_HIERARCHY_105_PROD_INSTALL.md` checks |
-| 106 (execution) | Not applied | Merge this PR, then apply 106 | `select position('transfer_direct_to_company' in pg_get_functiondef('public.owner_decide_account_request(uuid,boolean,text)'::regprocedure)) > 0` |
-| 107 (isolation-readiness RPCs) | Not applied; the bypass exists in production today, latent while isolation is off | Apply 107 **before** enabling isolation | `select count(*) from pg_proc where proname in ('ticket_in_my_scope','can_access_ticket') and prosrc ~ '_ticket_id_visible'` → 2 |
+| Migrations 095–104 | Applied | none | `select name from supabase_migrations.schema_migrations order by version desc limit 1` |
+| 105 (hierarchy, requests) | Applied 2026-10-19 (§6) | none | `ACCOUNT_HIERARCHY_105_PROD_INSTALL.md` checks |
+| 106 (execution) | Applied 2026-10-19 (§6) | none | `select position('transfer_direct_to_company' in pg_get_functiondef('public.owner_decide_account_request(uuid,boolean,text)'::regprocedure)) > 0` |
+| 107 (isolation-readiness RPCs) | Applied 2026-10-19 (§6); the definer bypass is closed in the database | none | `select count(*) from pg_proc where proname in ('ticket_in_my_scope','can_access_ticket') and prosrc ~ '_ticket_id_visible'` → 2 |
 | 097 policies and ticket stamps | Present: 6 `tenant_isolation` policies and storage `ticket_files_isolation`; 39/39 tickets stamped | none | `select scope, count(*) from tickets group by 1` |
-| MCP Edge Function | **Deployed v34 is older than 097**: no `mcp_ticket_tenancy`, and subscription tickets are inserted without `category: 'subscription'` | Deploy `supabase/functions/mcp` from this branch's merge commit (it includes 097 and the 107 subscription fix) — **separate approval** | `get_edge_function mcp` contains `_shared/ticket-isolation.js` and `_shared/subscription-access.js`. Also `select count(*) from tickets t join whatsapp_subscriptions s on s.ticket_id = t.id where t.scope = 'company'` → 0 |
+| MCP Edge Function | **Deployed v34 is older than 097** (still v34 after the 105–107 apply): no `mcp_ticket_tenancy`, and subscription tickets are inserted without `category: 'subscription'` | Deploy `supabase/functions/mcp` from `3aab6fe` or later (it includes 097, the 107 subscription fix and the PR #141 fail-closed fix) — **separate approval** | `get_edge_function mcp` contains `_shared/ticket-isolation.js` and `_shared/subscription-access.js`. Also `select count(*) from tickets t join whatsapp_subscriptions s on s.ticket_id = t.id where t.scope = 'company'` → 0 |
 | `create-sub-user` Edge Function | Deployed version has no `company_created` flag (105 fallback covers it) | Redeploy with 105 — **separate approval** | Create a test sub-user; it gets no `platform_direct_customers` row |
 | Other service-role functions | Audit: `sie-api`, `integrations-api`, `whatsapp-webhook`, `register-whatsapp`, `gemini-proxy`, `chat-bot-reply` and `wf-executor` are safe. The external SIE runtime was not reviewed | Optional: review the SIE runtime | — |
 | Frontend 097/098/105/106 files | Not verified (hosting is outside Supabase) | Deploy from the merge commits | Load the company dashboard and the admin pages |
 | `company_permissions_enabled` (098) | OFF; no blockers (ledger 39 = tickets, 0 reconciliation mismatches, 0 staff) | Enable **first**, owner step-up and reason | `select enabled from platform_feature_switches where key = 'company_permissions_enabled'` |
 | `company_isolation_enforced` (097) | OFF; blocked until 107 + MCP deploy | Enable after 107 and the MCP deploy. **One-way** after the first approved request, transfer or carry | `select _isolation_on()` |
-| `account_request_execution_enabled` (105/106) | Does not exist yet (created by 105, OFF) | Enable last, after a dry-run review | `select _account_request_execution('transfer_direct_to_company', null)` → `available: true` |
+| `account_request_execution_enabled` (105/106) | Exists since the 105 apply; OFF | Enable last, after a dry-run review | `select _account_request_execution('transfer_direct_to_company', null)` → `available: true` |
 | Customer-consent decision | Open (105 §8.1) | Decide: owner approval executes (implemented), or the approval sends a 096 invitation | — |
 | Designated test accounts | None | Create one test company and one test direct customer, both clearly named | see §4 |
 
@@ -129,3 +129,77 @@ This combines the production read-only audit of 2026-10-19 with the work in this
 - `tests/sql/isolation-readiness.test.sql` (107): ⓪ reproduces the bypass before 107; ① rollback byte-for-byte; ② isolation off is unchanged; ③ isolation on: no close, reopen or existence oracle through `super_user_id`, company tickets work, the customer closes their own, platform staff follow 097, another company is refused; ④ rollback refused while isolation is on.
 - `tests/mcp-ticket-isolation.test.mjs`: MCP subscriptions are visible to the owner of the row or an admin only, and have no `super_user_id` path.
 - `tests/account-hierarchy.render.test.mjs`: server-driven impact, the failed-recoverable badge and retry, success text only from the server's confirmed outcome, and the requester's view of failure and outcome.
+
+## 6. Applied (2026-10-19, project `srnelrdpqkcntbgudyto`)
+
+Release checklist steps 1 (merge) and 3 (migrations) are done. Step 2 (backup checkpoint) was **not** done; see "Recovery" below. Steps 4–10 are not done.
+
+Before the apply (read-only, about 22:19 UTC):
+- The ledger head was `104_company_documents_followups` (377 rows), with 0 switches on and `_isolation_on()` = false.
+- 0 of the 2 ticket functions contained `_ticket_id_visible`.
+- The three pinned files, fetched from inside production with `public.http_get`, returned HTTP 200 with the md5 values below.
+- Unlike 103/104, no rolled-back dry run was run on production for this apply.
+
+Each migration was its own `apply_migration` call through the release wrapper (fetch at the pinned commit, check md5, execute), pinned to merge commit `3aab6fe54988196a7c7e75b9189f1003fbed02b5`. Each file's md5 was the same at the reviewed commit, on `main`, and as fetched from production:
+
+| Migration | md5 | Ledger version | Result |
+|---|---|---|---|
+| `105_account_hierarchy_customers` | `d258b10840542011b0d42e164d8ef6cf` | `20261019221945` | `{"success":true}` |
+| `106_account_request_execution` | `aa996941a8711d2496ba57226b350e7e` | `20261019222050` | `{"success":true}` |
+| `107_isolation_readiness` | `6aedbf20eb5d5a2e27a113679491c157` | `20261019222122` | `{"success":true}` |
+
+Each migration's self-check ran as part of its apply.
+
+### Checks after each apply (production queries)
+
+| Migration | Checks after apply |
+|---|---|
+| `105_account_hierarchy_customers` | ledger head 105; the `ACCOUNT_HIERARCHY_105_PROD_INSTALL.md` checks all pass: `account_request_execution_enabled` false; 33 `platform_direct_customers` rows (the backfill); 0 `customer_account_managers`; 0 `account_requests`; 6 triggers; `authenticated` cannot select `account_requests`; `anon` cannot execute `admin_customer_directory(jsonb)`; 0 switches on; `_isolation_on()` false |
+| `106_account_request_execution` | ledger head 106; `owner_decide_account_request` contains the `transfer_direct_to_company` branch; `account_requests` has the 2 new columns `attempts` and `last_failure`; `_account_request_execution('transfer_direct_to_company', null)` = `{"available": false, "code": "prerequisite_not_enabled", "missing": ["account_request_execution_enabled", "company_isolation_enforced", "company_permissions_enabled"]}`; 0 switches on; `_isolation_on()` false. With 0 requests, no customer was added or transferred |
+| `107_isolation_readiness` | ledger head 107 (380 rows); `can_access_ticket` and `ticket_in_my_scope` both contain `_ticket_id_visible`; the verification count is 2; `_isolation_on()` false; 0 switches on; 39 tickets and 33 active direct customers (unchanged) |
+
+That both functions behave as before while isolation is off is a **test result**, not a production check: `tests/sql/isolation-readiness.test.sql` ② on the prod-shape chain. It was not re-run in production.
+
+### Final state (re-checked read-only at 2026-10-19 22:24:41 UTC)
+
+- **Ledger:** top entries `107_isolation_readiness`, `106_account_request_execution`, `105_account_hierarchy_customers`, `104_company_documents_followups`; 380 rows.
+- **Isolation:** `_isolation_on()` = false; 2 of 2 ticket functions contain `_ticket_id_visible`.
+- **Switches:** 0 enabled; `account_request_execution_enabled` = false.
+- **Data:** 0 account requests, 0 account-manager assignments, 33 `platform_direct_customers` rows.
+- **Edge Functions** (`list_edge_functions`): `mcp` is still **version 34** and `create-sub-user` is still **version 32**.
+
+### Not done
+
+- **Edge Functions:** neither `mcp` nor `create-sub-user` was deployed. The MCP fixes are therefore **not live in production**: the 097 tenancy filter, `subscription-access.js` and the fail-closed tenancy parsing from PR #141. `company_isolation_enforced` must stay off until `mcp` is redeployed (checklist step 4).
+- **No secret or production configuration was changed.** No switch was enabled. Company isolation and account-request execution were not activated.
+- **Customers:** no customer account was added, transferred or modified.
+- **Frontend:** deploying the frontend was not part of this operation and was not verified.
+
+### Recovery
+
+- **No backup checkpoint:** checklist step 2 was skipped; no separate backup checkpoint was recorded before the apply.
+- **Recovery reference:** the point immediately before 105 was applied, ledger version `20261019221945` (about 22:19:45 UTC on 2026-10-19). Whether point-in-time recovery is available on this project's plan was not checked.
+- **Rollback scripts:** each migration has one, run in the order 107 → 106 → 105. Each refuses while its switches are on or history exists (see the install notes), so they are not a substitute for a verified backup.
+
+### Security advisors (`get_advisors(security)`, right after the apply)
+
+- **ERROR:** none.
+- **Group totals:**
+  - WARN: `function_search_path_mutable` 28, `extension_in_public` 3, `anon_security_definer_function_executable` 70, `authenticated_security_definer_function_executable` 443, `auth_leaked_password_protection` 1;
+  - INFO: `rls_enabled_no_policy` 25.
+
+  No advisor snapshot was taken just before this apply, so a per-group before/after comparison like the 103/104 record is not available.
+- **WARN `function_search_path_mutable` (new): `_json_or_null` (106) and `_account_request_first_failure` (105).** Reported as minor because:
+  - both are SECURITY INVOKER and `immutable`;
+  - both call built-ins only (a `jsonb` cast, and `jsonb_array_elements`);
+  - both have execute revoked from `public`, `anon`, `authenticated` and `service_role` in their migrations.
+
+  **Not resolved:** no follow-up migration was created. A fix would be a forward migration that pins `search_path` on both.
+- **WARN `authenticated_security_definer_function_executable`:** this group includes the 11 RPCs that 105 grants to `authenticated`:
+  - `admin_customer_directory`, `admin_customer_filter_options`, `admin_customer_details`;
+  - `customer_manager_assign`;
+  - `account_request_submit`, `account_request_cancel`, `my_account_requests`, `account_requests_overview`;
+  - `owner_account_requests`, `owner_account_request_details`, `owner_decide_account_request`.
+
+  It also lists `can_access_ticket` and `ticket_in_my_scope`, whose bodies 107 replaced in place. This is by design: each function checks its caller itself.
+- **INFO `rls_enabled_no_policy`:** none of the three new tables appears.

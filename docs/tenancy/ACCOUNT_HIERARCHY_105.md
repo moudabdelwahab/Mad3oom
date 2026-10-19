@@ -1,7 +1,7 @@
 # Account hierarchy, customer ownership and owner-approved account requests (105)
 
 > **Status:** implemented on branch `claude/dazzling-hypatia-lh1o9i` as migration `105_account_hierarchy_customers` with a rollback, SQL tests, render tests and two admin pages.
-> **Not applied to production.** No switch was enabled. No account was transferred, no Edge Function was deployed and no production configuration was changed.
+> **Applied to production on 2026-10-19** (record: `ACCOUNT_REQUEST_EXECUTION_106.md` §6). No switch was enabled. No account was transferred, no Edge Function was deployed and no production configuration was changed.
 > Install steps are in `ACCOUNT_HIERARCHY_105_PROD_INSTALL.md`. The full-transfer design is in `CUSTOMER_TRANSFER_DESIGN.md`.
 
 ## 1. Hierarchy

@@ -1,6 +1,6 @@
 # Customer transfer: readiness and design (direct platform customer → company)
 
-> **Status: implemented in migration 106** (`ACCOUNT_REQUEST_EXECUTION_106.md`). This page is kept as the design record.
+> **Status: implemented in migration 106** (`ACCOUNT_REQUEST_EXECUTION_106.md`), applied to production on 2026-10-19 with every switch off. This page is kept as the design record.
 > 106 executes the owner-approved transfer in one transaction. Execution stays behind `account_request_execution_enabled` + company isolation + 098 permissions, all OFF. No real customer was transferred.
 > **Differences from the proposal below:**
 > - **Subscriptions:** they stay with the customer. An active or pending personal subscription **blocks** execution instead of a billing rule moving it.
