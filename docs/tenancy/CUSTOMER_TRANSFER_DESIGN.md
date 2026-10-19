@@ -1,7 +1,11 @@
 # Customer transfer: readiness and design (direct platform customer → company)
 
-> **Status: design only, not implemented.** No customer was transferred.
-> 105 implements only the **request and review** of `transfer_direct_to_company`. Approval always refuses with `0A000 operation_not_available`, and the UI shows «التنفيذ غير متاح بعد». There is no approve button that claims a transfer happened.
+> **Status: implemented in migration 106** (`ACCOUNT_REQUEST_EXECUTION_106.md`). This page is kept as the design record.
+> 106 executes the owner-approved transfer in one transaction. Execution stays behind `account_request_execution_enabled` + company isolation + 098 permissions, all OFF. No real customer was transferred.
+> **Differences from the proposal below:**
+> - **Subscriptions:** they stay with the customer. An active or pending personal subscription **blocks** execution instead of a billing rule moving it.
+> - **Failures:** they are recorded on the request, which stays pending and can be retried.
+> - **Customer consent:** still an open decision.
 
 ## What exists
 

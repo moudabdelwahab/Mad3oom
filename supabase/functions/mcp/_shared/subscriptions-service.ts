@@ -1,6 +1,6 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import type { Actor } from "./actor.ts";
-import { getVisibleUserIds } from "./authz.ts";
+import { subscriptionListOwner, subscriptionVisibleTo } from "./subscription-access.js";
 
 export class ForbiddenError extends Error { constructor(m?: string) { super(m); this.name = "ForbiddenError"; } }
 export class NotFoundError extends Error { constructor(m?: string) { super(m); this.name = "NotFoundError"; } }
@@ -30,10 +30,9 @@ function addBillingPeriod(baseDate: Date, billingCycle: string): Date {
   return d;
 }
 
-function canAccessSubscription(actor: Actor, ownerId: string, ownerSuperUserId: string | null): boolean {
-  if (ownerId === actor.id) return true;
-  if (actor.isMainAdmin || actor.isAdmin) return true;
-  return ownerSuperUserId === actor.id;
+// 107: صاحب الاشتراك أو الإدارة فقط — نفس سياسات whatsapp_subscriptions في القاعدة. لا مسار عبر تبعية الحساب لمالك شركة.
+function canAccessSubscription(actor: Actor, ownerId: string): boolean {
+  return subscriptionVisibleTo(actor, ownerId);
 }
 
 async function fetchSubscriptionWithOwner(subscriptionId: string) {
@@ -41,15 +40,14 @@ async function fetchSubscriptionWithOwner(subscriptionId: string) {
   const { data: sub, error } = await supabase.from("whatsapp_subscriptions").select("*").eq("id", subscriptionId).maybeSingle();
   if (error) throw error;
   if (!sub) return null;
-  const { data: owner } = await supabase.from("profiles").select("super_user_id").eq("id", (sub as any).user_id).maybeSingle();
-  return { sub, ownerSuperUserId: owner?.super_user_id ?? null };
+  return { sub };
 }
 
 export async function listSubscriptions(actor: Actor, filters: { status?: string; plan?: string; limit?: number; offset?: number } = {}) {
   const supabase = db();
-  const visibility = await getVisibleUserIds(actor);
+  const owner = subscriptionListOwner(actor);
   let q = supabase.from("whatsapp_subscriptions").select("*").order("created_at", { ascending: false });
-  if (!visibility.all) q = q.in("user_id", visibility.ids);
+  if (owner !== null) q = q.eq("user_id", owner);
   if (filters.status) q = q.eq("status", filters.status);
   if (filters.plan) q = q.eq("plan", filters.plan);
   const limit = Math.min(filters.limit ?? 20, 100);
@@ -64,7 +62,7 @@ export async function getSubscription(actor: Actor, subscriptionId: string) {
   if (!subscriptionId) throw new Error("الحقل subscription_id مطلوب");
   const found = await fetchSubscriptionWithOwner(subscriptionId);
   if (!found) throw new NotFoundError("الاشتراك غير موجود");
-  if (!canAccessSubscription(actor, (found.sub as any).user_id, found.ownerSuperUserId)) {
+  if (!canAccessSubscription(actor, (found.sub as any).user_id)) {
     throw new ForbiddenError("لا تملك صلاحية الوصول لهذا الاشتراك");
   }
   return found.sub;
@@ -139,7 +137,7 @@ export async function cancelSubscription(actor: Actor, subscriptionId: string) {
   if (!subscriptionId) throw new Error("الحقل subscription_id مطلوب");
   const found = await fetchSubscriptionWithOwner(subscriptionId);
   if (!found) throw new NotFoundError("الاشتراك غير موجود");
-  if (!canAccessSubscription(actor, (found.sub as any).user_id, found.ownerSuperUserId)) {
+  if (!canAccessSubscription(actor, (found.sub as any).user_id)) {
     throw new ForbiddenError("لا تملك صلاحية الوصول لهذا الاشتراك");
   }
 

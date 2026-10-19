@@ -72,8 +72,64 @@ export const CHECK_LABELS = Object.freeze({
     not_already_member: 'العميل ليس عضوًا فيها بالفعل',
     no_pending_transfer: 'لا نقل معلّق للعميل',
     no_conflicting_request: 'لا طلب آخر معلّق للعميل',
-    requester_eligible: 'مقدّم الطلب ما زال إداريًا غير موقوف'
+    requester_eligible: 'مقدّم الطلب ما زال إداريًا غير موقوف',
+    no_active_personal_subscription: 'لا اشتراك شخصي نشط أو معلّق (وإلا تنتقل حصته لخطة الشركة)',
+    customer_gate_ok: 'الحساب يجتاز بوابة الحساب (قائمة الانتظار والتحقق)',
+    requester_not_destination_party: 'مقدّم الطلب ليس مالك الشركة الوجهة ولا موظفًا فيها'
 });
+
+// ما يحدث فعلًا لكل فئة بيانات عند التنفيذ (owner_account_request_details.impact، 106)
+export const IMPACT_LABELS = Object.freeze({
+    membership: { primary: 'يصبح عضوًا في الشركة كشركة أساسية', secondary: 'يصبح عضوًا في الشركة كشركة إضافية (أساسيته لا تتغير)' },
+    direct_relationship: { ended: 'تنتهي علاقته المباشرة بالمنصة (تبقى في السجل)', kept: 'تبقى علاقته المباشرة بالمنصة' },
+    platform_account_manager: { ended: 'ينتهي إسناد مدير حسابه على المنصة (يبقى في السجل)', kept: 'مدير حسابه على المنصة لا يتغير' },
+    ticket_quota_owner: { company: 'حصة تذاكره الجديدة على خطة الشركة', company_from_join: 'حصة تذاكره من تاريخ الانضمام على خطة الشركة (تذاكره السابقة لا تُحسب عليها)', unchanged: 'حصة تذاكره لا تتغير' },
+    historical_tickets: { stay_private: 'تذاكره السابقة تبقى خاصة به ولا تراها الشركة' },
+    conversations_and_attachments: { stay_private: 'محادثاته ومرفقاته السابقة تبقى خاصة به' },
+    notifications: { unchanged: 'إشعاراته في مكانها' },
+    subscriptions: { stay_with_customer: 'اشتراكاته تبقى باسمه (لا نقل ولا إلغاء)' },
+    api_tokens_and_integrations: { unchanged: 'رموز الربط والتكاملات تبقى له' },
+    login_identity: { unchanged: 'نفس الحساب وبيانات الدخول — لا حساب جديد' }
+});
+
+export function impactLines(impact) {
+    if (!impact) return [];
+    return Object.entries(IMPACT_LABELS).map(([k, m]) => m[impact[k]]).filter(Boolean);
+}
+
+/** طلب قيد القرار فشل تنفيذه آخر مرة: قابل لإعادة المحاولة أو الرفض. */
+export function isFailedRecoverable(row) {
+    return !!row && row.status === 'pending' && !!row.last_failure;
+}
+
+export function failureText(failure) {
+    if (!failure) return '';
+    if (failure.code === 'revalidation_failed' && failure.check) {
+        return `تغيّر حال العميل أو الشركة: لم يتحقق «${CHECK_LABELS[failure.check] || failure.check}». لم يتغير شيء.`;
+    }
+    if (failure.code === 'prerequisite_not_enabled') {
+        const missing = (failure.missing || []).map(k => SWITCH_LABELS[k] || k).join('، ');
+        return `التنفيذ غير متاح بعد${missing ? ` (يتطلب: ${missing})` : ''}. لم يتغير شيء.`;
+    }
+    return 'تعذّر التنفيذ ولم يتغير شيء. يمكن إعادة المحاولة أو رفض الطلب.';
+}
+
+/** نص النتيجة بعد القرار — من رد الخادم وحده، لا يُفترض نجاح لم يؤكده. */
+export function decisionResultText(result) {
+    if (!result) return '';
+    if (result.status === 'rejected') return 'رُفض الطلب.';
+    if (result.outcome === 'failed') return failureText(result);
+    if (result.status !== 'approved') return 'لم يُنفَّذ شيء.';
+    const parts = [result.primary ? 'أصبح العميل عضوًا أساسيًا في الشركة' : 'أصبح العميل عضوًا إضافيًا في الشركة'];
+    if (result.direct_relationship_ended) parts.push('وانتهت علاقته المباشرة بالمنصة');
+    if (result.platform_manager_ended) parts.push('وانتهى إسناد مدير حسابه على المنصة');
+    return `تم التنفيذ: ${parts.join('، ')}.`;
+}
+
+export function requestStatusLabel(row) {
+    if (isFailedRecoverable(row)) return 'فشل التنفيذ — قابل للإعادة';
+    return REQUEST_STATUS[row?.status] || row?.status || '';
+}
 
 // متطلبات التنفيذ (_account_request_execution)
 export const SWITCH_LABELS = Object.freeze({
@@ -179,7 +235,7 @@ export function approvalState(details) {
     const failed = (details.checks || []).filter(c => !c.ok);
     if (failed.length) return { enabled: false, label: 'شروط غير متحققة', note: failed.map(c => CHECK_LABELS[c.code] || c.code).join('، ') };
     if (!details.can_decide) return { enabled: false, label: 'يتطلب تحققًا بخطوتين' };
-    return { enabled: true, label: 'موافقة وتنفيذ' };
+    return { enabled: true, label: details.last_failure ? 'إعادة المحاولة والتنفيذ' : 'موافقة وتنفيذ' };
 }
 
 export function newIdempotencyKey() {

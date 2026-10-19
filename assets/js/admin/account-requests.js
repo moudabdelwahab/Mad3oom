@@ -15,7 +15,8 @@ import { initSidebar } from './sidebar.js';
 import { debounce } from './admin-utils.js';
 import {
     REQUEST_TYPES, REQUEST_STATUS, CHECK_LABELS, SWITCH_LABELS, ACCOUNT_TYPES,
-    escapeText as esc, errorMessage, reasonError, approvalState, pageSummary, formatDate
+    escapeText as esc, errorMessage, reasonError, approvalState, pageSummary, formatDate,
+    impactLines, isFailedRecoverable, failureText, decisionResultText, requestStatusLabel
 } from './customers-model.js';
 
 const $ = (id) => document.getElementById(id);
@@ -64,13 +65,15 @@ function tabs() {
 
 function renderBanner() {
     const ex = overview.execution || {};
-    const add = ex.add_to_company || {};
-    const missing = (add.missing || []).map(k => SWITCH_LABELS[k] || k).join('، ');
     const parts = [];
-    parts.push(add.available
-        ? '<p class="cm-note cm-tone-ok">إضافة عميل إلى شركة: التنفيذ متاح بعد الموافقة.</p>'
-        : `<p class="cm-note cm-tone-warn">إضافة عميل إلى شركة: <strong>التنفيذ غير متاح بعد</strong>${missing ? ` (يتطلب: ${esc(missing)})` : ''}. يمكن إرسال الطلبات ومراجعتها ورفضها، ولا موافقة بلا تنفيذ.</p>`);
-    parts.push('<p class="cm-note cm-tone-warn">نقل عميل مباشر إلى شركة: <strong>التنفيذ غير متاح بعد</strong> — مسار الطلب والمراجعة فقط.</p>');
+    // حال التنفيذ لكل نوع كما يقوله الخادم (106): متاح، أو غير متاح بعد مع المتطلبات الناقصة
+    for (const [type, label] of Object.entries(REQUEST_TYPES)) {
+        const e = ex[type] || {};
+        const missing = (e.missing || []).map(k => SWITCH_LABELS[k] || k).join('، ');
+        parts.push(e.available
+            ? `<p class="cm-note cm-tone-ok">${esc(label)}: التنفيذ متاح بعد الموافقة.</p>`
+            : `<p class="cm-note cm-tone-warn">${esc(label)}: <strong>التنفيذ غير متاح بعد</strong>${missing ? ` (يتطلب: ${esc(missing)})` : ''}. يمكن إرسال الطلبات ومراجعتها ورفضها، ولا موافقة بلا تنفيذ.</p>`);
+    }
     if (overview.is_owner && !overview.owner_step_up) {
         parts.push('<p class="cm-note">القرار يتطلب تحققًا بخطوتين حديثًا: <a href="/owner-dashboard.html#authority">لوحة المالك ← التحقق</a>.</p>');
     }
@@ -187,13 +190,12 @@ function renderRows() {
     }
     $('arBody').innerHTML = rows.map(r => `
         <tr>
-            <td data-label="النوع">${esc(REQUEST_TYPES[r.request_type] || r.request_type)}${
-                r.request_type === 'transfer_direct_to_company' ? '<div class="cm-muted">التنفيذ غير متاح بعد</div>' : ''}</td>
+            <td data-label="النوع">${esc(REQUEST_TYPES[r.request_type] || r.request_type)}</td>
             <td data-label="العميل">${dash(r.customer_name)}<div class="cm-muted cm-ltr">${esc(r.customer_email)}</div></td>
             <td data-label="الشركة الوجهة">${dash(r.company_name)}</td>
             <td data-label="مقدّم الطلب">${dash(r.requester_name)}</td>
             <td data-label="التاريخ">${esc(formatDate(r.requested_at, true))}</td>
-            <td data-label="الحالة"><span class="cm-badge ${STATUS_TONE[r.status] || ''}">${esc(REQUEST_STATUS[r.status] || r.status)}</span></td>
+            <td data-label="الحالة"><span class="cm-badge ${isFailedRecoverable(r) ? 'cm-tone-bad' : (STATUS_TONE[r.status] || '')}">${esc(requestStatusLabel(r))}</span></td>
             <td data-label=""><button type="button" class="btn btn-secondary btn-sm" data-open="${esc(r.id)}">${r.status === 'pending' && overview.is_owner ? 'مراجعة' : 'عرض'}</button></td>
         </tr>`).join('');
 }
@@ -218,7 +220,9 @@ const kv = (pairs) => `<dl class="cm-kv">${pairs.map(([k, v]) => `<dt>${esc(k)}<
 function requestInfo(r) {
     return kv([
         ['النوع', esc(REQUEST_TYPES[r.request_type] || r.request_type)],
-        ['الحالة', `<span class="cm-badge ${STATUS_TONE[r.status] || ''}">${esc(REQUEST_STATUS[r.status] || r.status)}</span>`],
+        ['الحالة', `<span class="cm-badge ${isFailedRecoverable(r) ? 'cm-tone-bad' : (STATUS_TONE[r.status] || '')}">${esc(requestStatusLabel(r))}</span>`],
+        ['آخر محاولة تنفيذ', r.last_failure ? `${esc(failureText(r.last_failure))} <span class="cm-muted">(${esc(formatDate(r.last_failure.at, true))} · محاولات: ${esc(r.attempts)})</span>` : dash(null)],
+        ['نتيجة التنفيذ', r.status === 'approved' && r.outcome ? esc(decisionResultText({ status: 'approved', ...r.outcome })) : dash(null)],
         ['العميل', `${dash(r.customer_name)} <span class="cm-mono">${esc(String(r.customer_id || '').slice(0, 8))}</span>`],
         ['بريد العميل (للتحقق)', `<span class="cm-ltr">${dash(r.customer_email)}</span>`],
         ['بريد آخر ذُكر', r.target_email ? `<span class="cm-ltr">${esc(r.target_email)}</span> <span class="cm-muted">— للعلم فقط، لا يغيّر بريد الدخول</span>` : dash(null)],
@@ -251,14 +255,8 @@ function renderOwnerDetails(d) {
     $('arDrawerSub').textContent = REQUEST_TYPES[d.request_type] || '';
     const now = d.customer_now;
     const company = d.company;
-    const impact = [];
-    if (d.request_type === 'add_to_company') {
-        impact.push(`يصبح العميل عضوًا في «${esc(company?.name || d.company_name)}» ${now?.has_primary_company ? 'كشركة إضافية (شركته الأساسية لا تتغير)' : 'كشركة أساسية'}.`);
-        impact.push('تذاكر العميل السابقة تبقى خاصة به ولا تنكشف للشركة.');
-        impact.push('الاشتراكات وبريد الدخول لا يتغيران.');
-    } else {
-        impact.push('النقل الكامل (الملكية والفوترة والتاريخ) غير متاح بعد — لا شيء يُنفَّذ بالموافقة.');
-    }
+    // ملخص الأثر من الخادم: ما سيحدث لكل فئة بيانات (لا وعد بنقل ما لا يُنقل)
+    const impact = impactLines(d.impact).map(esc);
     const checks = (d.checks || []).map(c => `<li data-ok="${c.ok}">${c.ok ? '✓' : '✗'} ${esc(CHECK_LABELS[c.code] || c.code)}</li>`).join('');
     const appr = approvalState(d);
     $('arDrawerBody').innerHTML = `
@@ -302,17 +300,14 @@ function wireDecision(d) {
         }
         form.querySelectorAll('button').forEach(b => { b.disabled = true; });
         const { data, error } = await supabase.rpc('owner_decide_account_request', { p_request: d.id, p_approve: approve, p_reason: reason || null });
-        if (error) {
-            say(status, errorMessage(error), 'error');
-            // حال الطلب على الخادم هو المرجع: نعيد التحميل لعرضه كما هو
-            const fresh = await supabase.rpc('owner_account_request_details', { p_request: d.id });
-            if (!fresh.error && fresh.data) { renderOwnerDetails(fresh.data); say($('arDecideStatus') || status, errorMessage(error), 'error'); }
-            return;
-        }
-        say(status, data?.status === 'approved' ? 'تمت الموافقة والتنفيذ.' : 'رُفض الطلب.', 'success');
-        load();
+        // حال الطلب على الخادم هو المرجع: نعيد التحميل ونعرض النتيجة كما أكّدها الخادم
         const fresh = await supabase.rpc('owner_account_request_details', { p_request: d.id });
         if (!fresh.error && fresh.data) renderOwnerDetails(fresh.data);
+        const target = $('arDecideStatus') || $('arDrawerBody').querySelector('.cm-section');
+        load();
+        if (error) { showResult(target, errorMessage(error), 'error'); return; }
+        // فشل تنفيذ مسجَّل: الطلب ما زال قيد القرار ولم يتغير شيء — لا رسالة نجاح
+        showResult(target, decisionResultText(data), data?.outcome === 'failed' ? 'error' : 'success');
     };
     $('arApprove').addEventListener('click', () => decide(true));
     $('arReject').addEventListener('click', () => decide(false));
@@ -341,6 +336,17 @@ function wireCancel(r) {
         form.querySelectorAll('textarea, button').forEach(el => { el.disabled = true; });
         load();
     });
+}
+
+function showResult(target, text, kind) {
+    const el = document.createElement('p');
+    el.className = 'cm-status';
+    el.id = 'arResult';
+    el.setAttribute('role', 'status');
+    el.textContent = text;
+    el.dataset.kind = kind;
+    $('arResult')?.remove();
+    $('arDrawerBody').prepend(el);
 }
 
 function say(el, text, kind) {

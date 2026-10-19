@@ -82,10 +82,12 @@ function adminFixtures({ canAssign = true, canSubmit = true, directoryError = nu
 }
 
 function ownerFixtures({ execution = { available: false, code: 'prerequisite_not_enabled', missing: ['account_request_execution_enabled'] },
-                         type = 'add_to_company', selfRequested = false, canDecide = true, checksOk = true } = {}) {
+                         type = 'add_to_company', selfRequested = false, canDecide = true, checksOk = true,
+                         legacyTransfer = true, decideResult = null, lastFailure = null, impact = null } = {}) {
     const row = { id: R1, request_type: type, status: 'pending', customer_id: C1, customer_name: 'عميل 1', customer_email: 'c1@example.test',
                   target_email: 'c1.work@example.test', company_id: CA, company_name: 'شركة أ', reason: 'إدارة الحساب حسب الاتفاق',
-                  requested_by: ADMIN, requester_name: 'إداري', requested_at: '2026-10-19T09:00:00Z' };
+                  requested_by: ADMIN, requester_name: 'إداري', requested_at: '2026-10-19T09:00:00Z',
+                  last_failure: lastFailure, attempts: lastFailure ? 1 : 0 };
     return {
         user: { id: OWNER, email: 'owner@example.test' },
         authUser: { id: OWNER, email: 'owner@example.test', activeContext: 'owner',
@@ -103,9 +105,11 @@ function ownerFixtures({ execution = { available: false, code: 'prerequisite_not
                 customer_now: { account_type: 'direct', email: 'c1@example.test', status: 'active', is_direct: true, companies: [], open_tickets: 2, active_subscriptions: 0, has_primary_company: false },
                 company: { id: CA, name: 'شركة أ', contact_email: 'contact@company-a.test', status: 'active', owner_name: 'مالك أ' },
                 checks: [{ code: 'customer_exists', ok: true }, { code: 'email_matches', ok: checksOk }],
-                execution: type === 'transfer_direct_to_company' ? { available: false, code: 'operation_not_available', missing: [] } : execution
+                // legacyTransfer: خادم 105 (النقل غير متاح). 106: النقل بنفس متطلبات الإضافة
+                execution: type === 'transfer_direct_to_company' && legacyTransfer ? { available: false, code: 'operation_not_available', missing: [] } : execution,
+                last_failure: lastFailure, attempts: lastFailure ? 1 : 0, impact
             },
-            owner_decide_account_request: { request_id: R1, status: 'rejected' }
+            owner_decide_account_request: decideResult || { request_id: R1, status: 'rejected' }
         },
         tables: { profiles: [{ id: OWNER, email: 'owner@example.test', role: 'platform_owner', full_name: 'المالك' }] }
     };
@@ -383,6 +387,93 @@ test('لا مالك ولا مقدّم طلبات: رسالة صريحة بلا �
     const { page, context } = await open(browser, baseUrl, '/admin/account-requests.html', fx);
     await page.waitForSelector('#arBody .cm-state[data-kind="error"]');
     assert.match(await page.textContent('#arBody'), /غير متاحة لحسابك/);
+    await context.close();
+});
+
+test('106 النموذج: الأثر، الفشل القابل للاستئناف، ونص النتيجة من رد الخادم وحده', () => {
+    const lines = model.impactLines({ membership: 'primary', direct_relationship: 'ended', platform_account_manager: 'ended',
+        ticket_quota_owner: 'company', historical_tickets: 'stay_private', subscriptions: 'stay_with_customer', login_identity: 'unchanged' });
+    assert.ok(lines.some(l => /علاقته المباشرة/.test(l)) && lines.some(l => /خاصة به/.test(l)) && lines.some(l => /لا حساب جديد/.test(l)));
+    assert.deepEqual(model.impactLines(null), []);
+    const failed = { status: 'pending', last_failure: { code: 'revalidation_failed', check: 'no_active_personal_subscription' } };
+    assert.equal(model.isFailedRecoverable(failed), true);
+    assert.equal(model.requestStatusLabel(failed), 'فشل التنفيذ — قابل للإعادة');
+    assert.equal(model.requestStatusLabel({ status: 'approved', last_failure: { code: 'x' } }), 'تمت الموافقة');
+    assert.match(model.failureText(failed.last_failure), /اشتراك شخصي/);
+    assert.match(model.failureText({ code: 'prerequisite_not_enabled', missing: ['company_isolation_enforced'] }), /عزل الشركات/);
+    assert.match(model.decisionResultText({ status: 'approved', primary: true, direct_relationship_ended: true, platform_manager_ended: true }), /تم التنفيذ.*انتهت علاقته المباشرة.*مدير حسابه/);
+    assert.doesNotMatch(model.decisionResultText({ status: 'pending', outcome: 'failed', code: 'execution_failed' }), /تم التنفيذ/);
+    assert.equal(model.decisionResultText({ status: 'rejected' }), 'رُفض الطلب.');
+    assert.equal(model.approvalState({ status: 'pending', can_decide: true, checks: [], execution: { available: true }, last_failure: { code: 'x' } }).label, 'إعادة المحاولة والتنفيذ');
+});
+
+test('106: نقل قابل للتنفيذ — الأثر من الخادم، والنجاح يُعرض فقط كما أكّده الخادم', { skip: !chromiumPath }, async () => {
+    const impact = { membership: 'primary', direct_relationship: 'ended', platform_account_manager: 'ended', ticket_quota_owner: 'company',
+                     historical_tickets: 'stay_private', conversations_and_attachments: 'stay_private', notifications: 'unchanged',
+                     subscriptions: 'stay_with_customer', api_tokens_and_integrations: 'unchanged', login_identity: 'unchanged' };
+    const { page, context, errors } = await open(browser, baseUrl, '/admin/account-requests.html', ownerFixtures({
+        type: 'transfer_direct_to_company', legacyTransfer: false, execution: { available: true, missing: [] }, impact,
+        decideResult: { request_id: R1, status: 'approved', primary: true, direct_relationship_ended: true, platform_manager_ended: false } }));
+    await page.click('[data-open]');
+    await page.waitForSelector('#arApprove:not([disabled])');
+    const body = await page.textContent('#arDrawerBody');
+    assert.match(body, /تنتهي علاقته المباشرة بالمنصة/);
+    assert.match(body, /تذاكره السابقة تبقى خاصة به/);
+    assert.match(body, /اشتراكاته تبقى باسمه/);
+    assert.doesNotMatch(body, /غير متاح بعد/);
+    await page.click('#arApprove');
+    await page.waitForSelector('#arResult');
+    assert.match(await page.textContent('#arResult'), /تم التنفيذ: أصبح العميل عضوًا أساسيًا في الشركة، وانتهت علاقته المباشرة/);
+    assert.equal(await page.getAttribute('#arResult', 'data-kind'), 'success');
+    assert.deepEqual(await calls(page, 'owner_decide_account_request'), [{ p_request: R1, p_approve: true, p_reason: null }]);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('106: فشل تنفيذ مسجَّل — لا رسالة نجاح، وشارة «قابل للإعادة»، وزر إعادة المحاولة', { skip: !chromiumPath }, async () => {
+    const lastFailure = { code: 'revalidation_failed', check: 'no_active_personal_subscription', at: '2026-10-19T10:00:00Z' };
+    const { page, context, errors } = await open(browser, baseUrl, '/admin/account-requests.html', ownerFixtures({
+        execution: { available: true, missing: [] }, lastFailure,
+        decideResult: { request_id: R1, status: 'pending', outcome: 'failed', recoverable: true, code: 'execution_failed' } }));
+    await page.waitForSelector('[data-open]');
+    assert.match(await page.textContent('#arBody'), /فشل التنفيذ — قابل للإعادة/);
+    await page.click('[data-open]');
+    await page.waitForSelector('#arApprove:not([disabled])');
+    assert.match(await page.textContent('#arApprove'), /إعادة المحاولة والتنفيذ/);
+    assert.match(await page.textContent('#arDrawerBody'), /اشتراك شخصي/);
+    await page.click('#arApprove');
+    await page.waitForSelector('#arResult');
+    const result = await page.textContent('#arResult');
+    assert.doesNotMatch(result, /تم التنفيذ/);
+    assert.match(result, /لم يتغير شيء/);
+    assert.equal(await page.getAttribute('#arResult', 'data-kind'), 'error');
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('106: مقدّم الطلب يرى «فشل قابل للإعادة» ونتيجة التنفيذ الفعلية', { skip: !chromiumPath }, async () => {
+    const fx = adminFixtures();
+    fx.rpc.account_requests_overview = { can_submit: true, is_owner: false, owner_step_up: false,
+        execution: { add_to_company: { available: true, missing: [] }, transfer_direct_to_company: { available: true, missing: [] } } };
+    fx.rpc.my_account_requests = [
+        { id: R1, request_type: 'transfer_direct_to_company', status: 'pending', customer_id: C1, customer_name: 'عميل 1', customer_email: 'c1@example.test',
+          company_name: 'شركة أ', reason: 'سبب', requester_name: 'إداري', requested_at: '2026-10-19T09:00:00Z', attempts: 2,
+          last_failure: { code: 'prerequisite_not_enabled', missing: ['company_isolation_enforced'], at: '2026-10-19T10:00:00Z' } },
+        { id: 'r2000000-0000-4000-8000-000000000002', request_type: 'transfer_direct_to_company', status: 'approved', customer_id: C1, customer_name: 'عميل 2',
+          customer_email: 'c2@example.test', company_name: 'شركة أ', reason: 'سبب', requester_name: 'إداري', requested_at: '2026-10-18T09:00:00Z',
+          outcome: { primary: true, direct_relationship_ended: true, platform_manager_ended: true } }];
+    const { page, context, errors } = await open(browser, baseUrl, '/admin/account-requests.html', fx);
+    await page.waitForSelector('[data-open]');
+    assert.match(await page.textContent('#arBody'), /فشل التنفيذ — قابل للإعادة/);
+    assert.match(await page.textContent('#arBanner'), /نقل عميل مباشر إلى شركة: التنفيذ متاح/);
+    await page.click(`[data-open="${R1}"]`);
+    await page.waitForSelector('#arCancelForm');
+    assert.match(await page.textContent('#arDrawerBody'), /عزل الشركات/);
+    await page.click('#arDrawerClose');
+    await page.click('[data-open="r2000000-0000-4000-8000-000000000002"]');
+    await page.waitForFunction(() => /تم التنفيذ/.test(document.querySelector('#arDrawerBody').textContent));
+    assert.match(await page.textContent('#arDrawerBody'), /انتهت علاقته المباشرة.*مدير حسابه/);
+    assert.deepEqual(errors, []);
     await context.close();
 });
 
