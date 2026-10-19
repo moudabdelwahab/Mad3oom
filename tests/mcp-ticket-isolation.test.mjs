@@ -22,8 +22,10 @@ const supportTicketOfA1 = { user_id: 'a1', scope: 'mad3oom_support', company_id:
 test('المفتاح مطفأ: لا تغيير؛ وأي خطأ في mcp_ticket_tenancy يفشل مغلقًا (107)', () => {
     const off = tenancyFromRpc({ isolation_on: false, team_company_ids: [] }, null);
     assert.deepEqual(off, { isolationOn: false, teamCompanyIds: [] });
-    // خطأ أو رد فارغ ⇒ العزل مفعّل بلا شركات فريق: مالك الشركة لا يرى تذكرة عميله مع مدعوم
-    for (const failed of [tenancyFromRpc(null, { code: 'PGRST202' }), tenancyFromRpc(null, { code: '57014' }), tenancyFromRpc(null, null)]) {
+    // خطأ أو رد فارغ أو مشوّه ⇒ العزل مفعّل بلا شركات فريق: مالك الشركة لا يرى تذكرة عميله مع مدعوم
+    const malformed = [{}, { isolation_on: 'false' }, { isolation_on: null, team_company_ids: ['A'] }, []];
+    for (const failed of [tenancyFromRpc(null, { code: 'PGRST202' }), tenancyFromRpc(null, { code: '57014' }), tenancyFromRpc(null, null),
+                          ...malformed.map((d) => tenancyFromRpc(d, null))]) {
         assert.deepEqual(failed, { isolationOn: true, teamCompanyIds: [] });
         assert.equal(ticketVisibleUnderIsolation(ownerA, supportTicketOfA1, failed), false);
         assert.equal(ticketVisibleUnderIsolation(ownerA, companyTicketA, failed), false);
