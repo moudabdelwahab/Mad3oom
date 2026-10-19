@@ -617,7 +617,9 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //   107 — جاهزية العزل: ticket_in_my_scope و can_access_ticket (بامتياز المالك) تحترمان tenant_isolation حين
     //         يُفعَّل العزل، فلا إغلاق ولا إعادة فتح ولا كاشف وجود لتذكرة شخصية عبر super_user_id. بلا العزل لا تغيير.
     //         مقيسٌ في tests/sql/isolation-readiness.test.sql.
-    assert.equal(migrations[migrations.length - 1], '107_isolation_readiness.sql',
+    //   108 — إصلاحا جاهزية المرحلة 1: منحة الوصول لا تُقرأ بعد خفض دور المستفيد أو إيقاف حق نوعه، و
+    //         evaluate_customer_badges بنداء مباشر لنفس المستخدم أو طاقم المنصة. مقيسٌ في tests/sql/phase1-readiness.test.sql.
+    assert.equal(migrations[migrations.length - 1], '108_phase1_readiness_fixes.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
