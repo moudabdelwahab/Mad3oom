@@ -19,9 +19,11 @@
  * (097 مطبَّق في الإنتاج، فالدالة موجودة دائمًا هناك.)
  */
 export function tenancyFromRpc(data, error) {
-    if (error || !data || typeof data !== 'object') return { isolationOn: true, teamCompanyIds: [] };
+    if (error || !data || typeof data !== 'object' || typeof data.isolation_on !== 'boolean') {
+        return { isolationOn: true, teamCompanyIds: [] };
+    }
     return {
-        isolationOn: data.isolation_on === true,
+        isolationOn: data.isolation_on,
         teamCompanyIds: Array.isArray(data.team_company_ids) ? data.team_company_ids.map(String) : []
     };
 }
