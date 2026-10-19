@@ -1,5 +1,6 @@
 -- ============================================================================
--- التراجع عن 106_account_request_execution — يعيد دوال 105 الخمس حرفيًا (منسوخة من ملف 105)، ويحذف أعمدة
+-- التراجع عن 106_account_request_execution — يعيد دوال 105 الخمس حرفيًا (منسوخة من ملف 105) و ticket_quota_status
+-- كما في الإنتاج، ويحذف أعمدة
 -- محاولات التنفيذ ودالة _json_or_null، ويعيد قيد سبب إنهاء إسناد مدير الحساب.
 --
 -- يُشغَّل في معاملة واحدة:
@@ -291,6 +292,77 @@ begin
           null, 'account');
   return jsonb_build_object('request_id', r.id, 'status', 'approved', 'membership_id', v_mid, 'primary', v_primary);
 end $$;
+
+-- حصة التذاكر كما في الإنتاج قبل 106 حرفيًا
+CREATE OR REPLACE FUNCTION public.ticket_quota_status(p_user_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_owner        uuid := public.ticket_account_owner(p_user_id);
+  v_period_start timestamptz := date_trunc('month', now() at time zone 'Africa/Cairo') at time zone 'Africa/Cairo';
+  v_period_end   timestamptz := (date_trunc('month', now() at time zone 'Africa/Cairo') + interval '1 month') at time zone 'Africa/Cairo';
+  v_plan         text;
+  v_sub          public.whatsapp_subscriptions%rowtype;
+  v_unlimited    boolean;
+  v_limit        integer;
+  v_used         integer;
+  v_billing      integer;
+begin
+  if p_user_id is null then
+    return null;
+  end if;
+
+  select s.* into v_sub
+    from public.whatsapp_subscriptions s
+    join public.plan_ticket_quotas q on q.plan_key = s.plan
+   where s.user_id = v_owner and s.status = 'active'
+     and s.start_date <= now() and s.end_date > now()
+   order by (q.monthly_tickets is null) desc, q.monthly_tickets desc nulls first, s.end_date desc
+   limit 1;
+
+  v_plan := coalesce(v_sub.plan, 'free');
+  select q.monthly_tickets is null, q.monthly_tickets into v_unlimited, v_limit
+    from public.plan_ticket_quotas q where q.plan_key = v_plan;
+  if not found then
+    v_unlimited := false; v_limit := 20;
+  end if;
+
+  -- تذكرة واحدة تُحسب مرة واحدة في واحد من العدّادين بالضبط
+  select count(*) filter (where not b.is_billing),
+         count(*) filter (where b.is_billing)
+    into v_used, v_billing
+    from public.tickets t
+    cross join lateral (
+      select coalesce(t.category, '') = 'whatsapp_wallet_topup'
+             or exists (select 1 from public.whatsapp_subscriptions s where s.ticket_id = t.id) as is_billing
+    ) b
+   where (t.user_id = v_owner or t.user_id in (select p.id from public.profiles p where p.super_user_id = v_owner))
+     and t.created_at >= v_period_start
+     -- 101: التذكرة المنسوخة لا تُحسب مرة ثانية
+     and not exists (select 1 from public.ticket_carry_items ci where ci.new_ticket_id = t.id);
+
+  return jsonb_build_object(
+    'plan_key',          v_plan,
+    'plan_name_ar',      coalesce((select coalesce(sp.name_ar, sp.name) from public.subscription_plans sp where sp.key = v_plan), 'الخطة المجانية'),
+    'is_free',           v_sub.id is null,
+    'subscription_id',   v_sub.id,
+    'subscription_end',  v_sub.end_date,
+    'billing_cycle',     v_sub.billing_cycle,
+    'account_owner',     v_owner,
+    'shared_account',    v_owner is distinct from p_user_id,
+    'unlimited',         coalesce(v_unlimited, false),
+    'monthly_limit',     case when v_unlimited then null else v_limit end,
+    'used',              v_used,
+    'remaining',         case when v_unlimited then null else greatest(0, v_limit - v_used) end,
+    'billing_used',      v_billing,
+    'billing_limit',     5,
+    'period_start',      v_period_start,
+    'resets_at',         v_period_end);
+end;
+$function$;
 
 drop function if exists public._json_or_null(text);
 

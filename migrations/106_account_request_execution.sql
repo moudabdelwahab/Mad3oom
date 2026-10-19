@@ -93,6 +93,17 @@ begin
   r := r || jsonb_build_object('code', 'customer_is_customer', 'ok',
               a.account_type not in ('platform_staff', 'company_owner', 'company_staff'));
   r := r || jsonb_build_object('code', 'customer_active', 'ok', not a.banned);
+  -- 106 (مراجعة M1): الحساب يجتاز بوابة الحساب (042) الآن، قبل أي تغيير. التنفيذ يجعل رتبته company_user التي
+  -- تعبر قائمة الانتظار تلقائيًا — فلا يصير طلب حساب طريقًا لتجاوز رفض الانتظار أو التحقق.
+  r := r || jsonb_build_object('code', 'customer_gate_ok', 'ok',
+              coalesce(public.gate_is_exempt_account(p_customer), false)
+              or (coalesce(public.account_is_whitelisted(p_customer), false)
+                  and coalesce(public.account_verification_ok(p_customer), false)));
+  -- 106 (مراجعة L4): مقدّم الطلب ليس طرفًا في الشركة الوجهة (مالكها أو موظفًا فيها)
+  r := r || jsonb_build_object('code', 'requester_not_destination_party', 'ok',
+              coalesce(p_requester, auth.uid()) is null
+              or (not exists (select 1 from public.companies co where co.id = p_company and co.user_id = coalesce(p_requester, auth.uid()))
+                  and public._company_staff_role_of(p_company, coalesce(p_requester, auth.uid())) is null));
   if p_type = 'transfer_direct_to_company' then
     -- 106: النقل لعميل مباشر بلا أي شركة؛ من له شركة يمرّ بنقل 101 (موافقة الشركتين) لا من هنا
     r := r || jsonb_build_object('code', 'customer_is_direct', 'ok', a.account_type = 'direct');
@@ -116,9 +127,11 @@ begin
                                        where m.user_id = p_customer and m.status = 'active' and m.is_primary);
   if v_becomes_primary then
     r := r || jsonb_build_object('code', 'no_active_personal_subscription', 'ok',
+                -- (مراجعة M3) كل طلب اشتراك معلّق يمنع، أيًّا كان تاريخ انتهائه المؤقت
                 not exists (select 1 from public.whatsapp_subscriptions s
-                             where s.user_id = p_customer and s.status in ('active', 'pending')
-                               and (s.end_date is null or s.end_date > now())));
+                             where s.user_id = p_customer
+                               and (s.status = 'pending'
+                                    or (s.status = 'active' and (s.end_date is null or s.end_date > now())))));
   end if;
   if p_requester is not null then
     r := r || jsonb_build_object('code', 'requester_eligible', 'ok',
@@ -239,6 +252,9 @@ begin
         'open_tickets', (select count(*) from public.tickets t where t.user_id = r.customer_id and t.status in ('open', 'in-progress')),
         'active_subscriptions', (select count(*) from public.whatsapp_subscriptions s where s.user_id = r.customer_id and s.status = 'active'),
         'has_primary_company', a.primary_company_id is not null,
+        'gate_ok', coalesce(public.gate_is_exempt_account(r.customer_id), false)
+                   or (coalesce(public.account_is_whitelisted(r.customer_id), false)
+                       and coalesce(public.account_verification_ok(r.customer_id), false)),
         'platform_manager', case when a.manager_id is null then null
                                  else jsonb_build_object('id', a.manager_id, 'name', public._profile_name(a.manager_id)) end) end,
     'company', case when c.id is null then null else jsonb_build_object(
@@ -250,7 +266,8 @@ begin
         'direct_relationship', case when r.request_type = 'transfer_direct_to_company' then 'ended' else 'kept' end,
         'platform_account_manager', case when r.request_type = 'transfer_direct_to_company' and a.manager_id is not null
                                          then 'ended' else 'kept' end,
-        'ticket_quota_owner', case when v_primary then 'company' else 'unchanged' end,
+        -- (مراجعة M2) من تاريخ الانضمام فقط: تذاكره الشخصية السابقة لا تُحسب على الشركة ولا يظهر عددها لها
+        'ticket_quota_owner', case when v_primary then 'company_from_join' else 'unchanged' end,
         'historical_tickets', 'stay_private',
         'conversations_and_attachments', 'stay_private',
         'notifications', 'unchanged',
@@ -306,6 +323,9 @@ begin
   -- ترتيب الأقفال ثابت: الشركة ← حساب العميل ← الطلب (نفس ترتيب الحذف)
   select customer_id, company_id into v_ids from public.account_requests where id = p_request;
   perform 1 from public.companies where id = v_ids.company_id for share;
+  -- (مراجعة M3) قفل هوية الدخول: إدراج اشتراك جديد له (مفتاحه الخارجي إلى auth.users) ينتظر هذه المعاملة،
+  -- فلا يُشترى اشتراك شخصي بين الفحص والتنفيذ. ترتيب الحذف نفسه: auth.users ← profiles ← الطلب.
+  perform 1 from auth.users where id = v_ids.customer_id for update;
   perform 1 from public.profiles where id = v_ids.customer_id for update;
   select * into r from public.account_requests where id = p_request for update;
   if r.id is null then
@@ -443,6 +463,85 @@ end $$;
 
 
 -- ============================================================================
+-- 6ب) حصة التذاكر: لا يُحسب تاريخ العميل الشخصي على الشركة (نص الإنتاج حرفيًا والتغيير في الشرط وحده)
+-- ============================================================================
+CREATE OR REPLACE FUNCTION public.ticket_quota_status(p_user_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_owner        uuid := public.ticket_account_owner(p_user_id);
+  v_period_start timestamptz := date_trunc('month', now() at time zone 'Africa/Cairo') at time zone 'Africa/Cairo';
+  v_period_end   timestamptz := (date_trunc('month', now() at time zone 'Africa/Cairo') + interval '1 month') at time zone 'Africa/Cairo';
+  v_plan         text;
+  v_sub          public.whatsapp_subscriptions%rowtype;
+  v_unlimited    boolean;
+  v_limit        integer;
+  v_used         integer;
+  v_billing      integer;
+begin
+  if p_user_id is null then
+    return null;
+  end if;
+
+  select s.* into v_sub
+    from public.whatsapp_subscriptions s
+    join public.plan_ticket_quotas q on q.plan_key = s.plan
+   where s.user_id = v_owner and s.status = 'active'
+     and s.start_date <= now() and s.end_date > now()
+   order by (q.monthly_tickets is null) desc, q.monthly_tickets desc nulls first, s.end_date desc
+   limit 1;
+
+  v_plan := coalesce(v_sub.plan, 'free');
+  select q.monthly_tickets is null, q.monthly_tickets into v_unlimited, v_limit
+    from public.plan_ticket_quotas q where q.plan_key = v_plan;
+  if not found then
+    v_unlimited := false; v_limit := 20;
+  end if;
+
+  -- تذكرة واحدة تُحسب مرة واحدة في واحد من العدّادين بالضبط
+  select count(*) filter (where not b.is_billing),
+         count(*) filter (where b.is_billing)
+    into v_used, v_billing
+    from public.tickets t
+    cross join lateral (
+      select coalesce(t.category, '') = 'whatsapp_wallet_topup'
+             or exists (select 1 from public.whatsapp_subscriptions s where s.ticket_id = t.id) as is_billing
+    ) b
+   -- 106 (مراجعة M2): تذاكر التابع تُحسب على صاحب الحساب من تاريخ عضويته الأساسية في شركته فقط. ما كتبه قبل
+   -- انضمامه (تذاكره الشخصية مع مدعوم) يبقى خارج حصة الشركة وعدّادها — كما سجّله دفتر 098 لحظة إنشائه.
+   where (t.user_id = v_owner
+          or exists (select 1 from public.profiles p
+                       join public.company_memberships m on m.user_id = p.id and m.status = 'active' and m.is_primary
+                       join public.companies c on c.id = m.company_id and c.user_id = v_owner
+                      where p.id = t.user_id and p.super_user_id = v_owner and t.created_at >= m.joined_at))
+     and t.created_at >= v_period_start
+     -- 101: التذكرة المنسوخة لا تُحسب مرة ثانية
+     and not exists (select 1 from public.ticket_carry_items ci where ci.new_ticket_id = t.id);
+
+  return jsonb_build_object(
+    'plan_key',          v_plan,
+    'plan_name_ar',      coalesce((select coalesce(sp.name_ar, sp.name) from public.subscription_plans sp where sp.key = v_plan), 'الخطة المجانية'),
+    'is_free',           v_sub.id is null,
+    'subscription_id',   v_sub.id,
+    'subscription_end',  v_sub.end_date,
+    'billing_cycle',     v_sub.billing_cycle,
+    'account_owner',     v_owner,
+    'shared_account',    v_owner is distinct from p_user_id,
+    'unlimited',         coalesce(v_unlimited, false),
+    'monthly_limit',     case when v_unlimited then null else v_limit end,
+    'used',              v_used,
+    'remaining',         case when v_unlimited then null else greatest(0, v_limit - v_used) end,
+    'billing_used',      v_billing,
+    'billing_limit',     5,
+    'period_start',      v_period_start,
+    'resets_at',         v_period_end);
+end;
+$function$;
+
+-- ============================================================================
 -- 7) الامتيازات + تحقق ذاتي
 -- ============================================================================
 revoke all on function public._json_or_null(text) from public, anon, authenticated, service_role;
@@ -463,6 +562,9 @@ begin
      or has_function_privilege('authenticated', 'public._account_request_checks(text,uuid,text,text,uuid,uuid,uuid)', 'execute')
      or has_function_privilege('anon', 'public.owner_decide_account_request(uuid,boolean,text)', 'execute') then
     raise exception '106: دالة داخلية أو واجهة مفتوحة';
+  end if;
+  if position('m.joined_at' in pg_get_functiondef('public.ticket_quota_status(uuid)'::regprocedure)) = 0 then
+    raise exception '106: شرط حصة التذاكر غير مركّب';
   end if;
   if position('transfer_direct_to_company' in pg_get_functiondef('public.owner_decide_account_request(uuid,boolean,text)'::regprocedure)) = 0 then
     raise exception '106: مسار النقل غير مركّب';

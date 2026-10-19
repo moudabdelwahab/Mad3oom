@@ -32,7 +32,9 @@ The customer keeps **the same account**: no new `auth.users` row, no second prof
 | Chats (`chat_sessions`, `chat_messages`, `chat-attachments`) | Unchanged and private: own rows plus platform staff; there is no `super_user_id` path | existing RLS (audit 2026-10-19) | audit |
 | Company conversations (102) | New company-scoped tables; nothing historical is copied | 102 | — |
 | Notifications | Unchanged; own only | existing RLS | 106 ③ (count) |
-| Subscriptions, wallet, points | **Stay with the customer** (no move, no cancellation). Becoming a primary member moves the ticket quota to the company plan (`ticket_account_owner`), so an active or pending personal subscription **blocks** execution instead of breaking silently | 106 check `no_active_personal_subscription` | 106 ④ |
+| Subscriptions, wallet, points | **Stay with the customer** (no move, no cancellation). Becoming a primary member moves the ticket quota to the company plan (`ticket_account_owner`), so an active personal subscription, or **any** pending one, **blocks** execution instead of breaking silently. Approval locks the customer's `auth.users` row, so a purchase cannot slip in between the check and the execution. A personal subscription bought **after** joining follows the existing company-customer rule: the quota is shared with the company (`ticket_quota_status.shared_account = true`) | 106 check `no_active_personal_subscription`, lock on `auth.users` | 106 ④ ⑦ ⑩ب |
+| Ticket quota history | Only tickets created **after** the customer's primary-membership `joined_at` count against the company. Earlier personal tickets are neither counted nor revealed through the company's `used` / `billing_used`, which matches what the 098 ledger recorded at creation | 106 `ticket_quota_status` (one condition changed; the rollback restores production text) | 106 ③ |
+| Account gate (042) | The customer must pass the account gate (whitelist + verification) **before** execution. The execution makes the role `company_user`, which the waitlist lets through, so a request cannot be used to bypass a rejected waitlist entry | 106 check `customer_gate_ok` | 106 ⑦ |
 | API tokens, personal integrations | Unchanged (owner-only since 095) | 095 | 106 ① (the execution writes no such table) |
 | External integration links (088) | None are created; a company may link later through its own flow | 088 | — |
 | Platform account manager | Transfer: ended (`transferred`), history kept, previous manager notified generically. Add: unchanged | 106 | 106 ③ |
@@ -40,6 +42,23 @@ The customer keeps **the same account**: no new `auth.users` row, no second prof
 | Legal retention | No record is deleted or rewritten by execution. Finalized requests are immutable (105 guard) | 105 | 105 ⑦ |
 
 **Reverse transfer** (company customer → direct platform customer) is **not implemented** and has no policy yet. A customer can leave a company through 096 (`leave_company`), which leaves the account `unclassified` (no explicit relationship). Re-establishing a direct relationship needs a documented business rule first.
+
+## 2b. Independent security review (2026-10-19) and how each finding was resolved
+
+There were no CRITICAL or HIGH findings.
+
+| Finding | Resolution |
+|---|---|
+| M1: a transfer could admit a waitlist-gated account | Fixed: `customer_gate_ok` at submit and at approval; `customer_now.gate_ok` shown to the owner |
+| M2: the customer's earlier personal tickets counted against, and were revealed to, the company | Fixed: `ticket_quota_status` counts a follower's tickets from `joined_at` only |
+| M3: a stale pending subscription was not detected; a purchase could race the approval | Fixed: every `pending` row blocks; approval locks `auth.users` (two-session test). Purchases after joining follow the existing shared-quota rule (documented) |
+| M4a: MCP isolation failed **open** on an RPC error | Fixed: `tenancyFromRpc` fails closed (non-admins see their own tickets only) |
+| M4b: the database cannot verify the MCP deploy order | Release checklist: `account_request_execution_enabled` is enabled **last**, after the MCP redeploy and the isolation checks (§4 steps 4 → 7 → 8). A database switch cannot prove a deployment; this is a human attestation, like the switch itself |
+| L4: requester conflict of interest | Fixed: `requester_not_destination_party` |
+| L1: MCP `send_notification` lets a company owner write to its customers | Pre-existing MCP feature, write-only, same-origin links only. Follow-up: limit it to row owner or admin |
+| L2: MCP `get_customer` returns more columns than `company_customers_list` | Pre-existing. Follow-up: align the column set |
+| L3: `evaluate_customer_badges(uuid)` counts any user's tickets without isolation | Pre-existing, outside 097/106. Follow-up: restrict to self or staff |
+| INFO: failure notifications are not rate-limited | Only the owner with step-up can trigger them; accepted |
 
 ## 3. Prerequisite matrix
 

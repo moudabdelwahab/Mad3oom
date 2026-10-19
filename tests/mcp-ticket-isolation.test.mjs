@@ -19,9 +19,16 @@ const on = (ids = []) => ({ isolationOn: true, teamCompanyIds: ids });
 const companyTicketA = { user_id: 'a1', scope: 'company', company_id: CA };
 const supportTicketOfA1 = { user_id: 'a1', scope: 'mad3oom_support', company_id: null };
 
-test('المفتاح مطفأ أو قبل 097: لا تغيير', () => {
-    const off = tenancyFromRpc(null, { code: 'PGRST202' });
+test('المفتاح مطفأ: لا تغيير؛ وأي خطأ في mcp_ticket_tenancy يفشل مغلقًا (107)', () => {
+    const off = tenancyFromRpc({ isolation_on: false, team_company_ids: [] }, null);
     assert.deepEqual(off, { isolationOn: false, teamCompanyIds: [] });
+    // خطأ أو رد فارغ ⇒ العزل مفعّل بلا شركات فريق: مالك الشركة لا يرى تذكرة عميله مع مدعوم
+    for (const failed of [tenancyFromRpc(null, { code: 'PGRST202' }), tenancyFromRpc(null, { code: '57014' }), tenancyFromRpc(null, null)]) {
+        assert.deepEqual(failed, { isolationOn: true, teamCompanyIds: [] });
+        assert.equal(ticketVisibleUnderIsolation(ownerA, supportTicketOfA1, failed), false);
+        assert.equal(ticketVisibleUnderIsolation(ownerA, companyTicketA, failed), false);
+        assert.equal(ticketVisibleUnderIsolation(customer, supportTicketOfA1, failed), true);
+    }
     assert.equal(ticketVisibleUnderIsolation(admin, companyTicketA, off), true);
     assert.equal(ticketVisibleUnderIsolation(admin, { user_id: 'x' }, tenancyFromRpc({ isolation_on: false }, null)), true);
     assert.equal(statsColumns(off), 'status');

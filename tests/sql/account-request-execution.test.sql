@@ -179,8 +179,8 @@ DO $$
 DECLARE r jsonb; v_req uuid; v_tk uuid := '7e000000-0000-4000-8000-0000000000d1'; n0 int;
 BEGIN
   -- تاريخ قبل النقل: تذكرة ورد، ومدير حساب على المنصة
-  INSERT INTO public.tickets (id, user_id, title, description, status, priority, category)
-  VALUES (v_tk, t.u('DG'), 'تذكرة قديمة', 'محتوى خاص بالعميل', 'open', 'medium', 'other');
+  INSERT INTO public.tickets (id, user_id, title, description, status, priority, category, created_at)
+  VALUES (v_tk, t.u('DG'), 'تذكرة قديمة', 'محتوى خاص بالعميل', 'open', 'medium', 'other', now() - interval '1 second');
   INSERT INTO public.ticket_replies (ticket_id, user_id, message) VALUES (v_tk, t.u('DG'), 'رد خاص');
   PERFORM t.own(format('public.customer_manager_assign(%L::uuid, %L::uuid, %L)', t.u('DG'), t.u('AD'), 'متابعة قبل النقل'));
   n0 := (SELECT count(*) FROM public.notifications WHERE user_id = t.u('DG'));
@@ -190,7 +190,7 @@ BEGIN
   v_req := t.req(t.u('DG'));
   r := t.own(format('public.owner_account_request_details(%L::uuid)', v_req));
   PERFORM t.ok(r -> 'impact' ->> 'direct_relationship' = 'ended' AND r -> 'impact' ->> 'platform_account_manager' = 'ended'
-           AND r -> 'impact' ->> 'ticket_quota_owner' = 'company' AND r -> 'impact' ->> 'subscriptions' = 'stay_with_customer'
+           AND r -> 'impact' ->> 'ticket_quota_owner' = 'company_from_join' AND r -> 'impact' ->> 'subscriptions' = 'stay_with_customer'
            AND (r -> 'customer_now' -> 'platform_manager' ->> 'id')::uuid = t.u('AD'), 'TR impact');
   r := t.decide(v_req, true, null);
   PERFORM t.ok(r ->> 'status' = 'approved' AND (r ->> 'direct_relationship_ended')::boolean AND (r ->> 'platform_manager_ended')::boolean, 'TR approved ' || r::text);
@@ -217,8 +217,16 @@ BEGIN
   -- طاقم المنصة يواصل متابعة التذكرة القديمة (نطاقها mad3oom_support لا يتغير)
   PERFORM t.ok((SELECT scope FROM public.tickets WHERE id = v_tk) = 'mad3oom_support'
            AND t.rows(t.u('AD'), format('public.tickets where id = %L', v_tk)) = 1, 'TR platform keeps old ticket');
-  -- الحصة: خطة الشركة تحكم من الآن
+  -- الحصة: خطة الشركة تحكم من الآن — ولا تُحسب تذاكره الشخصية السابقة على الشركة ولا يظهر عددها لها (M2)
+  INSERT INTO t.saved VALUES ('ob_used_after_transfer', (public.ticket_quota_status(t.u('OB')) ->> 'used'));
   PERFORM t.ok((public.ticket_quota_status(t.u('DG')) ->> 'account_owner')::uuid = t.u('OB'), 'TR quota owner company');
+  PERFORM t.ok((public.ticket_quota_status(t.u('OB')) ->> 'used')::int
+               = (SELECT count(*) FROM public.tickets WHERE user_id = t.u('OB') AND created_at >= date_trunc('month', now() at time zone 'Africa/Cairo') at time zone 'Africa/Cairo')
+                 + (SELECT count(*) FROM public.tickets t2 JOIN public.profiles p ON p.id = t2.user_id
+                     JOIN public.company_memberships m ON m.user_id = p.id AND m.status = 'active' AND m.is_primary AND m.company_id = t.u('CB')
+                    WHERE p.super_user_id = t.u('OB') AND t2.created_at >= m.joined_at
+                      AND t2.created_at >= date_trunc('month', now() at time zone 'Africa/Cairo') at time zone 'Africa/Cairo'), 'TR quota counts from join date');
+  PERFORM t.ok(NOT EXISTS (SELECT 1 FROM public.tickets WHERE id = v_tk AND created_at >= (SELECT joined_at FROM public.company_memberships WHERE user_id = t.u('DG') AND company_id = t.u('CB'))), 'TR old ticket predates join');
   -- الإشعارات في مكانها (+ إشعار النقل وحده)
   PERFORM t.ok((SELECT count(*) FROM public.notifications WHERE user_id = t.u('DG')) = n0 + 1, 'TR notifications kept');
   PERFORM t.ok(EXISTS (SELECT 1 FROM public.privileged_audit WHERE action = 'account_request.transferred' AND target_user_id = t.u('DG')), 'TR audited');
@@ -226,10 +234,11 @@ BEGIN
   -- الشركة ترى العميل الآن؛ وشركة أخرى لا
   PERFORM t.ok((t.call(t.u('OB'), 'public.company_customers_list()') -> 'customers') @> jsonb_build_array(jsonb_build_object('id', t.u('DG')))
            AND NOT ((t.call(t.u('OA'), 'public.company_customers_list()') -> 'customers') @> jsonb_build_array(jsonb_build_object('id', t.u('DG')))), 'TR company visibility');
-  -- تذكرة جديدة بعد النقل تتبع الشركة
+  -- تذكرة جديدة بعد النقل تتبع الشركة، وتُحسب على حصتها
   INSERT INTO public.tickets (id, user_id, title, description, status, priority, category)
   VALUES ('7e000000-0000-4000-8000-0000000000d2', t.u('DG'), 'تذكرة جديدة', 'بعد النقل', 'open', 'medium', 'other');
   PERFORM t.ok((SELECT scope || ':' || company_id FROM public.tickets WHERE id = '7e000000-0000-4000-8000-0000000000d2') = 'company:' || t.u('CB'), 'TR new ticket → company');
+  PERFORM t.ok((public.ticket_quota_status(t.u('OB')) ->> 'used')::int = (SELECT v::int FROM t.saved WHERE k = 'ob_used_after_transfer') + 1, 'TR new ticket counted once');
   RAISE NOTICE 'PASS ③ النقل: نفس الهوية، العلاقة المباشرة ومدير الحساب يُنهيان بسجل، عميل شركة لا موظف، التاريخ خاص، الحصة للشركة، الجديد للشركة';
 END $$;
 
@@ -238,7 +247,7 @@ DO $$
 DECLARE r jsonb; v_req uuid;
 BEGIN
   INSERT INTO auth.users (id, email) VALUES (t.x('NS'), 'ns@tenancy.test');
-  INSERT INTO public.profiles (id, email, full_name, role) VALUES (t.x('NS'), 'ns@tenancy.test', 'عميل باشتراك', 'user');
+  INSERT INTO public.profiles (id, email, full_name, role, phone, created_at) VALUES (t.x('NS'), 'ns@tenancy.test', 'عميل باشتراك', 'user', '01100000081', '2026-09-01');
   INSERT INTO public.whatsapp_subscriptions (user_id, plan, status, billing_cycle, start_date, end_date, duration_days)
   VALUES (t.x('NS'), 'support', 'active', 'monthly', now() - interval '1 day', now() + interval '29 days', 30);
   -- عند الإرسال: يُرفض مبكرًا
@@ -263,7 +272,7 @@ DO $$
 DECLARE r jsonb; v_req uuid;
 BEGIN
   INSERT INTO auth.users (id, email) VALUES (t.x('S1'), 's1@tenancy.test');
-  INSERT INTO public.profiles (id, email, full_name, role) VALUES (t.x('S1'), 's1@tenancy.test', 'عميل ج', 'user');
+  INSERT INTO public.profiles (id, email, full_name, role, phone, created_at) VALUES (t.x('S1'), 's1@tenancy.test', 'عميل ج', 'user', '01100000082', '2026-09-01');
   PERFORM t.ok(t.submit(t.u('AD'), 'transfer_direct_to_company', t.x('S1'), 's1@tenancy.test', t.u('CA'), t.x('K4')) = 'ok', 'SW submit');
   v_req := t.req(t.x('S1'));
   INSERT INTO t.saved VALUES ('req_s1', v_req);
@@ -309,7 +318,25 @@ BEGIN
   UPDATE public.companies SET status = 'suspended' WHERE id = t.u('CB');
   PERFORM t.ok(t.submit(t.u('AD'), 'add_to_company', t.u('DH'), 'dh@tenancy.test', t.u('CB'), t.x('K5')) LIKE '22023:%', 'VAL suspended destination at submit');
   UPDATE public.companies SET status = 'active' WHERE id = t.u('CB');
-  RAISE NOTICE 'PASS ⑦ الشركة الموقوفة تُرفض عند الإرسال وعند القرار، والبريد غير المطابق والحساب غير المؤهل يوقفان';
+  -- (M3) طلب اشتراك معلّق بتاريخ انتهاء مؤقت فائت ما زال يمنع
+  INSERT INTO auth.users (id, email) VALUES (t.x('K7'), 'k7@tenancy.test');
+  INSERT INTO public.profiles (id, email, full_name, role, phone, created_at) VALUES (t.x('K7'), 'k7@tenancy.test', 'عميل هـ', 'user', '01100000077', '2026-09-01');
+  INSERT INTO public.whatsapp_subscriptions (user_id, plan, status, billing_cycle, start_date, end_date, duration_days)
+  VALUES (t.x('K7'), 'support', 'pending', 'monthly', now() - interval '60 days', now() - interval '30 days', 30);
+  PERFORM t.ok(t.submit(t.u('AD'), 'transfer_direct_to_company', t.x('K7'), 'k7@tenancy.test', t.u('CA'), t.x('K8')) = '22023:no_active_personal_subscription', 'VAL stale pending subscription blocks');
+  -- (M1) حساب بلا قائمة بيضاء ولا تحقق (بعد البوابة، رُفض انتظاره): لا يصير طلب الحساب طريقًا لتجاوز البوابة
+  INSERT INTO auth.users (id, email) VALUES (t.x('K9'), 'k9@tenancy.test');
+  INSERT INTO public.profiles (id, email, full_name, role, created_at) VALUES (t.x('K9'), 'k9@tenancy.test', 'منتظر مرفوض', 'user', now());
+  INSERT INTO public.waitlist_entries (name, email, status) VALUES ('منتظر', 'k9@tenancy.test', 'rejected');
+  PERFORM t.ok(NOT public.account_is_whitelisted(t.x('K9')), 'VAL K9 gated');
+  PERFORM t.ok(t.submit(t.u('AD'), 'transfer_direct_to_company', t.x('K9'), 'k9@tenancy.test', t.u('CA'), t.x('K8')) = '22023:customer_gate_ok', 'VAL gated account refused');
+  PERFORM t.ok(t.kind(t.x('K9')) = 'direct' AND (SELECT role FROM public.profiles WHERE id = t.x('K9')) = 'user', 'VAL gated account unchanged');
+  -- (L4) إداري يملك الشركة الوجهة لا يطلب إضافة عميل إليها
+  INSERT INTO public.companies (id, user_id, company_name, commercial_registration_number, tax_id, company_email)
+  VALUES ('cd000000-0000-4000-8000-0000000000ad', t.u('AD'), 'شركة الإداري', 'CR-AD-106', 'TAX-AD', 'ad@company.test');
+  PERFORM t.ok((SELECT role FROM public.profiles WHERE id = t.u('AD')) = 'admin', 'VAL AD stays admin');
+  PERFORM t.ok(t.submit(t.u('AD'), 'add_to_company', t.u('DH'), 'dh@tenancy.test', 'cd000000-0000-4000-8000-0000000000ad'::uuid, t.x('K8')) = '22023:requester_not_destination_party', 'VAL requester owns destination');
+  RAISE NOTICE 'PASS ⑦ الشركة الموقوفة تُرفض عند الإرسال وعند القرار؛ البريد غير المطابق والحساب غير المؤهل والمحجوب ببوابة الحساب والاشتراك المعلّق القديم وتعارض مصلحة مقدّم الطلب توقف';
 END $$;
 
 -- ══ ⑧ فشل مُحقَن أثناء النقل ثم إعادة ناجحة ════════════════════════════════
@@ -348,7 +375,7 @@ END $$;
 -- ══ ⑩ موافقتان متزامنتان ═════════════════════════════════════════════════
 DO $$ BEGIN
   INSERT INTO auth.users (id, email) VALUES (t.x('S2'), 's2@tenancy.test');
-  INSERT INTO public.profiles (id, email, full_name, role) VALUES (t.x('S2'), 's2@tenancy.test', 'عميل د', 'user');
+  INSERT INTO public.profiles (id, email, full_name, role, phone, created_at) VALUES (t.x('S2'), 's2@tenancy.test', 'عميل د', 'user', '01100000083', '2026-09-01');
   PERFORM t.ok(t.submit(t.u('AD'), 'transfer_direct_to_company', t.x('S2'), 's2@tenancy.test', t.u('CB'), t.x('K6')) = 'ok', 'RACE submit');
   PERFORM t.ctx('owner');
   PERFORM t.stepup(t.u('OW'));
@@ -375,6 +402,39 @@ BEGIN
            AND (SELECT count(*) FROM public.privileged_audit WHERE action = 'account_request.transferred' AND target_user_id = t.x('S2')) = 1, 'RACE executed once');
   PERFORM t.ctx(null);
   RAISE NOTICE 'PASS ⑩ موافقتان متزامنتان: الثانية تنتظر ثم تجد الطلب نهائيًا — نقل واحد بلا تكرار';
+END $$;
+SELECT t.dblink_disconnect('s1'), t.dblink_disconnect('s2');
+
+-- ══ ⑩ب شراء اشتراك في لحظة الموافقة ينتظرها (قفل هوية الدخول) ══════════════
+CREATE FUNCTION t.conn_super(p_name text) RETURNS void LANGUAGE plpgsql AS $$
+begin
+  perform t.dblink_connect(p_name, format('dbname=%s port=%s host=%s user=postgres', current_database(),
+          current_setting('port'), split_part(current_setting('unix_socket_directories'), ',', 1)));
+  perform t.dblink_exec(p_name, $s$set lock_timeout = '10s'$s$);
+end $$;
+DO $$ BEGIN
+  INSERT INTO auth.users (id, email) VALUES (t.x('S3'), 's3@tenancy.test');
+  INSERT INTO public.profiles (id, email, full_name, role, phone, created_at) VALUES (t.x('S3'), 's3@tenancy.test', 'عميل و', 'user', '01100000084', '2026-09-01');
+  PERFORM t.ok(t.submit(t.u('AD'), 'transfer_direct_to_company', t.x('S3'), 's3@tenancy.test', t.u('CB'), t.x('K9')) = 'ok', 'BUY submit');
+  PERFORM t.ctx('owner');
+  PERFORM t.stepup(t.u('OW'));
+END $$;
+SELECT t.conn('s1', t.u('OW')), t.conn_super('s2');
+DO $$
+DECLARE v_req uuid := t.req(t.x('S3')); r1 text; r2 text; blocked boolean;
+BEGIN
+  PERFORM t.dblink_exec('s1', 'begin');
+  r1 := (SELECT x FROM t.dblink('s1', format('select (public.owner_decide_account_request(%L::uuid, true, null))::text', v_req)) AS r(x text));
+  PERFORM t.dblink_send_query('s2', format($q$insert into public.whatsapp_subscriptions (user_id, plan, status, billing_cycle, start_date, end_date, duration_days)
+                                             values (%L, 'support', 'pending', 'monthly', now(), now() + interval '30 days', 30) returning 'inserted'$q$, t.x('S3')));
+  blocked := t.wait_blocked('s2');
+  PERFORM t.dblink_exec('s1', 'commit');
+  r2 := (SELECT x FROM t.dblink_get_result('s2') AS r(x text));
+  PERFORM t.dblink_get_result('s2', false);
+  PERFORM t.ok(blocked, 'BUY purchase waited for the approval');
+  PERFORM t.ok(r1 LIKE '%"approved"%' AND r2 = 'inserted', 'BUY ' || r1 || ' / ' || coalesce(r2, 'null'));
+  PERFORM t.ctx(null);
+  RAISE NOTICE 'PASS ⑩ب شراء اشتراك في لحظة الموافقة ينتظرها (قفل auth.users): لا شراء يفلت بين الفحص والتنفيذ';
 END $$;
 SELECT t.dblink_disconnect('s1'), t.dblink_disconnect('s2');
 

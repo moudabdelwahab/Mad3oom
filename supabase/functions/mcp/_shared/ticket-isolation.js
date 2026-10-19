@@ -12,9 +12,14 @@
  * وحدة خالصة بلا Deno ولا شبكة، مُختبَرة في tests/mcp-ticket-isolation.test.mjs.
  */
 
-/** سياق العزل من رد mcp_ticket_tenancy(p_actor)، أو مطفأ إن لم تكن الدالة موجودة (قبل 097). */
+/**
+ * سياق العزل من رد mcp_ticket_tenancy(p_actor).
+ * 107 (مراجعة M4): يفشل مغلقًا. أي خطأ أو رد غير مفهوم ⇒ العزل مفعّل بلا شركات فريق: غير الإدارة يرى تذاكره
+ * وحده. كان الخطأ يعني «العزل مطفأ» فيعيد لمالك الشركة تذاكر عميل منقول عبر super_user_id عند أي عطل مؤقت.
+ * (097 مطبَّق في الإنتاج، فالدالة موجودة دائمًا هناك.)
+ */
 export function tenancyFromRpc(data, error) {
-    if (error || !data || typeof data !== 'object') return { isolationOn: false, teamCompanyIds: [] };
+    if (error || !data || typeof data !== 'object') return { isolationOn: true, teamCompanyIds: [] };
     return {
         isolationOn: data.isolation_on === true,
         teamCompanyIds: Array.isArray(data.team_company_ids) ? data.team_company_ids.map(String) : []

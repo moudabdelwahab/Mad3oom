@@ -73,7 +73,9 @@ export const CHECK_LABELS = Object.freeze({
     no_pending_transfer: 'لا نقل معلّق للعميل',
     no_conflicting_request: 'لا طلب آخر معلّق للعميل',
     requester_eligible: 'مقدّم الطلب ما زال إداريًا غير موقوف',
-    no_active_personal_subscription: 'لا اشتراك شخصي نشط أو معلّق (وإلا تنتقل حصته لخطة الشركة)'
+    no_active_personal_subscription: 'لا اشتراك شخصي نشط أو معلّق (وإلا تنتقل حصته لخطة الشركة)',
+    customer_gate_ok: 'الحساب يجتاز بوابة الحساب (قائمة الانتظار والتحقق)',
+    requester_not_destination_party: 'مقدّم الطلب ليس مالك الشركة الوجهة ولا موظفًا فيها'
 });
 
 // ما يحدث فعلًا لكل فئة بيانات عند التنفيذ (owner_account_request_details.impact، 106)
@@ -81,7 +83,7 @@ export const IMPACT_LABELS = Object.freeze({
     membership: { primary: 'يصبح عضوًا في الشركة كشركة أساسية', secondary: 'يصبح عضوًا في الشركة كشركة إضافية (أساسيته لا تتغير)' },
     direct_relationship: { ended: 'تنتهي علاقته المباشرة بالمنصة (تبقى في السجل)', kept: 'تبقى علاقته المباشرة بالمنصة' },
     platform_account_manager: { ended: 'ينتهي إسناد مدير حسابه على المنصة (يبقى في السجل)', kept: 'مدير حسابه على المنصة لا يتغير' },
-    ticket_quota_owner: { company: 'حصة تذاكره الجديدة على خطة الشركة', unchanged: 'حصة تذاكره لا تتغير' },
+    ticket_quota_owner: { company: 'حصة تذاكره الجديدة على خطة الشركة', company_from_join: 'حصة تذاكره من تاريخ الانضمام على خطة الشركة (تذاكره السابقة لا تُحسب عليها)', unchanged: 'حصة تذاكره لا تتغير' },
     historical_tickets: { stay_private: 'تذاكره السابقة تبقى خاصة به ولا تراها الشركة' },
     conversations_and_attachments: { stay_private: 'محادثاته ومرفقاته السابقة تبقى خاصة به' },
     notifications: { unchanged: 'إشعاراته في مكانها' },
