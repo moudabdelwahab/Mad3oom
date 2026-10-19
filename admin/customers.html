@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>إدارة العملاء - لوحة الإدارة</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/js/admin/customers.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+    <script src="/theme-manager.js" defer></script>
+</head>
+<body>
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main">
+        <header class="page-header">
+            <h1>إدارة العملاء</h1>
+            <p>عملاء المنصة المباشرون وعملاء الشركات، ومدير الحساب لكل عميل. القراءة والتصفية على الخادم.</p>
+        </header>
+
+        <div class="section-card">
+            <div class="cm-views" id="cmViews" role="group" aria-label="العرض"></div>
+
+            <div class="cm-filters">
+                <label>بحث
+                    <input type="search" id="cmSearch" maxlength="100" autocomplete="off" placeholder="الاسم، البريد، الجوال أو المعرّف">
+                </label>
+                <label>نوع الحساب
+                    <select id="cmType"><option value="">الكل</option></select>
+                </label>
+                <label>الشركة
+                    <select id="cmCompany"><option value="">كل الشركات</option></select>
+                </label>
+                <label>مدير الحساب
+                    <select id="cmManager"><option value="">الكل</option><option value="none">بلا مدير حساب</option></select>
+                </label>
+                <label>الحالة
+                    <select id="cmStatus"><option value="">الكل</option><option value="active">نشط</option><option value="suspended">موقوف</option></select>
+                </label>
+                <label>الترتيب
+                    <select id="cmSort"></select>
+                </label>
+            </div>
+
+            <div class="table-container">
+                <table class="admin-table cm-table" aria-describedby="cmPageInfo">
+                    <thead>
+                        <tr>
+                            <th scope="col">المعرّف</th>
+                            <th scope="col">الاسم</th>
+                            <th scope="col">البريد الإلكتروني</th>
+                            <th scope="col">الجوال</th>
+                            <th scope="col">واتساب</th>
+                            <th scope="col">مدير الحساب</th>
+                            <th scope="col">نوع الحساب</th>
+                            <th scope="col">الشركة</th>
+                            <th scope="col">الحالة</th>
+                            <th scope="col">تاريخ الإنشاء</th>
+                            <th scope="col">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cmBody">
+                        <tr><td colspan="11" class="cm-state" aria-busy="true"><div class="cm-skeleton"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="cm-pager">
+                <span class="cm-muted" id="cmPageInfo" role="status" aria-live="polite">—</span>
+                <div class="cm-pager-controls">
+                    <label class="cm-muted" for="cmPageSize">لكل صفحة</label>
+                    <select id="cmPageSize" class="cm-input" style="width:auto"></select>
+                    <button type="button" class="btn btn-secondary btn-sm" id="cmPrev">السابق</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="cmNext">التالي</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="cm-overlay" id="cmOverlay" hidden></div>
+    <aside class="cm-drawer" id="cmDrawer" role="dialog" aria-modal="true" aria-labelledby="cmDrawerTitle" hidden>
+        <div class="cm-drawer-head">
+            <div>
+                <h2 id="cmDrawerTitle">تفاصيل العميل</h2>
+                <div class="cm-muted cm-ltr" id="cmDrawerSub"></div>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="cmDrawerClose" aria-label="إغلاق">إغلاق</button>
+        </div>
+        <div class="cm-drawer-body" id="cmDrawerBody"></div>
+    </aside>
+
+    <script type="module" src="/assets/js/admin/customers.js"></script>
+</body>
+</html>

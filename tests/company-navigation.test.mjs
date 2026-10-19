@@ -608,7 +608,10 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //   104 — إصلاحات أمامية لـ 100: المستندات تبقى بعد حذف الشركة (القرار A)، فحص سياسات التخزين، تنزيل
     //         المالك بتحقق خطوتين، المراجع للإصدار الحالي، البصمة من الخادم، إعادة الفحص حتى 3، nonce للنتيجة،
     //         حدود الرفع. company_documents_enabled مطفأ. مقيسٌ في tests/sql/company-documents-followups.test.sql.
-    assert.equal(migrations[migrations.length - 1], '104_company_documents_followups.sql',
+    //   105 — هيكل الحسابات: «عميل مباشر» علاقة صريحة، مدير الحساب مسؤولية بلا صلاحية، دليل عملاء على الخادم
+    //         لمن يقرأ الحسابات اليوم، وطلبات الحسابات بقرار المالك وحده (لا موافقة بلا تنفيذ؛ النقل الكامل
+    //         غير متاح بعد). account_request_execution_enabled مطفأ. مقيسٌ في tests/sql/account-hierarchy-customers.test.sql.
+    assert.equal(migrations[migrations.length - 1], '105_account_hierarchy_customers.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

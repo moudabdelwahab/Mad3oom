@@ -17,7 +17,9 @@ export async function resolveAccess(requiredRole = null) {
         identity: { email: user.email, role: user.profile?.role },
         requiredRole,
         impersonating: !!user.isImpersonated,
-        banned: user.banned === true
+        banned: user.banned === true,
+        // سياق مالك المنصة (040) — اختياري؛ بدونه يُرفض المالك كما في الإنتاج
+        activeContext: user.activeContext || null
     });
     return { status: decision.status, user, reason: decision.reason };
 }
