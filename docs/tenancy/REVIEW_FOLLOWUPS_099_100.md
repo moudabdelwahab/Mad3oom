@@ -1,6 +1,6 @@
 # 099 / 100 — open review findings: safe fixes, tests, prerequisites
 
-> **Status (updated 2026-10-14): implemented as forward migrations `103_admin_hierarchy_followups` and `104_company_documents_followups`, with rollbacks and regression tests. Not applied to production.**
+> **Status (updated 2026-10-14): implemented as forward migrations `103_admin_hierarchy_followups` and `104_company_documents_followups`, with rollbacks and regression tests. Applied to production on 2026-10-19, with all switches off.**
 > 099 and 100 were applied to production on 2026-10-14, so their files are unchanged. Every fix is a new migration (see `FOLLOWUPS_103_104_PROD_INSTALL.md`).
 > The analysis below is kept as written; the checklist shows where each item landed.
 

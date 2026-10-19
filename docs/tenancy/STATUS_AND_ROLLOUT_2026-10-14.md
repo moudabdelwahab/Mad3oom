@@ -23,7 +23,7 @@
 | DOC Documents | `100_company_documents` | `company_documents_enabled` | `DOC_COMPANY_DOCUMENTS_100_PROD_INSTALL.md`, `DOCUMENT_SCANNER_RUNBOOK.md` |
 | H2 Transfers / carry / history | `101_customer_transfers_carry` | `customer_transfers_enabled`, `ticket_carry_enabled`, `historical_access_enabled` | `H2_CUSTOMER_TRANSFERS_CARRY_101_PROD_INSTALL.md` |
 | C + D Conversations + Inbox | `102_company_conversations` | `company_inbox_enabled` | `CD_COMPANY_CONVERSATIONS_102_PROD_INSTALL.md` |
-| 099/100 follow-ups | `103_admin_hierarchy_followups`, `104_company_documents_followups` (forward fixes, **not applied**) | — (keep `delegation_enabled`, `company_suspension_enforced`, `company_documents_enabled` off) | `FOLLOWUPS_103_104_PROD_INSTALL.md` |
+| 099/100 follow-ups | `103_admin_hierarchy_followups`, `104_company_documents_followups` (forward fixes, **applied 2026-10-19**, switches off) | — (keep `delegation_enabled`, `company_suspension_enforced`, `company_documents_enabled` off) | `FOLLOWUPS_103_104_PROD_INSTALL.md` |
 | E Company Continuity | — (not implemented; fail-closed today) | — | `E_I_CONTINUITY_INTEGRATIONS_ASSESSMENT.md` |
 | I Integrations | — (already company-scoped: 088 + 096–099) | — | `E_I_CONTINUITY_INTEGRATIONS_ASSESSMENT.md` |
 
