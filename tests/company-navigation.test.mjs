@@ -614,7 +614,10 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //   106 — تنفيذ طلبات الحسابات فعليًا: الإضافة والنقل (نفس الهوية، العلاقة المباشرة ومدير الحساب يُنهيان، التاريخ
     //         خاص بالعزل، اشتراك شخصي نشط يمنع التنفيذ)، والفشل يُسجَّل والطلب قابل للاستئناف. مشروط بالمفاتيح
     //         المطفأة نفسها. مقيسٌ في tests/sql/account-request-execution.test.sql.
-    assert.equal(migrations[migrations.length - 1], '106_account_request_execution.sql',
+    //   107 — جاهزية العزل: ticket_in_my_scope و can_access_ticket (بامتياز المالك) تحترمان tenant_isolation حين
+    //         يُفعَّل العزل، فلا إغلاق ولا إعادة فتح ولا كاشف وجود لتذكرة شخصية عبر super_user_id. بلا العزل لا تغيير.
+    //         مقيسٌ في tests/sql/isolation-readiness.test.sql.
+    assert.equal(migrations[migrations.length - 1], '107_isolation_readiness.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

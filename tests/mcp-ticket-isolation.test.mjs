@@ -55,3 +55,26 @@ test('خدمة تذاكر MCP تطبّق القرار في القراءة وال
     const subs = readFileSync(new URL('../supabase/functions/mcp/_shared/subscriptions-service.ts', import.meta.url), 'utf8');
     assert.match(subs, /category: "subscription"/, 'طلب اشتراك MCP يُختم mad3oom_support لا شركة العميل');
 });
+
+// ── 107: اشتراكات MCP — صاحبها أو الإدارة فقط (نفس سياسات whatsapp_subscriptions) ──────────────
+const { subscriptionVisibleTo, subscriptionListOwner } = await import('../supabase/functions/mcp/_shared/subscription-access.js');
+
+test('اشتراك العميل الشخصي لا يقرؤه ولا يلغيه مالك شركته عبر super_user_id', () => {
+    const companyOwner = { id: 'owner-a', isAdmin: false, isMainAdmin: false };
+    const platformAdmin = { id: 'adm', isAdmin: true, isMainAdmin: false };
+    assert.equal(subscriptionVisibleTo(companyOwner, 'customer-a1'), false, 'مالك الشركة لا يرى اشتراك عميله');
+    assert.equal(subscriptionVisibleTo(companyOwner, 'owner-a'), true, 'اشتراك الشركة باسم مالكها');
+    assert.equal(subscriptionVisibleTo(platformAdmin, 'customer-a1'), true);
+    assert.equal(subscriptionVisibleTo(null, 'x'), false);
+    assert.equal(subscriptionVisibleTo(companyOwner, null), false);
+    assert.equal(subscriptionListOwner(companyOwner), 'owner-a');
+    assert.equal(subscriptionListOwner(platformAdmin), null);
+    assert.notEqual(subscriptionListOwner(null), null, 'بلا منادٍ لا قائمة كاملة');
+});
+
+test('خدمة اشتراكات MCP لا تعتمد على super_user_id ولا على getVisibleUserIds', () => {
+    const subs = readFileSync(new URL('../supabase/functions/mcp/_shared/subscriptions-service.ts', import.meta.url), 'utf8');
+    assert.doesNotMatch(subs, /super_user_id|getVisibleUserIds|ownerSuperUserId/);
+    assert.match(subs, /subscriptionListOwner\(actor\)/);
+    assert.equal((subs.match(/canAccessSubscription\(actor, \(found\.sub as any\)\.user_id\)/g) || []).length, 2, 'get + cancel');
+});
