@@ -25,6 +25,8 @@
 | C + D Conversations + Inbox | `102_company_conversations` | `company_inbox_enabled` | `CD_COMPANY_CONVERSATIONS_102_PROD_INSTALL.md` |
 | 099/100 follow-ups | `103_admin_hierarchy_followups`, `104_company_documents_followups` (forward fixes, **applied 2026-10-19**, switches off) | — (keep `delegation_enabled`, `company_suspension_enforced`, `company_documents_enabled` off) | `FOLLOWUPS_103_104_PROD_INSTALL.md` |
 | Account hierarchy + account requests | `105_account_hierarchy_customers` (**not applied**) | `account_request_execution_enabled` (new, off) | `ACCOUNT_HIERARCHY_105_PROD_INSTALL.md`, `ACCOUNT_HIERARCHY_105.md`, `CUSTOMER_TRANSFER_DESIGN.md` |
+| Account request execution | `106_account_request_execution` (**not applied**) | — (execution still needs `account_request_execution_enabled` + isolation + 098) | `ACCOUNT_REQUEST_EXECUTION_106.md` |
+| Isolation readiness | `107_isolation_readiness` (**not applied**) | — (apply before enabling `company_isolation_enforced`; also redeploy `mcp`) | `ISOLATION_READINESS_107.md` |
 | E Company Continuity | — (not implemented; fail-closed today) | — | `E_I_CONTINUITY_INTEGRATIONS_ASSESSMENT.md` |
 | I Integrations | — (already company-scoped: 088 + 096–099) | — | `E_I_CONTINUITY_INTEGRATIONS_ASSESSMENT.md` |
 

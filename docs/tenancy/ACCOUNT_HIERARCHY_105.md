@@ -229,7 +229,7 @@ Being an account manager grants **nothing**: no RLS policy reads `customer_accou
    - **A (implemented):** the owner's approval executes.
    - **B:** the approval issues a 096 invitation that the customer accepts. This requires `multi_company_memberships_enabled`.
 2. **Enabling execution** needs `company_isolation_enforced` and `company_permissions_enabled` first. Both are one-way after an approved request, as after a 101 transfer. Each needs its own approval.
-3. **Full transfer** (direct → company ownership, billing, history): design only, see `CUSTOMER_TRANSFER_DESIGN.md`.
+3. **Full transfer** (direct → company): implemented in **106** (`ACCOUNT_REQUEST_EXECUTION_106.md`). Subscriptions stay with the customer, and an active personal subscription blocks execution.
 4. **Legacy screens** (`super-users.js`, `my-users.js`, MCP visibility) still list followers through `super_user_id`. Decide whether to migrate them to memberships, which would be a separate change.
 5. **Account managers in support role**: allowed (they are platform staff). Restrict to `admin` if preferred; it is a one-line change in `_account_manager_eligible`.
 6. **Deploy `create-sub-user`** from this commit together with applying 105. It sets the `company_created` flag. Until then, the database fallback ends the direct row it creates for company sub-users.
