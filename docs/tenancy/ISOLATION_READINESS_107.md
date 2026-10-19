@@ -1,6 +1,6 @@
 # Isolation readiness (107) — production install note
 
-> **Status: NOT applied.** No switch is changed. Full context: `ACCOUNT_REQUEST_EXECUTION_106.md` §3 (prerequisite matrix) and §4 (release checklist).
+> **Status: APPLIED to production on 2026-10-19** (record: `ACCOUNT_REQUEST_EXECUTION_106.md` §6). No switch is changed. Gap 1 below stays open: `mcp` was still version 34 after the apply, so isolation must stay off until it is redeployed. Full context: `ACCOUNT_REQUEST_EXECUTION_106.md` §3 (prerequisite matrix) and §4 (release checklist).
 
 ## Why
 

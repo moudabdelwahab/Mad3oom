@@ -1,6 +1,6 @@
 # 105_account_hierarchy_customers — production install note
 
-> **Status: NOT applied.** Apply only after the PR is reviewed and merged, and after your explicit approval. Every switch stays OFF.
+> **Status: APPLIED to production on 2026-10-19** (merge commit `3aab6fe`, followed by 106 and 107). Every switch stays OFF. The apply record is in `ACCOUNT_REQUEST_EXECUTION_106.md` §6. Steps 4 (frontend) and 5 (`create-sub-user`) below were not done.
 > Design and audit: `ACCOUNT_HIERARCHY_105.md`. Transfer design: `CUSTOMER_TRANSFER_DESIGN.md`.
 
 ## What applying changes in production
