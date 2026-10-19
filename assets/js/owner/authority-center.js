@@ -24,7 +24,7 @@ const TIER_PILL = {
     support: 'status-neutral'
 };
 
-const CAPABILITY_LABEL = { 'staff.support': 'إدارة فريق الدعم' };
+const CAPABILITY_LABEL = { 'staff.support': 'إدارة فريق الدعم', 'customers.assign_manager': 'إسناد مديري الحسابات' };
 
 const ACTION_LABEL = {
     'role.change': 'تغيير رتبة',
@@ -179,6 +179,10 @@ export function initAuthorityCenter(ctx) {
                     parts.push(caps.includes('staff.support')
                         ? btn('cap-off', 'سحب تفويض الدعم')
                         : btn('cap-on', 'تفويض إدارة الدعم'));
+                    // 105: إسناد مدير الحساب — مسؤولية عمل لا تفتح بيانات العملاء
+                    parts.push(caps.includes('customers.assign_manager')
+                        ? btn('am-off', 'سحب تفويض مديري الحسابات')
+                        : btn('am-on', 'تفويض إسناد مديري الحسابات'));
                     parts.push(btn('to-support', 'تحويل لفريق الدعم'));
                 }
                 if (p.tier === 'support') parts.push(btn('to-admin', 'ترقية لإداري'));
@@ -212,6 +216,8 @@ export function initAuthorityCenter(ctx) {
         unelevate: 'سحب سلطة مدير المنصة من هذا الحساب؟',
         'cap-on': 'تفويض هذا الإداري بإدارة فريق الدعم (رتبة support وحدها)؟',
         'cap-off': 'سحب تفويض إدارة فريق الدعم؟',
+        'am-on': 'تفويض هذا الإداري بإسناد مديري الحسابات للعملاء؟ (لا يمنحه اطلاعًا على بيانات العملاء)',
+        'am-off': 'سحب تفويض إسناد مديري الحسابات؟',
         'to-support': 'تحويل هذا الحساب إلى فريق الدعم؟ تسقط معه أي سلطة أو تفويض.',
         'to-admin': 'ترقية هذا الحساب إلى إداري؟',
         remove: 'إزالة هذا الحساب من فريق المنصة؟ يعود حساب عميل وتسقط كل سلطته.'
@@ -228,6 +234,8 @@ export function initAuthorityCenter(ctx) {
             unelevate: () => supabase.rpc('owner_set_platform_admin', { p_user_id: id, p_enabled: false, p_note: null }),
             'cap-on': () => supabase.rpc('owner_set_capability', { p_user_id: id, p_capability: 'staff.support', p_enabled: true, p_note: null }),
             'cap-off': () => supabase.rpc('owner_set_capability', { p_user_id: id, p_capability: 'staff.support', p_enabled: false, p_note: null }),
+            'am-on': () => supabase.rpc('owner_set_capability', { p_user_id: id, p_capability: 'customers.assign_manager', p_enabled: true, p_note: null }),
+            'am-off': () => supabase.rpc('owner_set_capability', { p_user_id: id, p_capability: 'customers.assign_manager', p_enabled: false, p_note: null }),
             'to-support': () => supabase.rpc('owner_set_staff_role', { p_user_id: id, p_role: 'support' }),
             'to-admin': () => supabase.rpc('owner_set_staff_role', { p_user_id: id, p_role: 'admin' }),
             remove: () => supabase.rpc('owner_set_staff_role', { p_user_id: id, p_role: 'user' })

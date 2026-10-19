@@ -1,0 +1,73 @@
+/* إدارة العملاء + طلبات الحسابات (105). الألوان من رموز التصميم فقط، فيعمل الوضع الداكن تلقائيًا. */
+.cm-views { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.cm-view {
+    border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text);
+    border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+}
+.cm-view[aria-pressed="true"] { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+.cm-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.cm-filters label, .cm-form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; font-weight: 600; color: var(--color-text-secondary); }
+.cm-input, .cm-filters select, .cm-filters input, .cm-form select, .cm-form input, .cm-form textarea {
+    width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 8px;
+    background: var(--color-surface); color: var(--color-text); font: inherit; font-size: 0.9rem;
+}
+.cm-form textarea { min-height: 70px; resize: vertical; }
+.cm-muted { color: var(--color-text-secondary); font-size: 0.8rem; }
+.cm-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; direction: ltr; unicode-bidi: isolate; }
+.cm-ltr { direction: ltr; unicode-bidi: isolate; }
+.cm-badge {
+    display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; white-space: nowrap;
+    background: color-mix(in srgb, var(--cm-tone, var(--color-text-secondary)) 16%, transparent);
+    color: var(--cm-tone, var(--color-text-secondary));
+}
+.cm-tone-ok { --cm-tone: #2e9d55; }
+.cm-tone-warn { --cm-tone: #d98a00; }
+.cm-tone-bad { --cm-tone: #d64545; }
+.cm-tone-info { --cm-tone: var(--color-accent); }
+.cm-pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.cm-pager-controls { display: flex; gap: 6px; align-items: center; }
+.cm-state { text-align: center; padding: 2.5rem 1rem; color: var(--color-text-secondary); }
+.cm-state[data-kind="error"] { color: #d64545; }
+.cm-skeleton { height: 14px; border-radius: 6px; background: color-mix(in srgb, var(--color-text-secondary) 18%, transparent); animation: cm-pulse 1.2s ease-in-out infinite; }
+@keyframes cm-pulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .cm-skeleton { animation: none; } }
+
+/* الدرج الجانبي (يمين في RTL لأن inset-inline-end) */
+.cm-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 1000; }
+.cm-drawer {
+    position: fixed; top: 0; bottom: 0; inset-inline-end: 0; width: min(560px, 100vw); z-index: 1001;
+    background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow, 0 10px 30px rgba(0,0,0,.2));
+    display: flex; flex-direction: column;
+}
+.cm-drawer[hidden], .cm-overlay[hidden], .cm-filters[hidden], .cm-pager[hidden], .cm-note[hidden] { display: none; }
+.cm-drawer-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 16px 18px; border-bottom: 1px solid var(--color-border); }
+.cm-drawer-head h2 { margin: 0; font-size: 1.1rem; }
+.cm-drawer-body { padding: 16px 18px; overflow-y: auto; flex: 1; }
+.cm-section { margin-bottom: 18px; }
+.cm-section h3 { font-size: 0.92rem; margin: 0 0 8px; }
+.cm-kv { display: grid; grid-template-columns: minmax(110px, 38%) 1fr; gap: 6px 10px; font-size: 0.88rem; }
+.cm-kv dt { color: var(--color-text-secondary); }
+.cm-kv dd { margin: 0; overflow-wrap: anywhere; }
+.cm-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.86rem; }
+.cm-list li { border: 1px solid var(--color-border); border-radius: 8px; padding: 8px 10px; }
+.cm-form { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--color-border); border-radius: 10px; padding: 12px; }
+.cm-note { border-inline-start: 3px solid var(--cm-tone, var(--color-accent)); padding: 6px 10px; font-size: 0.84rem;
+    background: color-mix(in srgb, var(--cm-tone, var(--color-accent)) 8%, transparent); border-radius: 6px; }
+.cm-status { font-size: 0.85rem; min-height: 1.2em; }
+.cm-status[data-kind="error"] { color: #d64545; }
+.cm-status[data-kind="success"] { color: #2e9d55; }
+.cm-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.cm-checks li[data-ok="false"] { border-color: #d64545; }
+
+/* الجوال: الصفوف بطاقات بلا تمرير أفقي للصفحة */
+@media (max-width: 760px) {
+    .cm-table thead { display: none; }
+    .cm-table, .cm-table tbody, .cm-table tr, .cm-table td { display: block; width: 100%; box-sizing: border-box; }
+    .cm-table tr { border: 1px solid var(--color-border); border-radius: 10px; margin-bottom: 10px; padding: 6px 4px; }
+    .cm-table td { border: none !important; display: flex; justify-content: space-between; gap: 12px; padding: 5px 10px !important; text-align: start; }
+    .cm-table td::before { content: attr(data-label); color: var(--color-text-secondary); font-size: 0.78rem; font-weight: 600; flex-shrink: 0; }
+    .cm-table td[data-label=""]::before { content: none; }
+    .cm-table td.cm-state { display: block; }
+    .cm-kv { grid-template-columns: 1fr; }
+    .cm-kv dd { margin-bottom: 6px; }
+}

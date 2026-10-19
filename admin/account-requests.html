@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>طلبات الحسابات - لوحة الإدارة</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/js/admin/customers.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+    <script src="/theme-manager.js" defer></script>
+</head>
+<body>
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main">
+        <header class="page-header">
+            <h1>طلبات الحسابات <span class="cm-muted cm-ltr">Account Requests</span></h1>
+            <p>إضافة عميل قائم إلى شركة أو نقل عميل مباشر — يرسلها فريق الإدارة ويقررها مالك المنصة وحده.</p>
+        </header>
+
+        <div class="section-card">
+            <div id="arBanner"></div>
+            <div class="cm-views" id="arTabs" role="group" aria-label="العرض"></div>
+
+            <div class="cm-filters" id="arFilters" hidden>
+                <label>النوع
+                    <select id="arType"><option value="">الكل</option></select>
+                </label>
+                <label>مقدّم الطلب
+                    <select id="arRequester"><option value="">الكل</option></select>
+                </label>
+                <label>بريد العميل
+                    <input type="search" id="arEmail" class="cm-ltr" maxlength="100" autocomplete="off">
+                </label>
+                <label>الشركة
+                    <select id="arCompany"><option value="">كل الشركات</option></select>
+                </label>
+                <label>من تاريخ
+                    <input type="date" id="arFrom">
+                </label>
+                <label>إلى تاريخ
+                    <input type="date" id="arTo">
+                </label>
+            </div>
+
+            <div class="table-container">
+                <table class="admin-table cm-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">النوع</th>
+                            <th scope="col">العميل</th>
+                            <th scope="col">الشركة الوجهة</th>
+                            <th scope="col">مقدّم الطلب</th>
+                            <th scope="col">التاريخ</th>
+                            <th scope="col">الحالة</th>
+                            <th scope="col">الإجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody id="arBody">
+                        <tr><td colspan="7" class="cm-state" aria-busy="true"><div class="cm-skeleton"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="cm-pager" id="arPager" hidden>
+                <span class="cm-muted" id="arPageInfo" role="status" aria-live="polite">—</span>
+                <div class="cm-pager-controls">
+                    <button type="button" class="btn btn-secondary btn-sm" id="arPrev">السابق</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="arNext">التالي</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="cm-overlay" id="arOverlay" hidden></div>
+    <aside class="cm-drawer" id="arDrawer" role="dialog" aria-modal="true" aria-labelledby="arDrawerTitle" hidden>
+        <div class="cm-drawer-head">
+            <div>
+                <h2 id="arDrawerTitle">تفاصيل الطلب</h2>
+                <div class="cm-muted" id="arDrawerSub"></div>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="arDrawerClose" aria-label="إغلاق">إغلاق</button>
+        </div>
+        <div class="cm-drawer-body" id="arDrawerBody"></div>
+    </aside>
+
+    <script type="module" src="/assets/js/admin/account-requests.js"></script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # 103 + 104 — forward fixes for the 099/100 review follow-ups — production install note
 
-> **Status: NOT APPLIED.** Prepared 2026-10-14 after 094–102 were applied to production. Nothing in this note has been run against production.
+> **Status: APPLIED to production on 2026-10-19** (after PR #136 was reviewed and merged as `b9dbc7e`). Every switch stays OFF. See "Applied" at the end.
 > 099 and 100 are live in production, so their files stay as they are; every correction is a new forward migration.
 > Switches stay **OFF**: `delegation_enabled`, `company_suspension_enforced` and `company_documents_enabled`. Each migration refuses to apply while its own switches are on.
 
@@ -101,3 +101,21 @@ The reviewer found **no HIGH or CRITICAL issues**. It checked privileges against
 | 9 | INFO | An admin converted under L2 keeps any company-scope tickets assigned to them | Accepted: there is no access leak (company tickets need company permissions). Reassign such tickets inside the company before converting |
 
 Residual: the storage check inspects policy text as `pg_get_expr` prints it. It is not an effective-access probe, which would be meaningless while the bucket holds no objects. Re-run `select public._storage_unscoped_policies();` before enabling documents.
+
+## Applied (2026-10-19, project `srnelrdpqkcntbgudyto`)
+
+Before the apply:
+- `get_project` returned ACTIVE_HEALTHY.
+- The ledger head was `102_company_conversations` (375 rows), with 0 switches on.
+- A full rolled-back dry run of 103 → 104 on production passed: 103 in 0.80 s, 104 in 0.27 s, 7 triggers, `_storage_unscoped_policies()` = `{}`.
+
+Each migration was its own `apply_migration` call through the release wrapper, pinned to merge commit `b9dbc7e7815dec78472d8e639fa27dc9e0f1dd4e` with an md5 check (103 `c12e46d3…`, 104 `41abc4ef…`). Both returned `{"success":true}`.
+
+| Migration | Checks after apply |
+|---|---|
+| `103_admin_hierarchy_followups` | 5 eligibility/deletion triggers; 0 FKs from hierarchy history to `profiles`/`companies`; internal functions closed to users; 6 reviews, 0 units, 0 delegations (unchanged); `delegation_enabled`/`company_suspension_enforced` false |
+| `104_company_documents_followups` | ledger head `104_company_documents_followups` (377 rows); 7 triggers in all; `_storage_unscoped_policies()` = `{}`; `document_upload_commit_server` service-role only; 5-argument `document_scan_result` closed to users; `assigned_reviewer` FK is `SET NULL`; 0 document FKs to companies; bucket private; 0 documents; 0 switches on; 39 tickets, 41 profiles, 2009 notifications (unchanged) |
+
+`get_advisors(security)` showed no ERROR. Each WARN group kept its size. INFO `rls_enabled_no_policy` went from 24 to 25 because of `document_scan_nonces`, which is intended: no grants, reached only by the service-only scan function.
+
+Not done: no Edge Function was deployed, no secret was set, and no switch was enabled. The prerequisites table above still applies.

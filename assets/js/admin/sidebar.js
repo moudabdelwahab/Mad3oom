@@ -299,7 +299,8 @@ function setupSidebarLogic() {
 const STAFF_ONLY_LINK_IDS = [
     'ticketsLink', 'teamPerformanceLink', 'usersLink', 'customerHistoryLink', 'bannedLink',
     'statsLink', 'activityLogLink', 'statusPageLink', 'settingsLink', 'suggestionsLink',
-    'sendEmailLink', 'knowledgeBaseLink', 'blogAdminLink', 'subscriptionsLink', 'subdomainsLink', 'mcpLink'
+    'sendEmailLink', 'knowledgeBaseLink', 'blogAdminLink', 'subscriptionsLink', 'subdomainsLink', 'mcpLink',
+    'customersLink', 'accountRequestsLink'
 ];
 
 function showLink(id) {
@@ -368,6 +369,9 @@ async function applySidebarPermissions() {
         showLink('rewardsLink');
         showLink('waitlistLink');
         showLink('companyRequestsLink');
+        // 105: دليل العملاء وطلبات الحسابات — إخفاء للواجهة فقط؛ الدوال ترفض في القاعدة من لا يحق له
+        showLink('customersLink');
+        showLink('accountRequestsLink');
     }
 
     if (isMainAdmin) {
