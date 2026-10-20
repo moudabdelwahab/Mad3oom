@@ -1,21 +1,22 @@
 # Phase 1 readiness review (2026-10-20)
 
-> **Status: no feature switch is enabled.** This is a readiness review only.
-> Production on 2026-10-20 (read-only checks):
+> **Status after the 2026-10-20 rollout (§7): no feature switch is enabled.**
+> Production at 2026-10-20 19:50 UTC:
 > - 12 of 12 switches OFF;
-> - ledger head `107_isolation_readiness` (380 rows);
-> - `mcp` v35, byte-identical to `51a4ac5`.
+> - ledger head `108_phase1_readiness_fixes` (382 rows), applied from `main@5017384`;
+> - `wf-executor` v46, byte-identical to `main@5017384`, with the isolation guard;
+> - `mcp` v35 unchanged.
 >
-> Two changes are **in the repository only**: migration `108_phase1_readiness_fixes` is not applied, and the `wf-executor` guard is not deployed.
-> The owner switches flags on in `owner-dashboard.html` (`owner_set_feature_switch`, fresh step-up). Nothing in this review turns a switch on, applies a migration or deploys a function.
+> Isolation is now blocked by **F7** (§4.2): any admin can take over another account's API token, either through the regenerate function or by writing the hash directly. The fix (migration 110 plus the function) is in this branch and not deployed.
+> The owner switches flags on in `owner-dashboard.html` (`owner_set_feature_switch`, fresh step-up). Claude cannot do this.
 
 ## 1. Decision per switch
 
 | Switch | Decision | Why |
 |---|---|---|
 | `company_permissions_enabled` | **READY TO ACTIVATE** | No prerequisite, and no unaudited authorization path (§4). Tested on and off, with and without isolation (§5). Production has 0 company staff, so only the one company owner sees a change (§3.1) |
-| `company_isolation_enforced` | **BLOCKED** | Deployed `wf-executor` v45 lets platform admin and support reach company tickets by id with the service role (§4.2, F1). The fix is in the repository with a test, but not deployed. The external SIE engine receives a service-role client and cannot be reviewed from this repository (F2) |
-| `data_access_grants_enabled` | **BLOCKED** | Defect F3 (a grant stays readable after its holder is demoted) is fixed in 108, which is not applied. Grants also add nothing while isolation is OFF, and isolation is blocked |
+| `company_isolation_enforced` | **BLOCKED (F7)** | F1 is closed: `wf-executor` v46 is deployed with the guard. F2 is closed: the SIE engine was reviewed (§4.2). **F7:** RLS lets every admin read every API token, and `regenerate-api-token-secret` v18 returns the new secret to whoever asks. An admin can therefore act through the API as the platform owner, who is also the only company owner, and reach company data despite isolation. The fix is in this branch with a test, but not deployed |
+| `data_access_grants_enabled` | **BLOCKED** | F3 is fixed: 108 is applied. Still blocked because grants need isolation ON first |
 | `company_suspension_enforced` | **READY WITH EXPLICIT LIMITATIONS** | The documented contract holds and is tested: a suspended company loses plan and override features through `company_has_feature`, and its inbox. Only the owner can suspend. No company is suspended, so switching it on changes nothing today. Limitations in §3.4: display mismatch until 108 (F4), tickets and existing API tokens unaffected, no suspend screen |
 
 ### What unblocks the two BLOCKED switches
@@ -150,11 +151,41 @@ After each switch:
   - The two RPC-backed steps are gated by 097.
   - **Fixed in the repository:** `supabase/functions/wf-executor/ticket-guard.js`, with the same rule as 097 (with isolation ON, a company ticket is "not found"; fails closed). It is called before any read or write in all four steps; `tests/wf-executor-ticket-guard.test.mjs` covers it.
   - **Not deployed.** Customer lookup and notifications are not isolation leaks: staff read all profiles and notify anyone by design.
-- **F2 SIE:**
-  - `sie-api` v24 (production source) uses the caller's client throughout.
-  - The service-role "turn writer" is created only after session ownership is proved, and is passed to the external engine `moudabdelwahab/sie@cc3b9f7` (`getSieReply`).
-  - `sie-channel-telegram` also hands a service client to the engine (`@8252e57`).
-  - The engine is outside this repository and was not reviewed.
+- **F2 SIE (reviewed 2026-10-20, closed):**
+  - Both deployed functions pin the engine to `moudabdelwahab/sie@cc3b9f7`: `sie-api` v24 and `sie-channel-telegram` v28. The earlier `@8252e57` note was wrong.
+  - **`sie-api`:** session ownership is proved on the caller's RLS client. Only then does the engine get the service-role writer, which it uses for exactly two RPCs (`sie/action/supabase-port.supabase.js`):
+    - `persist_bot_turn` and `create_ticket_with_message_and_session_update` take the actor from `chat_sessions.user_id`;
+    - they update only that owner's session.
+  - **Ticket scope:** SIE tickets are scoped by `a_ticket_scope_stamp`, from the ticket owner and not the caller. A company customer's SIE ticket is therefore `company`.
+  - **`sie-channel-telegram`:** runs on the service role. Its identity comes from a redeemed link code (`channel_redeem_link_code`). Its reads are bound to that user, including `sie-customer-memory`, which reads only `tickets ... eq('user_id', userId)`.
+  - **Tables touched:** `chat_sessions`, `chat_messages`, `chat_engine_*`, `sie_*`, `customer_sie_access`, `channel_*`, `profiles`, `ai_usage_events`, and the caller's own tickets. The engine touches no company tables and no other tenant's tickets.
+  - **Staff visibility of the website chat** (`chat_sessions` and `chat_engine_*` behind `has_elevated_authority` and `is_chat_engine_staff`) is by design. It is Mad3oom's own helpdesk, and company-private conversations are the separate 102 tables (`CD_COMPANY_CONVERSATIONS_102_PROD_INSTALL.md`).
+  - `chat_engine_learning_queue` shows "RLS off", but it is a `security_invoker` view over `chat_engine_trace_events` (staff-only RLS), so it is not a leak.
+- **F7 (high, blocks isolation; fixed in this branch, not deployed):**
+  - **Cause:** `api_tokens` RLS (`Admin can view all api tokens`: `is_admin() OR is_owner_or_super_of(user_id)`) lets every admin read every token. The admin page `assets/js/admin/api-integrations.js` lists all of them, each with a regenerate button.
+  - **The flaw:** `regenerate-api-token-secret` v18 checks only that the caller can read the row. It then rotates the secret with the service role and returns the new plaintext secret to the caller.
+  - **Effect:** an admin obtains a working credential for another account and acts as that account through the API and MCP.
+  - **Live exposure:** the 108 tokens of the platform owner, who is also the only company owner (3 active, 105 revoked; regenerating also revives a revoked token, F6). 0 tokens belong to company members or customers.
+  - **Second path (found by Codex review on PR #145):** the admin needs no Edge Function at all.
+    - `Admin can update any api token` admits admins to every row, and `guard_api_token_protected_columns` (043) exempts `is_admin()` from every column.
+    - So one PATCH that sets `secret_hash` (or `bearer_token_hash`) to the SHA-256 of a secret the admin chose is enough, and `mcp/_shared/api-auth.ts` then returns the victim's `user_id`.
+    - `user_id` can be rewritten the same way, which moves the token to another account.
+    - Reproduced on the production-equivalent chain (⓪ in the test below).
+  - **Fix, two parts (both needed):**
+    1. **Migration `110_api_token_credentials_immutable`:**
+       - identity and credential columns cannot be changed by any JWT caller, including admins and the platform owner (42501): `user_id`, `api_key`, `secret_hash`, `bearer_token_hash`, both `*_last_four`, `credential_type`, `credential_group_id`, `created_at`, `created_by_role`;
+       - every legitimate write of those columns runs with the service role (`create-api-token`, `regenerate-api-token-secret`, `oauth-token`);
+       - admins keep `scopes` and `expires_at` (their 036 ceiling is already full, and neither yields a secret);
+       - enable/disable, name and description are unchanged for everyone;
+       - the rollback restores production's exact body (md5 `6b6b4b14…`) and refuses while isolation is ON;
+       - test: `tests/sql/api-token-credentials-immutable.test.sql`.
+    2. **`regenerate-api-token-secret`:**
+       - regeneration is refused (403) unless `existing.user_id` is the caller;
+       - revoke and delete via RLS are unchanged;
+       - test: `tests/regenerate-api-token-owner-only.test.mjs`, which fails on v18 and passes with the fix.
+  - **Deploy after merge:**
+    - 110 with the release wrapper;
+    - then the function from the merge commit (`verify_jwt=true`, single file).
 - **Production-only sources, reviewed now:**
   - `integrations-api` v10 and `whatsapp-webhook` v67 touch only WhatsApp and integration tables, via RPCs (messages, integrations, bot state, API keys, wallet). They do not touch tickets, profiles, memberships, notifications, subscriptions or company conversations.
   - `register-whatsapp` v30 touches only the caller's own `integrations` row.
@@ -255,3 +286,31 @@ Alternatively, a staging project restored from a schema dump.
    - `delegation_enabled` stays BLOCKED until an MFA-enrolled delegate exists (0 accounts have Supabase MFA).
 6. Nothing in Phase 2 creates a transfer, carry or approved account request.
 7. F6 (`regenerate-api-token-secret`) has a decision before any feature relies on token revocation.
+
+## 7. Production rollout record (2026-10-20)
+
+| Time (UTC) | Step | Evidence |
+|---|---|---|
+| 19:31 | **Re-check:** `main` `5017384`; CI on it green (Tests, CodeQL, Drift); ledger head `109_registration_mode_public_read`, 381 rows; 12/12 switches OFF; pre-108 md5s unchanged; 0 grants; 0 suspended companies | read-only queries |
+| 19:33 | **Fetch check:** production fetched `migrations/108_phase1_readiness_fixes.sql` at `5017384` | HTTP 200, md5 `0d0554d4935e8c9dc154ea37090be773`, the same as `git show` |
+| 19:34 | **108 applied** with the release wrapper (fetch, checksum, `execute`). Its self-check passed inside the apply | ledger `20261020193408 108_phase1_readiness_fixes`, 382 rows. Markers present in all three functions. `authenticated` cannot execute `_access_grant_active`; `anon` cannot execute badges or the dashboard. 0 switches ON |
+| 19:37 | **`wf-executor` v46 deployed** (`index.ts` + `ticket-guard.js`, `verify_jwt=false`) | v45 differed from `main` only by the guard. v46 is byte-identical to `main@5017384` (`get_edge_function`), with 4 guard calls. `service_role` can execute `_isolation_on()` (boolean) |
+| 19:38 | **`wf-executor` smoke test** | OPTIONS 200; POST without auth 401; GET 405; bad internal secret 401. Logs: 4 boots of deployment `_46`, no errors |
+| 19:40 | **SIE review** (F2 closed, §4.2) | engine source at `cc3b9f7`; production RPC and trigger definitions |
+| 19:45 | **Re-check of F6 and F7** | v18 source equals the repository. `api_tokens` policies; token counts |
+| 19:47 | **Security advisors** | no ERROR. WARN counts unchanged (71 anon / 444 authenticated security-definer) |
+| 19:48 | **Rolled-back probe** (`RAISE` at the end; nothing persists): `company_permissions_enabled`, then permissions + `company_suspension_enforced`, for owner, company member, admin and direct customer | all metrics identical in all three states: ticket counts 5/0/0/2, `can_access_ticket` on owner and customer tickets, `company_has_feature('api_tokens'/'sub_users')`. 0 switches ON afterwards |
+
+**Switches changed:** none. The switch path requires the owner's fresh step-up session, which Claude cannot hold; 0 `feature_switch.*` audit rows exist.
+
+**Next, by the owner, in this order** (verify each one before the next, §2):
+1. `company_permissions_enabled`;
+2. `company_suspension_enforced` (limitations in §3.4);
+3. `company_isolation_enforced`: only after F7 is merged and deployed (110 applied, and the function deployed), then the rolled-back ON probe;
+4. `data_access_grants_enabled`: only after isolation is ON.
+
+**Rollback:**
+- **Switches:** OFF in the same panel.
+- **108:** `migrations/_rollback/108_phase1_readiness_fixes.down.sql`. It refuses while grants are ON and restores F3, F4 and F5.
+- **`wf-executor`:** redeploy the v45 source (`git show 5017384^1:supabase/functions/wf-executor/index.ts`, single file). This removes the isolation guard, so isolation must be OFF first.
+- **No backups:** free plan, so no PITR.

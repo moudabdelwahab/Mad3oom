@@ -69,6 +69,11 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     if (fetchError || !existing) return jsonResponse({ error: "المفتاح غير موجود أو لا تملك صلاحية الوصول له" }, 404);
+    // F7: RLS يُظهر للأدمن مفاتيح كل الحسابات، والتجديد يُرجع السر الجديد لمن طلبه. فالتجديد لصاحب المفتاح
+    // وحده، وإلا صار انتحالًا لهويته عبر الـ API (ومنه إلى بيانات شركته رغم العزل). التعطيل والحذف للأدمن باقيان.
+    if (existing.user_id !== userData.user.id) {
+      return jsonResponse({ error: "لا يمكن تجديد سر مفتاح يملكه حساب آخر؛ يمكنك تعطيله أو حذفه" }, 403);
+    }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
