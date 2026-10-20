@@ -94,12 +94,14 @@ const OPEN = { data: { mode: 'open', waitlist_message: null, expected_launch_dat
 const DENIED = { error: { code: '42501', message: 'permission denied for function has_elevated_authority' } };
 
 let server, baseUrl, browser;
+const chromiumPath = resolveChromium();
+if (!chromiumPath) console.error('SKIP: لا يوجد Chromium؛ اختبارات عرض وضع التسجيل في login.html لم تُنفَّذ');
 
 test.before(async () => {
+    if (!chromiumPath) return;
     server = await startServer();
     baseUrl = `http://127.0.0.1:${server.address().port}`;
-    const executablePath = resolveChromium();
-    browser = await chromium.launch(executablePath ? { executablePath } : {});
+    browser = await chromium.launch({ executablePath: chromiumPath });
 });
 test.after(async () => { await browser?.close(); server?.close(); });
 
@@ -141,7 +143,7 @@ async function fillValidForm(page) {
     await page.fill('#reg-confirm', 'Demo#2026x');
 }
 
-test('waitlist mode: visitor sees the waitlist form, submit inserts a waitlist entry and never signs up', async () => {
+test('waitlist mode: visitor sees the waitlist form, submit inserts a waitlist entry and never signs up', { skip: !chromiumPath }, async () => {
     const { page, context, errors } = await openRegister(WAITLIST);
     const s = await ui(page);
     assert.equal(s.title, 'الانضمام لقائمة الانتظار');
@@ -162,7 +164,7 @@ test('waitlist mode: visitor sees the waitlist form, submit inserts a waitlist e
     await context.close();
 });
 
-test('open mode: visitor sees normal signup, submit signs up and writes no waitlist entry', async () => {
+test('open mode: visitor sees normal signup, submit signs up and writes no waitlist entry', { skip: !chromiumPath }, async () => {
     const { page, context, errors } = await openRegister(OPEN);
     const s = await ui(page);
     assert.equal(s.title, 'إنشاء حساب جديد');
@@ -184,7 +186,7 @@ for (const [label, reg] of [
     ['invalid mode value', { data: { mode: null } }],
     ['unknown mode string', { data: { mode: 'closed' } }]
 ]) {
-    test(`fails securely on ${label}: no signup form, no submission`, async () => {
+    test(`fails securely on ${label}: no signup form, no submission`, { skip: !chromiumPath }, async () => {
         const { page, context, errors } = await openRegister(reg);
         const s = await ui(page);
         assert.equal(s.title, 'التسجيل غير متاح مؤقتًا');
@@ -210,7 +212,7 @@ for (const [label, reg] of [
     });
 }
 
-test('retry re-checks the setting and shows the verified mode', async () => {
+test('retry re-checks the setting and shows the verified mode', { skip: !chromiumPath }, async () => {
     const { page, context, errors } = await openRegister(DENIED);
     assert.equal((await ui(page)).title, 'التسجيل غير متاح مؤقتًا');
     await page.evaluate((r) => { window.__REG__ = r; }, WAITLIST);
