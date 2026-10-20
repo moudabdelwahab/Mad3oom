@@ -7,7 +7,7 @@
 > - `wf-executor` v46, byte-identical to `main@5017384`, with the isolation guard;
 > - `mcp` v35 unchanged.
 >
-> Isolation is now blocked by **F7** (§4.2): any admin can take over another account's API token. The fix is in this branch and not deployed.
+> Isolation is now blocked by **F7** (§4.2): any admin can take over another account's API token, either through the regenerate function or by writing the hash directly. The fix (migration 110 plus the function) is in this branch and not deployed.
 > The owner switches flags on in `owner-dashboard.html` (`owner_set_feature_switch`, fresh step-up). Claude cannot do this.
 
 ## 1. Decision per switch
@@ -166,8 +166,26 @@ After each switch:
   - **The flaw:** `regenerate-api-token-secret` v18 checks only that the caller can read the row. It then rotates the secret with the service role and returns the new plaintext secret to the caller.
   - **Effect:** an admin obtains a working credential for another account and acts as that account through the API and MCP.
   - **Live exposure:** the 108 tokens of the platform owner, who is also the only company owner (3 active, 105 revoked; regenerating also revives a revoked token, F6). 0 tokens belong to company members or customers.
-  - **Fix:** regeneration is refused (403) unless `existing.user_id` is the caller. Revoke and delete via RLS are unchanged. Test: `tests/regenerate-api-token-owner-only.test.mjs`, which fails on v18 and passes with the fix.
-  - **Deploy:** from the merge commit, `verify_jwt=true`, single file.
+  - **Second path (found by Codex review on PR #145):** the admin needs no Edge Function at all.
+    - `Admin can update any api token` admits admins to every row, and `guard_api_token_protected_columns` (043) exempts `is_admin()` from every column.
+    - So one PATCH that sets `secret_hash` (or `bearer_token_hash`) to the SHA-256 of a secret the admin chose is enough, and `mcp/_shared/api-auth.ts` then returns the victim's `user_id`.
+    - `user_id` can be rewritten the same way, which moves the token to another account.
+    - Reproduced on the production-equivalent chain (⓪ in the test below).
+  - **Fix, two parts (both needed):**
+    1. **Migration `110_api_token_credentials_immutable`:**
+       - identity and credential columns cannot be changed by any JWT caller, including admins and the platform owner (42501): `user_id`, `api_key`, `secret_hash`, `bearer_token_hash`, both `*_last_four`, `credential_type`, `credential_group_id`, `created_at`, `created_by_role`;
+       - every legitimate write of those columns runs with the service role (`create-api-token`, `regenerate-api-token-secret`, `oauth-token`);
+       - admins keep `scopes` and `expires_at` (their 036 ceiling is already full, and neither yields a secret);
+       - enable/disable, name and description are unchanged for everyone;
+       - the rollback restores production's exact body (md5 `6b6b4b14…`) and refuses while isolation is ON;
+       - test: `tests/sql/api-token-credentials-immutable.test.sql`.
+    2. **`regenerate-api-token-secret`:**
+       - regeneration is refused (403) unless `existing.user_id` is the caller;
+       - revoke and delete via RLS are unchanged;
+       - test: `tests/regenerate-api-token-owner-only.test.mjs`, which fails on v18 and passes with the fix.
+  - **Deploy after merge:**
+    - 110 with the release wrapper;
+    - then the function from the merge commit (`verify_jwt=true`, single file).
 - **Production-only sources, reviewed now:**
   - `integrations-api` v10 and `whatsapp-webhook` v67 touch only WhatsApp and integration tables, via RPCs (messages, integrations, bot state, API keys, wallet). They do not touch tickets, profiles, memberships, notifications, subscriptions or company conversations.
   - `register-whatsapp` v30 touches only the caller's own `integrations` row.
@@ -288,7 +306,7 @@ Alternatively, a staging project restored from a schema dump.
 **Next, by the owner, in this order** (verify each one before the next, §2):
 1. `company_permissions_enabled`;
 2. `company_suspension_enforced` (limitations in §3.4);
-3. `company_isolation_enforced`: only after F7 is merged and deployed, then the rolled-back ON probe;
+3. `company_isolation_enforced`: only after F7 is merged and deployed (110 applied, and the function deployed), then the rolled-back ON probe;
 4. `data_access_grants_enabled`: only after isolation is ON.
 
 **Rollback:**

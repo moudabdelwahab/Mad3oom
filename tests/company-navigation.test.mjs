@@ -623,7 +623,9 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //   109 — قراءة الزائر لوضع التسجيل: سياسة إدارة advanced_settings لـ authenticated وحده (كانت تُفشل قراءة
     //         الزائر بـ has_elevated_authority فيظهر له التسجيل المفتوح)، ودالة عامة ضيقة get_public_registration_settings.
     //         مقيسٌ في tests/sql/registration-mode-public-read.test.sql.
-    assert.equal(migrations[migrations.length - 1], '109_registration_mode_public_read.sql',
+    //   110 — أعمدة الاعتماد في api_tokens لا يكتبها أي JWT، والأدمن منه (F7): كان الأدمن يكتب secret_hash أو
+    //         bearer_token_hash أو user_id لمفتاح غيره ثم يصادق بهويته. مقيسٌ في tests/sql/api-token-credentials-immutable.test.sql.
+    assert.equal(migrations[migrations.length - 1], '110_api_token_credentials_immutable.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
