@@ -931,6 +931,21 @@
         <a href="#" id="waitlist-back-to-login" class="btn-primary" style="display:flex; align-items:center; justify-content:center; text-decoration:none;">العودة لتسجيل الدخول</a>
       </div>
 
+      <!-- وضع التسجيل لم يُتحقَّق منه: لا نموذج، لا تسجيل مفتوح — إعادة محاولة فقط -->
+      <div id="register-unavailable-panel" role="alert" style="display:none; text-align:center;">
+        <div style="color: var(--muted); margin-bottom: 0.75rem;">
+          <svg width="42" height="42" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8" fill="none"/>
+            <line x1="12" y1="7.5" x2="12" y2="13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <circle cx="12" cy="16.3" r="1" fill="currentColor"/>
+          </svg>
+        </div>
+        <button type="button" id="register-retry-btn" class="btn-primary">إعادة المحاولة</button>
+        <p class="register-row">
+          لديك حساب بالفعل؟ <a href="#" id="unavailable-go-login">تسجيل الدخول</a>
+        </p>
+      </div>
+
     </article>
   </main>
 
@@ -1056,6 +1071,13 @@
   import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
   import { resolveAccountHome } from '/assets/js/account-destination.js';
   import { validateEmail, validatePhone } from './auth-validation.js';
+  import {
+    REGISTRATION_MODE,
+    REGISTER_COPY,
+    resolveRegistrationSettings,
+    canSubmitRegistration,
+    waitlistSuccessText
+  } from '/assets/js/registration-mode.js';
 
   const SUPABASE_URL = 'https://srnelrdpqkcntbgudyto.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W';
@@ -1079,45 +1101,69 @@
 
   // ══════════════════════════════════════════════════════════════
   // وضع التسجيل (Registration Mode): Open Registration / Waitlist
-  // القيمة قابلة للتحكم من لوحة الإدارة (advanced_settings.registration_mode).
-  // في حال فشل التحميل، نفترض "Open Registration" حتى لا يتعطل التسجيل الحالي.
+  // القيمة قابلة للتحكم من لوحة الإدارة (advanced_settings.registration_mode)،
+  // وتُقرأ عبر get_public_registration_settings() (migrations/109).
+  // الفشل لا يفتح التسجيل أبدًا: أي خطأ أو قيمة غير معروفة = «غير متاح مؤقتًا»
+  // مع زر إعادة المحاولة (assets/js/registration-mode.js).
   // ══════════════════════════════════════════════════════════════
-  const DEFAULT_WAITLIST_MESSAGE = [
-    'شكرًا لتسجيلك في مدعوم.',
-    'نستعد حاليًا للإطلاق الرسمي للمنصة، وحرصًا منا على تقديم أفضل تجربة وجودة خدمة منذ اليوم الأول، سيتم إضافة بياناتك إلى قائمة الانتظار في الوقت الحالي.',
-    'عند الإطلاق، سنرسل إليك رابط تفعيل حسابك مباشرة.',
-    'موعد الإطلاق المتوقع: {{launch_date}}',
-    'نشكرك على اهتمامك بمدعوم، ونتطلع لانضمامك إلينا.'
-  ].join('\n\n');
-  const DEFAULT_LAUNCH_DATE = 'أكتوبر 2026';
-
   async function loadRegistrationSettings() {
     try {
-      const { data } = await withTimeout(
-        supabase.from('advanced_settings').select('value').eq('key', 'registration_mode').maybeSingle(),
+      const result = await withTimeout(
+        supabase.rpc('get_public_registration_settings'),
         8000,
         'التحقق من وضع التسجيل'
       );
-      const value = data?.value || {};
-      return {
-        mode: value.mode === 'waitlist' ? 'waitlist' : 'open',
-        waitlistMessage: value.waitlist_message || DEFAULT_WAITLIST_MESSAGE,
-        launchDate: value.expected_launch_date || DEFAULT_LAUNCH_DATE
-      };
+      if (result?.error) console.error('Registration mode could not be verified:', result.error);
+      return resolveRegistrationSettings(result);
     } catch (err) {
-      console.error('Failed to load registration mode, defaulting to open registration:', err);
-      return { mode: 'open', waitlistMessage: DEFAULT_WAITLIST_MESSAGE, launchDate: DEFAULT_LAUNCH_DATE };
+      console.error('Registration mode could not be verified:', err);
+      return resolveRegistrationSettings({ error: err });
     }
   }
 
-  const registrationSettingsPromise = loadRegistrationSettings();
-
-  registrationSettingsPromise.then((settings) => {
-    if (settings.mode !== 'waitlist') return;
-    document.getElementById('register-title').textContent = 'الانضمام لقائمة الانتظار';
-    document.getElementById('register-subtitle').textContent = 'المنصة تستعد للإطلاق - سجّل بياناتك وسنتواصل معك عند التفعيل';
+  function applyRegistrationMode(settings) {
+    const copy = REGISTER_COPY[settings.mode] || REGISTER_COPY.unavailable;
+    const unavailable = settings.mode === REGISTRATION_MODE.unavailable;
+    const successVisible = document.getElementById('register-success-panel').style.display === 'block';
+    document.getElementById('register-title').textContent = copy.title;
+    document.getElementById('register-subtitle').textContent = copy.subtitle;
+    document.getElementById('register-unavailable-panel').style.display = unavailable ? 'block' : 'none';
+    if (!successVisible) document.getElementById('register-form-wrap').style.display = unavailable ? 'none' : '';
     const submitBtn = document.querySelector('#register-form .btn-primary');
-    if (submitBtn) submitBtn.textContent = 'الانضمام لقائمة الانتظار';
+    if (submitBtn) {
+      submitBtn.textContent = copy.submit;
+      submitBtn.disabled = unavailable;
+    }
+  }
+
+  function markRegistrationPending() {
+    const submitBtn = document.querySelector('#register-form .btn-primary');
+    if (submitBtn) {
+      submitBtn.textContent = REGISTER_COPY.pending.submit;
+      submitBtn.disabled = true;
+    }
+  }
+
+  function refreshRegistrationMode() {
+    markRegistrationPending();
+    registrationSettingsPromise = loadRegistrationSettings();
+    registrationSettingsPromise.then(applyRegistrationMode);
+    return registrationSettingsPromise;
+  }
+
+  let registrationSettingsPromise;
+  refreshRegistrationMode();
+
+  document.getElementById('register-retry-btn').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.textContent = 'جارٍ التحقق…';
+    try {
+      await refreshRegistrationMode();
+    } finally {
+      btn.disabled = false;
+      btn.textContent = REGISTER_COPY.unavailable.submit;
+    }
   });
 
   const ROOT_DOMAIN      = 'mad3oom.com';
@@ -1728,8 +1774,14 @@
     }
 
     const regSettings = await registrationSettingsPromise;
-    const isWaitlistMode = regSettings.mode === 'waitlist';
-    const idleLabel = isWaitlistMode ? 'الانضمام لقائمة الانتظار' : 'إنشاء الحساب';
+    // لا إرسال بلا وضع مؤكد من القاعدة: الفشل لا يعني «مفتوح».
+    if (!canSubmitRegistration(regSettings)) {
+      showToast('تعذّر التحقق من حالة التسجيل الآن. لم يُرسَل أي شيء — أعد المحاولة بعد قليل.');
+      applyRegistrationMode(regSettings);
+      return;
+    }
+    const isWaitlistMode = regSettings.mode === REGISTRATION_MODE.waitlist;
+    const idleLabel = REGISTER_COPY[regSettings.mode].submit;
 
     setLoading(btn, true, idleLabel);
     _handlingAuthManually = true;
@@ -1837,8 +1889,7 @@
   });
 
   function showWaitlistSuccess(regSettings) {
-    const message = regSettings.waitlistMessage.replaceAll('{{launch_date}}', regSettings.launchDate);
-    document.getElementById('register-success-text').textContent = message;
+    document.getElementById('register-success-text').textContent = waitlistSuccessText(regSettings);
     document.getElementById('register-form-wrap').style.display = 'none';
     document.getElementById('register-success-panel').style.display = 'block';
   }
@@ -2045,6 +2096,7 @@
 
   document.getElementById('go-register').addEventListener('click', (e) => { e.preventDefault(); swapToRegister(); });
   document.getElementById('go-login').addEventListener('click',    (e) => { e.preventDefault(); swapToLogin();    });
+  document.getElementById('unavailable-go-login').addEventListener('click', (e) => { e.preventDefault(); swapToLogin(); });
 
   // ══════════════════════════════════════════════════════════════
   // PASSWORD TOGGLES
