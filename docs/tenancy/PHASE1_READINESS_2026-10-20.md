@@ -1,13 +1,14 @@
 # Phase 1 readiness review (2026-10-20)
 
 > **Status after the 2026-10-20 rollout (§7): no feature switch is enabled.**
-> Production at 2026-10-20 19:50 UTC:
+> Production at 2026-10-20 21:35 UTC:
 > - 12 of 12 switches OFF;
-> - ledger head `108_phase1_readiness_fixes` (382 rows), applied from `main@5017384`;
+> - ledger head `110_api_token_credentials_immutable` (383 rows). 108 was applied from `main@5017384` and 110 from `main@c5dd986`;
 > - `wf-executor` v46, byte-identical to `main@5017384`, with the isolation guard;
+> - `regenerate-api-token-secret` v19, byte-identical to `main@c5dd986`, owner-only;
 > - `mcp` v35 unchanged.
 >
-> Isolation is now blocked by **F7** (§4.2): any admin can take over another account's API token, either through the regenerate function or by writing the hash directly. The fix (migration 110 plus the function) is in this branch and not deployed.
+> F1, F2 and F7 are closed in production. Isolation now waits only on the owner's separate, explicit approval (Q17).
 > The owner switches flags on in `owner-dashboard.html` (`owner_set_feature_switch`, fresh step-up). Claude cannot do this.
 
 ## 1. Decision per switch
@@ -15,7 +16,7 @@
 | Switch | Decision | Why |
 |---|---|---|
 | `company_permissions_enabled` | **READY TO ACTIVATE** | No prerequisite, and no unaudited authorization path (§4). Tested on and off, with and without isolation (§5). Production has 0 company staff, so only the one company owner sees a change (§3.1) |
-| `company_isolation_enforced` | **BLOCKED (F7)** | F1 is closed: `wf-executor` v46 is deployed with the guard. F2 is closed: the SIE engine was reviewed (§4.2). **F7:** RLS lets every admin read every API token, and `regenerate-api-token-secret` v18 returns the new secret to whoever asks. An admin can therefore act through the API as the platform owner, who is also the only company owner, and reach company data despite isolation. The fix is in this branch with a test, but not deployed |
+| `company_isolation_enforced` | **READY TO ACTIVATE (owner's explicit approval, Q17)** | F1 is closed: `wf-executor` v46 is deployed with the guard. F2 is closed: the SIE engine was reviewed (§4.2). F7 is closed: 110 is applied and `regenerate-api-token-secret` v19 is deployed (§7). The rolled-back ON probe matches OFF for owner, company member, admin and direct customer. **Limitations:** production has 0 `company`-scope tickets, so the effect cannot be observed live yet, and MCP under isolation has not been tested against real company data (§5.4) |
 | `data_access_grants_enabled` | **BLOCKED** | F3 is fixed: 108 is applied. Still blocked because grants need isolation ON first |
 | `company_suspension_enforced` | **READY WITH EXPLICIT LIMITATIONS** | The documented contract holds and is tested: a suspended company loses plan and override features through `company_has_feature`, and its inbox. Only the owner can suspend. No company is suspended, so switching it on changes nothing today. Limitations in §3.4: display mismatch until 108 (F4), tickets and existing API tokens unaffected, no suspend screen |
 
@@ -35,7 +36,7 @@
 **Order:**
 1. `company_permissions_enabled` — **can go now**.
 2. `company_suspension_enforced` — can go now, with the limitations in §3.4. Apply 108 first if the dashboard should match.
-3. `company_isolation_enforced` — after §1 "Isolation" is done.
+3. `company_isolation_enforced` — §1 "Isolation" is done (2026-10-20, §7). Needs the owner's explicit approval.
 4. `data_access_grants_enabled` — after 108 is applied and isolation is ON.
 
 After each switch:
@@ -301,16 +302,25 @@ Alternatively, a staging project restored from a schema dump.
 | 19:47 | **Security advisors** | no ERROR. WARN counts unchanged (71 anon / 444 authenticated security-definer) |
 | 19:48 | **Rolled-back probe** (`RAISE` at the end; nothing persists): `company_permissions_enabled`, then permissions + `company_suspension_enforced`, for owner, company member, admin and direct customer | all metrics identical in all three states: ticket counts 5/0/0/2, `can_access_ticket` on owner and customer tickets, `company_has_feature('api_tokens'/'sub_users')`. 0 switches ON afterwards |
 
+| 20:49 | **CI on `main@c5dd986`** (PR #145 merged) | Tests, CodeQL and Drift green. Local suites on `38b811b`: Node 1299 tests, 1297 pass, 0 fail, 2 skipped; SQL 80 files, exit 0 |
+| 20:50 | **Fetch check, then 110 applied** with the release wrapper | production fetched md5 `ec2581cec823aab84520fb21db0d8ade`, the same as `git show`. The guard was the expected pre-110 body (`6b6b4b14…`). Ledger `20261020205000 110_api_token_credentials_immutable`, 383 rows; self-check passed |
+| 20:52 | **Rolled-back F7 probe**, as the real admin account against a platform-owner token | `secret_hash`, `bearer_token_hash`, `user_id`, `api_key`, `secret_last_four` all return **42501**. `is_active`, `scopes`, `name` return ok. The service role can still rotate. 0 probe leftovers afterwards; tokens 123 / 18 active, unchanged |
+| 21:31 | **`regenerate-api-token-secret` v19 deployed** (`verify_jwt=true`, single file) | byte-identical to `main@c5dd986` (`get_edge_function`). OPTIONS 200; POST without auth 401 |
+| 21:33 | **Rolled-back probe with isolation ON** (also permissions + suspension + isolation) | every per-actor metric matches OFF: tickets, notifications, subscriptions, tokens, `can_access_ticket`. 0 `company`-scope tickets exist. A real bearer token was issued meanwhile by the normal service path (not the owner's) |
+| 21:35 | **Logs since 110** | no new errors. The only ERROR is a pre-existing cron failure (`employee_daily_stats.had_open_session` NULL, every 15 min, already present from 15:00), unrelated |
+
 **Switches changed:** none. The switch path requires the owner's fresh step-up session, which Claude cannot hold; 0 `feature_switch.*` audit rows exist.
 
 **Next, by the owner, in this order** (verify each one before the next, §2):
 1. `company_permissions_enabled`;
 2. `company_suspension_enforced` (limitations in §3.4);
-3. `company_isolation_enforced`: only after F7 is merged and deployed (110 applied, and the function deployed), then the rolled-back ON probe;
+3. `company_isolation_enforced`: unblocked. F7 is deployed and the rolled-back ON probe passed. Needs the owner's explicit approval;
 4. `data_access_grants_enabled`: only after isolation is ON.
 
 **Rollback:**
 - **Switches:** OFF in the same panel.
 - **108:** `migrations/_rollback/108_phase1_readiness_fixes.down.sql`. It refuses while grants are ON and restores F3, F4 and F5.
+- **110:** `migrations/_rollback/110_api_token_credentials_immutable.down.sql`. It refuses while isolation is ON and restores F7.
+- **`regenerate-api-token-secret`:** redeploy the v18 source (`git show 5017384:supabase/functions/regenerate-api-token-secret/index.ts`). This restores F7.
 - **`wf-executor`:** redeploy the v45 source (`git show 5017384^1:supabase/functions/wf-executor/index.ts`, single file). This removes the isolation guard, so isolation must be OFF first.
 - **No backups:** free plan, so no PITR.
