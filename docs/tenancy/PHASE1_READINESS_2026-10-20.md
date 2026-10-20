@@ -49,6 +49,7 @@ After each switch:
 - **Saved company permissions** survive OFF.
 - **Migration rollbacks** are not switch rollbacks. 097, 098, 099 and 107 `.down` refuse while their switch is on or history exists. **108 `.down` refuses while `data_access_grants_enabled` is on**, because it would restore F3 (tested). Run anywhere else, it restores all three original defects; its header says so.
 - **No backup:** the project is on the free plan, with no point-in-time recovery and no verified backup.
+- **108 and 109:** 109 (`109_registration_mode_public_read`, merged to `main` in PR #144) changes the `advanced_settings` policy and adds `get_public_registration_settings`. 108 touches none of these. Both orders were checked locally on the prod-shape chain, 107 → 109 → 108 and 107 → 108 → 109: both apply, and the 108 rollback and re-apply still work.
 
 ## 3. Per switch
 
