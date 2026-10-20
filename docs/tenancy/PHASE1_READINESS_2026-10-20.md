@@ -181,7 +181,8 @@ After each switch:
 
 ### 5.1 Local (Postgres from the production schema snapshot plus migrations 094–108; Node 22)
 - **Full SQL suite:** 78 files, all pass, including the new `tests/sql/phase1-readiness.test.sql`.
-- **Full Node suite:** see the commit message for the final counts, including the new `tests/wf-executor-ticket-guard.test.mjs`.
+- **Full Node suite:** 1282 tests, 1280 pass, 0 fail, 2 skipped, including the new `tests/wf-executor-ticket-guard.test.mjs` (4 tests; it fails when the guard calls are removed).
+- Both suites were run on `d1a7fb0`.
 
 `phase1-readiness.test.sql` enables all four switches through the real owner path with a step-up. The actors are:
 - two companies, each with an owner, a supervisor and an agent;
@@ -212,7 +213,13 @@ After each switch:
 | ⑨ | **Turning off:** all four OFF through the owner path; legacy behaviour returns |
 
 ### 5.2 CI
-CI runs only on pushes to `main` and on pull requests into `main`. Before this branch's pull request, it had no CI run. The result is recorded in the pull request, and in this document after it finishes.
+CI runs only on pushes to `main` and on pull requests into `main`. PR #143, head `d1a7fb0`, 2026-10-20, all green:
+- `node + SQL` (the full suites);
+- CodeQL, and `Analyze (javascript-typescript)`;
+- the drift checks: repository (فحوص المستودع) and comparison with production (مقارنة بالإنتاج);
+- Vercel preview.
+
+Supabase Preview was skipped. Codex code review found nothing. **The PR is open and not merged; `main` is still `51a4ac5`.**
 
 ### 5.3 Production (read-only or rolled back)
 - The 2026-10-19 rolled-back isolation probe.
@@ -220,7 +227,7 @@ CI runs only on pushes to `main` and on pull requests into `main`. Before this b
 - A live `get_dashboard_stats` call through the connector (200).
 - md5 checks of the functions 108 touches (2026-10-20).
 - Production source reviewed for `sie-api`, `integrations-api`, `whatsapp-webhook`, `register-whatsapp` and `wf-executor`.
-- Switch values and the ledger: 0 ON, head 107.
+- Switch values and the ledger at 2026-10-20 09:32 UTC: 0 of 12 ON, `_isolation_on()` false, head `107_isolation_readiness`, 380 rows.
 
 ### 5.4 Not tested anywhere
 - The external SIE engine.
