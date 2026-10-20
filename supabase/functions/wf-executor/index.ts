@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { assertWorkflowTicketAllowed } from "./ticket-guard.js";
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -170,6 +171,8 @@ async function h_assign_ticket(cfg: any, _raw: any, ctx: Ctx) {
 
 async function h_add_ticket_tag(cfg: any, _raw: any, ctx: Ctx) {
   if (!cfg.ticket_id) throw new Error("add_ticket_tag: ticket_id غير متوفر بعد الاستبدال");
+  // 097: مع العزل لا تصل الخطوة إلى تذكرة شركة (الحارس يفشل مغلقًا)
+  await assertWorkflowTicketAllowed(ctx.db, cfg.ticket_id);
   const tagName = String(cfg.tag_name || "").trim();
   if (!tagName) throw new Error("add_ticket_tag: tag_name فارغ");
   if (ctx.dryRun) return dryRunResult(`[معاينة] كان سيتم إضافة وسم "${tagName}" للتذكرة`);
@@ -186,6 +189,8 @@ async function h_add_ticket_tag(cfg: any, _raw: any, ctx: Ctx) {
 
 async function h_log_ticket_activity(cfg: any, _raw: any, ctx: Ctx) {
   if (!cfg.ticket_id) throw new Error("log_ticket_activity: ticket_id غير متوفر بعد الاستبدال");
+  // 097: مع العزل لا تصل الخطوة إلى تذكرة شركة (الحارس يفشل مغلقًا)
+  await assertWorkflowTicketAllowed(ctx.db, cfg.ticket_id);
   if (ctx.dryRun) return dryRunResult(`[معاينة] كان سيتم تسجيل نشاط: ${cfg.action_type || "note"}`);
   const { error } = await ctx.db.from("ticket_activity").insert({
     ticket_id: cfg.ticket_id, action_type: cfg.action_type || "note",
@@ -257,6 +262,8 @@ async function sendEmailCustom(db: ReturnType<typeof admin>, opts: { from?: stri
 
 async function h_send_email(cfg: any, _raw: any, ctx: Ctx) {
   if (!cfg.ticket_id) throw new Error("send_email: ticket_id غير متوفر بعد الاستبدال");
+  // 097: مع العزل لا تصل الخطوة إلى تذكرة شركة (الحارس يفشل مغلقًا)
+  await assertWorkflowTicketAllowed(ctx.db, cfg.ticket_id);
   const { data: ticket, error: e1 } = await ctx.db.from("tickets").select("user_id").eq("id", cfg.ticket_id).maybeSingle();
   if (e1 || !ticket) throw new Error("send_email: التذكرة غير موجودة");
   const { data: profile, error: e2 } = await ctx.db.from("profiles").select("email").eq("id", ticket.user_id).maybeSingle();
@@ -331,6 +338,8 @@ async function h_lookup_customer(cfg: any, _raw: any, ctx: Ctx) {
 
 async function h_send_satisfaction_survey(cfg: any, _raw: any, ctx: Ctx) {
   if (!cfg.ticket_id) throw new Error("send_satisfaction_survey: ticket_id غير متوفر بعد الاستبدال");
+  // 097: مع العزل لا تصل الخطوة إلى تذكرة شركة (الحارس يفشل مغلقًا)
+  await assertWorkflowTicketAllowed(ctx.db, cfg.ticket_id);
   const { data: ticket, error: e1 } = await ctx.db.from("tickets").select("user_id, ticket_number").eq("id", cfg.ticket_id).maybeSingle();
   if (e1 || !ticket) throw new Error("send_satisfaction_survey: التذكرة غير موجودة");
   const { data: profile, error: e2 } = await ctx.db.from("profiles").select("phone, email, full_name").eq("id", ticket.user_id).maybeSingle();

@@ -1,5 +1,11 @@
 # Multi-tenant architecture & security — status and rollout (2026-10-14)
 
+> **Update 2026-10-20:** Phase 1 readiness review (`PHASE1_READINESS_2026-10-20.md`). Every switch is still OFF.
+> - `company_permissions_enabled`: **READY TO ACTIVATE**.
+> - `company_suspension_enforced`: **READY WITH EXPLICIT LIMITATIONS**.
+> - `company_isolation_enforced`: **BLOCKED**. Needs the `wf-executor` isolation guard deployed and a decision on the external SIE engine.
+> - `data_access_grants_enabled`: **BLOCKED**. Needs migration 108 applied and isolation ON.
+>
 > **Update 2026-10-14 18:12 UTC:** migrations 094 → 102 are **applied to production**, every switch OFF. See `PRODUCTION_RELEASE_PLAN_2026-10-14.md` → "Applied". No functions or secrets were deployed.
 >
 > Branch `claude/dazzling-hypatia-lh1o9i`. **(Below: state before the apply.) Production was not changed.** Every migration and function here is unapplied and undeployed, and every switch below ships **OFF**. Each production step needs your separate, explicit approval.
@@ -26,7 +32,8 @@
 | 099/100 follow-ups | `103_admin_hierarchy_followups`, `104_company_documents_followups` (forward fixes, **applied 2026-10-19**, switches off) | — (keep `delegation_enabled`, `company_suspension_enforced`, `company_documents_enabled` off) | `FOLLOWUPS_103_104_PROD_INSTALL.md` |
 | Account hierarchy + account requests | `105_account_hierarchy_customers` (**applied 2026-10-19**, switches off) | `account_request_execution_enabled` (new, off) | `ACCOUNT_HIERARCHY_105_PROD_INSTALL.md`, `ACCOUNT_HIERARCHY_105.md`, `CUSTOMER_TRANSFER_DESIGN.md` |
 | Account request execution | `106_account_request_execution` (**applied 2026-10-19**, switches off) | — (execution still needs `account_request_execution_enabled` + isolation + 098) | `ACCOUNT_REQUEST_EXECUTION_106.md` |
-| Isolation readiness | `107_isolation_readiness` (**applied 2026-10-19**) | — (apply before enabling `company_isolation_enforced`; also redeploy `mcp`) | `ISOLATION_READINESS_107.md` |
+| Isolation readiness | `107_isolation_readiness` (**applied 2026-10-19**) | — (apply before enabling `company_isolation_enforced`; `mcp` v35 redeployed and verified 2026-10-19) | `ISOLATION_READINESS_107.md` |
+| Phase 1 readiness fixes | `108_phase1_readiness_fixes` (**not applied**) plus the `wf-executor` isolation guard (**not deployed**) | — (108 before `data_access_grants_enabled`; the guard before `company_isolation_enforced`) | `PHASE1_READINESS_2026-10-20.md` |
 | E Company Continuity | — (not implemented; fail-closed today) | — | `E_I_CONTINUITY_INTEGRATIONS_ASSESSMENT.md` |
 | I Integrations | — (already company-scoped: 088 + 096–099) | — | `E_I_CONTINUITY_INTEGRATIONS_ASSESSMENT.md` |
 
