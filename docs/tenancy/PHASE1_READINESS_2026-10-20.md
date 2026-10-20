@@ -1,169 +1,249 @@
 # Phase 1 readiness review (2026-10-20)
 
-> **Status: no feature switch is enabled.** This is a readiness review only. All 12 switches were still OFF at 2026-10-19 23:13 UTC (read-only check). The ledger head is `107_isolation_readiness`.
-> **Migration 108 (`108_phase1_readiness_fixes`) is in the repository only.** It is not applied to production.
-> The owner switches flags on in `owner-dashboard.html`. That goes through `owner_set_feature_switch`, which needs a fresh step-up; nothing in this review turns a switch on.
+> **Status: no feature switch is enabled.** This is a readiness review only.
+> Production on 2026-10-20 (read-only checks):
+> - 12 of 12 switches OFF;
+> - ledger head `107_isolation_readiness` (380 rows);
+> - `mcp` v35, byte-identical to `51a4ac5`.
+>
+> Two changes are **in the repository only**: migration `108_phase1_readiness_fixes` is not applied, and the `wf-executor` guard is not deployed.
+> The owner switches flags on in `owner-dashboard.html` (`owner_set_feature_switch`, fresh step-up). Nothing in this review turns a switch on, applies a migration or deploys a function.
 
-## 1. Verdict
+## 1. Decision per switch
 
-| Switch | Status | Reason |
+| Switch | Decision | Why |
 |---|---|---|
-| `company_permissions_enabled` | **READY TO ACTIVATE** | No prerequisite. Tested on and off. Production has 0 company staff, so only company owners see a change (§3.1) |
-| `company_isolation_enforced` | **READY WITH EXPLICIT LIMITATIONS** | 107 applied and `mcp` v35 deployed and verified. The database boundary is tested end to end on the prod-shape chain. Production has no company-scope tickets, so it cannot be exercised there. The limitations are in §3.2 |
-| `data_access_grants_enabled` | **BLOCKED until 108 is applied** | A medium defect: a grant stayed readable after its holder was demoted. It is fixed in 108, and 108 is not in production. After 108: READY WITH EXPLICIT LIMITATIONS (there is no staff screen; §3.3) |
-| `company_suspension_enforced` | **READY WITH EXPLICIT LIMITATIONS** | The owner-only path is tested. Enforcement removes plan features and the inbox only, not ticket access or existing API tokens. There is no suspend screen. No company is suspended, so switching it on changes nothing today (§3.4) |
+| `company_permissions_enabled` | **READY TO ACTIVATE** | No prerequisite, and no unaudited authorization path (§4). Tested on and off, with and without isolation (§5). Production has 0 company staff, so only the one company owner sees a change (§3.1) |
+| `company_isolation_enforced` | **BLOCKED** | Deployed `wf-executor` v45 lets platform admin and support reach company tickets by id with the service role (§4.2, F1). The fix is in the repository with a test, but not deployed. The external SIE engine receives a service-role client and cannot be reviewed from this repository (F2) |
+| `data_access_grants_enabled` | **BLOCKED** | Defect F3 (a grant stays readable after its holder is demoted) is fixed in 108, which is not applied. Grants also add nothing while isolation is OFF, and isolation is blocked |
+| `company_suspension_enforced` | **READY WITH EXPLICIT LIMITATIONS** | The documented contract holds and is tested: a suspended company loses plan and override features through `company_has_feature`, and its inbox. Only the owner can suspend. No company is suspended, so switching it on changes nothing today. Limitations in §3.4: display mismatch until 108 (F4), tickets and existing API tokens unaffected, no suspend screen |
 
-The edge and frontend audit is in §4. The cross-tenant test matrix is in §5.
+### What unblocks the two BLOCKED switches
+1. **Isolation:**
+   - Merge this branch, then deploy `wf-executor` from the merge commit (separate approval).
+     - Verify the deployed source contains `ticket-guard.js` and the four guard calls.
+     - The repository `wf-executor/` is the recorded snapshot of v45 (`_PRODUCTION_SNAPSHOTS.md`, ezbr `fe51f82a…`, the same as live on 2026-10-20). So the deploy changes only the guard.
+   - Decide on the SIE engine (F2): review the pinned `moudabdelwahab/sie@cc3b9f7` engine's use of its writer client, or accept it in writing.
+   - Then re-run the rolled-back production probe in the real ON state.
+2. **Grants:**
+   - Apply 108 (separate approval); its self-check must pass.
+   - Isolation must be ON first.
 
-## 2. Safe activation order and rollback
+## 2. Activation order and rollback
 
-**Prerequisites**, all done except 108:
-- 107 applied (done 2026-10-19);
-- `mcp` v35 from `51a4ac5` deployed and verified byte-for-byte (done);
-- 108 applied (pending), needed only before `data_access_grants_enabled`.
+**Order:**
+1. `company_permissions_enabled` — **can go now**.
+2. `company_suspension_enforced` — can go now, with the limitations in §3.4. Apply 108 first if the dashboard should match.
+3. `company_isolation_enforced` — after §1 "Isolation" is done.
+4. `data_access_grants_enabled` — after 108 is applied and isolation is ON.
 
-**Order**, one switch at a time, with each check below run before the next switch:
-1. `company_permissions_enabled`
-   - **Check:** the company owner's dashboard still lists the company's tickets.
-2. `company_isolation_enforced`
-   - **Re-run the rolled-back probe in the real ON state:** the company owner sees their own tickets and none of a direct customer's; platform staff see support tickets.
-   - **MCP:** `get_dashboard_stats` through the Mad3oom MCP connector succeeds.
-   - **Logs:** no new errors in the function or Postgres logs.
-3. `data_access_grants_enabled`, only after 108 is applied.
-   - **Check:** `select position('access_requester_rules' in pg_get_functiondef('public._access_grant_active(uuid)'::regprocedure)) > 0` is true.
-4. `company_suspension_enforced`
-   - **Check:** `select count(*) from companies where status = 'suspended'` is 0, so nothing changes.
+After each switch:
+- check the live values and its `privileged_audit` row;
+- look for new errors in the function and Postgres logs;
+- for isolation, also run `get_dashboard_stats` through the Mad3oom MCP connector.
 
-**Rollback:** turn the switch OFF in the same panel. Each switch reverts its behaviour immediately (tested, §5 ⑨). Notes per switch:
-- **Isolation and permissions** become **one-way** after the first completed customer transfer, the first carried ticket, or the first approved account request (`_guard_isolation_after_transfers`). Phase 1 creates none of these. The switches for those features stay OFF and are Phase 2 or 3 work.
-- **Grants:** turning grants OFF stops reads and new requests. Grant rows stay unrevoked, and **they become usable again if the switch is turned back on before they expire** (tested). Revoke them first if that is not wanted.
-- **Suspension:** turning it OFF restores features. The company keeps `status = 'suspended'`. Reactivating needs the owner (`delegate_set_company_status`, step-up).
-- **Saved company permissions:** they survive OFF and apply again on re-enable.
-- **Migration rollbacks** are not a switch rollback: the 097, 098, 099 and 107 `.down` scripts refuse while their switch is on or history exists.
-- **No backup to fall back on:** the project is on the free plan, with no point-in-time recovery and no verified backup.
+**Rollback:** turn the switch OFF in the same panel. Each switch reverts immediately (tested, §5 ⑨). Notes per switch:
+- **Isolation and permissions** become **one-way** after the first completed customer transfer, carried ticket or approved account request (`_guard_isolation_after_transfers`). Phase 1 creates none of these.
+- **Grants:** turning grants OFF stops reads and requests. **Unrevoked grants work again if the switch returns before they expire** (tested). Revoke them first if that is not wanted.
+- **Suspension:** turning it OFF restores features, and the company keeps `status = 'suspended'`. Reactivation is owner-only.
+- **Saved company permissions** survive OFF.
+- **Migration rollbacks** are not switch rollbacks. 097, 098, 099 and 107 `.down` refuse while their switch is on or history exists. **108 `.down` refuses while `data_access_grants_enabled` is on**, because it would restore F3 (tested). Run anywhere else, it restores all three original defects; its header says so.
+- **No backup:** the project is on the free plan, with no point-in-time recovery and no verified backup.
 
 ## 3. Per switch
 
 ### 3.1 `company_permissions_enabled` (098)
 - **Readers:**
   - `_company_ticket_row_access` and `_company_permissions_on`;
-  - the permissive `company_team_select` and `company_team_insert` policies on tickets, replies, attachments, activity, ratings and storage;
+  - the permissive `company_team_select` and `company_team_insert` policies on tickets, replies, attachments, activity, ratings and `storage.objects`;
   - `company_set_role_permission` and `company_set_user_permission`, which raise 0A000 when OFF;
   - `company_customers_list`;
-  - inbox staff access (102).
+  - inbox staff access (102);
+  - prerequisite checks in 101, 106 and the 105 guard.
 - **What changes when ON:**
-  - Supervisors see all of their own company's tickets. Agents see only tickets assigned to them.
-  - The company owner gains the team features: internal notes, `company_ticket_set_status` and `company_ticket_assign`.
+  - Supervisors see their own company's tickets; agents see only tickets assigned to them.
+  - The owner gains internal notes and `company_ticket_set_status` / `company_ticket_assign`.
   - The owner's dashboard list switches to `company_tickets_list`, which shows company-scope tickets only.
   - Platform staff and customers see no change.
-- **UI:** the owner permission matrix exists (`company-data.js` 426/435). There is no caller for `company_set_user_permission`.
-- **Production effect today:** 0 company staff, 1 company. Only the one company owner's dashboard behaviour changes.
-- **Disable:** staff lose access immediately (tested). One-way only after transfers, carry or approved requests.
+- **UI:** the permission matrix has a screen (`company-data.js` 426/435). `company_set_user_permission` has no caller.
+- **MCP:** employees get no company tickets through MCP, because MCP keys on `super_user_id`. This is a functional gap, not a leak.
+- **Disable:** staff lose access immediately (tested).
 
 ### 3.2 `company_isolation_enforced` (097, 107)
 - **Readers:**
   - restrictive `tenant_isolation` on tickets, replies, attachments, activity, ratings and tag links;
   - storage `ticket_files_isolation`;
-  - the side-channel triggers: staff notifications, Telegram, round-robin, webhooks, workflows and SLA;
+  - seven side-channel triggers: staff notifications, Telegram, round-robin, webhooks and workflow dispatch;
+  - SLA alerts;
   - `wf_assign_ticket` and `wf_update_ticket_status`;
   - `mcp_admin_update_ticket` and `mcp_ticket_tenancy`;
   - `ticket_in_my_scope` and `can_access_ticket` (107).
 - **What changes when ON:**
-  - Platform staff lose company-scope tickets and their side channels.
+  - Platform staff lose company tickets and their side channels.
   - Company owners lose their customers' and staff's personal platform-support tickets.
   - Customers keep all their own tickets.
-- **Verified in production:** 107 is applied (both functions carry the check). `mcp` v35 is byte-identical to `51a4ac5` and serves requests. A rolled-back probe on 2026-10-19 returned identical results with isolation OFF and ON for the real company owner, member, an admin and a direct customer.
-- **Limitations:**
-  1. **No company data in production:** there are no company-scope tickets and no company staff, so the boundary can only be exercised on the prod-shape test chain (§5), not on production data.
-  2. **External SIE runtime:** it is outside the repository and was not reviewed (see §4).
-  3. **MCP for support staff:** with isolation ON, MCP shows platform-support tickets only to `role = 'admin'` or the main-admin emails. The database also allows `support` staff. MCP is narrower here, not a leak.
-  4. **wf-executor email handlers:** `h_send_email` and `h_send_satisfaction_survey` read a ticket by an explicit `ticket_id` with the service role and no isolation check. They are reachable only through a workflow an admin configures with that id; the automatic dispatch is gated.
-  5. **Anonymous helpers:** `_isolation_on` and the `_ticket_*_visible` helpers are callable by `anon`. They reveal the switch state and whether a guessed reply id is an internal note.
+- **Verified in production:**
+  - 107 is applied;
+  - `mcp` v35 equals `51a4ac5` (14 files, checked twice);
+  - a rolled-back probe gave identical results OFF and ON for the real owner, member, an admin and a direct customer.
+- **Blocking:** F1 and F2 (§4).
+- **Further limitations once unblocked:**
+  - production has no company-scope tickets, so the boundary is exercised only on the prod-shape chain (§5);
+  - MCP shows support tickets only to `role = 'admin'` or the main-admin emails (narrower than the database);
+  - `_isolation_on` and the `_ticket_*_visible` helpers are callable by `anon`, revealing the switch state and whether a guessed reply id is internal;
+  - `wf-executor` can still create a ticket for a company customer under isolation. The new ticket is stamped company-scope and then hidden from staff.
 
 ### 3.3 `data_access_grants_enabled` (097, 108)
 - **Flow:**
-  - Requests come from platform staff only: admin, elevated admin or support, per `access_requester_rules`.
-  - The owner decides with a step-up. Self-approval is impossible.
-  - Grants last 1–168 h.
-  - Reads go only through `granted_company_tickets` and `granted_ticket_view`. Each call writes an append-only `company_access_audit` row. Internal notes and file paths are not exposed. The company admin sees `company_access_log`.
-- **Defect fixed in 108 (medium):** `_access_grant_active` did not re-check eligibility at read time. A demoted admin or support member, or a staff type whose right to request was withdrawn, kept reading until expiry. 108 adds the same eligibility rule that request and decision already use. It is reproduced before 108 and fixed after (§5 ⓪, ⑥).
+  - Requests come from platform staff only, per `access_requester_rules`.
+  - The owner decides with a step-up; self-approval is impossible. Grants last 1–168 h.
+  - Reads go only through `granted_company_tickets` and `granted_ticket_view`, each call audited (append-only). No internal notes or file paths are exposed.
+  - The company admin sees `company_access_log`.
+- **F3 (medium, fixed in 108, not applied):** reads did not re-check eligibility, so a demoted admin or support member kept reading until expiry. Reproduced before 108, fixed after (§5 ⓪, ⑥).
 - **Limitations after 108:**
-  - **No staff UI:** `request_data_access`, `my_data_access`, `granted_*` and `cancel_data_access_request` have no screen, so in practice the feature is API-only.
-  - **Notification link:** the owner notification points to `#access-requests`, which doesn't exist (the panel is `#govAccess`).
-  - **Stale requests:** a request pending for more than 7 days can't be decided and blocks new ones until it is cancelled.
+  - **No staff UI:** there is no screen for requests, the requester's own list, grant reads or cancellation, so the feature is API-only.
+  - **Notification link:** the owner notification links `#access-requests`, which doesn't exist (the panel is `#govAccess`).
+  - **Stale requests:** a request pending for more than 7 days blocks new ones until cancelled.
   - **Existence probe:** `request_data_access` lets staff probe whether a company or ticket id exists.
-  - **Expiry:** checked at read time only, with no sweeper. This is correct, but rows stay "active" in lists until they expire.
+  - **Expiry:** checked at read time only.
 
 ### 3.4 `company_suspension_enforced` (099, 102, 103)
-- **Who suspends:** `delegate_set_company_status`. With `delegation_enabled` OFF, that means only the platform owner with a step-up. A company owner cannot change their own status (`guard_company_status`). There is no frontend screen.
-- **What a suspended company loses:** every plan and override feature through `company_has_feature`:
-  - `sub_users`, so member and team management, including permission changes;
-  - creating new `api_tokens`;
-  - `integrations_hub`;
-  - inbox access for staff, and writes for customers.
-- **What it keeps (limitation):** ticket access for owner and team, new tickets from customers, existing API tokens, sessions, ihub service-role intake, cron jobs, and the dashboard entitlement display.
+- **Contract** (`H1_ADMIN_HIERARCHY_099_PROD_INSTALL.md:36`, the switch description, `CD_COMPANY_CONVERSATIONS_102_PROD_INSTALL.md:28`): a suspended company loses its plan and override features through `company_has_feature`, and its inbox closes.
+- **Tested** (§5 ⑦):
+  - plan features lost: `sub_users`, so member, team and permission management, plus new `api_tokens` and `integrations_hub`;
+  - inbox staff access and customer writes closed;
+  - only the owner with a step-up suspends or reactivates (`delegate_set_company_status`). `delegation_enabled` is OFF, and a company owner cannot change their own status;
+  - enforcement OFF restores immediately.
+- **Limitations (outside the documented contract, not changed):**
+  - **Tickets:** ticket access for owner and team, and new tickets from customers, are unchanged.
+  - **Existing API tokens** keep working. `mcp/_shared/api-auth.ts` checks only active, revoked and expired; token use is not entitlement-gated anywhere in the architecture.
+  - **Service-role intake:** ihub service-role intake and `integrations-worker` continue.
+  - **Display (F4):** until 108 is applied, `get_my_company_dashboard` lists entitlements that `company_has_feature` refuses. Display only. Fixed in 108 ③, which follows the 021 rule of one entitlement definition.
+  - **No suspend or reactivate screen:** the owner must call the RPC.
 - **Production effect today:** none; 0 companies are suspended.
 
-## 4. Edge Functions and frontend
+## 4. Audit coverage
 
-See §4 below, completed from the audit of `supabase/functions/*` and `assets/js/**`.
+### 4.1 Database (production, live definitions)
+- **Scope:** 443 SECURITY DEFINER functions callable by `authenticated` or `anon`. 46 touch tickets. 30 of those do not reference the isolation helpers; each was triaged:
+  - **Company-scope only:** `_company_*`, `company_tickets_list`, `company_ticket_*`.
+  - **Own rows:** `cancel_my_subscription_request`, `request_subscription_purchase`.
+  - **Staff or owner only:** `admin_list_subscriptions`, `ticket_invoice_document`, `usage_reconciliation`, `owner_reassign_admin_tickets`.
+  - **Through the 107 scope check:** close/reopen, and `_ihub_ticket_viewer`.
+  - **Token-gated:** `get_public_invoice` (≥32 chars).
+  - **Switch-gated:** grants, carry and historical access.
+  - **Trigger functions:** not callable through the API.
+- **Defects found:** F3 (grants) and F5 (`evaluate_customer_badges(p_user_id)` took any id, so any user could award another account badges and notifications and learn facts about it).
+- **Company status writes:** only through `delegate_set_company_status` (owner step-up, or a delegate with `companies.suspend` + aal2) or the service role. The status guard blocks company owners. No RLS UPDATE policy on `companies` lets staff update.
+- **108 base definitions:** the three functions 108 replaces match production byte-for-byte (`pg_get_functiondef` md5):
+  - `_access_grant_active` `a880cdbb…`;
+  - `evaluate_customer_badges` `bccaee87…`;
+  - `get_my_company_dashboard` `5f8241ee…`.
+  Two functions 108 relies on also match: `company_has_feature` `7f68068e…` and `can_create_api_token` `86512384…`.
 
-## 5. Tests performed
+### 4.2 Edge Functions (all 65 repository directories, plus production source for the 4 without repository source)
+- **`mcp` (v35):** the only service-role path with its own isolation check, on ticket list, get, update and stats; it fails closed. Customers and notifications use `super_user_id`, which mirrors the primary-membership owner. No other-company exposure found.
+- **F1 `wf-executor` (v45):**
+  - Admin and support are authorized, and the workflow definition comes from the request body.
+  - Four steps act on a ticket by id with the service role and no isolation check: add tag, log activity, send email (dry run returns the owner's email) and satisfaction survey.
+  - The two RPC-backed steps are gated by 097.
+  - **Fixed in the repository:** `supabase/functions/wf-executor/ticket-guard.js`, with the same rule as 097 (with isolation ON, a company ticket is "not found"; fails closed). It is called before any read or write in all four steps; `tests/wf-executor-ticket-guard.test.mjs` covers it.
+  - **Not deployed.** Customer lookup and notifications are not isolation leaks: staff read all profiles and notify anyone by design.
+- **F2 SIE:**
+  - `sie-api` v24 (production source) uses the caller's client throughout.
+  - The service-role "turn writer" is created only after session ownership is proved, and is passed to the external engine `moudabdelwahab/sie@cc3b9f7` (`getSieReply`).
+  - `sie-channel-telegram` also hands a service client to the engine (`@8252e57`).
+  - The engine is outside this repository and was not reviewed.
+- **Production-only sources, reviewed now:**
+  - `integrations-api` v10 and `whatsapp-webhook` v67 touch only WhatsApp and integration tables, via RPCs (messages, integrations, bot state, API keys, wallet). They do not touch tickets, profiles, memberships, notifications, subscriptions or company conversations.
+  - `register-whatsapp` v30 touches only the caller's own `integrations` row.
+- **Other functions:**
+  - **Safe:** `chat-bot-reply` and `generate-ai-chat-reply` (own session via RLS); `create-sub-user` (DB gate).
+  - **Staff only:** `accounting-sync`, `send-ticket-email`, `get-attachment-url`.
+  - **Own or admin:** the subdomain functions.
+  - **Own buckets with JWT RPC decisions:** document and continuity functions.
+  - **`ihub_svc_*` RPCs only:** `integrations-inbound` and `integrations-worker`.
+  - **No service-role access to these domains:** the remaining ~35.
+  - **Nothing at all:** no function reads or writes `company_memberships`, `companies`, or company or inbox conversations.
+- **F6 (medium, independent of the four switches, not fixed):** `regenerate-api-token-secret` reads the token through RLS, then sets `is_active = true, revoked_at = null` with the service role and no entitlement check. A token revoked by staff, or one whose plan no longer includes `api_tokens`, comes back when its owner regenerates it. The fix needs a product decision (should regenerating revive a revoked token?) and an Edge Function deploy.
 
-### 5.1 New: `tests/sql/phase1-readiness.test.sql` (prod-shape chain to 107, then 108; all sections pass)
-All four switches are enabled together through the real path: `owner_set_feature_switch` with owner context and a step-up.
+### 4.3 Frontend
+- **Rule:** client filters only narrow results; the database enforces visibility.
+- **Ticket pages:** `tickets-service.js`, `customer-history.js` and `assets/js/admin/*` read through RLS.
+- **Company owner's member tickets** (`fetchMemberTickets`): use `supervises()`. With isolation OFF, members' platform-support tickets are hidden only in the UI (`isCompanyScopedTicket`); that is pre-097 behaviour. With isolation ON, the server hides them.
+- **Company dashboard and company conversations:** RPC-only; no direct `.from('company_conversation*')`.
+- **Not determined:**
+  - the text of the 070 tickets policy change;
+  - the definition of `can_use_mcp_client`;
+  - whether any notification INSERT policy other than the staff one exists.
 
-The actors are:
-- two companies (A and B), each with an owner, a supervisor and an agent;
+## 5. Evidence
+
+### 5.1 Local (Postgres from the production schema snapshot plus migrations 094–108; Node 22)
+- **Full SQL suite:** 78 files, all pass, including the new `tests/sql/phase1-readiness.test.sql`.
+- **Full Node suite:** see the commit message for the final counts, including the new `tests/wf-executor-ticket-guard.test.mjs`.
+
+`phase1-readiness.test.sql` enables all four switches through the real owner path with a step-up. The actors are:
+- two companies, each with an owner, a supervisor and an agent;
 - customers A1, A2 and B1;
 - a banned member;
 - platform elevated admin, admin and support;
-- the platform owner;
+- the owner;
 - a standalone user.
 
-| § | What is asserted |
+| § | Asserted |
 |---|---|
-| ⓪ | **Before 108:** a demoted ex-admin still reads through a grant; the company owner can evaluate a customer's badges, which awards them, notifies the customer and reveals the result |
-| ① | The 108 rollback restores the exact schema (digest). Re-applying twice works |
-| ② | Elevated admin refused; owner without a fresh step-up refused; owner with step-up enables the four in order; exactly four on; four audit rows |
-| ③ | **Visibility:** exact per-actor counts for tickets, replies, attachments, activity, ratings, tags and files. Platform staff see support tickets only; each company sees its own; customers see their own; the banned member sees nothing. Internal notes are hidden |
-| ③ | **Refusals:** the definer functions refuse cross-company and personal tickets. Close and reopen return the same 42501 for another tenant's ticket and for a missing one, so there is no existence oracle. Cross-tenant update and reply are refused |
-| ③ | **Other data:** notifications are visible to their owner only. Subscriptions go to their owner and admins, never the company owner. Profiles, memberships and companies don't cross. `mcp_ticket_tenancy` is service-only and returns the right team companies |
-| ④ | A staff member removed from the team loses company tickets and their MCP context. A removed member keeps their own ticket only, and the company keeps its stamped ticket |
-| ⑤ | Permissions OFF: staff lose access, owner and customer keep theirs, matrix writes are refused. ON: access returns, own company only. Cross-company status and assign return P0002 |
-| ⑥ | **Grants:** non-staff cannot request; a decision needs a step-up; elevated admin cannot decide; reads are scoped to the company and the grant, audited on every call, and show no internal notes; another staff member cannot use the grant; the company access log shows company A's grant to A and nothing to B |
-| ⑥ | **Stopping reads:** demotion and a disabled rule stop reads (108). Switch OFF stops reads and requests; an unrevoked grant works again after re-enable. Revocation, a single-ticket grant and expiry all work |
-| ⑦ | **Suspension:** elevated admin without delegation refused; company owner cannot change status. The owner suspends B: B loses features and team management, A is unaffected, B's tickets stay visible (limitation). Enforcement OFF restores; the owner reactivates |
-| ⑧ | Badges after 108: evaluating another user returns nothing and writes nothing. Evaluating yourself, as staff, and through the trigger path all still work |
-| ⑨ | All four switch OFF through the owner path in reverse order. The legacy behaviour returns |
+| ⓪ | **Before 108**, F3, F5 and F4 all reproduce |
+| ① | The 108 rollback restores the exact schema (digest), and re-applying twice works |
+| ② / ②b | **Activation:** elevated admin and owner-without-step-up refused; owner enables the four in order; four audit rows |
+| ② / ②b | **108 rollback guard:** refused while grants are ON, and no function changes |
+| ③ | **Visibility:** exact per-actor counts for tickets, replies, attachments, activity, ratings, tags and files; internal notes hidden |
+| ③ | **Refusals:** definer functions refuse other-tenant and personal tickets, with the same 42501 for a missing ticket (no oracle); no cross-tenant update or reply |
+| ③ | **Other data:** notifications, subscriptions, profiles, memberships and companies don't cross; `mcp_ticket_tenancy` is service-only and returns the right team companies |
+| ④ | **Removed staff:** lose company tickets and their MCP context |
+| ④ | **Removed member:** keeps their own ticket only; the company keeps its stamped ticket |
+| ⑤ | **Permissions OFF:** staff lose access, owner and customer keep theirs, matrix writes are refused |
+| ⑤ | **Permissions ON:** own company only; cross-company status and assign return P0002 |
+| ⑥ | **Who:** staff-only requests; step-up decision; elevated admin refused |
+| ⑥ | **Reads:** scoped to company and grant, every read audited, no internal notes, another staff member refused, company access log |
+| ⑥ | **Ending access:** demotion and a disabled rule stop reads (108); switch OFF stops reads; revoke and expiry work |
+| ⑦ | **Suspension:** owner-only; B loses features and team management, A is unaffected; the dashboard matches (108 ③); tickets stay (limitation); OFF restores; owner reactivates |
+| ⑧ | **Badges:** evaluating another user returns nothing and writes nothing; self, staff and the trigger path still work |
+| ⑨ | **Turning off:** all four OFF through the owner path; legacy behaviour returns |
 
-### 5.2 Existing suites
-- **Full SQL suite and full Node suite:** see the results line below.
-- **MCP pure modules:** fail-closed tenancy and subscription access (`tests/mcp-ticket-isolation.test.mjs`).
-- **Production checks** (read-only or rolled back):
-  - the 2026-10-19 isolation probe;
-  - `mcp` v35 source compared with the repository on 2026-10-19 at 22:55 and again at 23:14 UTC;
-  - a live MCP call through the connector (`get_dashboard_stats`, 200).
+### 5.2 CI
+CI runs only on pushes to `main` and on pull requests into `main`. Before this branch's pull request, it had no CI run. The result is recorded in the pull request, and in this document after it finishes.
 
-### 5.3 What is simulated vs untested
-- **Simulated:** every cross-tenant case above, on a local Postgres built from the production schema snapshot (`tests/fixtures/prod-shape`) plus migrations 094–108.
-- **Tested in production:** only the rolled-back probe (no company tickets exist), the MCP call, and the read-only state.
-- **Untested anywhere:**
-  - the external SIE runtime;
-  - frontend rendering under each switch in production;
-  - MCP under isolation ON against real company data;
-  - background jobs (cron, wf-executor) under suspension.
-- **What would close the gap:**
-  - **In production:** a designated test company. Free-plan projects have no Supabase branching, so this would be ordinary, deletable accounts: one company owner, one employee (supervisor), and two customers. One customer holds a company ticket and a personal platform-support ticket. One account belongs to a second company. Creating them is a production write and needs the owner's approval.
-  - **Or a staging project** restored from a schema dump.
+### 5.3 Production (read-only or rolled back)
+- The 2026-10-19 rolled-back isolation probe.
+- `mcp` v35 source compared with the repository (2026-10-19 22:55, 23:14 UTC).
+- A live `get_dashboard_stats` call through the connector (200).
+- md5 checks of the functions 108 touches (2026-10-20).
+- Production source reviewed for `sie-api`, `integrations-api`, `whatsapp-webhook`, `register-whatsapp` and `wf-executor`.
+- Switch values and the ledger: 0 ON, head 107.
+
+### 5.4 Not tested anywhere
+- The external SIE engine.
+- Frontend rendering under each switch in production.
+- MCP under isolation against real company data.
+- Cron and background jobs under suspension.
+
+**What would close the gap:** a designated test company in production (free plan, so no Supabase branching; ordinary deletable accounts, created only with the owner's approval):
+- one owner and one supervisor;
+- two customers: one with a company ticket and a personal support ticket;
+- one account in a second company.
+
+Alternatively, a staging project restored from a schema dump.
 
 ## 6. Conditions for Phase 2
-1. All four Phase 1 switches are on, each verified after activation (§2). No new errors in the function or Postgres logs for at least 24 h.
-2. 108 is reviewed, merged and applied; its self-check passes in production.
-3. The test fixture in §5.3 exists, or the owner explicitly accepts the simulated-only evidence.
-4. The Phase 2 candidates are re-validated against live state:
+1. The switches decided here are ON and verified (§2), with no new errors in the function or Postgres logs for at least 24 h.
+2. Isolation and grants are unblocked (§1) and verified the same way.
+3. 108 is applied and its self-check passes.
+4. The §5.4 test fixture exists, or the owner explicitly accepts simulated-only evidence.
+5. The Phase 2 candidates are re-validated against live state:
    - `multi_company_memberships_enabled` needs isolation ON;
    - `company_inbox_enabled` needs permissions ON;
    - `historical_access_enabled` needs permissions and isolation ON;
-   - `delegation_enabled` stays BLOCKED until an MFA-enrolled delegate exists (0 accounts have Supabase MFA today).
-5. Nothing in Phase 2 creates a transfer, carry or approved account request. Those make isolation and permissions one-way.
+   - `delegation_enabled` stays BLOCKED until an MFA-enrolled delegate exists (0 accounts have Supabase MFA).
+6. Nothing in Phase 2 creates a transfer, carry or approved account request.
+7. F6 (`regenerate-api-token-secret`) has a decision before any feature relies on token revocation.

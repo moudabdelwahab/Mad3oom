@@ -1,5 +1,5 @@
 -- ============================================================================
--- 108_phase1_readiness_fixes.sql — إصلاحان وجدتهما مراجعة جاهزية المرحلة 1 (docs/tenancy/PHASE1_READINESS_2026-10-20.md)
+-- 108_phase1_readiness_fixes.sql — ثلاثة إصلاحات وجدتها مراجعة جاهزية المرحلة 1 (docs/tenancy/PHASE1_READINESS_2026-10-20.md)
 --
 --   ① _access_grant_active (097، data_access_grants_enabled): المنحة كانت تبقى سارية لمن خُفِّض دوره من طاقم
 --      المنصة، أو لنوع طاقم أوقف المالك حقه في الطلب، حتى نهايتها (حتى 168 ساعة). الطلب والموافقة يفحصان
@@ -9,6 +9,9 @@
 --      أي معرّف: يمنح مستخدمٌ حسابًا آخر شارات ويرسل له إشعارات، ويعرف من الشارات المكتسبة حديثًا أن لديه
 --      اشتراك واتساب نشطًا أو عددًا من التذاكر. الآن النداء المباشر لنفسه أو لطاقم المنصة فقط؛ المحفّزات
 --      ومفتاح الخدمة والواجهة (customer-dashboard.js تنادي بمعرّف المستخدم نفسه) بلا تغيير.
+--   ③ get_my_company_dashboard (095): مع company_suspension_enforced كانت لوحة شركة موقوفة تعرض امتيازات باقتها
+--      بينما company_has_feature ترفضها. 021 وحّد التعريفين صراحة؛ 099 غيّر أحدهما وحده. الآن قائمة الامتيازات فارغة
+--      للشركة الموقوفة مع الإنفاذ، و access.suspended يوضّح السبب. عرض فقط: لا يمنح ولا يمنع وصولًا.
 --
 -- لا مفتاح يُفعَّل ولا يُشترط إطفاؤه (المفاتيح المفعّلة لا تمنع التطبيق). الصلاحيات لا تتغير (create or replace).
 -- قابل لإعادة التشغيل. التراجع: migrations/_rollback/108_phase1_readiness_fixes.down.sql
@@ -16,7 +19,8 @@
 do $$
 begin
   if to_regprocedure('public._access_grant_active(uuid)') is null or to_regprocedure('public._access_requester_kind(uuid)') is null
-     or to_regprocedure('public.evaluate_customer_badges(uuid)') is null or to_regprocedure('public.is_platform_staff()') is null then
+     or to_regprocedure('public.evaluate_customer_badges(uuid)') is null or to_regprocedure('public.is_platform_staff()') is null
+     or to_regprocedure('public.get_my_company_dashboard()') is null then
     raise exception '108 يتطلب 097 ودالتي الشارات وطاقم المنصة';
   end if;
 end $$;
@@ -172,14 +176,110 @@ begin
 end;
 $function$;
 
+-- ③ ───────────────────────────────────────────────────────────────────────
+create or replace function public.get_my_company_dashboard()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path to 'public'
+as $$
+declare
+  v_company_id uuid; v_company public.companies%rowtype;
+  v_active_plans text[]; v_subs jsonb; v_features jsonb;
+  v_viewer text;
+  v_suspended boolean;
+begin
+  if auth.uid() is null then return null; end if;
+  -- 095: الفريق فقط. company_staff_role() = admin | supervisor | agent | null.
+  v_viewer := public.company_staff_role();
+  if v_viewer is null then return null; end if;
+  v_company_id := public.current_company_id();
+  if v_company_id is null then return null; end if;
+  select * into v_company from public.companies where id = v_company_id;
+
+  select coalesce(array_agg(distinct s.plan), '{}'::text[]) into v_active_plans
+    from public.whatsapp_subscriptions s
+   where (s.company_id = v_company_id or s.user_id = v_company.user_id)
+     and s.status = 'active' and s.start_date <= now() and s.end_date > now();
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+      'feature_key', f.feature_key,
+      'name_ar', coalesce(ff.name_ar, ff.name, f.feature_key),
+      'description', coalesce(ff.description, ''),
+      'limits', f.limits, 'granted_by', f.plan_keys
+    ) order by f.feature_key), '[]'::jsonb) into v_features
+    from (
+      select pf.feature_key, jsonb_agg(distinct sp.key) as plan_keys, (array_agg(pf.limits))[1] as limits
+        from public.subscription_plans sp
+        join public.plan_features pf on pf.plan_id = sp.id and pf.enabled = true
+       where sp.key = any(v_active_plans) group by pf.feature_key
+    ) f
+    left join public.feature_flags ff on ff.key = f.feature_key;
+
+  -- 108: نفس تعريف company_has_feature (021: لا تعريفان للاستحقاق في النظام). مع company_suspension_enforced
+  -- لا تعرض لوحة شركة موقوفة امتيازات ترفضها دوال الامتيازات نفسها.
+  v_suspended := public._feature_on('company_suspension_enforced') and v_company.status = 'suspended';
+  if v_suspended then
+    v_features := '[]'::jsonb;
+  end if;
+
+  if v_viewer <> 'admin' then
+    return jsonb_build_object(
+      'viewer_role', v_viewer,
+      'company', jsonb_build_object('id', v_company.id, 'name', v_company.company_name, 'is_owner', false),
+      'registration', null,
+      'subscriptions', '[]'::jsonb,
+      'entitlements', (select coalesce(jsonb_agg(e - 'granted_by' - 'limits'), '[]'::jsonb)
+                         from jsonb_array_elements(v_features) e),
+      'access', jsonb_build_object('active_plans', '[]'::jsonb,
+        'has_active_subscription', (array_length(v_active_plans, 1) is not null), 'suspended', v_suspended));
+  end if;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+      'id', s.id, 'plan', s.plan,
+      'plan_name_ar', coalesce(sp.name_ar, sp.name, s.plan),
+      'status', s.status, 'billing_cycle', s.billing_cycle,
+      'start_date', s.start_date, 'end_date', s.end_date,
+      'is_active', (s.status = 'active' and s.start_date <= now() and s.end_date > now()),
+      'days_remaining', greatest(0, ceil(extract(epoch from (s.end_date - now())) / 86400))::int
+    ) order by s.end_date desc), '[]'::jsonb) into v_subs
+    from public.whatsapp_subscriptions s
+    left join public.subscription_plans sp on sp.key = s.plan
+   where (s.company_id = v_company_id or s.user_id = v_company.user_id);
+
+  return jsonb_build_object(
+    'viewer_role', v_viewer,
+    'company', jsonb_build_object(
+      'id', v_company.id, 'name', v_company.company_name,
+      'cr_number', v_company.commercial_registration_number,
+      'cr_expiry', v_company.commercial_registration_expiry,
+      'email', v_company.company_email, 'phone', v_company.company_phone,
+      'address', v_company.address, 'city', v_company.city, 'country', v_company.country,
+      'website', v_company.website, 'industry', v_company.industry, 'tax_id', v_company.tax_id,
+      'created_at', v_company.created_at, 'is_owner', (v_company.user_id = auth.uid())),
+    'registration', jsonb_build_object(
+      'expiry_date', v_company.commercial_registration_expiry,
+      'is_expired', (v_company.commercial_registration_expiry is not null
+                      and v_company.commercial_registration_expiry < current_date),
+      'days_to_expiry', case when v_company.commercial_registration_expiry is null then null
+                             else (v_company.commercial_registration_expiry - current_date) end),
+    'subscriptions', v_subs, 'entitlements', v_features,
+    'access', jsonb_build_object('active_plans', to_jsonb(v_active_plans),
+      'has_active_subscription', (array_length(v_active_plans, 1) is not null), 'suspended', v_suspended));
+end;
+$$;
+
 do $$
 begin
   if position('access_requester_rules' in pg_get_functiondef('public._access_grant_active(uuid)'::regprocedure)) = 0
-     or position('pg_trigger_depth() = 0' in pg_get_functiondef('public.evaluate_customer_badges(uuid)'::regprocedure)) = 0 then
-    raise exception '108: الشرطان غير مركّبين';
+     or position('pg_trigger_depth() = 0' in pg_get_functiondef('public.evaluate_customer_badges(uuid)'::regprocedure)) = 0
+     or position('v_suspended' in pg_get_functiondef('public.get_my_company_dashboard()'::regprocedure)) = 0 then
+    raise exception '108: الشروط غير مركّبة';
   end if;
   if has_function_privilege('authenticated', 'public._access_grant_active(uuid)', 'execute')
-     or has_function_privilege('anon', 'public.evaluate_customer_badges(uuid)', 'execute') then
+     or has_function_privilege('anon', 'public.evaluate_customer_badges(uuid)', 'execute')
+     or has_function_privilege('anon', 'public.get_my_company_dashboard()', 'execute') then
     raise exception '108: صلاحيات غير متوقعة';
   end if;
 end $$;

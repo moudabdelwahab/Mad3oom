@@ -2,7 +2,7 @@
 -- جاهزية المرحلة 1 (docs/tenancy/PHASE1_READINESS_2026-10-20.md) على نسخة مطابقة للإنتاج حتى 107، ثم 108.
 -- المفاتيح الأربعة: company_permissions_enabled · company_isolation_enforced · data_access_grants_enabled ·
 -- company_suspension_enforced — تُفعَّل كلها معًا بالمسار الحقيقي (owner_set_feature_switch بتحقق خطوتين).
---   ⓪ قبل 108: الخللان مُثبتان (منحة سارية بعد خفض الدور؛ evaluate_customer_badges لحساب آخر)
+--   ⓪ قبل 108: الخلل الثلاثة مُثبتة (منحة سارية بعد خفض الدور؛ evaluate_customer_badges لحساب آخر؛ لوحة الموقوفة)
 --   ① 108 والتراجع حرفيًا وإعادة التطبيق مرتين
 --   ② التفعيل بالترتيب الآمن عبر المالك وحده، وكل تغيير مسجَّل
 --   ③ مصفوفة عبر الشركات: تذاكر وردود ومرفقات وإشعارات واشتراكات وحسابات وعضويات وسياق MCP
@@ -100,9 +100,16 @@ BEGIN
   PERFORM t.ok((SELECT count(*) FROM public.notifications WHERE user_id = t.u('A1')) = n0 + 1, 'PRE notification sent to A1 by OA');
   DELETE FROM public.customer_badges WHERE user_id = t.u('A1');
   DELETE FROM public.notifications WHERE user_id = t.u('A1') AND title LIKE '%شارة جديدة%';
+  -- لوحة شركة موقوفة مع الإنفاذ: تعرض امتيازات ترفضها company_has_feature
+  PERFORM t.sw('company_suspension_enforced', true);
+  PERFORM t.owner_call(format('public.delegate_set_company_status(%L::uuid, %L, %L)', t.u('CB'), 'suspended', 'اختبار ما قبل 108'));
+  PERFORM t.ok(NOT t.b('OB', 'public.company_has_feature(''sub_users'')')
+           AND jsonb_array_length(t.j('OB', 'public.get_my_company_dashboard()') -> 'entitlements') > 0, 'PRE dashboard shows refused entitlements');
+  PERFORM t.owner_call(format('public.delegate_set_company_status(%L::uuid, %L, %L)', t.u('CB'), 'active', 'نهاية اختبار ما قبل 108'));
+  PERFORM t.sw('company_suspension_enforced', false);
   PERFORM t.sw('data_access_grants_enabled', false);
   PERFORM t.sw('company_isolation_enforced', false);
-  RAISE NOTICE 'PASS ⓪ قبل 108: منحة الوصول تُقرأ بعد خفض دور صاحبها، و evaluate_customer_badges لحساب آخر تمنح وتُشعر وتكشف';
+  RAISE NOTICE 'PASS ⓪ قبل 108: منحة الوصول تُقرأ بعد خفض دور صاحبها؛ evaluate_customer_badges لحساب آخر تمنح وتُشعر وتكشف؛ لوحة الشركة الموقوفة تعرض امتيازات مرفوضة';
 END $$;
 -- سجلات التدقيق إلحاقية (لا حذف): نعدّ من هنا
 INSERT INTO t.saved VALUES ('audit0', (SELECT count(*) FROM public.privileged_audit WHERE action LIKE 'feature_switch.%')::text);
@@ -113,7 +120,7 @@ INSERT INTO t.saved VALUES ('schema107b', t.schema_digest());
 \i migrations/_rollback/108_phase1_readiness_fixes.down.sql
 DO $$ BEGIN
   PERFORM t.ok(t.schema_digest() = (SELECT v FROM t.saved WHERE k = 'schema107b'), 'RB schema byte-for-byte');
-  RAISE NOTICE 'PASS ① التراجع عن 108: الدالتان حرفيًا كما في الإنتاج';
+  RAISE NOTICE 'PASS ① التراجع عن 108: الدوال الثلاث حرفيًا كما في الإنتاج';
 END $$;
 \i migrations/108_phase1_readiness_fixes.sql
 \i migrations/108_phase1_readiness_fixes.sql
@@ -136,6 +143,19 @@ BEGIN
                = (SELECT s.v::int FROM t.saved s WHERE s.k = 'audit0') + 4, 'SW four audit rows');
   PERFORM t.ok(public._isolation_on(), 'SW isolation on');
   RAISE NOTICE 'PASS ② التفعيل لمالك المنصة وحده بتحقق خطوتين، بالترتيب: الصلاحيات ← العزل ← منح الوصول ← الإيقاف؛ أربعة صفوف تدقيق';
+END $$;
+
+-- التراجع عن 108 مرفوض ما دامت المنح مفعّلة (يعيد قراءة المنح بعد خفض الدور). خطأ واحد متوقَّع أدناه.
+\set ON_ERROR_STOP off
+BEGIN;
+\i migrations/_rollback/108_phase1_readiness_fixes.down.sql
+ROLLBACK;
+\set ON_ERROR_STOP on
+DO $$ BEGIN
+  PERFORM t.ok(position('access_requester_rules' in pg_get_functiondef('public._access_grant_active(uuid)'::regprocedure)) > 0
+           AND position('pg_trigger_depth() = 0' in pg_get_functiondef('public.evaluate_customer_badges(uuid)'::regprocedure)) > 0
+           AND position('v_suspended' in pg_get_functiondef('public.get_my_company_dashboard()'::regprocedure)) > 0, 'RB refused while grants on');
+  RAISE NOTICE 'PASS ②ب التراجع عن 108 مرفوض مع data_access_grants_enabled مفعّلًا، ولا تتغير أي دالة';
 END $$;
 
 -- ══ ③ مصفوفة عبر الشركات (المفاتيح الأربعة مفعّلة) ═══════════════════════════
@@ -309,11 +329,19 @@ BEGIN
   -- ما تفقده: امتيازات الباقة (هنا sub_users) لشركة ب وحدها
   PERFORM t.ok(NOT t.b('OB', 'public.company_has_feature(''sub_users'')') AND t.b('OA', 'public.company_has_feature(''sub_users'')'), 'SUSP B loses features, A unaffected');
   PERFORM t.ok(t.e('OB', format('public.company_set_role_permission(%L, %L, true)', 'agent', 'tickets.view_all')) = '42501', 'SUSP B cannot manage team');
+  -- 108 ③: اللوحة توافق company_has_feature (للمدير والمشرف)، وشركة أ كما هي
+  PERFORM t.ok(t.j('OB', 'public.get_my_company_dashboard()') -> 'entitlements' = '[]'::jsonb
+           AND (t.j('OB', 'public.get_my_company_dashboard()') #>> '{access,suspended}')::boolean
+           AND t.j('BS', 'public.get_my_company_dashboard()') -> 'entitlements' = '[]'::jsonb, 'SUSP dashboard empty for suspended B (108)');
+  PERFORM t.ok(jsonb_array_length(t.j('OA', 'public.get_my_company_dashboard()') -> 'entitlements') > 0
+           AND NOT (t.j('OA', 'public.get_my_company_dashboard()') #>> '{access,suspended}')::boolean, 'SUSP dashboard A unchanged');
   -- ما لا تفقده (حدّ موثّق): الوصول إلى تذاكرها
   PERFORM t.ok(t.sees('OB', 'TB1') AND t.sees('BS', 'TB1'), 'SUSP limitation: ticket access unchanged');
   -- إطفاء الإنفاذ يعيد الامتيازات فورًا والحالة باقية؛ إعادته تعيد الإيقاف
   PERFORM t.owner_sw('company_suspension_enforced', false);
   PERFORM t.ok(t.b('OB', 'public.company_has_feature(''sub_users'')') AND (SELECT status FROM public.companies WHERE id = t.u('CB')) = 'suspended', 'SUSP off restores, status kept');
+  PERFORM t.ok(jsonb_array_length(t.j('OB', 'public.get_my_company_dashboard()') -> 'entitlements') > 0
+           AND NOT (t.j('OB', 'public.get_my_company_dashboard()') #>> '{access,suspended}')::boolean, 'SUSP off dashboard restored');
   PERFORM t.owner_sw('company_suspension_enforced', true);
   PERFORM t.ok(NOT t.b('OB', 'public.company_has_feature(''sub_users'')'), 'SUSP on again');
   PERFORM t.ok(t.owner_call(format('public.delegate_set_company_status(%L::uuid, %L, %L)', t.u('CB'), 'active', 'إعادة تفعيل بعد الاختبار')) ->> 'changed' = 'true'
