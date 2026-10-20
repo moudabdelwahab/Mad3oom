@@ -617,7 +617,10 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //   107 — جاهزية العزل: ticket_in_my_scope و can_access_ticket (بامتياز المالك) تحترمان tenant_isolation حين
     //         يُفعَّل العزل، فلا إغلاق ولا إعادة فتح ولا كاشف وجود لتذكرة شخصية عبر super_user_id. بلا العزل لا تغيير.
     //         مقيسٌ في tests/sql/isolation-readiness.test.sql.
-    assert.equal(migrations[migrations.length - 1], '107_isolation_readiness.sql',
+    //   109 — قراءة الزائر لوضع التسجيل: سياسة إدارة advanced_settings لـ authenticated وحده (كانت تُفشل قراءة
+    //         الزائر بـ has_elevated_authority فيظهر له التسجيل المفتوح)، ودالة عامة ضيقة get_public_registration_settings.
+    //         (108 محجوز لفرع readiness المرحلة 1.) مقيسٌ في tests/sql/registration-mode-public-read.test.sql.
+    assert.equal(migrations[migrations.length - 1], '109_registration_mode_public_read.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
