@@ -101,6 +101,11 @@ INSERT INTO public.profiles (id, email, full_name, role, phone, created_at)
 VALUES ('0f000000-0000-4000-8000-0000000000f1', 'fresh@tenancy.test', 'حساب جديد', 'user', '01100000091', now());
 
 INSERT INTO t.saved VALUES ('schema107', t.schema_digest());
+-- ما لا تغطيه البصمة حرفيًا: أدوار السياسة وACL الجدول كما هو
+INSERT INTO t.saved VALUES
+  ('policy107', (SELECT row_to_json(p)::text FROM pg_policies p
+                  WHERE schemaname = 'public' AND tablename = 'advanced_settings' AND policyname = 'Admins can manage advanced_settings')),
+  ('acl107', (SELECT array_to_string(array(SELECT unnest(relacl)::text ORDER BY 1), ',') FROM pg_class WHERE oid = 'public.advanced_settings'::regclass));
 
 -- ══ ⓪ قبل 109: العطل كما في الإنتاج ════════════════════════════════════════
 DO $$ BEGIN
@@ -132,6 +137,26 @@ DO $$ BEGIN
   RAISE NOTICE 'PASS ① الكائنات: سياسة الإدارة لـ authenticated بنفس الشرط، دالة عامة ضيقة، والزائر SELECT فقط';
 END $$;
 
+-- ①أ ملكية الدالة وصلاحياتها الفعلية
+DO $$
+DECLARE f pg_proc;
+BEGIN
+  SELECT * INTO f FROM pg_proc WHERE oid = 'public.get_public_registration_settings()'::regprocedure;
+  PERFORM t.ok(f.proowner = (SELECT relowner FROM pg_class WHERE oid = 'public.advanced_settings'::regclass),
+               'OWN function owner = table owner (' || pg_get_userbyid(f.proowner) || ')');
+  PERFORM t.ok(f.prosecdef AND f.provolatile = 's' AND f.pronargs = 0, 'OWN definer, stable, no arguments');
+  PERFORM t.ok(f.proconfig = array['search_path=public'], 'OWN fixed search_path');
+  PERFORM t.ok((SELECT array_agg(a::text ORDER BY a::text) FROM unnest(f.proacl) a)
+               = (SELECT array_agg(x ORDER BY x) FROM unnest(array[
+                    pg_get_userbyid(f.proowner) || '=X/' || pg_get_userbyid(f.proowner),
+                    'anon=X/' || pg_get_userbyid(f.proowner),
+                    'authenticated=X/' || pg_get_userbyid(f.proowner),
+                    'service_role=X/' || pg_get_userbyid(f.proowner)]) x),
+               'OWN acl exactly owner, anon, authenticated, service_role: ' || f.proacl::text);
+  PERFORM t.ok(NOT EXISTS (SELECT 1 FROM unnest(f.proacl) a WHERE a::text LIKE '=%'), 'OWN no PUBLIC execute');
+  RAISE NOTICE 'PASS ①أ الدالة: مالكها مالك الجدول، definer ثابتة المسار بلا معاملات، والتنفيذ للأدوار الثلاثة فقط (لا PUBLIC)';
+END $$;
+
 \i migrations/_rollback/109_registration_mode_public_read.down.sql
 DO $$ BEGIN
   PERFORM t.ok(t.schema_digest() = (SELECT v FROM t.saved WHERE k = 'schema107'), 'RB schema digest');
@@ -140,6 +165,12 @@ DO $$ BEGIN
   PERFORM t.ok(has_table_privilege('anon', 'public.advanced_settings', 'TRUNCATE')
            AND has_table_privilege('anon', 'public.advanced_settings', 'INSERT'), 'RB anon grants restored');
   PERFORM t.ok(t.anon_rows_or_err($q$public.advanced_settings where key = 'registration_mode'$q$) = '42501', 'RB defect back');
+  PERFORM t.ok((SELECT row_to_json(p)::text FROM pg_policies p WHERE schemaname = 'public' AND tablename = 'advanced_settings'
+                  AND policyname = 'Admins can manage advanced_settings') = (SELECT v FROM t.saved WHERE k = 'policy107'),
+               'RB admin policy row identical (roles, cmd, permissive, qual, with_check)');
+  PERFORM t.ok((SELECT array_to_string(array(SELECT unnest(relacl)::text ORDER BY 1), ',') FROM pg_class WHERE oid = 'public.advanced_settings'::regclass)
+               = (SELECT v FROM t.saved WHERE k = 'acl107'), 'RB table ACL identical');
+  PERFORM t.ok(NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'get_public_registration_settings'), 'RB no leftover overloads');
   RAISE NOTICE 'PASS ①ب التراجع: الشكل كما قبل 109 حرفيًا (والعطل يعود، ما يثبت أن الاختبار يقيسه)';
 END $$;
 \i migrations/109_registration_mode_public_read.sql
