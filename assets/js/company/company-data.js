@@ -367,12 +367,29 @@ export async function fetchCompanyInvitations() {
     });
 }
 
-export async function inviteCompanyCustomer(email) {
-    return safe('inviteCompanyCustomer', async () => {
-        const { data, error } = await supabase.rpc('company_invite_customer', { p_email: email });
-        if (error) throw error;
-        return data;
-    });
+/**
+ * 112: الدعوة وبريدها عبر Edge Function «company-invite-customer» (لا RPC مباشر: الـRPC يسجّل الصف فقط).
+ * ⇒ { ok, status, message?, error? }. ok فقط حين قَبِل مزوّد البريد الرسالة (sent) أو أُرسلت من قبل
+ * (already_sent). الرد لا يحمل رمز الدعوة ولا رد المزوّد. resend: إعادة إرسال صريحة لدعوة أُرسلت.
+ */
+export async function inviteCompanyCustomer(email, { resend = false } = {}) {
+    try {
+        const { data, error } = await supabase.functions.invoke('company-invite-customer', {
+            body: { email: String(email || '').trim().toLowerCase(), resend: resend === true }
+        });
+        if (error) {
+            let body = null;
+            try { body = await error?.context?.json?.(); } catch { /* الرد ليس JSON */ }
+            return { ok: false, status: body?.status || 'server', error: body?.error || 'تعذّر إرسال الدعوة. حاول مرة أخرى.' };
+        }
+        if (data?.status === 'sent' || data?.status === 'already_sent') {
+            return { ok: true, status: data.status, message: data.message || null };
+        }
+        return { ok: false, status: 'server', error: 'تعذّر إرسال الدعوة. حاول مرة أخرى.' };
+    } catch (err) {
+        console.error('[CompanyData] inviteCompanyCustomer:', err?.message || err);
+        return { ok: false, status: 'network', error: 'تعذّر الاتصال. تحقّق من اتصالك ثم أعد المحاولة.' };
+    }
 }
 
 export async function cancelCompanyInvitation(invitationId) {

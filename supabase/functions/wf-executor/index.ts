@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { assertWorkflowTicketAllowed } from "./ticket-guard.js";
+import { emailConfig, senderFor, sendEmail } from "../_shared/email.js";
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -228,27 +229,25 @@ async function h_send_whatsapp(cfg: any, _raw: any, ctx: Ctx) {
   return { output: { "whatsapp.message_id": data?.messages?.[0]?.id || null } };
 }
 
-const ALLOWED_SENDERS = ["support@mad3oom.online", "no-reply@mad3oom.online", "info@mad3oom.online"];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 async function sendEmailCustom(db: ReturnType<typeof admin>, opts: { from?: string; to: string; subject: string; body: string }) {
   if (!EMAIL_RE.test(opts.to || "")) {
     throw new Error(`صيغة البريد الإلكتروني للمستلم غير صحيحة: "${opts.to}"`);
   }
-  const resendApiKey = Deno.env.get("RESEND_API_KEY");
-  if (!resendApiKey) throw new Error("RESEND_API_KEY غير مُهيأ في متغيرات البيئة");
-  const defaultFrom = Deno.env.get("EMAIL_FROM") || "info@mad3oom.online";
-  let from = defaultFrom;
+  // RESEND_API_KEY / EMAIL_SENDER_DOMAIN / EMAIL_FROM — supabase/functions/_shared/email.js
+  const mail = emailConfig((k: string) => Deno.env.get(k));
+  if (!mail.configured) throw new Error("RESEND_API_KEY غير مُهيأ في متغيرات البيئة");
+  let from = mail.defaultFrom;
   if (opts.from) {
-    if (!ALLOWED_SENDERS.includes(opts.from)) throw new Error("عنوان المرسل غير مسموح به");
-    from = opts.from;
+    // from المحفوظ في سير العمل (@mad3oom.online أو @mad3oom.com) يُرسَل من نطاق الإرسال المضبوط
+    const allowed = senderFor(opts.from, mail);
+    if (!allowed) throw new Error("عنوان المرسل غير مسموح به");
+    from = allowed;
   }
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from, to: opts.to, subject: opts.subject, html: opts.body }),
-  });
-  const result = await res.json().catch(() => ({}));
+  const sent = await sendEmail({ from, to: opts.to, subject: opts.subject, html: opts.body }, { config: mail });
+  const res = { ok: sent.ok };
+  const result = sent.ok ? { id: sent.id } : { code: sent.code, status: sent.status, detail: sent.detail };
   await db.from("mailbox_emails").insert({
     direction: "outbound", from_email: from, to_email: opts.to, subject: opts.subject, html_body: opts.body,
     status: res.ok ? "sent" : "failed",

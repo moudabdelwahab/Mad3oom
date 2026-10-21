@@ -628,7 +628,11 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //   111 — فواتير المحاسبة وطلبات الاشتراك لا تعبر إلى تذكرة شركة (I1، I2): دوال فواتير الطاقم تعامل تذكرة
     //         الشركة مع العزل «بلا فاتورة»، وطلب الشراء والترقية يقبل تذكرة المنادي لمدعوم فقط.
     //         مقيسٌ في tests/sql/billing-ticket-isolation.test.sql و tests/sql/tenant-isolation-matrix.test.sql.
-    assert.equal(migrations[migrations.length - 1], '111_billing_ticket_isolation.sql',
+    //   112 — بريد دعوة عميل الشركة: «إرسال دعوة» كان يحفظ صفًا بلا بريد. حالة البريد على الدعوة، ورمز قبول
+    //         تُخزَّن تجزئته وحدها، ودوال تحضير البريد ونتيجته لمفتاح الخدمة وحده (منع التكرار والحدود)، وربط
+    //         الدعوة بصاحب البريد المؤكَّد عبر الرابط. مقيسٌ في tests/sql/company-invitation-email.test.sql
+    //         و tests/http/company-invite-http.test.mjs.
+    assert.equal(migrations[migrations.length - 1], '112_company_invitation_email.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

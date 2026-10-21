@@ -625,11 +625,11 @@ const NODE_SCHEMAS = {
     steps:[
       { id:'from', question:'من أي بريد تريد الإرسال؟', type:'select-list',
         options:[
-          {value:'info@mad3oom.online', title:'info@mad3oom.online', sub:'البريد العام'},
-          {value:'support@mad3oom.online', title:'support@mad3oom.online', sub:'بريد الدعم الفني'},
-          {value:'tickets@mad3oom.online', title:'tickets@mad3oom.online', sub:'بريد التذاكر'},
-          {value:'no-reply@mad3oom.online', title:'no-reply@mad3oom.online', sub:'بريد تلقائي'},
-        ], default:'support@mad3oom.online' },
+          {value:'info@mad3oom.com', title:'info@mad3oom.com', sub:'البريد العام'},
+          {value:'support@mad3oom.com', title:'support@mad3oom.com', sub:'بريد الدعم الفني'},
+          {value:'tickets@mad3oom.com', title:'tickets@mad3oom.com', sub:'بريد التذاكر'},
+          {value:'no-reply@mad3oom.com', title:'no-reply@mad3oom.com', sub:'بريد تلقائي'},
+        ], default:'support@mad3oom.com' },
       { id:'to', question:'إلى من تريد الإرسال؟', type:'choice-grid',
         options:[
           {value:'customer', title:'العميل', icon:'i-user'},
@@ -792,7 +792,7 @@ function buildInitialGraph(){
   };
   answers = {
     trigger1: { event:'new_ticket' },
-    email1:   { from:'support@mad3oom.online', to:'ticket_owner', subject:'تحديث بخصوص تذكرتك رقم [رقم التذكرة]', body:'مرحبًا [اسم العميل]،\n\nنود إعلامك بأن تذكرتك قيد المتابعة من فريقنا.' },
+    email1:   { from:'support@mad3oom.com', to:'ticket_owner', subject:'تحديث بخصوص تذكرتك رقم [رقم التذكرة]', body:'مرحبًا [اسم العميل]،\n\nنود إعلامك بأن تذكرتك قيد المتابعة من فريقنا.' },
     wait1:    { duration:{ n:30, unit:'دقائق' } },
     notify1:  { to:'admin_portal', text:'تذكرة عاجلة بانتظار الرد' },
   };

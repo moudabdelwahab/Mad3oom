@@ -1,7 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-
-const RESEND_API_URL = "https://api.resend.com/emails";
+import { emailConfig, senderFor, sendEmail } from "../_shared/email.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,12 +8,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, accept, x-internal-trigger-secret",
 };
-
-const ALLOWED_SENDERS = [
-  "support@mad3oom.online",
-  "no-reply@mad3oom.online",
-  "info@mad3oom.online",
-];
 
 async function logToMailbox(
   supabaseUrl: string,
@@ -105,19 +98,20 @@ Deno.serve(async (req: Request) => {
       throw new Error("Customer email is missing");
     }
 
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    const defaultFrom = Deno.env.get("EMAIL_FROM") || "info@mad3oom.online";
-
-    if (!resendApiKey) {
+    // RESEND_API_KEY / EMAIL_SENDER_DOMAIN / EMAIL_FROM — supabase/functions/_shared/email.js
+    const mail = emailConfig((k: string) => Deno.env.get(k));
+    if (!mail.configured) {
       throw new Error("RESEND_API_KEY is not configured in environment variables");
     }
 
-    let emailFrom = defaultFrom;
+    let emailFrom = mail.defaultFrom;
     if (from_email) {
-      if (!ALLOWED_SENDERS.includes(from_email)) {
+      // صناديق المنصة المعروفة على نطاق الإرسال المضبوط (القيم القديمة @mad3oom.online تُقبل)
+      const allowed = senderFor(from_email, mail);
+      if (!allowed) {
         throw new Error("عنوان المرسل غير مسموح به");
       }
-      emailFrom = from_email;
+      emailFrom = allowed;
     }
 
     let emailSubject = "";
@@ -203,18 +197,16 @@ Deno.serve(async (req: Request) => {
       }));
     }
 
-    const response = await fetch(RESEND_API_URL, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(emailBody),
-    });
+    const sent = await sendEmail({
+      from: emailBody.from as string,
+      to: emailBody.to as string,
+      subject: emailBody.subject as string,
+      html: emailBody.html as string,
+      attachments: emailBody.attachments as unknown[] | undefined,
+    }, { config: mail });
+    const result = sent.ok ? { id: sent.id } : { code: sent.code, status: sent.status, detail: sent.detail };
 
-    const result = await response.json();
-
-    if (!response.ok) {
+    if (!sent.ok) {
       if (SUPABASE_URL && SERVICE_ROLE_KEY) {
         await logToMailbox(SUPABASE_URL, SERVICE_ROLE_KEY, {
           direction: "outbound",
@@ -229,7 +221,7 @@ Deno.serve(async (req: Request) => {
           error_message: JSON.stringify(result),
         });
       }
-      throw new Error(`Resend API error: ${JSON.stringify(result)}`);
+      throw new Error(`Resend API error: ${sent.code}`);
     }
 
     if (SUPABASE_URL && SERVICE_ROLE_KEY) {
@@ -253,8 +245,8 @@ Deno.serve(async (req: Request) => {
       status: 200,
     });
   } catch (error) {
-    console.error("Error:", error.message);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error("Error:", (error as Error).message);
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,
     });

@@ -1,7 +1,7 @@
 -- ============================================================================
 -- قاعدة اختبار عزل الشركات عبر HTTP (tests/http/tenant-isolation-http.test.mjs)
 --
--- نفس سلسلة tests/sql/tenant-isolation-matrix.test.sql (لقطة مخطط الإنتاج + 094→111 بترتيب
+-- نفس سلسلة tests/sql/tenant-isolation-matrix.test.sql (لقطة مخطط الإنتاج + 094→111، ثم 112، بترتيب
 -- الإنتاج، 109 قبل 108) ونفس المعطيات الاصطناعية، ثم ما يحتاجه PostgREST حقيقي أمامها:
 --   • auth.uid() / auth.role() / auth.jwt() بنصوص الإنتاج حرفيًا (2026-10-21): تقرأ request.jwt.claims
 --     التي يضبطها PostgREST 12 من JWT الطلب — لا بدائل اللقطة التي تقرأ request.jwt.claim.* وحدها.
@@ -39,6 +39,7 @@ SET check_function_bodies = on;
 \i migrations/108_phase1_readiness_fixes.sql
 \i migrations/110_api_token_credentials_immutable.sql
 \i migrations/111_billing_ticket_isolation.sql
+\i migrations/112_company_invitation_email.sql
 SET search_path = public, extensions;
 
 -- ── هوية الطلب كما في الإنتاج ────────────────────────────────────────────────

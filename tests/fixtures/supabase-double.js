@@ -238,6 +238,7 @@ export const supabase = {
      *   { data }                       → نجاح
      *   { error, status }              → فشل بنفس شكل FunctionsHttpError
      *                                     (الرسالة جوّه error.context.json())
+     *   { body, status }               → فشل بجسم JSON كامل في error.context
      * كل نداء بيتسجّل في window.__INVOCATIONS__ عشان الاختبار يقدر يتأكد إن
      * النداء **لم** يحدث أصلًا في حالات الرفض.
      */
@@ -249,14 +250,15 @@ export const supabase = {
             const spec = FX().functions?.[name];
             if (!spec) return { data: { success: true }, error: null };
 
-            if (spec.error) {
+            // spec.body: جسم الخطأ كاملًا (مثل { status: 'send_failed', error }) بدل { error } وحده
+            if (spec.error || spec.body) {
                 const status = spec.status || 400;
                 return {
                     data: null,
                     error: {
                         name: 'FunctionsHttpError',
                         message: `Edge Function returned a non-2xx status code`,
-                        context: new Response(JSON.stringify({ error: spec.error }), { status })
+                        context: new Response(JSON.stringify(spec.body || { error: spec.error }), { status })
                     }
                 };
             }

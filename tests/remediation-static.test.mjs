@@ -344,10 +344,11 @@ function changedSince(base, head = 'HEAD') {
     .trim().split('\n').filter(Boolean);
 }
 
+// send-ticket-email و landing-contact خرجا من القائمة مع ترحيل نطاق المرسل (112، 2026-10-21): كانا مؤجَّلين
+// حتى «ترحيل نطاق مرسل Resend» وهذا هو؛ يمرّان الآن بـ supabase/functions/_shared/email.js، وتغطيهما
+// tests/email-shared.test.mjs بدل شرط «بلا تعديل».
 const DEFERRED = [
   'supabase/functions/check-subdomain-status/index.ts',
-  'supabase/functions/send-ticket-email/index.ts',
-  'supabase/functions/landing-contact/index.ts',
 ];
 
 // The deferred files were ADDED by the audit commit as verbatim mirrors of what

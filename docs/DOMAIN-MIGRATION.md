@@ -88,8 +88,7 @@ already migration-safe.
 |---|---|---|
 | `manage-subdomain` (Edge Function) | `ROOT_DOMAIN` + notification strings | Not mirrored into the repo; needs the same one-line change |
 | `generate-2fa-secret` | `issuer = "Mad3oom.online"` | Authenticator-app label only. Changing it relabels new enrollments; existing secrets keep working. Cosmetic |
-| `send-ticket-email`, `landing-contact` | `.online` sender addresses | **Explicitly deferred** — Resend sender-domain migration is a separate task |
-| `wf-executor` | `ALLOWED_SENDERS` | Same deferred email work |
+| `send-ticket-email`, `landing-contact`, `wf-executor` | ~~`.online` sender addresses / `ALLOWED_SENDERS`~~ | **Done 2026-10-21** — all senders go through `supabase/functions/_shared/email.js`; sender domain = `EMAIL_SENDER_DOMAIN` (set to `mad3oom.com` only after Resend verifies it). See `docs/EMAIL_RESEND_AND_INVITES.md` |
 | Frontend | `mcp-service.js:637`, `mcp.js:30`, `facebook-oauth.js:13,41`, `customer-history.js:418` | Not in this pass's scope; `facebook-oauth.js` in particular is registered with Meta and needs a Meta-side change first |
 
 ---
