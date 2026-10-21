@@ -18,6 +18,14 @@ export const GUARDED_SWITCHES = Object.freeze(['company_isolation_enforced', 'da
 
 const ISO = 'company_isolation_enforced';
 const PERMS = 'company_permissions_enabled';
+// أيقونات صغيرة مضمّنة (لون النص الحالي، مخفية عن القارئ الصوتي)
+const svg = (d) => `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${d}</svg>`;
+const ICON = Object.freeze({
+    shield: svg('<path d="M12 3l7 3v6c0 4.5-3 7.7-7 9-4-1.3-7-4.5-7-9V6z"/>'),
+    alert: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/>'),
+    lock: svg('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
+    chevron: svg('<path d="M15 6l-6 6 6 6"/>')
+});
 const ONE_WAY = 'بعد أول نقل عميل أو نسخ تذكرة أو تنفيذ طلب حساب لا يمكن إطفاء عزل الشركات ولا صلاحياتها.';
 
 /**
@@ -122,6 +130,43 @@ export function switchConfirmText(v, on) {
     if (!on && (v.key === ISO || v.key === PERMS)) lines.push('يرفض الخادم الإطفاء إن وُجد نقل عميل أو نسخ تذكرة أو طلب حساب منفَّذ.');
     lines.push('يُسجَّل التغيير مع السبب. متابعة؟');
     return lines.join('\n');
+}
+
+/** مجموعات العرض بترتيب الإطلاق. مفتاح لا تعرفه أي مجموعة يظهر في «أخرى». */
+export const SWITCH_GROUPS = Object.freeze([
+    { id: 'core', title: 'صلاحيات الشركات وتشغيلها', hint: 'أساس إطلاق الشركات، وتُفعَّل أولًا.',
+      keys: ['company_permissions_enabled', 'company_suspension_enforced', 'multi_company_memberships_enabled', 'delegation_enabled'] },
+    { id: 'security', title: 'عزل البيانات والوصول', hint: 'تغيّر من يرى بيانات الشركات. كل تفعيل بموافقة صريحة منفصلة.', security: true,
+      keys: ['company_isolation_enforced', 'data_access_grants_enabled', 'historical_access_enabled'] },
+    { id: 'moves', title: 'نقل العملاء والتذاكر', hint: 'لا تعمل قبل العزل والصلاحيات، وأول استعمال يجعلهما بلا رجعة.',
+      keys: ['customer_transfers_enabled', 'ticket_carry_enabled', 'account_request_execution_enabled'] },
+    { id: 'features', title: 'مزايا الشركات', hint: 'مزايا مستقلة لا تغيّر من يرى البيانات.',
+      keys: ['company_inbox_enabled', 'company_documents_enabled'] }
+]);
+
+/** توزيع صفوف العرض على المجموعات بترتيبها، والمجهول في «أخرى». خالصة. */
+export function groupSwitchViews(views) {
+    const byKey = new Map(views.map(v => [v.key, v]));
+    const known = new Set(SWITCH_GROUPS.flatMap(g => g.keys));
+    const groups = SWITCH_GROUPS.map(g => ({ ...g, views: g.keys.map(k => byKey.get(k)).filter(Boolean) }));
+    const rest = views.filter(v => !known.has(v.key));
+    if (rest.length) groups.push({ id: 'other', title: 'أخرى', hint: '', keys: rest.map(v => v.key), views: rest });
+    return groups.filter(g => g.views.length);
+}
+
+/**
+ * الملاحظة الوحيدة بجانب المفتاح (التفاصيل الكاملة في «التفاصيل» وفي التأكيد). خالصة.
+ * المتطلبات الناقصة أولًا، فلا يبدو مفتاح آمن التفعيل وما يسبقه مطفأ.
+ */
+export function switchNotice(v) {
+    if (!v.enabled && v.unmet.length) {
+        const names = v.unmet.map(r => `«${r.label}»`).join(' و');
+        return { tone: 'blocked', text: v.unmet.some(r => r.enforced)
+            ? `لا يعمل قبل تفعيل ${names}`
+            : `يُفعَّل بعد ${names} (ترتيب الإطلاق)` };
+    }
+    if (!v.enabled && v.guarded) return { tone: 'sensitive', text: 'يحتاج موافقة صريحة منفصلة قبل التفعيل' };
+    return null;
 }
 
 export const REVIEW_DECISIONS = Object.freeze([
@@ -266,39 +311,63 @@ export function initTenancyGovernance(ctx) {
         if (res.missing) { box.innerHTML = notApplied('مفاتيح التفعيل'); return; }
         if (res.error) { box.innerHTML = failed(res.error); return; }
         // بطاقات لا جدول: الجدول يلفّه responsive-global بـ min-width: max-content، فلا يلتفّ الوصف
-        // ويُدفع عمود الزر خارج اللوحة يسارًا (RTL) وشريط تمريره أسفل الصفحة — فلا يُرى الزر.
+        // ويُدفع عمود الزر خارج اللوحة يسارًا (RTL). التنسيق في assets/css/owner-governance.css.
         const all = Array.isArray(res.data) ? res.data : [];
         const views = all.map(s => switchView(s, all));
         if (!views.length) { box.innerHTML = '<div class="state-block state-block--compact"><p class="state-text">لا مفاتيح.</p></div>'; return; }
-        box.innerHTML = `<ul class="owner-switches">${views.map(v => {
+        const onCount = views.filter(v => v.enabled).length;
+        const card = (v) => {
             const id = `sw-${esc(v.key)}`;
-            // التلميح «يتطلب التحقق» مرئي فقط والزر معطّل؛ وصفه للقارئ الصوتي title الذي يضعه applyCriticalState
-            const describedBy = [`${id}-desc`, v.warning ? `${id}-warn` : ''].filter(Boolean).join(' ');
-            return `<li class="owner-switch${v.enabled ? ' is-on' : ''}${v.warning ? ' is-sensitive' : ''}" data-switch-row="${esc(v.key)}">
-                <div class="owner-switch-body">
-                    <div class="owner-switch-head">
-                        <h4 class="owner-switch-title" id="${id}">${esc(v.label)}</h4>
-                        <span class="owner-switch-state" data-state="${v.enabled ? 'on' : 'off'}">
-                            <span aria-hidden="true">${v.enabled ? '●' : '○'}</span> ${v.enabled ? 'مفعّل' : 'مطفأ'}</span>
-                        ${v.guarded ? '<span class="owner-switch-tag">موافقة منفصلة</span>' : ''}
+            const notice = switchNotice(v);
+            const verb = v.enabled ? 'إيقاف' : 'تفعيل';
+            const describedBy = [`${id}-desc`, notice ? `${id}-note` : ''].filter(Boolean).join(' ');
+            return `<article class="gov-sw" data-switch-row="${esc(v.key)}" data-state="${v.enabled ? 'on' : 'off'}"
+                             ${v.guarded ? 'data-security="true"' : ''} aria-labelledby="${id}">
+                <div class="gov-sw-head">
+                    <div class="gov-sw-heading">
+                        <h5 class="gov-sw-title" id="${id}">${esc(v.label)}</h5>
+                        ${v.guarded ? `<span class="gov-sw-badge">${ICON.shield}حسّاس أمنيًا</span>` : ''}
                     </div>
-                    <p class="owner-switch-desc" id="${id}-desc">${esc(v.description)}</p>
-                    ${v.requires.length ? `<ul class="owner-switch-reqs" aria-label="متطلبات «${esc(v.label)}»">${v.requires.map(r => `
-                        <li data-met="${r.on}"><span aria-hidden="true">${r.on ? '✓' : '✗'}</span>
-                            يتطلب «${esc(r.label)}» — ${r.on ? 'مفعّل' : 'مطفأ'}
-                            <small>(${r.enforced ? 'يفحصه الخادم' : 'ترتيب الإطلاق'})</small></li>`).join('')}</ul>` : ''}
-                    ${v.warning ? `<p class="owner-switch-warning" id="${id}-warn"><strong>تنبيه:</strong> ${esc(v.warning)}</p>` : ''}
-                    <details class="owner-switch-tech"><summary>التفاصيل التقنية</summary>
-                        <code dir="ltr">${esc(v.key)}</code>${v.serverDescription ? `<p>${esc(v.serverDescription)}</p>` : ''}</details>
+                    <span class="gov-sw-status" data-state="${v.enabled ? 'on' : 'off'}"><span class="gov-sw-dot" aria-hidden="true"></span>${v.enabled ? 'مفعّل' : 'مطفأ'}</span>
                 </div>
-                <div class="owner-switch-action">
-                    <button type="button" class="btn btn-sm ${v.enabled ? 'btn-secondary' : 'btn-primary'}" data-critical
+                <p class="gov-sw-desc" id="${id}-desc">${esc(v.description)}</p>
+                ${notice ? `<p class="gov-sw-notice" id="${id}-note" data-tone="${notice.tone}">${notice.tone === 'blocked' ? ICON.alert : ICON.shield}<span>${esc(notice.text)}</span></p>` : ''}
+                <div class="gov-sw-details" id="${id}-details" hidden>
+                    ${v.requires.length ? `<h6>المتطلبات</h6><ul class="gov-sw-reqs">${v.requires.map(r => `
+                        <li data-met="${r.on}"><span aria-hidden="true">${r.on ? '✓' : '✗'}</span>«${esc(r.label)}» — ${r.on ? 'مفعّل' : 'مطفأ'}
+                            <small>${r.enforced ? 'يفحصه الخادم' : 'ترتيب الإطلاق'}</small></li>`).join('')}</ul>` : ''}
+                    ${v.warning ? `<h6>تنبيه</h6><p class="gov-sw-warning">${esc(v.warning)}</p>` : ''}
+                    ${v.serverDescription && v.serverDescription !== v.description ? `<h6>وصف الخادم</h6><p>${esc(v.serverDescription)}</p>` : ''}
+                    <h6>المفتاح التقني</h6><code dir="ltr">${esc(v.key)}</code>
+                </div>
+                <div class="gov-sw-foot">
+                    <button type="button" class="gov-sw-more" aria-expanded="false" aria-controls="${id}-details">${ICON.chevron}التفاصيل</button>
+                    <button type="button" class="btn btn-sm gov-sw-action ${v.enabled ? 'btn-secondary' : notice?.tone === 'blocked' ? 'btn-secondary is-blocked' : 'btn-primary'}" data-critical
                             data-switch="${esc(v.key)}" data-on="${v.enabled ? 'false' : 'true'}"
-                            aria-label="${v.enabled ? 'إيقاف' : 'تفعيل'} «${esc(v.label)}»" aria-describedby="${describedBy}">${v.enabled ? 'إيقاف' : 'تفعيل'}</button>
-                    <span class="owner-switch-hint" aria-hidden="true">يتطلب التحقق بخطوتين أولًا</span>
+                            aria-label="${verb} «${esc(v.label)}»" aria-describedby="${describedBy}">${ICON.lock}${verb}</button>
                 </div>
-            </li>`;
-        }).join('')}</ul>`;
+            </article>`;
+        };
+        box.innerHTML = `<div class="gov-sw-board">
+            <div class="gov-sw-summary">
+                <span class="gov-sw-count"><strong>${onCount}</strong> من ${views.length} مفعّلة</span>
+                <p class="gov-sw-locked" role="note">${ICON.lock}<span>الأزرار مقفلة حتى التحقق بخطوتين من <a href="#authority">السلطة والمنح</a>.</span></p>
+            </div>
+            ${groupSwitchViews(views).map(g => `
+            <section class="gov-sw-group" data-group="${esc(g.id)}" ${g.security ? 'data-security="true"' : ''} aria-labelledby="gov-sw-g-${esc(g.id)}">
+                <div class="gov-sw-group-head">
+                    <h4 id="gov-sw-g-${esc(g.id)}">${g.security ? ICON.shield : ''}${esc(g.title)}</h4>
+                    <span class="gov-sw-group-count">${g.views.filter(v => v.enabled).length} من ${g.views.length} مفعّلة</span>
+                    ${g.hint ? `<p>${esc(g.hint)}</p>` : ''}
+                </div>
+                <div class="gov-sw-grid">${g.views.map(card).join('')}</div>
+            </section>`).join('')}
+        </div>`;
+        box.querySelectorAll('.gov-sw-more').forEach(t => t.addEventListener('click', () => {
+            const open = t.getAttribute('aria-expanded') !== 'true';
+            t.setAttribute('aria-expanded', String(open));
+            document.getElementById(t.getAttribute('aria-controls')).hidden = !open;
+        }));
         box.querySelectorAll('[data-switch]').forEach(btn => btn.addEventListener('click', async () => {
             const key = btn.dataset.switch;
             const on = btn.dataset.on === 'true';
