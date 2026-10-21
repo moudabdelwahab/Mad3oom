@@ -16,6 +16,114 @@ const MISSING = new Set(['PGRST202', '42883', 'PGRST404']);
 /** مفاتيح تفتح وصولًا أو عزلًا: تفعيلها يحتاج موافقة صريحة منفصلة (السؤال 17) — تأكيد إضافي. */
 export const GUARDED_SWITCHES = Object.freeze(['company_isolation_enforced', 'data_access_grants_enabled', 'historical_access_enabled']);
 
+const ISO = 'company_isolation_enforced';
+const PERMS = 'company_permissions_enabled';
+const ONE_WAY = 'بعد أول نقل عميل أو نسخ تذكرة أو تنفيذ طلب حساب لا يمكن إطفاء عزل الشركات ولا صلاحياتها.';
+
+/**
+ * سجل عرض مفاتيح التفعيل: اسم عربي ووصف موجز وتنبيه للمفاتيح الحساسة. المفتاح المخزَّن لا يتغيّر،
+ * ومفتاح لا يعرفه السجل يُعرض بمفتاحه ووصف الخادم.
+ * requires: enforced = تفحصه القاعدة فلا يعمل المفتاح قبله (_transfers_require_enabled،
+ * _carry_require_enabled، _account_request_execution)؛ وإلا فهو ترتيب الإطلاق الموثَّق وحده
+ * (docs/tenancy/ISOLATION_ROLLOUT_PROCEDURE.md) — owner_set_feature_switch لا يفرض ترتيبًا.
+ */
+export const SWITCH_REGISTRY = Object.freeze({
+    account_request_execution_enabled: {
+        label: 'تنفيذ طلبات نقل الحسابات',
+        description: 'تنفيذ طلبات إضافة عميل إلى شركة أو نقله إليها مباشرة بعد موافقة مالك المنصة.',
+        requires: [{ key: ISO, enforced: true }, { key: PERMS, enforced: true }],
+        warning: `إضافة عميل له شركة أساسية تحتاج أيضًا «عضوية المستخدم في عدة شركات». ${ONE_WAY}`
+    },
+    company_documents_enabled: {
+        label: 'مستندات الشركات',
+        description: 'رفع مستندات الشركات ومراجعتها وتنزيلها. لا اعتماد ولا تنزيل قبل فحص أمني نظيف.'
+    },
+    company_inbox_enabled: {
+        label: 'صندوق محادثات الشركات',
+        description: 'محادثات العملاء مع شركاتهم داخل صندوق الشركة. خاصة بالشركة ولا مسار إليها لطاقم المنصة.'
+    },
+    company_isolation_enforced: {
+        label: 'عزل بيانات الشركات',
+        description: 'يحجب تذاكر الشركات وردودها ومرفقاتها وفواتيرها عن طاقم المنصة وقنواته الجانبية.',
+        requires: [{ key: PERMS, enforced: false }],
+        warning: `يغيّر من يرى بيانات الشركات. يحتاج موافقة صريحة منفصلة، وفحوص ما بعد التفعيل في إجراء الإطلاق. ${ONE_WAY}`
+    },
+    company_permissions_enabled: {
+        label: 'صلاحيات الشركات',
+        description: 'صلاحيات فريق الشركة ووصوله إلى تذاكرها. مطفأ: الموظفون بلا وصول للتذاكر كما اليوم.',
+        warning: ONE_WAY
+    },
+    company_suspension_enforced: {
+        label: 'تطبيق إيقاف الشركات',
+        description: 'الشركة الموقوفة تفقد مزايا باقتها وتجاوزاتها وصندوق محادثاتها.'
+    },
+    customer_transfers_enabled: {
+        label: 'نقل العملاء بين الشركات',
+        description: 'نقل الشركة الأساسية للعميل بموافقات الأطراف. مفعّلًا يُرفض التغيير المباشر بين شركتين.',
+        requires: [{ key: ISO, enforced: true }, { key: PERMS, enforced: true }],
+        warning: ONE_WAY
+    },
+    data_access_grants_enabled: {
+        label: 'منح الوصول إلى البيانات',
+        description: 'وصول مؤقت لطاقم المنصة إلى بيانات شركة بموافقة المالك، مع تسجيل كل قراءة.',
+        requires: [{ key: ISO, enforced: false }],
+        warning: 'الخادم لا يفحص العزل هنا: قبل العزل يرى الطاقم كل شيء فلا معنى للمنح. لا يُفعَّل إلا بعد تفعيل العزل والتحقق منه، وبموافقة صريحة منفصلة.'
+    },
+    delegation_enabled: {
+        label: 'تفويض الصلاحيات',
+        description: 'قراءات المفوَّضين الإداريين وأفعالهم ضمن وحداتهم.'
+    },
+    historical_access_enabled: {
+        label: 'الوصول إلى التذاكر السابقة',
+        description: 'اطلاع شركة على تذاكر عميل قديمة في شركة أخرى، بموافقة العميل ثم المالك.',
+        warning: 'يفتح بيانات شركة لشركة أخرى. يحتاج موافقة صريحة منفصلة.'
+    },
+    multi_company_memberships_enabled: {
+        label: 'عضوية المستخدم في عدة شركات',
+        description: 'الدعوات والعضويات الإضافية واختيار شركة غير الأساسية والمغادرة الذاتية.'
+    },
+    ticket_carry_enabled: {
+        label: 'نسخ التذاكر بين الشركات',
+        description: 'نسخ تذاكر يختارها العميل من شركة إلى أخرى بمحتواه وحده.',
+        requires: [{ key: ISO, enforced: true }, { key: PERMS, enforced: true }],
+        warning: ONE_WAY
+    }
+});
+
+const switchLabel = (key) => SWITCH_REGISTRY[key]?.label || key;
+
+/** صف مفتاح للعرض من ردّ owner_feature_switches وحالة بقية المفاتيح. خالصة. */
+export function switchView(s, all = []) {
+    const key = String(s?.key || '');
+    const meta = SWITCH_REGISTRY[key];
+    const state = new Map((Array.isArray(all) ? all : []).map(x => [x.key, x.enabled === true]));
+    const requires = (meta?.requires || []).map(r => ({ ...r, label: switchLabel(r.key), on: state.get(r.key) === true }));
+    return {
+        key,
+        known: !!meta,
+        label: meta?.label || key,
+        description: meta?.description || s?.description || '',
+        serverDescription: s?.description || '',
+        enabled: s?.enabled === true,
+        guarded: GUARDED_SWITCHES.includes(key),
+        warning: meta?.warning || null,
+        requires,
+        unmet: requires.filter(r => !r.on)
+    };
+}
+
+/** نص تأكيد تغيير مفتاح: الاسم والقيمة الجديدة، والمتطلبات الناقصة، والموافقة المنفصلة للحساس. خالصة. */
+export function switchConfirmText(v, on) {
+    const lines = [`${on ? 'تفعيل' : 'إيقاف'} «${v.label}» (${v.key}) على الإنتاج.`];
+    if (on && v.unmet.length) {
+        lines.push(`متطلبات غير مفعّلة: ${v.unmet.map(r => `«${r.label}»${r.enforced ? ' (يرفض الخادم العمل قبله)' : ' (ترتيب الإطلاق)'}`).join('، ')}.`);
+    }
+    if (on && v.guarded) lines.push('يغيّر من يرى بيانات الشركات. تفعيله على الإنتاج يحتاج موافقة صريحة منفصلة.');
+    if (!on && (v.key === ISO || v.key === PERMS)) lines.push('يرفض الخادم الإطفاء إن وُجد نقل عميل أو نسخ تذكرة أو طلب حساب منفَّذ.');
+    lines.push('يُسجَّل التغيير مع السبب. متابعة؟');
+    return lines.join('\n');
+}
+
 export const REVIEW_DECISIONS = Object.freeze([
     { value: 'keep', label: 'إبقاء كما هو' },
     { value: 'revoke_authority', label: 'سحب السلطة المرتفعة' },
@@ -157,21 +265,50 @@ export function initTenancyGovernance(ctx) {
         const res = await rpc('owner_feature_switches');
         if (res.missing) { box.innerHTML = notApplied('مفاتيح التفعيل'); return; }
         if (res.error) { box.innerHTML = failed(res.error); return; }
-        box.innerHTML = table(['المفتاح', 'الوصف', 'الحالة', ''], res.data || [], s => `<tr>
-            ${td(`<code dir="ltr">${esc(s.key)}</code>`)}
-            ${td(esc(s.description))}
-            ${td(`<span class="pill ${s.enabled ? 'status-resolved' : 'status-neutral'}">${s.enabled ? 'مفعّل' : 'مطفأ'}</span>`)}
-            ${td(`<button type="button" class="btn btn-sm ${s.enabled ? 'btn-secondary' : 'btn-primary'}" data-critical
-                    data-switch="${esc(s.key)}" data-on="${s.enabled ? 'false' : 'true'}">${s.enabled ? 'إطفاء' : 'تفعيل'}</button>`)}
-        </tr>`);
+        // بطاقات لا جدول: الجدول يلفّه responsive-global بـ min-width: max-content، فلا يلتفّ الوصف
+        // ويُدفع عمود الزر خارج اللوحة يسارًا (RTL) وشريط تمريره أسفل الصفحة — فلا يُرى الزر.
+        const all = Array.isArray(res.data) ? res.data : [];
+        const views = all.map(s => switchView(s, all));
+        if (!views.length) { box.innerHTML = '<div class="state-block state-block--compact"><p class="state-text">لا مفاتيح.</p></div>'; return; }
+        box.innerHTML = `<ul class="owner-switches">${views.map(v => {
+            const id = `sw-${esc(v.key)}`;
+            // التلميح «يتطلب التحقق» مرئي فقط والزر معطّل؛ وصفه للقارئ الصوتي title الذي يضعه applyCriticalState
+            const describedBy = [`${id}-desc`, v.warning ? `${id}-warn` : ''].filter(Boolean).join(' ');
+            return `<li class="owner-switch${v.enabled ? ' is-on' : ''}${v.warning ? ' is-sensitive' : ''}" data-switch-row="${esc(v.key)}">
+                <div class="owner-switch-body">
+                    <div class="owner-switch-head">
+                        <h4 class="owner-switch-title" id="${id}">${esc(v.label)}</h4>
+                        <span class="owner-switch-state" data-state="${v.enabled ? 'on' : 'off'}">
+                            <span aria-hidden="true">${v.enabled ? '●' : '○'}</span> ${v.enabled ? 'مفعّل' : 'مطفأ'}</span>
+                        ${v.guarded ? '<span class="owner-switch-tag">موافقة منفصلة</span>' : ''}
+                    </div>
+                    <p class="owner-switch-desc" id="${id}-desc">${esc(v.description)}</p>
+                    ${v.requires.length ? `<ul class="owner-switch-reqs" aria-label="متطلبات «${esc(v.label)}»">${v.requires.map(r => `
+                        <li data-met="${r.on}"><span aria-hidden="true">${r.on ? '✓' : '✗'}</span>
+                            يتطلب «${esc(r.label)}» — ${r.on ? 'مفعّل' : 'مطفأ'}
+                            <small>(${r.enforced ? 'يفحصه الخادم' : 'ترتيب الإطلاق'})</small></li>`).join('')}</ul>` : ''}
+                    ${v.warning ? `<p class="owner-switch-warning" id="${id}-warn"><strong>تنبيه:</strong> ${esc(v.warning)}</p>` : ''}
+                    <details class="owner-switch-tech"><summary>التفاصيل التقنية</summary>
+                        <code dir="ltr">${esc(v.key)}</code>${v.serverDescription ? `<p>${esc(v.serverDescription)}</p>` : ''}</details>
+                </div>
+                <div class="owner-switch-action">
+                    <button type="button" class="btn btn-sm ${v.enabled ? 'btn-secondary' : 'btn-primary'}" data-critical
+                            data-switch="${esc(v.key)}" data-on="${v.enabled ? 'false' : 'true'}"
+                            aria-label="${v.enabled ? 'إيقاف' : 'تفعيل'} «${esc(v.label)}»" aria-describedby="${describedBy}">${v.enabled ? 'إيقاف' : 'تفعيل'}</button>
+                    <span class="owner-switch-hint" aria-hidden="true">يتطلب التحقق بخطوتين أولًا</span>
+                </div>
+            </li>`;
+        }).join('')}</ul>`;
         box.querySelectorAll('[data-switch]').forEach(btn => btn.addEventListener('click', async () => {
             const key = btn.dataset.switch;
             const on = btn.dataset.on === 'true';
             if (!needReason()) return;
-            if (on && GUARDED_SWITCHES.includes(key)
-                && !window.confirm(`«${key}» يغيّر من يرى بيانات الشركات. تفعيله على الإنتاج يحتاج موافقة صريحة منفصلة. متابعة؟`)) return;
+            const view = views.find(v => v.key === key);
+            if (!view || !window.confirm(switchConfirmText(view, on))) return;
             await act('owner_set_feature_switch', { p_key: key, p_enabled: on, p_reason: reason() },
-                      on ? 'تم التفعيل وسُجّل' : 'تم الإطفاء وسُجّل');
+                      `${on ? 'تم تفعيل' : 'تم إيقاف'} «${view.label}» وسُجّل`);
+            // renderAll استبدل البطاقات: يعود التركيز إلى زر المفتاح نفسه
+            box.querySelector(`[data-switch="${CSS.escape(key)}"]`)?.focus();
         }));
     }
 

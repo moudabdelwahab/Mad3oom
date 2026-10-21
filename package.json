@@ -3,9 +3,10 @@
     "xlsx": "^0.18.5"
   },
   "scripts": {
-    "test": "npm run test:node && npm run test:sql",
+    "test": "npm run test:node && npm run test:sql && npm run test:http",
     "test:node": "node --test --test-concurrency=1 tests/*.test.mjs",
-    "test:sql": "bash tests/run-sql-tests.sh"
+    "test:sql": "bash tests/run-sql-tests.sh",
+    "test:http": "node --test --test-concurrency=1 tests/http/*.test.mjs"
   },
   "devDependencies": {
     "playwright": "^1.49.1"

@@ -8,7 +8,7 @@
 > - `regenerate-api-token-secret` v19, byte-identical to `main@c5dd986`, owner-only;
 > - `mcp` v35 unchanged.
 >
-> F1, F2 and F7 are closed in production. **2026-10-21: isolation is NOT READY again.** The synthetic two-company verification (`ISOLATION_VERIFICATION_2026-10-21.md`) found I1 and I2 (staff reach company tickets through the accounting-invoice RPCs). The fix is migration 111, in the repository and not applied.
+> F1, F2 and F7 are closed in production. **2026-10-21: isolation is NOT READY again.** The synthetic two-company verification (`ISOLATION_VERIFICATION_2026-10-21.md`) found I1 and I2 (staff reach company tickets through the accounting-invoice RPCs). The fix is migration 111. **111 was applied later on 2026-10-21, and I1 and I2 are closed. The current decision and procedure: `ISOLATION_ROLLOUT_PROCEDURE.md`.**
 > The owner switches flags on in `owner-dashboard.html` (`owner_set_feature_switch`, fresh step-up). Claude cannot do this.
 
 ## 1. Decision per switch
