@@ -26,6 +26,8 @@ jobs:
         with:
           ref: main
           persist-credentials: false
+          submodules: false
+
 
       - name: Validate deployment configuration
         shell: bash
