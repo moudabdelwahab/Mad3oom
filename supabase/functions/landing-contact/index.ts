@@ -2,10 +2,13 @@
 // عام عمداً (verify_jwt=false) لأن الزائر غير مسجّل، لكنه لا يكشف أي سر:
 // مفتاح Resend و service role يبقيان داخل بيئة الدالة فقط.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { emailConfig, sendEmail } from "../_shared/email.js";
 
-const RESEND_API_URL = "https://api.resend.com/emails";
-const FROM_EMAIL = "no-reply@mad3oom.online"; // ضمن النطاق الموثّق في Resend
-const TO_EMAIL = "support@mad3oom.online";
+// المرسل على نطاق الإرسال الموثَّق المضبوط (EMAIL_SENDER_DOMAIN، supabase/functions/_shared/email.js).
+// المستلم صندوق دعم يستقبل البريد فعلًا: يبقى mad3oom.online حتى يُضبط CONTACT_TO_EMAIL لصندوق مُستقبِل على .com.
+const MAIL = emailConfig((k: string) => Deno.env.get(k));
+const FROM_EMAIL = `no-reply@${MAIL.domain}`;
+const TO_EMAIL = Deno.env.get("CONTACT_TO_EMAIL") || "support@mad3oom.online";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -105,27 +108,17 @@ Deno.serve(async (req: Request) => {
         <p style="font-size:12px;color:#666;margin-top:18px">وصل هذا الطلب من md3.in — رقم الطلب: ${esc(lead?.id || "—")}</p>
       </div>`;
 
-    const resendKey = Deno.env.get("RESEND_API_KEY");
     let emailed = false;
     let emailError: string | null = null;
 
-    if (!resendKey) {
+    if (!MAIL.configured) {
       emailError = "RESEND_API_KEY غير مضبوط";
     } else {
-      const r = await fetch(RESEND_API_URL, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from: FROM_EMAIL,
-          to: TO_EMAIL,
-          reply_to: email,
-          subject,
-          html,
-        }),
-      });
-      const result = await r.json().catch(() => ({}));
-      emailed = r.ok;
-      if (!r.ok) emailError = JSON.stringify(result);
+      const sent = await sendEmail({ from: FROM_EMAIL, to: TO_EMAIL, replyTo: email, subject, html }, { config: MAIL });
+      const r = { ok: sent.ok };
+      const result = sent.ok ? { id: sent.id } : { code: sent.code, status: sent.status, detail: sent.detail };
+      emailed = sent.ok;
+      if (!sent.ok) emailError = JSON.stringify(result);
 
       // تسجيل في نفس سجل البريد المستخدم في المنصة
       await db("mailbox_emails", {

@@ -410,6 +410,39 @@ export function invitationStatusInfo(status) {
     return INVITATION_STATUS_LABELS[status] || { label: 'غير معروفة', pill: 'status-neutral' };
 }
 
+/**
+ * 112: حالة بريد الدعوة المعلّقة (email_status من company_invitations_list). «أُرسل» = قَبِل مزوّد
+ * البريد الرسالة للإرسال، لا تأكيد وصول. بعد الرد على الدعوة لا معنى لحالة البريد ⇒ null.
+ * action: retry (فشل/لم يُرسل: إعادة المحاولة) أو resend (أُرسل: إعادة إرسال صريحة) أو null.
+ */
+export const INVITATION_EMAIL_LABELS = Object.freeze({
+    sent:     { label: 'أُرسل البريد',        pill: 'status-tone-success', action: 'resend' },
+    sending:  { label: 'جارٍ إرسال البريد',   pill: 'status-neutral',      action: null },
+    failed:   { label: 'تعذّر إرسال البريد',  pill: 'status-tone-danger',  action: 'retry' },
+    not_sent: { label: 'لم يُرسل البريد',     pill: 'status-neutral',      action: 'retry' }
+});
+export function invitationEmailInfo(status, emailStatus) {
+    if (status !== 'pending') return null;
+    return INVITATION_EMAIL_LABELS[emailStatus] || INVITATION_EMAIL_LABELS.not_sent;
+}
+
+/**
+ * ما تعرضه الواجهة بعد نداء company-invite-customer — خالص.
+ * النجاح فقط حين قَبِل المزوّد البريد (sent) أو كان أُرسل من قبل (already_sent). فشل الإرسال بعد تسجيل
+ * الدعوة (send_failed / not_configured) خطأ ظاهر، وتُحدَّث القائمة لتُظهر «تعذّر إرسال البريد» وزر الإعادة.
+ */
+export function inviteResultView(result) {
+    const status = result?.status;
+    if (result?.ok && status === 'sent') {
+        return { ok: true, tone: 'success', message: 'أُرسلت الدعوة إلى بريد العميل.', clearForm: true, refresh: true };
+    }
+    if (result?.ok && status === 'already_sent') {
+        return { ok: true, tone: 'info', message: result.message || 'أُرسلت دعوة لهذا البريد من قبل وما زالت سارية.', clearForm: true, refresh: true };
+    }
+    const recorded = ['send_failed', 'not_configured', 'cooldown', 'in_flight', 'too_many_attempts', 'company_daily_cap'].includes(status);
+    return { ok: false, tone: 'error', message: result?.error || 'تعذّر إرسال الدعوة. حاول مرة أخرى.', clearForm: false, refresh: recorded };
+}
+
 /** تحقّق عرض لبريد الدعوة؛ القاعدة تتحقق مرة أخرى (22023). */
 export function validateInviteEmail(value) {
     const email = String(value || '').trim();

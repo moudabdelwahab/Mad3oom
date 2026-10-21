@@ -431,33 +431,90 @@ async function openCompanySection(page) {
     await page.waitForSelector('#companyTabContent.active', { timeout: 5000 });
 }
 
-test('096: المدير والمفتاح مفعّل يرى نموذج الدعوة ويرسلها بلا كشف لوجود الحساب', async () => {
+function inviteFixture(functions = {}) {
     const payload = companyPayload();
     payload.viewer_role = 'admin';
     const fx = fixtures(payload, { rpc: {
         my_account_kind: 'company_admin',
         company_customers_list: { company_id: COMPANY_ID, can_manage: true, invitations_enabled: true, customers: [] },
-        company_invitations_list: [{ id: 'i1', email: 'old@x.test', status: 'expired', created_at: '2026-10-01T10:00:00Z' },
-                                   { id: 'i2', email: 'wait@x.test', status: 'pending', created_at: '2026-10-10T10:00:00Z' }],
-        company_invite_customer: { status: 'pending' }
+        company_invitations_list: [
+            { id: 'i1', email: 'old@x.test', status: 'expired', email_status: 'sent', created_at: '2026-10-01T10:00:00Z' },
+            { id: 'i2', email: 'wait@x.test', status: 'pending', email_status: 'sent', created_at: '2026-10-10T10:00:00Z' },
+            { id: 'i3', email: 'bounce@x.test', status: 'pending', email_status: 'failed', created_at: '2026-10-11T10:00:00Z' },
+            { id: 'i4', email: 'legacy@x.test', status: 'pending', email_status: 'not_sent', created_at: '2026-10-12T10:00:00Z' }
+        ]
     } });
+    fx.functions = functions;
+    return fx;
+}
+const invocations = (page) => page.evaluate(() => (window.__INVOCATIONS__ || []).filter(i => i.name === 'company-invite-customer').map(i => i.body));
+const toasts = (page) => page.evaluate(() => document.getElementById('ui-toast-container')?.textContent || '');
+
+test('112: الدعوة عبر دالة البريد، والنجاح يُعلَن فقط حين قَبِل المزوّد البريد', async () => {
+    const fx = inviteFixture({ 'company-invite-customer': { data: { status: 'sent', invitation_id: 'i9', message: 'أُرسلت الدعوة إلى بريد العميل.' } } });
     const { page, context, errors } = await openCompanyDashboard(browser, baseUrl, fx);
     await openCustomersSection(page);
     await page.waitForSelector('#companyCustomersPanel:not([hidden])', { timeout: 5000 });
     assert.equal(await page.locator('#companyInviteForm').isHidden(), false);
+    // القائمة: حالة الدعوة وحالة البريد، والإعادة للفاشلة، و«أُرسلت» لم تعد تصف صفًا محفوظًا
     const invText = await page.locator('#companyInvitations').textContent();
     assert.match(invText, /منتهية/);
-    assert.match(invText, /بانتظار الرد/);
-    assert.equal(await page.locator('[data-cancel-invitation]').count(), 1, 'الإلغاء للمعلّقة فقط');
+    assert.match(invText, /أُرسل البريد/);
+    assert.match(invText, /تعذّر إرسال البريد/);
+    assert.match(invText, /لم يُرسل البريد/);
+    assert.doesNotMatch(invText, /أُرسلت /);
+    assert.equal(await page.locator('[data-invitation-row="i1"] [data-email-status]').count(), 0, 'لا حالة بريد للمنتهية');
+    assert.equal(await page.locator('[data-cancel-invitation]').count(), 3, 'الإلغاء للمعلّقة فقط');
+    assert.equal(await page.getAttribute('[data-invitation-row="i3"] [data-resend-invitation]', 'data-resend-mode'), 'retry');
+    assert.equal(await page.getAttribute('[data-invitation-row="i2"] [data-resend-invitation]', 'data-resend-mode'), 'resend');
+    // بريد غير صالح: لا نداء
     await page.locator('#companyInviteEmail').fill('غير صالح');
     await page.locator('#companyInviteSubmit').click();
     assert.equal(await page.locator('#companyInviteError').isHidden(), false);
-    await page.locator('#companyInviteEmail').fill('new@x.test');
+    assert.deepEqual(await invocations(page), []);
+    await page.locator('#companyInviteEmail').fill('New@X.test');
     await page.locator('#companyInviteSubmit').click();
-    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'company_invite_customer'));
-    const args = await page.evaluate(() => window.__RPC_ARGS__.filter(([n]) => n === 'company_invite_customer').map(([, a]) => a));
-    assert.deepEqual(args, [{ p_email: 'new@x.test' }]);
+    await page.waitForFunction(() => /أُرسلت الدعوة/.test(document.getElementById('ui-toast-container')?.textContent || ''));
+    assert.deepEqual(await invocations(page), [{ email: 'new@x.test', resend: false }]);
+    assert.equal(await page.inputValue('#companyInviteEmail'), '', 'النموذج لم يُفرَّغ بعد النجاح');
+    // لا RPC مباشر يسجّل الصف بلا بريد
+    const rpcs = await page.evaluate(() => window.__RPC_CALLS__ || []);
+    assert.equal(rpcs.includes('company_invite_customer'), false);
     assert.equal(errors.length, 0, errors.join(' | '));
+    await context.close();
+});
+
+test('112: رفض المزوّد: خطأ ظاهر، لا رسالة نجاح، والنموذج يبقى، والقائمة تُحدَّث', async () => {
+    const fx = inviteFixture({ 'company-invite-customer': { status: 502,
+        body: { status: 'send_failed', invitation_id: 'i9', error: 'سُجّلت الدعوة لكن تعذّر إرسال البريد. أعد المحاولة بعد دقيقة.' } } });
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
+    await openCustomersSection(page);
+    await page.waitForSelector('#companyCustomersPanel:not([hidden])', { timeout: 5000 });
+    const listCallsBefore = await page.evaluate(() => (window.__RPC_CALLS__ || []).filter(n => n === 'company_invitations_list').length);
+    await page.locator('#companyInviteEmail').fill('fail@x.test');
+    await page.locator('#companyInviteSubmit').click();
+    await page.waitForSelector('#companyInviteError:not([hidden])');
+    assert.match(await page.textContent('#companyInviteError'), /تعذّر إرسال البريد/);
+    assert.equal(await page.inputValue('#companyInviteEmail'), 'fail@x.test');
+    await page.waitForTimeout(150);
+    assert.doesNotMatch(await toasts(page), /أُرسلت/);
+    const listCallsAfter = await page.evaluate(() => (window.__RPC_CALLS__ || []).filter(n => n === 'company_invitations_list').length);
+    assert.ok(listCallsAfter > listCallsBefore, 'القائمة لم تُحدَّث لتُظهر الفشل');
+    await context.close();
+});
+
+test('112: إعادة المحاولة للفاشلة وإعادة الإرسال الصريحة للمرسلة — بالبريد نفسه، ورسالة الخادم إن رُفضت', async () => {
+    const fx = inviteFixture({ 'company-invite-customer': { status: 429,
+        body: { status: 'cooldown', error: 'أُرسلت محاولة لهذه الدعوة للتو. انتظر دقيقة ثم أعد المحاولة.' } } });
+    const { page, context } = await openCompanyDashboard(browser, baseUrl, fx);
+    await openCustomersSection(page);
+    await page.waitForSelector('[data-invitation-row="i3"] [data-resend-invitation]', { timeout: 5000 });
+    await page.click('[data-invitation-row="i3"] [data-resend-invitation]');
+    await page.waitForFunction(() => /انتظر دقيقة/.test(document.getElementById('ui-toast-container')?.textContent || ''));
+    await page.waitForSelector('[data-invitation-row="i2"] [data-resend-invitation]:not([disabled])');
+    await page.click('[data-invitation-row="i2"] [data-resend-invitation]');
+    await page.waitForFunction(() => (window.__INVOCATIONS__ || []).length >= 2);
+    assert.deepEqual(await invocations(page), [{ email: 'bounce@x.test', resend: false }, { email: 'wait@x.test', resend: true }]);
     await context.close();
 });
 

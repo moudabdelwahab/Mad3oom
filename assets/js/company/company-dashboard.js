@@ -86,6 +86,8 @@ import {
     teamTicketControls,
     TEAM_STATUS_OPTIONS,
     invitationStatusInfo,
+    invitationEmailInfo,
+    inviteResultView,
     validateInviteEmail,
     validateCompanyForm,
     validateMemberForm
@@ -796,14 +798,20 @@ async function renderCustomers() {
             <ul class="company-sub-list">
                 ${rows.map(i => {
                     const info = invitationStatusInfo(i.status);
+                    // 112: حالة البريد للمعلّقة وحدها — «أُرسل» = قَبِله مزوّد البريد، لا مجرد صف محفوظ
+                    const mail = invitationEmailInfo(i.status, i.email_status);
                     return `
-                    <li class="company-sub">
+                    <li class="company-sub" data-invitation-row="${escapeHtml(i.id)}">
                         <div class="company-sub-main">
                             <p class="company-sub-plan">${escapeHtml(i.email || '—')}</p>
-                            <p class="company-sub-dates">أُرسلت ${escapeHtml(formatDate(i.created_at))}</p>
+                            <p class="company-sub-dates">دُعي في ${escapeHtml(formatDate(i.created_at))}</p>
                         </div>
                         <div class="company-sub-side">
                             <span class="pill ${escapeHtml(info.pill)}">${escapeHtml(info.label)}</span>
+                            ${mail ? `<span class="pill ${escapeHtml(mail.pill)}" data-email-status="${escapeHtml(i.email_status || 'not_sent')}">${escapeHtml(mail.label)}</span>` : ''}
+                            ${mail?.action ? `
+                            <button type="button" class="panel-link" data-resend-invitation="${escapeHtml(i.email)}"
+                                    data-resend-mode="${mail.action}">${mail.action === 'retry' ? 'إعادة المحاولة' : 'إعادة الإرسال'}</button>` : ''}
                             ${i.status === 'pending' ? `
                             <button type="button" class="panel-link is-danger" data-cancel-invitation="${escapeHtml(i.id)}">إلغاء الدعوة</button>` : ''}
                         </div>
@@ -815,6 +823,15 @@ async function renderCustomers() {
                 btn.disabled = true;
                 const r = await cancelCompanyInvitation(btn.getAttribute('data-cancel-invitation'));
                 if (!r.ok) ui?.showToast?.(r.error || 'تعذّر إلغاء الدعوة', 'error');
+                await renderCustomers();
+            });
+        });
+        invitationsBox.querySelectorAll('[data-resend-invitation]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                btn.disabled = true;
+                const resend = btn.getAttribute('data-resend-mode') === 'resend';
+                const view = inviteResultView(await inviteCompanyCustomer(btn.getAttribute('data-resend-invitation'), { resend }));
+                ui?.showToast?.(view.message, view.ok ? 'success' : 'error');
                 await renderCustomers();
             });
         });
@@ -853,16 +870,17 @@ function wireInviteCustomer() {
         }
         const btn = document.getElementById('companyInviteSubmit');
         btn.disabled = true;
-        const result = await inviteCompanyCustomer(check.email);
+        // 112: النجاح يُعلَن فقط حين قَبِل مزوّد البريد الرسالة؛ الصف المحفوظ وحده ليس «إرسالًا»
+        const view = inviteResultView(await inviteCompanyCustomer(check.email));
         btn.disabled = false;
-        if (!result.ok) {
-            errorBox.textContent = result.error || 'تعذّر إرسال الدعوة';
+        if (!view.ok) {
+            errorBox.textContent = view.message;
             errorBox.hidden = false;
+            if (view.refresh) await renderCustomers();
             return;
         }
-        form.reset();
-        // نفس الرسالة لأي بريد: لا تأكيد لوجود حساب
-        ui?.showToast?.('سُجّلت الدعوة. إن كان للبريد حساب مؤهل فستصله في بوابة العملاء.', 'success');
+        if (view.clearForm) form.reset();
+        ui?.showToast?.(view.message, 'success');
         await renderCustomers();
     });
 }

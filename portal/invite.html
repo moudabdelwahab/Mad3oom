@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <!-- الرمز في الجزء بعد # لا يُرسل لأي خادم؛ ولا ترويسة Referer لروابط هذه الصفحة -->
+    <meta name="referrer" content="no-referrer">
+    <meta name="robots" content="noindex, nofollow">
+    <title>دعوة شركة - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/company-dashboard.css">
+    <script>
+        /* نفس سكربت صفحات البوابة: الثيم قبل أول رسم، بلا وميض. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <style>
+        .invite-shell { min-height: 100vh; display: grid; place-items: center; padding: var(--sp-4, 16px); background: var(--color-bg); }
+        .invite-panel { width: min(560px, 100%); }
+        .invite-brand { display: flex; align-items: center; gap: 10px; margin-bottom: var(--sp-4, 16px); font-weight: 800; }
+        .invite-brand img { width: 36px; height: 36px; }
+        .invite-card { display: grid; gap: 12px; }
+        .invite-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    </style>
+</head>
+<body class="customer-shell">
+    <main class="invite-shell">
+        <section class="panel invite-panel" aria-labelledby="inviteHeading">
+            <div class="invite-brand"><img src="/logo.png" alt=""><span id="inviteHeading">مدعوم — دعوة شركة</span></div>
+            <div id="inviteBody" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+        </section>
+    </main>
+    <script type="module" src="/assets/js/portal/invite.js"></script>
+</body>
+</html>

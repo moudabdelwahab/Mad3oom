@@ -15,7 +15,8 @@ import path from 'node:path';
 const ROOT = path.resolve(import.meta.dirname, '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
-const { validateMemberForm, canManageMembers, customersPanelView, validateInviteEmail, invitationStatusInfo, isCompanyScopedTicket, teamTicketControls } =
+const { validateMemberForm, canManageMembers, customersPanelView, validateInviteEmail, invitationStatusInfo, isCompanyScopedTicket, teamTicketControls,
+        invitationEmailInfo, inviteResultView } =
     await import('../assets/js/company/company-model.js');
 
 /* ── التحقق من النموذج ──────────────────────────────────────────────────── */
@@ -218,6 +219,30 @@ test('096: تحقق بريد الدعوة وحالاتها', () => {
     assert.equal(validateInviteEmail('a@b.co'.padStart(330, 'x')).ok, false);
     assert.equal(invitationStatusInfo('pending').label, 'بانتظار الرد');
     assert.equal(invitationStatusInfo('weird').label, 'غير معروفة');
+});
+
+test('112: حالة بريد الدعوة، وما يُعلَن بعد الإرسال — النجاح فقط حين قَبِل المزوّد', () => {
+    assert.deepEqual(invitationEmailInfo('pending', 'sent'), { label: 'أُرسل البريد', pill: 'status-tone-success', action: 'resend' });
+    assert.equal(invitationEmailInfo('pending', 'failed').action, 'retry');
+    assert.equal(invitationEmailInfo('pending', 'sending').action, null);
+    assert.equal(invitationEmailInfo('pending', undefined).label, 'لم يُرسل البريد', 'دعوات ما قبل 112');
+    for (const s of ['accepted', 'declined', 'cancelled', 'expired']) assert.equal(invitationEmailInfo(s, 'sent'), null, s);
+
+    assert.deepEqual(inviteResultView({ ok: true, status: 'sent' }),
+        { ok: true, tone: 'success', message: 'أُرسلت الدعوة إلى بريد العميل.', clearForm: true, refresh: true });
+    assert.equal(inviteResultView({ ok: true, status: 'already_sent', message: 'م' }).message, 'م');
+    // سجّلت القاعدة الدعوة لكن المزوّد رفض: خطأ، والنموذج يبقى، والقائمة تُحدَّث لتُظهر الفشل
+    const failed = inviteResultView({ ok: false, status: 'send_failed', error: 'سُجّلت الدعوة لكن تعذّر إرسال البريد.' });
+    assert.deepEqual([failed.ok, failed.clearForm, failed.refresh], [false, false, true]);
+    assert.equal(inviteResultView({ ok: false, status: 'not_configured', error: 'x' }).refresh, true);
+    // رفض قبل أي صف: لا تحديث
+    for (const st of ['forbidden', 'invalid_email', 'feature_disabled', 'network', 'server']) {
+        const v = inviteResultView({ ok: false, status: st, error: 'e' });
+        assert.deepEqual([v.ok, v.refresh, v.message], [false, false, 'e'], st);
+    }
+    // لا «نجاح» من حالة غير معروفة ولو ok
+    assert.equal(inviteResultView({ ok: true, status: 'pending' }).ok, false);
+    assert.equal(inviteResultView(null).ok, false);
 });
 
 test('097: تذاكر العملاء في لوحة الشركة = نطاق الشركة فقط', () => {
