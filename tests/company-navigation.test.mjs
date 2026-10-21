@@ -625,7 +625,10 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         مقيسٌ في tests/sql/registration-mode-public-read.test.sql.
     //   110 — أعمدة الاعتماد في api_tokens لا يكتبها أي JWT، والأدمن منه (F7): كان الأدمن يكتب secret_hash أو
     //         bearer_token_hash أو user_id لمفتاح غيره ثم يصادق بهويته. مقيسٌ في tests/sql/api-token-credentials-immutable.test.sql.
-    assert.equal(migrations[migrations.length - 1], '110_api_token_credentials_immutable.sql',
+    //   111 — فواتير المحاسبة وطلبات الاشتراك لا تعبر إلى تذكرة شركة (I1، I2): دوال فواتير الطاقم تعامل تذكرة
+    //         الشركة مع العزل «بلا فاتورة»، وطلب الشراء والترقية يقبل تذكرة المنادي لمدعوم فقط.
+    //         مقيسٌ في tests/sql/billing-ticket-isolation.test.sql و tests/sql/tenant-isolation-matrix.test.sql.
+    assert.equal(migrations[migrations.length - 1], '111_billing_ticket_isolation.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

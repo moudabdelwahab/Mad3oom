@@ -8,7 +8,7 @@
 > - `regenerate-api-token-secret` v19, byte-identical to `main@c5dd986`, owner-only;
 > - `mcp` v35 unchanged.
 >
-> F1, F2 and F7 are closed in production. Isolation now waits only on the owner's separate, explicit approval (Q17).
+> F1, F2 and F7 are closed in production. **2026-10-21: isolation is NOT READY again.** The synthetic two-company verification (`ISOLATION_VERIFICATION_2026-10-21.md`) found I1 and I2 (staff reach company tickets through the accounting-invoice RPCs). The fix is migration 111, in the repository and not applied.
 > The owner switches flags on in `owner-dashboard.html` (`owner_set_feature_switch`, fresh step-up). Claude cannot do this.
 
 ## 1. Decision per switch
@@ -16,7 +16,7 @@
 | Switch | Decision | Why |
 |---|---|---|
 | `company_permissions_enabled` | **READY TO ACTIVATE** | No prerequisite, and no unaudited authorization path (§4). Tested on and off, with and without isolation (§5). Production has 0 company staff, so only the one company owner sees a change (§3.1) |
-| `company_isolation_enforced` | **READY TO ACTIVATE (owner's explicit approval, Q17)** | F1 is closed: `wf-executor` v46 is deployed with the guard. F2 is closed: the SIE engine was reviewed (§4.2). F7 is closed: 110 is applied and `regenerate-api-token-secret` v19 is deployed (§7). The rolled-back ON probe matches OFF for owner, company member, admin and direct customer. **Limitations:** production has 0 `company`-scope tickets, so the effect cannot be observed live yet, and MCP under isolation has not been tested against real company data (§5.4) |
+| `company_isolation_enforced` | **NOT READY (I1, I2 — apply 111 first; see `ISOLATION_VERIFICATION_2026-10-21.md`)**. Before that verification: | F1 is closed: `wf-executor` v46 is deployed with the guard. F2 is closed: the SIE engine was reviewed (§4.2). F7 is closed: 110 is applied and `regenerate-api-token-secret` v19 is deployed (§7). The rolled-back ON probe matches OFF for owner, company member, admin and direct customer. **Limitations:** production has 0 `company`-scope tickets, so the effect cannot be observed live yet, and MCP under isolation has not been tested against real company data (§5.4) |
 | `data_access_grants_enabled` | **BLOCKED** | F3 is fixed: 108 is applied. Still blocked because grants need isolation ON first |
 | `company_suspension_enforced` | **READY WITH EXPLICIT LIMITATIONS** | The documented contract holds and is tested: a suspended company loses plan and override features through `company_has_feature`, and its inbox. Only the owner can suspend. No company is suspended, so switching it on changes nothing today. Limitations in §3.4: display mismatch until 108 (F4), tickets and existing API tokens unaffected, no suspend screen |
 
