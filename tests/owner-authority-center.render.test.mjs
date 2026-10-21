@@ -88,7 +88,7 @@ function fixtures({ security, isOwner = true } = {}) {
     };
 }
 
-async function openOwner(browser, baseUrl, fx) {
+async function openOwner(browser, baseUrl, fx, hash = '#authority') {
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     const page = await context.newPage();
     const dbl = fs.readFileSync(path.join(ROOT, 'tests/fixtures/supabase-double.js'), 'utf8');
@@ -101,7 +101,7 @@ async function openOwner(browser, baseUrl, fx) {
     page.on('dialog', d => d.accept());
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    await page.goto(`${baseUrl}/owner-dashboard.html#authority`, { waitUntil: 'networkidle' });
+    await page.goto(`${baseUrl}/owner-dashboard.html${hash}`, { waitUntil: 'networkidle' });
     return { page, context, errors };
 }
 
@@ -207,5 +207,69 @@ test('إصدارات SIE: مدخل واحد يفتح لوحة SIE نفسها (ل
     // لا أزرار تغيير إصدار هنا: الإدارة في لوحة SIE وحدها، والقاعدة ترفض غير المالك.
     assert.equal(await page.locator('#sieEditionsEntry select, #sieEditionsEntry input, #sieEditionsEntry form').count(), 0);
     assert.deepEqual(errors, []);
+    await context.close();
+});
+
+/* ── الأقسام تبويبات: قسم واحد معروض في كل مرة ─────────────────────────────
+   كانت الأقسام الأربعة متتابعة في صفحة واحدة، فيظهر محتواها كلها مهما اختير. */
+const SECTION_IDS = ['overview', 'authority', 'governance', 'audit'];
+const visibleSections = (page) => page.$$eval(
+    SECTION_IDS.map(s => `#${s}TabContent`).join(','),
+    els => els.filter(e => e.offsetParent !== null).map(e => e.id.replace('TabContent', '')));
+const activeSidebarTab = (page) => page.$$eval('.sidebar-item.active[data-tab]', els => els.map(e => e.dataset.tab));
+
+test('كل رابط مباشر يعرض قسمه وحده ويعلّم عنصره في القائمة', { skip: !chromiumPath }, async () => {
+    for (const section of SECTION_IDS) {
+        const { page, context, errors } = await openOwner(browser, baseUrl, fixtures(), `#${section}`);
+        await page.waitForSelector(`#${section}TabContent.active`);
+        await page.waitForSelector(`.sidebar-item.active[data-tab="${section}"]`);
+        assert.deepEqual(await visibleSections(page), [section], `#${section} عرض أقسامًا أخرى`);
+        assert.deepEqual(await activeSidebarTab(page), [section]);
+        if (section !== 'overview') assert.match(await page.title(), /·/);
+        assert.deepEqual(errors, []);
+        await context.close();
+    }
+});
+
+test('القائمة تبدّل القسم بلا إعادة تحميل، والرجوع يعيد القسم السابق', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openOwner(browser, baseUrl, fixtures(), '');
+    await page.waitForSelector('#overviewTabContent.active');
+    await page.waitForSelector('.sidebar-item[data-tab="governance"]');
+    await page.evaluate(() => { window.__noReload = true; });
+
+    await page.click('.sidebar-item[data-tab="governance"]');
+    await page.waitForSelector('#governanceTabContent.active');
+    assert.deepEqual(await visibleSections(page), ['governance']);
+    assert.equal(new URL(page.url()).hash, '#governance');
+    assert.equal(await page.evaluate(() => window.__noReload), true, 'أُعيد تحميل الصفحة');
+
+    await page.click('.sidebar-item[data-tab="audit"]');
+    await page.waitForSelector('#auditTabContent.active');
+    assert.deepEqual(await visibleSections(page), ['audit']);
+
+    await page.goBack();
+    await page.waitForSelector('#governanceTabContent.active');
+    assert.deepEqual(await visibleSections(page), ['governance']);
+    assert.deepEqual(await activeSidebarTab(page), ['governance']);
+
+    // رابط داخل المحتوى (تلميح التحقق بخطوتين) ينقل إلى قسمه
+    await page.click('.owner-gov-stepup a[href="#authority"]');
+    await page.waitForSelector('#authorityTabContent.active');
+    assert.deepEqual(await visibleSections(page), ['authority']);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('hash غير معروف يعود إلى النظرة العامة، وبطاقاتها تفتح الأقسام', { skip: !chromiumPath }, async () => {
+    const { page, context } = await openOwner(browser, baseUrl, fixtures(), '#nope');
+    await page.waitForSelector('#overviewTabContent.active');
+    assert.deepEqual(await visibleSections(page), ['overview']);
+    assert.equal(new URL(page.url()).hash, '#overview');
+
+    const cards = await page.$$eval('.owner-sections a.context-card', els => els.map(a => a.getAttribute('href')));
+    assert.deepEqual(cards, ['#authority', '#governance', '#audit', '/admin/stats.html']);
+    await page.click('.owner-sections a[href="#audit"]');
+    await page.waitForSelector('#auditTabContent.active');
+    assert.deepEqual(await visibleSections(page), ['audit']);
     await context.close();
 });
