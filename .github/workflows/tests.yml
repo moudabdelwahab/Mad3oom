@@ -94,3 +94,19 @@ jobs:
           # بوابة Conversation Core على نسخة الإنتاج: لو اتخطّت بصمت، 064/067 يتدمجوا من غير إثبات.
           grep -q "ALL CONVERSATION CORE GATE TESTS PASSED" sql-output.txt \
             || { echo "::error::بوابة Conversation Core لم تُبلّغ بالنجاح"; exit 1; }
+
+      # عزل الشركات عبر HTTP: PostgREST حقيقي أمام قاعدة اختبار مؤقتة، بـ JWT لكل شخصية اصطناعية.
+      # الملف التنفيذي مثبَّت بالإصدار وبصمة sha256 للأرشيف؛ أي اختلاف يُسقط الخطوة قبل التشغيل.
+      - name: اختبارات عزل الشركات عبر HTTP (PostgREST)
+        shell: bash
+        run: |
+          set -euo pipefail
+          url=https://github.com/PostgREST/postgrest/releases/download/v12.2.3/postgrest-v12.2.3-linux-static-x64.tar.xz
+          curl -fsSL -o /tmp/postgrest.tar.xz "$url"
+          echo "9f71269e61ac3a940281e93ff415760f5957e430e475ba4c3889f3ede7d5527c  /tmp/postgrest.tar.xz" | sha256sum -c -
+          mkdir -p /tmp/postgrest && tar -xJf /tmp/postgrest.tar.xz -C /tmp/postgrest
+          POSTGREST_BIN=/tmp/postgrest/postgrest npm run test:http 2>&1 | tee http-output.txt
+          if grep -q "SKIP: tenant-isolation-http" http-output.txt; then
+            echo "::error::اختبار العزل عبر HTTP تخطّى التشغيل — لا يجوز اعتبار ذلك نجاحًا"
+            exit 1
+          fi

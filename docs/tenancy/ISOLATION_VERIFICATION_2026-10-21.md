@@ -1,5 +1,7 @@
 # Multi-tenant isolation verification (2026-10-21)
 
+> **Update, later on 2026-10-21:** 111 is applied to production (ledger `20261021115448`), and the post-apply checks passed (§9). I1 and I2 are closed in production. The current decision and activation steps are in `ISOLATION_ROLLOUT_PROCEDURE.md`. The text below is the record from before the apply.
+
 > **Verdict: NOT READY.** `company_isolation_enforced` stays OFF and must not be treated as ready for activation.
 >
 > Cross-company isolation was tested on synthetic data with 112 cases: every case shows the company-A data refused across the company boundary, and every refusal is paired with a positive control. Two confirmed defects were found (§4). They are **fixed in branch, awaiting review and deployment**: migration `111_billing_ticket_isolation`. Migration 111 is **NOT applied to production**, so both defects still exist there.
