@@ -77,15 +77,58 @@
                 </div>
             </header>
 
-            <!-- ═══ نظرة عامة ══════════════════════════════════════════════ -->
-            <!-- ليست .tab-content: تلك مخفية حتى تُضاف .active، وهذه الصفحة
-                 أقسام متتابعة بمراسٍ لا تبويبات. -->
-            <section id="overviewTabContent">
+            <!-- ═══ نظرة عامة ══════════════════════════════════════════════
+                 كل قسم هنا .tab-content (من customer-dashboard.css): مخفي حتى
+                 تُضاف .active، فلا يظهر إلا القسم الذي في الـhash — نفس نظام
+                 لوحة الشركة وبوابة العميل، لا نظام موازٍ. -->
+            <section class="tab-content" id="overviewTabContent" aria-labelledby="overviewHeading">
+                <h2 class="visually-hidden" id="overviewHeading">نظرة عامة</h2>
                 <div class="kpi-grid" id="ownerKpis" aria-live="polite"></div>
+
+                <!-- مداخل الأقسام: النظرة العامة لم تعد تعرض محتوى غيرها، فتدلّ
+                     عليه. نفس بطاقات .context-card في واجهة اللوحات. -->
+                <nav class="context-grid owner-sections" aria-label="أقسام لوحة المالك">
+                    <a class="context-card" href="#authority">
+                        <span class="context-card-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+                        </span>
+                        <span class="context-card-name">السلطة والمنح</span>
+                        <p class="context-card-desc">الملكية والتحقق بخطوتين، فريق المنصة والتفويض، سلطة SIE، وسجل الامتيازات.</p>
+                        <span class="context-card-foot"><span class="context-card-go">فتح القسم
+                            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span></span>
+                    </a>
+                    <a class="context-card" href="#governance">
+                        <span class="context-card-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V10l7-5 7 5v11"></path><path d="M9 21v-6h6v6"></path></svg>
+                        </span>
+                        <span class="context-card-name">حوكمة الشركات</span>
+                        <p class="context-card-desc">مفاتيح التفعيل، طلبات الوصول، مراجعة الإداريين، الهيكل الإداري، المستندات والنقل.</p>
+                        <span class="context-card-foot"><span class="context-card-go">فتح القسم
+                            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span></span>
+                    </a>
+                    <a class="context-card" href="#audit">
+                        <span class="context-card-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                        </span>
+                        <span class="context-card-name">سجل السياق</span>
+                        <p class="context-card-desc">كل دخول وخروج بين الواجهات، ومعه المحاولات المرفوضة. لا يُعدَّل ولا يُحذف.</p>
+                        <span class="context-card-foot"><span class="context-card-go">فتح القسم
+                            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span></span>
+                    </a>
+                    <a class="context-card" href="/admin/stats.html">
+                        <span class="context-card-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
+                        </span>
+                        <span class="context-card-name">الإحصائيات</span>
+                        <p class="context-card-desc">مؤشرات التشغيل التفصيلية للمنصة في صفحتها المستقلة.</p>
+                        <span class="context-card-foot"><span class="context-card-go">فتح الصفحة
+                            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span></span>
+                    </a>
+                </nav>
             </section>
 
             <!-- ═══ السلطة والمنح ══════════════════════════════════════════ -->
-            <section class="panel" id="authorityTabContent" aria-labelledby="authorityHeading">
+            <section class="panel tab-content" id="authorityTabContent" aria-labelledby="authorityHeading">
                 <div class="panel-header">
                     <div>
                         <h2 class="panel-title" id="authorityHeading">
@@ -208,7 +251,7 @@
 
             <!-- ═══ حوكمة تعدد الشركات (096–099) ═══════════════════════════
                  كل زر هنا نداء يرفضه الخادم لغير المالك في سياقه وبعد التحقق بخطوتين. -->
-            <section class="panel" id="governanceTabContent" aria-labelledby="governanceHeading">
+            <section class="panel tab-content" id="governanceTabContent" aria-labelledby="governanceHeading">
                 <div class="panel-header">
                     <div>
                         <h2 class="panel-title" id="governanceHeading">حوكمة الشركات والوصول</h2>
@@ -218,6 +261,10 @@
                             <a href="/admin/customers.html" id="govCustomersLink">إدارة العملاء</a></p>
                     </div>
                 </div>
+                <!-- التحقق بخطوتين يعيش في «السلطة والمنح» وحدها (لا نسخة ثانية منه)،
+                     وأزرار هذا القسم الحرجة تتبع حالته — فندلّ عليه من هنا. -->
+                <p class="owner-gov-stepup">العمليات الحرجة هنا تُفتح بعد التحقق بخطوتين من قسم
+                    <a href="#authority">السلطة والمنح</a>، وتبقى مفتوحة طوال نافذة التحقق.</p>
                 <div class="owner-gov-reason">
                     <label for="govReason">سبب العملية (يُسجَّل مع كل تغيير)</label>
                     <input class="form-control" id="govReason" maxlength="500" autocomplete="off" placeholder="مثال: بدء تجربة العضويات المتعددة لشركة واحدة">
@@ -257,7 +304,7 @@
             </section>
 
             <!-- ═══ سجل السياق ═════════════════════════════════════════════ -->
-            <section class="panel" id="auditTabContent" aria-labelledby="auditHeading">
+            <section class="panel tab-content" id="auditTabContent" aria-labelledby="auditHeading">
                 <div class="panel-header">
                     <div>
                         <h2 class="panel-title" id="auditHeading">
@@ -309,6 +356,41 @@ function table(cols, rows, render) {
 
 const td = (v) => `<td>${v}</td>`;
 
+/* ─────────────────────────── الأقسام ───────────────────────────
+   الأقسام الأربعة تبويبات: يُعرض القسم الذي في الـhash وحده. كانت أقسامًا
+   متتابعة بمراسٍ، فيظهر محتوى الأربعة معًا مهما اختير من القائمة. البيانات
+   تُحمَّل كلها مرة عند الدخول كما كانت — التبديل عرض فقط، فحالة التحقق بخطوتين
+   وأزرار العمليات الحرجة تبقى متسقة بين الأقسام. */
+const SECTIONS = Object.freeze({
+    overview:   'نظرة عامة',
+    authority:  'السلطة والمنح',
+    governance: 'حوكمة الشركات',
+    audit:      'سجل السياق'
+});
+const BASE_TITLE = document.title;
+
+const sectionFromHash = () => {
+    const name = location.hash.slice(1);
+    return Object.hasOwn(SECTIONS, name) ? name : 'overview';
+};
+
+/** history: 'push' (نقرة في القائمة) | 'none' (جاء من hashchange/popstate أو التحميل؛ hash غير معروف يُصحَّح بـreplace). */
+function showSection(name, { history: mode = 'push' } = {}) {
+    const section = Object.hasOwn(SECTIONS, name) ? name : 'overview';
+    for (const key of Object.keys(SECTIONS)) {
+        $(`${key}TabContent`)?.classList.toggle('active', key === section);
+    }
+    setActiveSidebarTab(section);
+    document.title = section === 'overview' ? BASE_TITLE : `${SECTIONS[section]} · ${BASE_TITLE}`;
+
+    const target = `#${section}`;
+    // رابط قديم أو مكسور (#foo) يُصحَّح في العنوان بدل أن يبقى مخالفًا لما يُعرض
+    if (location.hash !== target && (mode === 'push' || location.hash)) {
+        window.history[mode === 'push' ? 'pushState' : 'replaceState'](null, '', target);
+    }
+    window.scrollTo({ top: 0, behavior: 'auto' });
+}
+
 function gate(title, text) {
     $('ownerGate').hidden = false;
     $('ownerGateBody').innerHTML = `
@@ -323,7 +405,12 @@ function gate(title, text) {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) { window.location.replace('/login.html'); return; }
 
-    await initOwnerShell({ onReady: () => mountContextBar() });
+    // onTabChange: عناصر القائمة ذات data-tab تبدّل القسم بلا إعادة تحميل وتغلق
+    // الدرج على الجوال — نفس آلية القشرة في لوحة الشركة.
+    await initOwnerShell({
+        onTabChange: (tab) => showSection(tab),
+        onReady: () => { mountContextBar(); setActiveSidebarTab(sectionFromHash()); }
+    });
 
     let status;
     try {
@@ -349,18 +436,11 @@ function gate(title, text) {
     }
 
     $('ownerContent').hidden = false;
-    // الأقسام متتابعة بمراسٍ (#overview / #authority / #audit) — والعنصر الفعلي
-    // يحمل لاحقة TabContent، فكان رابط القائمة لا يحرّك الصفحة أصلًا.
-    const syncSection = (smooth) => {
-        const tab = (location.hash || '#overview').slice(1);
-        setActiveSidebarTab(tab);
-        const target = document.getElementById(`${tab}TabContent`);
-        if (target && tab !== 'overview') {
-            target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
-        }
-    };
-    syncSection(false);
-    window.addEventListener('hashchange', () => syncSection(true));
+    showSection(sectionFromHash(), { history: 'none' });
+    // الروابط داخل المحتوى (#authority…)، والرجوع والتقدّم، والروابط المباشرة
+    const follow = () => showSection(sectionFromHash(), { history: 'none' });
+    window.addEventListener('hashchange', follow);
+    window.addEventListener('popstate', follow);
 
     const pill = $('ownerContextPill');
     pill.textContent = 'الواجهة الحالية: مالك المنصة';

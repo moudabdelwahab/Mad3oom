@@ -258,6 +258,11 @@
 }
 
 .context-card:hover:not(:disabled) .context-card-go { color: var(--owner-accent); }
+
+/* نفس البطاقة رابطًا: مداخل الأقسام في نظرة لوحة المالك العامة. الشكل كله من
+   .context-card أعلاه؛ هنا ما يخصّ العنصر <a> وحده. */
+a.context-card { text-decoration: none; }
+.owner-sections { margin-bottom: var(--sp-5); }
 .context-card-go svg { transition: transform var(--dur-fast) var(--ease); }
 .context-card:hover:not(:disabled) .context-card-go svg { transform: translateX(-3px); }
 
@@ -665,6 +670,7 @@
 .owner-shell .owner-sie-hint { font-size: var(--fs-xs); color: var(--color-text-secondary); line-height: 1.7; }
 
 /* ── حوكمة الشركات والوصول (096–099) ───────────────────────────────────── */
+.owner-gov-stepup { margin: 0 0 var(--sp-4, 16px); font-size: var(--fs-xs); color: var(--color-text-secondary); line-height: 1.7; }
 .owner-gov-reason { display: grid; gap: 6px; margin-bottom: var(--sp-4, 16px); }
 .owner-gov-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
 .owner-gov-form .form-control { width: auto; min-width: 180px; }
