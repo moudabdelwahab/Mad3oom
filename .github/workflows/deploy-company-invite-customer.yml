@@ -27,6 +27,8 @@ jobs:
           ref: main
           persist-credentials: false
           submodules: false
+          clean: false
+
 
 
       - name: Validate deployment configuration
