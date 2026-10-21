@@ -298,4 +298,18 @@ The seventh pre-111 failure was `ticket_invoice_status TA1` returning `ready`. A
 
 ## 9. Full suites
 
-Full-suite results are recorded in the next commit on this branch.
+All runs below used a throwaway local PostgreSQL 16 cluster (fresh `initdb` per SQL file), built from the production schema snapshot and the migration chain, with synthetic fixtures only. They are **local results, not production verification**.
+
+| Suite | Command | Exit | Result |
+|---|---|---|---|
+| Node (full) | `npm run -s test:node` (= `node --test --test-concurrency=1 tests/*.test.mjs`) | 0 | 1299 tests: 1297 pass, 0 fail, 2 skipped |
+| SQL (full) | `bash tests/run-sql-tests.sh` | 0 | 82 of 82 files executed; no `FAIL`, no `psql exited`; includes `billing-ticket-isolation` and `tenant-isolation-matrix` |
+| 111 regression (final file, `843af42`) | `psql -f tests/sql/billing-ticket-isolation.test.sql` | 0 | ⓪ reproduce I1/I2, ① closed (111 applied twice), ② legitimate flows, ③ rollback refused with isolation ON, exact restore, re-apply: ALL PASS |
+| Isolation matrix | `psql -f tests/sql/tenant-isolation-matrix.test.sql` | 0 | 112 of 112 cases PASS with 111 (7 FAIL without it) |
+| Phase 1 readiness | `psql -f tests/sql/phase1-readiness.test.sql` | 0 | ALL PASS |
+| 110 regression | `psql -f tests/sql/api-token-credentials-immutable.test.sql` | 0 | ALL PASS |
+| MCP isolation (Node) | `node --test tests/mcp-ticket-isolation.test.mjs` | 0 | 7 of 7 pass |
+
+**Not executed:** Edge runtime (no Deno), Docker-based local Supabase (no daemon), hosted staging (none exists). See §7.
+
+**Production:** unchanged by this work. 111 is not applied, no Edge Function was deployed, and all 12 switches are OFF (`company_isolation_enforced` OFF). Production was only read: catalog fingerprint, role attributes, invoice counts, function list.
