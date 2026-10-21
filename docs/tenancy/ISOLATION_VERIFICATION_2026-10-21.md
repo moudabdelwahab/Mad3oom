@@ -1,8 +1,8 @@
 # Multi-tenant isolation verification (2026-10-21)
 
-> **Verdict: NOT READY.** `company_isolation_enforced` should not be enabled in production yet.
+> **Verdict: NOT READY.** `company_isolation_enforced` stays OFF and must not be treated as ready for activation.
 >
-> Cross-company isolation was tested on synthetic data with 112 cases: every case shows the company-A data refused across the company boundary, and every refusal is paired with a positive control. Two defects were found and are fixed by migration `111_billing_ticket_isolation` (§4). Migration 111 is **not applied to production**.
+> Cross-company isolation was tested on synthetic data with 112 cases: every case shows the company-A data refused across the company boundary, and every refusal is paired with a positive control. Two confirmed defects were found (§4). They are **fixed in branch, awaiting review and deployment**: migration `111_billing_ticket_isolation`. Migration 111 is **NOT applied to production**, so both defects still exist there.
 >
 > Once 111 is applied and verified, the recommendation becomes **READY WITH LIMITATIONS** (§8). Activation remains the owner's decision.
 >
@@ -68,7 +68,7 @@ The production queries were read-only:
 
 ## 4. Findings
 
-### I1 — Platform staff reach company tickets through the accounting-invoice RPCs (Medium; fixed by 111, not deployed)
+### I1 — Platform staff reach company tickets through the accounting-invoice RPCs (Medium; fixed in branch by 111, awaiting review and deployment; still present in production)
 - **Affected:** `ticket_invoice_status`, `ticket_invoice_document`, `attach_accounting_invoice`, `attach_accounting_invoice_pdf`, and `accounting_invoices` RLS.
   - The four functions are `SECURITY DEFINER`, callable by `authenticated`, and gated only by `is_platform_staff()`. They have no isolation check.
   - `accounting_invoices` has a single SELECT policy, `user_id = auth.uid() OR is_admin()`.
@@ -82,7 +82,7 @@ The production queries were read-only:
   - `accounting_invoices` gets the same restrictive `tenant_isolation` policy as the ticket child tables (097);
   - owners keep seeing their own invoices, and support-scope invoices are unchanged (rows 87–89, positive).
 
-### I2 — A subscription request can be linked to a company ticket, including another account's (Medium; fixed by 111, not deployed)
+### I2 — A subscription request can be linked to a company ticket, including another account's (Medium; fixed in branch by 111, awaiting review and deployment; still present in production)
 - **Affected:**
   - `request_subscription_purchase` accepted any ticket the caller owns, whatever its scope;
   - `request_subscription_upgrade` accepted **any ticket id for any account**, with no ownership check.
@@ -105,6 +105,30 @@ The production queries were read-only:
 - **Billing metadata:** `wa_wallet_adjust` and `wa_wallet_charge_message` store an arbitrary `p_ticket_id` as metadata on a wallet transaction, without reading the ticket. There is no cross-tenant read; it is a metadata-integrity issue only. Not fixed here.
 - **Continuity:** ticket sources (`mad3oom_ticket`) are not implemented. `_continuity_attach` rejects every type except `mad3oom_message` with 0A000 (row 74), and no `continuity_sources` row references a ticket.
 - **Website/SIE chats:** `chat_sessions` and `chat_messages` are Mad3oom's own helpdesk and readable by platform staff by design. Company-private conversations are the separate 102 tables, tested in rows 36–49. The SIE engine review (F2) stands, at unchanged versions.
+
+### Review of 111 (2026-10-21)
+- **Placement:** every new check runs before any sensitive read or write.
+  - In the four invoice functions, it runs right after the staff gate and before the first `accounting_invoices` read.
+  - In `request_subscription_upgrade`, it runs right after the login check, before the quote, the lock or the insert.
+  - In `request_subscription_purchase`, the existing ownership check gains the scope condition.
+- **Identity:** the caller is always `auth.uid()`. Neither function takes a user or company id, so the only substitutable input is `p_ticket_id`. Its refusal is byte-identical to the one for a nonexistent ticket (`errfull` comparison in `billing-ticket-isolation.test.sql` ①).
+- **Reuse:** no new helper. The invoice functions use 097's `_ticket_private_to_company` (the helper `mcp_admin_update_ticket` uses), and the policy reuses `_isolation_on` and `_ticket_id_visible` exactly as the 097 child-table policies do.
+- **Service-role paths:**
+  - `service_role` and `postgres` have `rolbypassrls = true` in production (read-only check), and every function touching `accounting_invoices` is `SECURITY DEFINER` owned by `postgres`. The new policy therefore constrains only direct `authenticated`/`anon` reads.
+  - `accounting-sync` (`record_accounting_invoice`) still records and reads invoices with isolation ON (②).
+  - `get_public_invoice` (anon, unguessable ≥32-character token) is unchanged.
+  - No service-role flow calls the invoice-attach functions, which require `auth.uid()`.
+- **Remaining inventory:** after 111, the inventory of `authenticated`-callable definer functions that read ticket data without an isolation helper no longer contains the invoice functions. The remaining entries are designed paths with their own gates (grants, historical access, carry, owner tooling, ihub admin, own subscriptions), plus the two subscription RPCs, whose check filters `scope` directly.
+- **Unchanged since the audit:**
+  - `mcp` v35 (DB-guarded `mcp_admin_update_ticket`, plus the fail-closed in-memory filter);
+  - `wf-executor` v46 (guard plus the 097-gated `wf_*` RPCs);
+  - `chat-bot-reply` v14 (only the caller's own `user_id`);
+  - `accounting-sync` v7.
+- **Baseline and rollback:**
+  - The migration body is the production definition (md5 of `prosrc` verified for all six) with only the inserted checks.
+  - The rollback restores the six bodies byte-for-byte (`digest6` comparison) and drops the policy.
+  - It refuses while isolation is ON.
+  - Re-application works: 111 is applied twice, and again after the rollback.
 
 ## 5. Pass/fail matrix (`tests/sql/tenant-isolation-matrix.test.sql`)
 

@@ -89,7 +89,13 @@ BEGIN
   PERFORM t.ok(t.err(t.u('A1'), format('public.request_subscription_purchase(''support'', ''monthly'', %L, false, null, null)', t.k('TA1'))) = '42501', '① شراء مربوط بتذكرة شركة مرفوض');
   PERFORM t.ok(t.err(t.u('OB'), format('public.request_subscription_upgrade(''ultimate'', %L, null, null)', t.k('TA1'))) = '42501', '① ترقية مربوطة بتذكرة حساب آخر مرفوضة');
   PERFORM t.ok(t.err(t.u('OB'), format('public.request_subscription_upgrade(''ultimate'', %L, null, null)', t.k('TB1'))) = '42501', '① ترقية مربوطة بتذكرة شركة مرفوضة');
+  PERFORM t.ok(t.err(t.u('OB'), format('public.request_subscription_purchase(''support'', ''monthly'', %L, false, null, null)', t.k('TB1'))) = '42501', '① مالك ب لا يربط شراءه بتذكرة شركته أيضًا');
   PERFORM t.ok(t.subs_on('TA1') = 0 AND t.subs_on('TB1') = 0, '① لا اشتراك على تذكرة شركة');
+  -- لا كاشف: رسالة الرفض لتذكرة شركة أخرى = رسالة تذكرة غير موجودة، بالحرف
+  PERFORM t.ok(t.errfull(t.u('OB'), format('public.request_subscription_upgrade(''ultimate'', %L, null, null)', t.k('TA1')))
+             = t.errfull(t.u('OB'), 'public.request_subscription_upgrade(''ultimate'', ''00000000-0000-4000-8000-0000000000ff'', null, null)'), '① الترقية: نفس رد الغياب');
+  PERFORM t.ok(t.errfull(t.u('B1'), format('public.request_subscription_purchase(''support'', ''monthly'', %L, false, null, null)', t.k('TA1')))
+             = t.errfull(t.u('B1'), 'public.request_subscription_purchase(''support'', ''monthly'', ''00000000-0000-4000-8000-0000000000ff'', false, null, null)'), '① الشراء: نفس رد الغياب');
   UPDATE public.platform_feature_switches SET enabled = true WHERE key = 'company_isolation_enforced';
   PERFORM t.ok(t.call(t.u('AD'), format('public.ticket_invoice_status(%L)', t.k('TA1'))) = '{"state": "none", "has_pdf": false}'::jsonb, '① الحالة كغياب الفاتورة');
   PERFORM t.ok(t.err(t.u('AD'), format('public.ticket_invoice_document(%L)', t.k('TA1'))) = 'P0002', '① المستند: نفس رد الغياب');
@@ -118,6 +124,13 @@ BEGIN
   PERFORM t.ok(t.call(t.u('AD'), format('public.ticket_invoice_document(%L)', t.k('TA1S'))) ->> 'ticket_number' IS NOT NULL, '② مستند فاتورة مدعوم');
   PERFORM t.ok(t.rows(t.u('A1'), 'public.accounting_invoices') = 2, '② صاحب الفواتير يرى الاثنتين');
   PERFORM t.ok(t.rows(t.u('B1'), 'public.accounting_invoices') = 0, '② عميل ب لا يرى فواتير أ');
+  -- مسار المزامنة بمفتاح الخدمة (accounting-sync ⇐ record_accounting_invoice) والعزل مفعّل: لا يتأثر بالسياسة
+  SET LOCAL ROLE service_role;
+  r := public.record_accounting_invoice(jsonb_build_object('external_invoice_id', gen_random_uuid(), 'invoice_number', 'FX-SVC',
+         'ticket_id', t.k('TOA'), 'user_id', t.u('OA'), 'total', 5));
+  PERFORM t.ok((SELECT count(*) FROM public.accounting_invoices WHERE invoice_number = 'FX-SVC') = 1, '② مفتاح الخدمة يسجّل الفاتورة ويقرؤها والعزل مفعّل');
+  RESET ROLE;
+  PERFORM t.ok(t.call(t.u('AD'), format('public.ticket_invoice_status(%L)', t.k('TOA'))) ->> 'state' = 'ready', '② فاتورة المزامنة على تذكرة مدعوم ظاهرة للطاقم');
   -- العزل مطفأ: السلوك قبل 097 (طاقم المنصة يرى فاتورة تذكرة الشركة)
   UPDATE public.platform_feature_switches SET enabled = false WHERE key = 'company_isolation_enforced';
   PERFORM t.ok(t.call(t.u('AD'), format('public.ticket_invoice_status(%L)', t.k('TA1'))) ->> 'state' = 'ready', '② العزل مطفأ: كما قبل');
