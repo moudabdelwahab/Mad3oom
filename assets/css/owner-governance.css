@@ -1,0 +1,162 @@
+/* ==========================================================================
+   حوكمة الشركات — مفاتيح التفعيل (owner-dashboard.html، assets/js/owner/tenancy-governance.js)
+
+   ملف مستقل بعنوان جديد: نسخة مخزَّنة قديمة من owner-dashboard.css لا تُسقط تنسيق البطاقات.
+   مجموعات بترتيب الإطلاق، وفي كلٍّ شبكة بطاقات: الاسم والحالة في السطر الأول، وصف موجز،
+   ملاحظة واحدة عند الحاجة، ثم «التفاصيل» والزر في سطر ثابت أسفل البطاقة.
+   التوكنز من customer-dashboard.css (فاتح/داكن).
+   ========================================================================== */
+
+.owner-shell .gov-sw-board { display: grid; gap: var(--sp-5); margin-top: var(--sp-3); }
+
+/* ── الملخص وقفل التحقق ───────────────────────────────────────────────── */
+.owner-shell .gov-sw-summary {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: var(--sp-2) var(--sp-4);
+}
+.owner-shell .gov-sw-count {
+    display: inline-flex; align-items: baseline; gap: 6px;
+    padding: 6px 14px; border-radius: var(--r-pill);
+    background: var(--color-surface-2, var(--color-muted)); color: var(--color-text-secondary);
+    font-size: var(--fs-sm); font-weight: 600;
+}
+.owner-shell .gov-sw-count strong { color: var(--color-text); font-size: var(--fs-md); font-weight: 800; }
+.owner-shell .gov-sw-locked {
+    display: none; align-items: center; gap: 8px; margin: 0;
+    padding: 8px 12px; border-radius: var(--r-sm);
+    background: var(--tint-accent); color: var(--on-accent);
+    font-size: var(--fs-sm); font-weight: 600;
+}
+.owner-shell .gov-sw-locked svg { flex: none; }
+.owner-shell .gov-sw-locked a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+/* يظهر ما دام زر مفتاح معطّلًا (applyCriticalState قبل التحقق بخطوتين) */
+.owner-shell .gov-sw-board:has(.gov-sw-action:disabled) .gov-sw-locked { display: inline-flex; }
+
+/* ── المجموعات ─────────────────────────────────────────────────────────── */
+.owner-shell .gov-sw-group { display: grid; gap: var(--sp-3); }
+.owner-shell .gov-sw-group-head {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center;
+    gap: 2px var(--sp-3);
+}
+.owner-shell .gov-sw-group-head h4 {
+    display: inline-flex; align-items: center; gap: 8px; margin: 0;
+    font-size: var(--fs-base); font-weight: 800; color: var(--color-text);
+}
+.owner-shell .gov-sw-group-head p {
+    grid-column: 1 / -1; margin: 0;
+    font-size: var(--fs-sm); color: var(--color-text-secondary); line-height: 1.7;
+}
+.owner-shell .gov-sw-group-count { font-size: var(--fs-xs); font-weight: 700; color: var(--color-text-secondary); white-space: nowrap; }
+.owner-shell .gov-sw-group[data-security] .gov-sw-group-head h4 { color: var(--on-warning); }
+
+.owner-shell .gov-sw-grid {
+    display: grid; gap: var(--sp-3);
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+}
+
+/* ── البطاقة ───────────────────────────────────────────────────────────── */
+.owner-shell .gov-sw {
+    display: flex; flex-direction: column; gap: var(--sp-2);
+    min-width: 0; padding: var(--sp-4);
+    border: 1px solid var(--color-border); border-radius: var(--r-md);
+    background: var(--color-surface);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+    text-align: start;
+    transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.owner-shell .gov-sw:hover { box-shadow: 0 4px 14px rgba(15, 23, 42, .07); }
+.owner-shell .gov-sw[data-state='on'] { border-color: var(--on-success); box-shadow: inset 0 3px 0 var(--on-success); }
+.owner-shell .gov-sw[data-security]:not([data-state='on']) { box-shadow: inset 0 3px 0 var(--on-warning); }
+
+.owner-shell .gov-sw-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); }
+.owner-shell .gov-sw-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.owner-shell .gov-sw-title { margin: 0; font-size: var(--fs-md); font-weight: 800; line-height: 1.5; color: var(--color-text); }
+
+.owner-shell .gov-sw-status {
+    display: inline-flex; align-items: center; gap: 6px; flex: none;
+    padding: 3px 10px; border-radius: var(--r-pill);
+    font-size: var(--fs-xs); font-weight: 700; white-space: nowrap;
+    border: 1px solid var(--color-border); color: var(--color-text-secondary);
+}
+.owner-shell .gov-sw-dot { width: 8px; height: 8px; border-radius: 50%; border: 2px solid currentColor; }
+.owner-shell .gov-sw-status[data-state='on'] { color: var(--on-success); background: var(--tint-success); border-color: transparent; }
+.owner-shell .gov-sw-status[data-state='on'] .gov-sw-dot { background: currentColor; }
+
+.owner-shell .gov-sw-badge {
+    display: inline-flex; align-items: center; gap: 4px; width: fit-content;
+    padding: 2px 8px; border-radius: var(--r-pill);
+    background: var(--tint-warning); color: var(--on-warning);
+    font-size: var(--fs-xs); font-weight: 700;
+}
+.owner-shell .gov-sw-badge svg { width: 13px; height: 13px; }
+
+.owner-shell .gov-sw-desc { margin: 0; font-size: var(--fs-sm); line-height: 1.75; color: var(--color-text-secondary); }
+
+.owner-shell .gov-sw-notice {
+    display: flex; align-items: flex-start; gap: 6px; margin: 0;
+    padding: 6px 10px; border-radius: var(--r-sm);
+    font-size: var(--fs-sm); font-weight: 600; line-height: 1.6;
+}
+.owner-shell .gov-sw-notice svg { flex: none; margin-top: 2px; }
+.owner-shell .gov-sw-notice[data-tone='blocked']   { background: var(--tint-danger);  color: var(--on-danger); }
+.owner-shell .gov-sw-notice[data-tone='sensitive'] { background: var(--tint-warning); color: var(--on-warning); }
+
+/* السطر الأخير: «التفاصيل» في البداية والزر في النهاية، في المكان نفسه لكل البطاقات */
+.owner-shell .gov-sw-foot {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+    margin-top: auto; padding-top: var(--sp-3);
+    border-top: 1px solid var(--color-border);
+}
+.owner-shell .gov-sw-more {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 6px 4px; border: 0; background: none; cursor: pointer;
+    font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--color-text-secondary);
+}
+.owner-shell .gov-sw-more:hover { color: var(--color-text); }
+.owner-shell .gov-sw-more svg { transition: transform var(--dur-fast) var(--ease); }
+.owner-shell .gov-sw-more[aria-expanded='true'] svg { transform: rotate(-90deg); }
+
+.owner-shell .gov-sw-action {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-width: 7.5rem; min-height: 2.5rem; padding-inline: var(--sp-4);
+    font-size: var(--fs-sm); font-weight: 700; white-space: nowrap;
+}
+.owner-shell .gov-sw-action svg { display: none; width: 15px; height: 15px; }
+.owner-shell .gov-sw-action:disabled svg { display: inline; }
+.owner-shell .gov-sw-action:disabled { opacity: .7; }
+/* متطلبات ناقصة: لا يبدو الزر دعوة آمنة للتفعيل */
+.owner-shell .gov-sw-action.is-blocked:not(:disabled) { border-color: var(--on-danger); color: var(--on-danger); }
+
+.owner-shell .gov-sw-more:focus-visible,
+.owner-shell .gov-sw-action:focus-visible { outline: 2px solid var(--owner-accent, #3E6FD9); outline-offset: 2px; border-radius: var(--r-sm); }
+
+/* ── التفاصيل ──────────────────────────────────────────────────────────── */
+.owner-shell .gov-sw-details {
+    display: grid; gap: 4px;
+    padding: var(--sp-3); border-radius: var(--r-sm);
+    background: var(--color-surface-2, var(--color-muted));
+    font-size: var(--fs-sm); line-height: 1.7; color: var(--color-text);
+}
+.owner-shell .gov-sw-details[hidden] { display: none; }
+.owner-shell .gov-sw-details h6 {
+    margin: var(--sp-2) 0 0; font-size: var(--fs-xs); font-weight: 800;
+    color: var(--color-text-secondary);
+}
+.owner-shell .gov-sw-details h6:first-child { margin-top: 0; }
+.owner-shell .gov-sw-details p { margin: 0; }
+.owner-shell .gov-sw-details code { overflow-wrap: anywhere; font-size: var(--fs-xs); }
+.owner-shell .gov-sw-reqs { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.owner-shell .gov-sw-reqs li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; }
+.owner-shell .gov-sw-reqs li[data-met='true']  > span { color: var(--on-success); font-weight: 800; }
+.owner-shell .gov-sw-reqs li[data-met='false'] > span { color: var(--on-danger); font-weight: 800; }
+.owner-shell .gov-sw-reqs small { color: var(--color-text-secondary); font-size: var(--fs-xs); }
+
+@media (max-width: 480px) {
+    .owner-shell .gov-sw { padding: var(--sp-3); }
+    .owner-shell .gov-sw-action { min-width: 0; flex: 1; }
+}
+
+/* ── بقية جداول الحوكمة ───────────────────────────────────────────────────
+   responsive-global يفرض min-width: max-content فلا تلتفّ النصوص الطويلة (السبب، الاسم)
+   فتُدفع أزرار القرار خارج اللوحة يسارًا. التمرير الأفقي يبقى للشاشات الضيقة. */
+.owner-shell #governanceTabContent .table-responsive > table { min-width: 480px; }

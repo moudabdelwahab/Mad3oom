@@ -15,7 +15,7 @@ import { chromium } from 'playwright';
 const govSrc = fs.readFileSync(new URL('../assets/js/owner/tenancy-governance.js', import.meta.url), 'utf8')
     .replace("import { applyCriticalState } from '/assets/js/owner/authority-center.js';", 'const applyCriticalState = () => {};');
 const { reasonError, flattenUnits, reviewRow, GUARDED_SWITCHES, historicalHours, exceptionalTransferError,
-        delegationExpiry, defaultDelegationExpiry, SWITCH_REGISTRY, switchView, switchConfirmText } = await import('data:text/javascript,' + encodeURIComponent(govSrc));
+        delegationExpiry, defaultDelegationExpiry, SWITCH_REGISTRY, SWITCH_GROUPS, switchView, switchConfirmText, switchNotice, groupSwitchViews } = await import('data:text/javascript,' + encodeURIComponent(govSrc));
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
@@ -372,8 +372,26 @@ test('switchView وswitchConfirmText: المتطلبات الناقصة، وال
     assert.deepEqual([unknown.label, unknown.description, unknown.known], ['future_flag', 'وصف الخادم', false]);
 });
 
-for (const [w, h] of [[1351, 544], [390, 844]]) {
-    test(`مفاتيح التفعيل على ${w}px: زر ظاهر داخل اللوحة لكل مفتاح، باسم عربي وحالة نصية`, { skip: !chromiumPath }, async () => {
+test('المجموعات: كل مفتاح مسجَّل في مجموعة واحدة، والمجهول في «أخرى»؛ والملاحظة الوحيدة', () => {
+    const grouped = SWITCH_GROUPS.flatMap(g => g.keys);
+    assert.deepEqual([...grouped].sort(), REGISTERED_SWITCHES, 'مفتاح بلا مجموعة أو في مجموعتين');
+    assert.equal(new Set(grouped).size, grouped.length);
+    assert.deepEqual(SWITCH_GROUPS.find(g => g.security).keys.sort(), [...GUARDED_SWITCHES].sort());
+    const all = [...allSwitches(), { key: 'future_flag', enabled: false, description: 'وصف' }];
+    const views = all.map(s => switchView(s, all));
+    const groups = groupSwitchViews(views);
+    assert.deepEqual(groups.map(g => g.id), ['core', 'security', 'moves', 'features', 'other']);
+    assert.deepEqual(groups.at(-1).views.map(v => v.key), ['future_flag']);
+    const v = (k, on = []) => { const a = allSwitches(on); return switchView(a.find(x => x.key === k), a); };
+    assert.equal(switchNotice(v('company_isolation_enforced')).tone, 'blocked', 'العزل قبل الصلاحيات لا يبدو آمنًا');
+    assert.equal(switchNotice(v('company_isolation_enforced', ['company_permissions_enabled'])).tone, 'sensitive');
+    assert.equal(switchNotice(v('company_isolation_enforced', ['company_permissions_enabled', 'company_isolation_enforced'])), null);
+    assert.match(switchNotice(v('ticket_carry_enabled')).text, /^لا يعمل قبل تفعيل «عزل بيانات الشركات» و«صلاحيات الشركات»$/);
+    assert.equal(switchNotice(v('delegation_enabled')), null);
+});
+
+for (const [w, h] of [[1440, 900], [1351, 544], [768, 1000], [390, 844]]) {
+    test(`مفاتيح التفعيل على ${w}px: بطاقات في مجموعات، زر ظاهر في مكان ثابت، اسم عربي وحالة نصية، RTL بلا تداخل`, { skip: !chromiumPath }, async () => {
         const fx = fixtures();
         fx.rpc.owner_feature_switches = allSwitches(['company_permissions_enabled']);
         const { page, context, errors } = await openOwner(browser, baseUrl, fx);
@@ -382,25 +400,47 @@ for (const [w, h] of [[1351, 544], [390, 844]]) {
         const r = await page.evaluate(() => {
             const box = document.querySelector('#govSwitches').getBoundingClientRect();
             const doc = document.documentElement;
+            const inside = (rb) => rb.left >= box.left - 1 && rb.right <= box.right + 1;
+            const apart = (a, b) => a.right <= b.left + 1 || b.right <= a.left + 1 || a.bottom <= b.top + 1 || b.bottom <= a.top + 1;
             return {
                 tables: document.querySelectorAll('#govSwitches table').length,
+                bullets: [...document.querySelectorAll('#govSwitches ul, #govSwitches li')].filter(e => getComputedStyle(e).listStyleType !== 'none').length,
+                styled: getComputedStyle(document.querySelector('.gov-sw')).borderTopStyle,
+                groups: [...document.querySelectorAll('.gov-sw-group')].map(g => [g.dataset.group, [...g.querySelectorAll('[data-switch-row]')].map(c => c.dataset.switchRow)]),
+                columns: getComputedStyle(document.querySelector('.gov-sw-grid')).gridTemplateColumns.split(' ').length,
                 rows: [...document.querySelectorAll('#govSwitches [data-switch-row]')].map(row => {
                     const b = row.querySelector('[data-switch]');
-                    const rb = b.getBoundingClientRect();
-                    return { key: row.dataset.switchRow, title: row.querySelector('.owner-switch-title').textContent.trim(),
-                             state: row.querySelector('.owner-switch-state').textContent.replace(/\s+/g, ' ').trim(),
+                    const rb = b.getBoundingClientRect(), cb = row.getBoundingClientRect();
+                    const title = row.querySelector('.gov-sw-title'), status = row.querySelector('.gov-sw-status');
+                    return { key: row.dataset.switchRow, title: title.textContent.trim(),
+                             state: status.textContent.replace(/\s+/g, ' ').trim(),
                              text: b.textContent.trim(), name: b.getAttribute('aria-label'), disabled: b.disabled,
-                             inside: rb.left >= box.left - 1 && rb.right <= box.right + 1 && rb.width >= 40 && rb.height >= 24,
-                             code: row.querySelector('.owner-switch-tech code').textContent };
+                             inside: inside(rb) && inside(cb) && rb.width >= 40 && rb.height >= 32,
+                             // الزر في آخر البطاقة دائمًا، وفي جهة النهاية (اليسار في RTL)
+                             atFoot: cb.bottom - rb.bottom < 24, atEnd: rb.left - cb.left < cb.right - rb.right,
+                             noOverlap: apart(title.getBoundingClientRect(), status.getBoundingClientRect()),
+                             rtl: getComputedStyle(row).direction === 'rtl' && title.getBoundingClientRect().right > status.getBoundingClientRect().right,
+                             detailsHidden: row.querySelector('.gov-sw-details').hidden,
+                             code: row.querySelector('.gov-sw-details code').textContent,
+                             height: cb.height };
                 }),
                 pageHScroll: doc.scrollWidth > doc.clientWidth
             };
         });
         assert.equal(r.tables, 0, 'المفاتيح ما زالت جدولًا');
+        assert.equal(r.bullets, 0, 'قوائم بنقاط');
+        assert.equal(r.styled, 'solid', 'تنسيق البطاقات لم يُحمَّل (owner-governance.css)');
         assert.equal(r.pageHScroll, false, 'تمرير أفقي للصفحة');
-        assert.deepEqual(r.rows.map(x => x.key), REGISTERED_SWITCHES);
+        assert.deepEqual(r.rows.map(x => x.key).sort(), REGISTERED_SWITCHES);
+        assert.deepEqual(r.groups, SWITCH_GROUPS.map(g => [g.id, g.keys]));
+        assert.equal(r.columns, { 1440: 3, 1351: 2, 768: 2, 390: 1 }[w], `أعمدة الشبكة على ${w}px`);
         for (const x of r.rows) {
-            assert.ok(x.inside, `زر ${x.key} خارج اللوحة`);
+            assert.ok(x.inside, `زر ${x.key} أو بطاقته خارج اللوحة`);
+            assert.ok(x.atFoot && x.atEnd, `زر ${x.key} ليس في مكانه الثابت`);
+            assert.ok(x.noOverlap, `الاسم والحالة متداخلان في ${x.key}`);
+            assert.ok(x.rtl, `${x.key} ليس RTL`);
+            assert.ok(x.height < 420, `بطاقة ${x.key} طويلة جدًا: ${x.height}`);
+            assert.equal(x.detailsHidden, true, 'التفاصيل مفتوحة افتراضيًا');
             assert.equal(x.title, SWITCH_REGISTRY[x.key].label);
             assert.equal(x.code, x.key, 'المفتاح التقني في التفاصيل');
             assert.equal(x.disabled, true, 'زر مفعّل قبل التحقق');
@@ -409,17 +449,63 @@ for (const [w, h] of [[1351, 544], [390, 844]]) {
             assert.equal(x.name, `${on ? 'إيقاف' : 'تفعيل'} «${SWITCH_REGISTRY[x.key].label}»`);
             assert.match(x.state, on ? /مفعّل/ : /مطفأ/, 'الحالة نصًّا لا لونًا وحده');
         }
-        // قبل التحقق: سبب التعطيل مكتوب بجانب الزر
-        assert.equal(await page.locator('[data-switch-row="company_suspension_enforced"] .owner-switch-hint').isVisible(), true);
-        // تنبيه المفتاح الحساس والمتطلبات بحالتها
-        const t = await page.textContent('[data-switch-row="customer_transfers_enabled"]');
-        assert.match(t, /يتطلب «عزل بيانات الشركات» — مطفأ/);
-        assert.match(t, /يتطلب «صلاحيات الشركات» — مفعّل/);
-        assert.match(await page.textContent('[data-switch-row="data_access_grants_enabled"] .owner-switch-warning'), /لا يفحص العزل/);
+        // قبل التحقق: سبب التعطيل ظاهر مرة واحدة أعلى المفاتيح
+        assert.equal(await page.locator('#govSwitches .gov-sw-locked').isVisible(), true);
+        assert.match(await page.textContent('#govSwitches .gov-sw-count'), /1\s*من 12 مفعّلة/);
         assert.deepEqual(errors, []);
         await context.close();
     });
 }
+
+test('ملاحظة واحدة بجانب المفتاح: المتطلب الناقص قبل «الحساس»، والزر لا يبدو دعوة آمنة؛ والتفاصيل تُفتح بالكامل', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ fresh: true });
+    fx.rpc.owner_feature_switches = allSwitches(['company_permissions_enabled']);
+    const { page, context } = await openOwner(browser, baseUrl, fx);
+    await page.waitForSelector('[data-switch="data_access_grants_enabled"]:not([disabled])');
+    assert.equal(await page.locator('#govSwitches .gov-sw-locked').isVisible(), false, 'قفل التحقق ظاهر بعد التحقق');
+    const notice = (k) => page.evaluate(k => {
+        const n = document.querySelector(`[data-switch-row="${k}"] .gov-sw-notice`);
+        return n ? [n.dataset.tone, n.textContent.trim()] : null;
+    }, k);
+    // المنح قبل العزل: ترتيب الإطلاق (الخادم لا يفحصه) — ولا تبدو آمنة
+    assert.deepEqual(await notice('data_access_grants_enabled'), ['blocked', 'يُفعَّل بعد «عزل بيانات الشركات» (ترتيب الإطلاق)']);
+    assert.match(await page.getAttribute('[data-switch="data_access_grants_enabled"]', 'class'), /is-blocked/);
+    // النقل: يفحصه الخادم
+    assert.deepEqual(await notice('customer_transfers_enabled'), ['blocked', 'لا يعمل قبل تفعيل «عزل بيانات الشركات»']);
+    // العزل بعد الصلاحيات: حساس فقط
+    assert.deepEqual(await notice('company_isolation_enforced'), ['sensitive', 'يحتاج موافقة صريحة منفصلة قبل التفعيل']);
+    assert.doesNotMatch(await page.getAttribute('[data-switch="company_isolation_enforced"]', 'class'), /is-blocked/);
+    assert.equal(await notice('company_suspension_enforced'), null);
+    for (const k of GUARDED_SWITCHES) assert.match(await page.textContent(`[data-switch-row="${k}"] .gov-sw-badge`), /حسّاس أمنيًا/);
+    assert.equal(await page.locator('[data-switch-row="company_suspension_enforced"] .gov-sw-badge').count(), 0);
+    assert.equal(await page.getAttribute('.gov-sw-group[data-group="security"]', 'data-security'), 'true');
+
+    // التفاصيل: زر إفصاح بلوحة المفاتيح، والمحتوى الكامل فيه
+    const more = '[data-switch-row="data_access_grants_enabled"] .gov-sw-more';
+    assert.equal(await page.getAttribute(more, 'aria-expanded'), 'false');
+    await page.focus(more);
+    await page.keyboard.press('Enter');
+    assert.equal(await page.getAttribute(more, 'aria-expanded'), 'true');
+    const details = '[data-switch-row="data_access_grants_enabled"] .gov-sw-details';
+    assert.equal(await page.locator(details).isVisible(), true);
+    const t = await page.textContent(details);
+    assert.match(t, /«عزل بيانات الشركات» — مطفأ\s*ترتيب الإطلاق/);
+    assert.match(t, /لا يفحص العزل/);
+    assert.match(t, /data_access_grants_enabled/);
+    // الزر يبقى أسفل البطاقة والتفاصيل مفتوحة
+    const pos = await page.evaluate(() => {
+        const c = document.querySelector('[data-switch-row="data_access_grants_enabled"]');
+        return [c.getBoundingClientRect().bottom, c.querySelector('[data-switch]').getBoundingClientRect().bottom,
+                c.querySelector('.gov-sw-details').getBoundingClientRect().bottom];
+    });
+    assert.ok(pos[0] - pos[1] < 24 && pos[2] < pos[1], `الزر ليس أسفل التفاصيل: ${pos}`);
+    const t2 = await page.textContent('[data-switch-row="customer_transfers_enabled"] .gov-sw-details');
+    assert.match(t2, /«عزل بيانات الشركات» — مطفأ\s*يفحصه الخادم/);
+    assert.match(t2, /«صلاحيات الشركات» — مفعّل\s*يفحصه الخادم/);
+    await page.keyboard.press('Space');
+    assert.equal(await page.locator(details).isVisible(), false);
+    await context.close();
+});
 
 test('لوحة المفاتيح: Enter على زر مفتاح عادي يطلب تأكيدًا، والرفض لا يرسل، والقبول يرسل ويعيد التركيز', { skip: !chromiumPath }, async () => {
     const fx = fixtures({ fresh: true });
@@ -430,7 +516,7 @@ test('لوحة المفاتيح: Enter على زر مفتاح عادي يطلب 
     page.on('dialog', d => { dialogs.push(d.message()); accept ? d.accept() : d.dismiss(); });
     const sel = '[data-switch="company_suspension_enforced"]';
     await page.waitForSelector(`${sel}:not([disabled])`);
-    assert.equal(await page.locator('[data-switch-row="company_suspension_enforced"] .owner-switch-hint').isVisible(), false);
+    assert.equal(await page.locator('#govSwitches .gov-sw-locked').isVisible(), false);
     // بلا سبب: لا تأكيد ولا نداء
     await page.focus(sel);
     await page.keyboard.press('Enter');
