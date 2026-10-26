@@ -492,3 +492,62 @@ export async function cancelSubscriptionRequest(subscriptionId) {
         return true;
     });
 }
+
+/* ── إدارة أعضاء الشركة (migrations/113_company_member_management.sql) ───────
+ *
+ * كل دالة للمدير وحده (المالك + sub_users، خارج المعاينة)، والشركة تُحدَّد في القاعدة. العضو من شركة أخرى
+ * أو غير الموجود يرد بالخطأ نفسه. قبل 113: data = null بلا خطأ.
+ */
+const rpcOrNull = (label, name, args) => safe(label, async () => {
+    const { data, error } = await supabase.rpc(name, args);
+    if (isMissingRpc(error)) return null;
+    if (error) throw error;
+    return data ?? null;
+});
+
+/** تفاصيل العضو في هذه الشركة: الحساب، ملف الشركة، العضوية، الدور، الإيقاف، النقل، تذاكره معها، سجله. */
+export const fetchMemberDetails = (userId) => rpcOrNull('memberDetails', 'company_member_details', { p_user: userId });
+
+/** ملف العضو لدى الشركة (لا يغيّر حساب العضو). */
+export const saveMemberProfile = (userId, { displayName, phone, jobTitle, notes }) => rpcOrNull('saveMemberProfile',
+    'company_member_profile_save', { p_user: userId, p_display_name: displayName ?? null, p_phone: phone ?? null,
+                                     p_job_title: jobTitle ?? null, p_notes: notes ?? null });
+
+export const suspendMember = (userId, reason) => rpcOrNull('suspendMember', 'company_member_suspend', { p_user: userId, p_reason: reason });
+export const reactivateMember = (userId) => rpcOrNull('reactivateMember', 'company_member_reactivate', { p_user: userId });
+export const fetchSuspendedMembers = () => rpcOrNull('suspendedMembers', 'company_member_suspensions_list', {});
+export const requestMemberTransfer = (userId, destRef, reason, idempotencyKey) => rpcOrNull('requestMemberTransfer',
+    'company_member_transfer_request', { p_user: userId, p_dest_ref: destRef, p_reason: reason, p_idempotency_key: idempotencyKey });
+export const cancelMemberTransfer = (requestId) => rpcOrNull('cancelMemberTransfer', 'company_member_transfer_cancel', { p_request: requestId });
+export const fetchMemberTransferRequests = () => rpcOrNull('memberTransfers', 'company_member_transfer_requests', {});
+
+/**
+ * تعديل الحساب ورابط إعادة كلمة المرور عبر Edge Function «company-member-admin» (البريد في نظام الدخول،
+ * وتغييره لحساب آخر لا يكون إلا بمفتاح الخدمة على الخادم). ⇒ { ok, status, message?, error?, fields?, notice? }.
+ * الرد لا يحمل رابط الاستعادة ولا بريد العضو.
+ */
+async function invokeMemberAdmin(body, fallback) {
+    try {
+        const { data, error } = await supabase.functions.invoke('company-member-admin', { body });
+        if (error) {
+            let res = null;
+            try { res = await error?.context?.json?.(); } catch { /* الرد ليس JSON */ }
+            return { ok: false, status: res?.status || 'server', error: res?.error || fallback };
+        }
+        if (['updated', 'unchanged', 'reset_sent'].includes(data?.status)) {
+            return { ok: true, status: data.status, message: data.message || null, fields: data.fields || [], notice: data.notice || null };
+        }
+        return { ok: false, status: 'server', error: fallback };
+    } catch (err) {
+        console.error('[CompanyData] company-member-admin:', err?.message || err);
+        return { ok: false, status: 'network', error: 'تعذّر الاتصال. تحقّق من اتصالك ثم أعد المحاولة.' };
+    }
+}
+
+export const updateMemberAccount = (userId, { fullName, phone, email }) => invokeMemberAdmin(
+    { action: 'update_account', user_id: userId, full_name: String(fullName ?? '').trim(),
+      phone: String(phone ?? '').trim() || null, email: String(email ?? '').trim().toLowerCase() },
+    'تعذّر حفظ بيانات الحساب. حاول مرة أخرى.');
+
+export const sendMemberPasswordReset = (userId) => invokeMemberAdmin(
+    { action: 'password_reset', user_id: userId }, 'تعذّر إرسال الرابط. حاول مرة أخرى.');

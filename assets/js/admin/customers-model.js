@@ -47,13 +47,14 @@ export const REQUEST_STATUS = Object.freeze({
 });
 
 export const MEMBERSHIP_VIA = Object.freeze({
-    backfill: 'ملء أولي', legacy: 'ربط قديم', invitation: 'دعوة', transfer: 'نقل', account_request: 'طلب حساب'
+    backfill: 'ملء أولي', legacy: 'ربط قديم', invitation: 'دعوة', transfer: 'نقل', account_request: 'طلب حساب',
+    reactivated: 'إعادة تفعيل'
 });
 
 export const END_CAUSES = Object.freeze({
     reassigned: 'أُسند لغيره', unassigned: 'أُلغي الإسناد', manager_ineligible: 'المدير فقد الأهلية',
     customer_deleted: 'حُذف الحساب', manager_deleted: 'حُذف حساب المدير',
-    left: 'غادر', removed: 'أُزيل', transferred: 'نُقل', company_closed: 'أُغلقت الشركة'
+    left: 'غادر', removed: 'أُزيل', transferred: 'نُقل', company_closed: 'أُغلقت الشركة', suspended: 'أوقفته الشركة مؤقتًا'
 });
 
 // شروط الطلب كما يعيدها الخادم (_account_request_checks) بأسماء مفهومة

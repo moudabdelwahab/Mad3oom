@@ -230,6 +230,17 @@ export function exceptionalTransferError({ customer, company, reason }) {
 }
 
 /**
+ * قرار طلب نقل عضو (113): الموافقة تنفّذ النقل (owner_transfer_exceptional يشترط 20 حرفًا)، والرفض 10.
+ * القاعدة تتحقق مرة أخرى. خالصة.
+ */
+export function memberTransferDecisionError({ approve, reason }) {
+    const n = String(reason || '').trim().length;
+    if (approve && n < 20) return 'الموافقة تنفّذ النقل فورًا: اكتب في خانة السبب 20 حرفًا على الأقل';
+    if (!approve && n < 10) return 'اكتب سبب الرفض (10 أحرف على الأقل) في خانة السبب — تراه الشركة';
+    return null;
+}
+
+/**
  * حالة مراجعة إداري للعرض: العمل المفتوح، جاهزية التحقق بخطوتين، وهل يُطبَّق القرار. خالصة.
  * 103: open_assigned_tickets = تذاكر مدعوم وحدها (ما يمنع التحويل وتنقله دالة التسليم)؛ تذاكر الشركات للعلم.
  * القرار المطبَّق نهائي: لا تغيير له من هنا.
@@ -606,11 +617,28 @@ export function initTenancyGovernance(ctx) {
     async function renderMoves() {
         const box = $('govMoves');
         if (!box) return;
-        const res = await rpc('owner_historical_requests');
+        const [res, mt] = await Promise.all([rpc('owner_historical_requests'), rpc('owner_member_transfer_requests', { p_status: 'pending' })]);
         if (res.missing) { box.innerHTML = notApplied('النقل والاطلاع التاريخي'); return; }
         if (res.error) { box.innerHTML = failed(res.error); return; }
         const rows = res.data || [];
+        const memberRows = Array.isArray(mt.data) ? mt.data : [];
+        // 113: طلبات الشركات نقل أعضائها. الموافقة = النقل نفسه (101) فهي حرجة وبسبب 20 حرفًا.
+        const memberTransfers = mt.missing ? notApplied('طلبات نقل الأعضاء') : mt.error ? failed(mt.error) : `
+            <p class="panel-subtitle">شركة طلبت نقل أحد أعضائها لشركة أخرى. الموافقة تنفّذ النقل فورًا بمحرك النقل نفسه
+                وتُسجَّل بالسبب المكتوب أعلاه. تنبيه: بعد أول نقل مكتمل يصبح عزل الشركات وصلاحيات الفريق دائمين (لا يُطفآن).</p>
+            ${table(['العضو', 'من', 'إلى', 'سبب الشركة', ''], memberRows, r => `<tr data-member-transfer="${esc(r.id)}">
+                ${td(`${esc(r.member_name)}<br><small dir="ltr">${esc(r.member_email || '')}</small>`)}
+                ${td(esc(r.from_company))}
+                ${td(`${r.to_company ? esc(r.to_company) : '<span class="pill status-neutral">غير محددة</span>'}
+                    <input class="form-control" dir="ltr" maxlength="320" value="${esc(r.dest_ref || '')}" data-mt-dest="${esc(r.id)}"
+                           aria-label="رقم السجل التجاري أو بريد الشركة الوجهة">`)}
+                ${td(`${esc(r.reason)}<br><small>حتى ${esc(when(r.expires_at))}</small>`)}
+                ${td(`<button type="button" class="btn btn-sm btn-primary" data-critical data-mt="${esc(r.id)}" data-approve="true">موافقة ونقل</button>
+                      <button type="button" class="btn btn-sm btn-secondary" data-critical data-mt="${esc(r.id)}" data-approve="false">رفض</button>`)}
+            </tr>`)}`;
         box.innerHTML = `
+            <h4 class="owner-subsection-title">طلبات نقل الأعضاء</h4>
+            ${memberTransfers}
             <h4 class="owner-subsection-title">طلبات الاطلاع التاريخي</h4>
             <p class="panel-subtitle">لا قرار قبل موافقة العميل واختياره التذاكر. القراءة لرسائل العميل وحدها ومسجَّلة.</p>
             ${table(['الشركة الطالبة', 'الغرض', 'التذاكر', 'الحالة', ''], rows, r => `<tr>
@@ -634,6 +662,16 @@ export function initTenancyGovernance(ctx) {
             const hours = historicalHours(box.querySelector(`[data-hist-hours="${CSS.escape(btn.dataset.hist)}"]`)?.value);
             await act('owner_decide_historical_access', { p_request: btn.dataset.hist, p_approve: approve, p_hours: hours },
                       approve ? `تمت الموافقة لمدة ${hours} ساعة` : 'تم الرفض');
+        }));
+        box.querySelectorAll('[data-mt]').forEach(btn => btn.addEventListener('click', async () => {
+            const approve = btn.dataset.approve === 'true';
+            const err = memberTransferDecisionError({ approve, reason: reason() });
+            if (err) { status(err, 'error'); $('govReason').focus(); return; }
+            const destInput = box.querySelector(`[data-mt-dest="${CSS.escape(btn.dataset.mt)}"]`);
+            if (approve && !window.confirm('الموافقة تنقل العضو الآن وتجعل الشركة الوجهة شركته الأساسية. متابعة؟')) return;
+            await act('owner_decide_member_transfer', { p_request: btn.dataset.mt, p_approve: approve, p_reason: reason(),
+                      p_dest_ref: approve ? (destInput?.value.trim() || null) : null },
+                      approve ? 'تم نقل العضو وسُجّل القرار' : 'رُفض طلب النقل');
         }));
         $('govXferSubmit').addEventListener('click', async () => {
             const form = { customer: $('govXferCustomer').value.trim(), company: $('govXferCompany').value.trim(), reason: reason() };

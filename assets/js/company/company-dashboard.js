@@ -42,6 +42,7 @@ import {
     renderRecentNotifications, renderRecentActivity
 } from '/assets/js/company/company-overview.js';
 import { loadCompanyPermissions, loadCompanyAccessLog } from '/assets/js/company/company-access.js';
+import { initMemberAdmin, openMemberDetails, renderMemberAdminLists } from '/assets/js/company/company-member-admin.js';
 import { loadCompanyUsage } from '/assets/js/company/company-billing.js';
 import {
     fetchCompanyDashboard,
@@ -170,6 +171,8 @@ async function init() {
     wireForm();
     wireAddMember();
     wireInviteCustomer();
+    // 113: نافذة تفاصيل العضو؛ أي تغيير فيها يعيد رسم القائمتين من القاعدة
+    initMemberAdmin({ onChanged: async () => { await renderMembers(); await renderCustomers(); } });
     wireSectionRouting();
 
     await boot();
@@ -632,6 +635,16 @@ async function renderMembers() {
     const scopeNote = document.getElementById('companyMembersScopeNote');
     if (scopeNote) scopeNote.hidden = !membersScopeIsSelf(result.data);
 
+    // 113: الموقوفون وطلبات النقل للمدير وحده (القاعدة ترفض غيره على أي حال)
+    if (canManageMembersNow) {
+        renderMemberAdminLists().catch(() => {});
+    } else {
+        for (const id of ['companySuspendedMembers', 'companyMemberTransfers']) {
+            const box = document.getElementById(id);
+            if (box) { box.hidden = true; box.innerHTML = ''; }
+        }
+    }
+
     if (!members.length) {
         renderState(container, {
             variant: 'empty',
@@ -677,6 +690,10 @@ async function renderMembers() {
                             </select>
                         </label>` : ''}
                         ${m.is_me ? '<span class="company-sub-days">أنت</span>' : ''}
+                        ${canManageMembersNow && !m.is_owner && !m.is_me ? `
+                        <button type="button" class="panel-link" data-member-details="${escapeHtml(m.id)}">
+                            التفاصيل والإدارة
+                        </button>` : ''}
                         ${actions.canRemove ? `
                         <button type="button" class="panel-link is-danger"
                                 data-remove-member="${escapeHtml(m.id)}"
@@ -695,6 +712,9 @@ async function renderMembers() {
     });
     container.querySelectorAll('[data-staff-role]').forEach(select => {
         select.addEventListener('change', () => onStaffRoleChange(select));
+    });
+    container.querySelectorAll('[data-member-details]').forEach(btn => {
+        btn.addEventListener('click', () => openMemberDetails(btn.getAttribute('data-member-details')));
     });
 }
 
