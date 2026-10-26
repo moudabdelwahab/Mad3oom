@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
     <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
     <link rel="stylesheet" href="/assets/css/company-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/company-member-admin.css">
     <link rel="stylesheet" href="/assets/css/account-settings.css">
     <script>
         /* نفس السكربت في كل صفحات البوابة: يضبط الثيم وحالة طي القائمة قبل
@@ -243,6 +244,9 @@
                         تظهر هنا بياناتك ومدير شركتك فقط. قائمة مستخدمي الشركة الكاملة متاحة لمدير الشركة.
                     </p>
                     <div id="companyMembers"></div>
+                    <!-- 113: للمدير وحده — الموقوفون مؤقتًا وطلبات نقل الأعضاء لشركات أخرى -->
+                    <div id="companySuspendedMembers" class="md-list" hidden></div>
+                    <div id="companyMemberTransfers" class="md-list" hidden></div>
                 </section>
             </section>
 
@@ -520,6 +524,20 @@
                     <button type="button" class="btn btn-secondary" id="cancelMemberBtn">إلغاء</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- 113: تفاصيل عضو الشركة وإدارته. المحتوى يُرسم من company_member_details؛ كل فعل يُفحص في القاعدة. -->
+    <div id="memberDetailsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="memberDetailsTitle">
+        <div class="modal-content modal-lg">
+            <div class="modal-head">
+                <div>
+                    <h2 id="memberDetailsTitle">تفاصيل العضو</h2>
+                    <p class="panel-subtitle">بياناته وتذاكره وسجله في شركتك</p>
+                </div>
+                <button type="button" class="modal-close" id="memberDetailsClose" aria-label="إغلاق">&times;</button>
+            </div>
+            <div id="memberDetailsBody" class="md-body" aria-live="polite"></div>
         </div>
     </div>
 

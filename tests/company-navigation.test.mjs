@@ -632,7 +632,11 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         تُخزَّن تجزئته وحدها، ودوال تحضير البريد ونتيجته لمفتاح الخدمة وحده (منع التكرار والحدود)، وربط
     //         الدعوة بصاحب البريد المؤكَّد عبر الرابط. مقيسٌ في tests/sql/company-invitation-email.test.sql
     //         و tests/http/company-invite-http.test.mjs.
-    assert.equal(migrations[migrations.length - 1], '112_company_invitation_email.sql',
+    //   113 — إدارة أعضاء الشركة بطلب صاحب المنتج (2026-10-26): ملف العضو لدى الشركة، تفاصيله، تعديل حساب أنشأته
+    //         الشركة (الاسم والجوال والبريد عبر مفتاح الخدمة في دالة Edge)، رابط إعادة كلمة المرور، الإيقاف المؤقت
+    //         وإعادة التفعيل، وطلب نقل العضو بقرار مالك المنصة. مقيسٌ في tests/sql/company-member-management.test.sql
+    //         و tests/http/company-member-admin-http.test.mjs.
+    assert.equal(migrations[migrations.length - 1], '113_company_member_management.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

@@ -15,7 +15,8 @@ import { chromium } from 'playwright';
 const govSrc = fs.readFileSync(new URL('../assets/js/owner/tenancy-governance.js', import.meta.url), 'utf8')
     .replace("import { applyCriticalState } from '/assets/js/owner/authority-center.js';", 'const applyCriticalState = () => {};');
 const { reasonError, flattenUnits, reviewRow, GUARDED_SWITCHES, historicalHours, exceptionalTransferError,
-        delegationExpiry, defaultDelegationExpiry, SWITCH_REGISTRY, SWITCH_GROUPS, switchView, switchConfirmText, switchNotice, groupSwitchViews } = await import('data:text/javascript,' + encodeURIComponent(govSrc));
+        delegationExpiry, defaultDelegationExpiry, SWITCH_REGISTRY, SWITCH_GROUPS, switchView, switchConfirmText, switchNotice, groupSwitchViews,
+        memberTransferDecisionError } = await import('data:text/javascript,' + encodeURIComponent(govSrc));
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
@@ -85,7 +86,15 @@ function fixtures({ fresh = false, missing = false } = {}) {
             { id: 'h1', company_name: 'شركة ب', purpose: 'متابعة شكوى سابقة للعميل', status: 'awaiting_owner', tickets: 2, expires_at: null },
             { id: 'h2', company_name: 'شركة ب', purpose: 'طلب ينتظر العميل', status: 'awaiting_customer', tickets: 0, expires_at: null }],
         owner_decide_historical_access: { status: 'approved' },
-        owner_transfer_exceptional: { status: 'completed', exceptional: true }
+        owner_transfer_exceptional: { status: 'completed', exceptional: true },
+        owner_member_transfer_requests: [
+            { id: 'mt1', status: 'pending', reason: 'العميل انتقل لفرع الشركة ب', created_at: '2026-10-25T10:00:00Z',
+              expires_at: '2026-11-08T10:00:00Z', member_id: ADMIN, member_name: 'عميل أ1', member_email: 'a1@x.test',
+              from_company_id: 'c1', from_company: 'شركة أ', dest_ref: 'CR-B', to_company_id: 'c2', to_company: 'شركة ب' },
+            { id: 'mt2', status: 'pending', reason: 'وجهة مكتوبة خطأ', created_at: '2026-10-25T11:00:00Z',
+              expires_at: '2026-11-08T11:00:00Z', member_id: SUPPORT, member_name: 'عميل أ2', member_email: 'a2@x.test',
+              from_company_id: 'c1', from_company: 'شركة أ', dest_ref: 'no-such', to_company_id: null, to_company: null }],
+        owner_decide_member_transfer: { status: 'approved', transfer_id: 't1' }
     };
     return {
         user: { id: OWNER, email: 'owner@example.com' },
@@ -315,6 +324,41 @@ test('101: الاطلاع التاريخي بعد موافقة العميل وح
     assert.match(args.p_idempotency_key, /^[0-9a-f-]{36}$/);
     assert.deepEqual(errors, []);
     await context.close();
+});
+
+test('113: طلبات نقل الأعضاء — الموافقة حرجة بسبب 20 حرفًا وتأكيد وتصحيح الوجهة، والرفض بسبب، والتحذير من الدوام', { skip: !chromiumPath }, async () => {
+    const { page, context, dialogs, errors } = await openOwner(browser, baseUrl, fixtures({ fresh: true }));
+    await page.waitForSelector('[data-mt="mt1"][data-approve="true"]:not([disabled])');
+    const text = await page.textContent('#govMoves');
+    assert.match(text, /طلبات نقل الأعضاء/);
+    assert.match(text, /يصبح عزل الشركات وصلاحيات الفريق دائمين/);
+    assert.match(text, /غير محددة/);
+    await page.fill('#govReason', 'موافقة قصيرة');
+    await page.click('[data-mt="mt1"][data-approve="true"]');
+    assert.match(await page.textContent('#govStatus'), /20 حرفًا/);
+    assert.deepEqual(await calls(page, 'owner_decide_member_transfer'), []);
+    await page.fill('#govReason', 'موافقة على نقل العميل بعد التحقق من الطلب');
+    await page.fill('[data-mt-dest="mt2"]', 'b@company.test');
+    await page.click('[data-mt="mt2"][data-approve="true"]');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_decide_member_transfer'));
+    assert.ok(dialogs.some(m => /تنقل العضو الآن/.test(m)));
+    assert.deepEqual((await calls(page, 'owner_decide_member_transfer'))[0],
+        { p_request: 'mt2', p_approve: true, p_reason: 'موافقة على نقل العميل بعد التحقق من الطلب', p_dest_ref: 'b@company.test' });
+    await page.waitForSelector('[data-mt="mt1"][data-approve="false"]:not([disabled])');
+    await page.fill('#govReason', 'الوجهة غير معروفة');
+    await page.click('[data-mt="mt1"][data-approve="false"]');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).filter(([n]) => n === 'owner_decide_member_transfer').length === 2);
+    assert.deepEqual((await calls(page, 'owner_decide_member_transfer'))[1],
+        { p_request: 'mt1', p_approve: false, p_reason: 'الوجهة غير معروفة', p_dest_ref: null });
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('113: قرار طلب نقل العضو — السبب حسب نوع القرار (خالصة)', () => {
+    assert.match(memberTransferDecisionError({ approve: true, reason: 'قصير جدًا لكنه أطول' }), /20/);
+    assert.equal(memberTransferDecisionError({ approve: true, reason: 'x'.repeat(20) }), null);
+    assert.match(memberTransferDecisionError({ approve: false, reason: 'لا' }), /10/);
+    assert.equal(memberTransferDecisionError({ approve: false, reason: 'سبب رفض واضح' }), null);
 });
 
 /* ── مفاتيح التفعيل: الأسماء العربية والزر الظاهر ─────────────────────────────── */
