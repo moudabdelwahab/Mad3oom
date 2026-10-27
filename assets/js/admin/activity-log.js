@@ -47,7 +47,7 @@ async function renderActivityLog() {
                     <td>
                         <div style="font-size: 0.9rem; margin-bottom: 0.5rem;">${activityMsg}</div>
                         <details style="font-size: 0.75rem; color: var(--color-text-secondary);">
-                            <summary style="cursor: pointer; color: var(--color-primary);">التفاصيل التقنية</summary>
+                            <summary style="cursor: pointer; color: var(--color-heading);">التفاصيل التقنية</summary>
                             <pre style="margin-top: 0.5rem; white-space: pre-wrap; word-break: break-all; background: #f8f9fa; padding: 0.5rem; border-radius: 4px;">${JSON.stringify(a.details, null, 2)}</pre>
                             <div style="margin-top: 0.5rem;">
                                 <strong>الجهاز:</strong> ${a.device_info || 'غير معروف'}<br>

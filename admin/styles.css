@@ -11,6 +11,8 @@
 :root[data-theme='light'] {
     /* Base Color Palette - Professional Blue */
     --color-primary: #003366;
+    /* لون العناوين: الكحلي على الفاتح. ‎--color-primary‎ يبقى للخلفيات (الشريط، القائمة). */
+    --color-heading: var(--color-primary);
     --color-primary-variant: #0055AA;
     --color-accent: #0077CC;
     --color-background: #F5F5F5;
@@ -52,6 +54,9 @@
 :root[data-theme='dark'] {
     /* Base Color Palette - Dark Mode */
     --color-primary: #1a1a2e;
+    /* ‎--color-primary‎ الداكن (#1a1a2e) لون خلفية، لا يُقرأ نصًا فوق خلفية داكنة:
+       العناوين تأخذ لون النص بدلًا منه. */
+    --color-heading: var(--color-text);
     --color-primary-variant: #16213e;
     --color-accent: #0088DD;
     --color-background: #0E0E10;
@@ -339,7 +344,7 @@ body {
     font-weight: 700;
     text-align: center;
     margin-bottom: 1rem;
-    color: var(--color-primary);
+    color: var(--color-heading);
 }
 
 .saas-section > p {

@@ -179,7 +179,7 @@ test('كل قسم معلَن له حاوية في الصفحة ومُحمِّل 
 
     // الأقسام التي تُحمَّل عند الفتح لازم تكون مسجّلة في LOADERS
     for (const section of ['overview', 'tickets', 'customerTickets', 'inbox', 'support', 'notifications',
-                           'members', 'customers', 'permissions', 'accessLog', 'usage', 'company',
+                           'users', 'members', 'customers', 'permissions', 'accessLog', 'usage', 'company',
                            'api', 'integrations', 'reports', 'activity', 'profile', 'security']) {
         assert.match(js, new RegExp(`${section}:\\s*\\(\\)\\s*=>`),
             `القسم ${section} بلا مُحمِّل — سيفتح فارغًا`);

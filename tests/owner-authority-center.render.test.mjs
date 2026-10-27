@@ -285,7 +285,7 @@ test('hash غير معروف يعود إلى النظرة العامة، وبط�
     assert.equal(new URL(page.url()).hash, '#overview');
 
     const cards = await page.$$eval('.owner-sections a.context-card', els => els.map(a => a.getAttribute('href')));
-    assert.deepEqual(cards, ['#authority', '#governance', '#audit', '/admin/stats.html']);
+    assert.deepEqual(cards, ['#authority', '#governance', '#audit', '#users', '/admin/stats.html']);
     await page.click('.owner-sections a[href="#audit"]');
     await page.waitForSelector('#auditTabContent.active');
     assert.deepEqual(await visibleSections(page), ['audit']);

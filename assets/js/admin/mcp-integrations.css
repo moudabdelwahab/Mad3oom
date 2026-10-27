@@ -451,7 +451,7 @@
 .ca-group { margin-bottom: .9rem; }
 .ca-group-t {
     font-size: .82rem; font-weight: 700; margin-bottom: .35rem;
-    color: var(--color-primary, #003366);
+    color: var(--color-heading, #003366);
 }
 .ca-list-scopes { list-style: none; margin: 0; padding: 0; }
 .ca-item {

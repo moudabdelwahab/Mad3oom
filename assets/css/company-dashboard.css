@@ -1430,3 +1430,79 @@ body.company-app .company-notice:not(.company-notice--warning):not(.company-noti
     color: var(--color-text);
     border: 1px solid var(--tint-accent-border);
 }
+
+/* ── المستخدمون: الأعضاء والعملاء والدعوات في مكان واحد ───────────────────── */
+body.company-app .cu-toolbar {
+    display: grid;
+    grid-template-columns: minmax(14rem, 2fr) repeat(2, minmax(9rem, 1fr)) auto;
+    gap: var(--sp-3);
+    align-items: end;
+    margin-top: var(--sp-2);
+}
+
+body.company-app .cu-search,
+body.company-app .cu-field {
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+    min-width: 0;
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    color: var(--color-text-secondary);
+}
+
+body.company-app .cu-search {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--sp-2);
+    height: 2.6rem;
+    padding: 0 var(--sp-3);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--r-sm);
+    background: var(--input-bg);
+}
+
+body.company-app .cu-search:focus-within { border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--focus-ring); }
+
+body.company-app .cu-search input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    outline: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--fs-sm);
+    font-weight: 500;
+}
+
+body.company-app .cu-field select { height: 2.6rem; }
+
+body.company-app .cu-toolbar .btn { height: 2.6rem; white-space: nowrap; }
+
+body.company-app .cu-count {
+    margin: var(--sp-4) 0 var(--sp-2);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    color: var(--color-text-secondary);
+}
+
+/* الحاوية المرِّرة أصلٌ للعناصر المطلقة داخل الجدول (تسمية عمود «خيارات» المخفية) */
+body.company-app .cu-table-wrap { position: relative; margin-top: 0; }
+body.company-app .cu-table-wrap .table-responsive { position: relative; }
+body.company-app .cu-table { min-width: 820px; }
+body.company-app .cu-table td { vertical-align: middle; }
+body.company-app .cu-name { font-weight: 700; color: var(--color-text); }
+body.company-app .cu-ltr { direction: ltr; text-align: right; unicode-bidi: plaintext; }
+body.company-app .cu-actions-cell { white-space: nowrap; text-align: left; }
+
+@media (max-width: 900px) {
+    body.company-app .cu-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    body.company-app .cu-search { grid-column: 1 / -1; }
+}
+
+@media (max-width: 480px) {
+    body.company-app .cu-toolbar { grid-template-columns: 1fr; }
+}
