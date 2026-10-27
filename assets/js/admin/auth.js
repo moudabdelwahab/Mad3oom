@@ -18,8 +18,33 @@ export async function handleLogout() {
     window.location.replace('/login.html');
 }
 
+// آخر مستخدم عُرض في الشريط: القائمة تُجلب بعد التحقق أحيانًا، فتعيد sidebar.js
+// تطبيق الهوية بعد تركيبها بدل أن يبقى الحرف الافتراضي «A».
+let lastAdminUser = null;
+
+export function refreshAdminIdentity() {
+    if (lastAdminUser) updateAdminUI(lastAdminUser);
+}
+
+/** الاسم بجوار الصورة الرمزية في الشريط العلوي — نص فقط، لا HTML. */
+function renderAdminUserName(adminAvatarBtn, displayName) {
+    const meta = document.createElement('span');
+    meta.className = 'nav-user-meta';
+    const name = document.createElement('span');
+    name.className = 'nav-user-name';
+    name.id = 'adminUserName';
+    name.textContent = displayName;
+    const greeting = document.createElement('span');
+    greeting.className = 'nav-user-greeting';
+    greeting.setAttribute('data-i18n', 'nav_greeting');
+    greeting.textContent = window.languageManager?.translate?.('nav_greeting') || 'مرحبًا';
+    meta.append(name, greeting);
+    adminAvatarBtn.prepend(meta);
+}
+
 export function updateAdminUI(user) {
     if (user) {
+        lastAdminUser = user;
         const profile = user.profile || {};
         const adminInitial = document.getElementById('adminInitial');
         const adminBadgeContainer = document.getElementById('adminBadgeContainer');
@@ -45,6 +70,7 @@ export function updateAdminUI(user) {
                 const initial = nameForInitial.charAt(0).toUpperCase();
                 adminAvatarBtn.innerHTML = `<div class="avatar-circle">${initial}</div>`;
             }
+            renderAdminUserName(adminAvatarBtn, profile.full_name || user.email || '');
         }
     }
 }

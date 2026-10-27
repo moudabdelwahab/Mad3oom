@@ -1,9 +1,14 @@
 import { supabase } from '/api-config.js';
 import { safeNotificationHref } from '/assets/js/admin/notification-safety.js';
+import { initNavGroups, initCollapseToggle, isSidebarCollapsed, setSidebarCollapsed } from '/assets/js/dashboard-nav.js';
 
 export function initSidebar() {
     const sidebarContainer = document.getElementById('sidebar-container');
     if (!sidebarContainer) return;
+
+    // حالة الطي تُطبَّق قبل جلب القائمة، فيُرسم المحتوى بعرضه الصحيح من البداية
+    // (لوحات القائمة الثابتة فقط — dashboard-layout.css).
+    setSidebarCollapsed(isSidebarCollapsed(), { persist: false });
 
     // Load sidebar HTML - Use absolute path to ensure it works from any directory
     fetch('/assets/components/sidebar.html')
@@ -12,6 +17,11 @@ export function initSidebar() {
             sidebarContainer.innerHTML = html;
             setupSidebarLogic();
             highlightActiveLink();
+            labelSidebarItems();
+            initCollapseToggle();
+            initNavGroups(document.getElementById('sidebar'), 'admin');
+            // التحقق قد ينتهي قبل وصول القائمة: نعيد تطبيق الاسم والحرف الأول
+            import('./auth.js').then(m => m.refreshAdminIdentity()).catch(() => {});
         })
         .catch(err => console.error('Error loading sidebar:', err));
 }
@@ -422,7 +432,18 @@ async function applySidebarPermissions() {
         // --- عنوان لوحة مختلف لـ Super User فقط (تغيير نصي بحت، بدون مسارات/صفحات جديدة) ---
         const panelTitle = document.getElementById('adminPanelTitle');
         if (panelTitle) panelTitle.textContent = 'لوحة المسؤول';
+        const sidebarContext = document.getElementById('adminSidebarContext');
+        if (sidebarContext) sidebarContext.textContent = 'لوحة المسؤول';
     }
+}
+
+/** اسم كل عنصر في data-label: تلميح الأيقونة حين تكون القائمة مطوية. */
+function labelSidebarItems() {
+    document.querySelectorAll('#sidebar .sidebar-item').forEach(item => {
+        if (item.dataset.label) return;
+        const label = item.querySelector('span')?.textContent.trim();
+        if (label) item.dataset.label = label;
+    });
 }
 
 function highlightActiveLink() {

@@ -173,6 +173,92 @@ body {
 
 .sidebar-item svg { flex-shrink: 0; }
 
+/* ==================== Sidebar Groups ====================
+   مجموعات قابلة للطي (dashboard-nav.js). الألوان موروثة من القائمة نفسها
+   (currentColor)، فتعمل على الكحلي هنا وعلى أي قائمة أخرى تحمل نفس البنية.
+   ألوان اللوحات الثلاث في dashboard-layout.css. */
+.sidebar-group-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    width: 100%;
+    margin: 0;
+    padding: 0.75rem 1.25rem 0.35rem;
+    background: none;
+    border: 0;
+    border-radius: 0.5rem;
+    color: inherit;
+    opacity: 0.65;
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-align: start;
+    cursor: pointer;
+}
+
+.sidebar-group-toggle:hover { opacity: 1; }
+
+.sidebar-group-chevron {
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+}
+
+.sidebar-group.is-closed > .sidebar-group-toggle .sidebar-group-chevron { transform: rotate(90deg); }
+.sidebar-group.is-closed > .sidebar-group-items { display: none; }
+
+/* مجموعة كل عناصرها مخفية (حسب الصلاحيات) لا يبقى عنوانها وحده.
+   الإخفاء يأتي إمّا بالسمة hidden أو بـ display:none مضمّن (sidebar.js). */
+.sidebar-group:not(:has(.sidebar-item:not([hidden]):not([style*="display:none"]):not([style*="display: none"]))) {
+    display: none;
+}
+
+/* زر طي القائمة يخص اللوحات ذات القائمة الثابتة فقط */
+#sidebarCollapseBtn { display: none; }
+
+/* ==================== Sidebar Brand ==================== */
+.dash-brand {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    min-width: 0;
+    flex: 1;
+    color: inherit;
+    text-decoration: none;
+    border-radius: .6rem;
+}
+
+.dash-brand:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+
+.dash-brand-logo {
+    width: 2.5rem;
+    height: 2.5rem;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.dash-brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    min-width: 0;
+}
+
+.dash-brand-name {
+    font-weight: 800;
+    font-size: 1.2rem;
+    white-space: nowrap;
+}
+
+.dash-brand-context {
+    font-size: .74rem;
+    font-weight: 600;
+    opacity: .7;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* ==================== Menu Toggle Button ==================== */
 .menu-toggle {
     background: transparent;
