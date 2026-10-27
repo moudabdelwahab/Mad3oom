@@ -2,49 +2,108 @@
 <html lang="ar" dir="rtl">
 <head>
     <script src="/error-tracker.js"></script>
+    <script src="/assets/js/admin/workspace/embed-early.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>إدارة المستخدمين - لوحة الإدارة</title>
+    <title>المستخدمين - لوحة الإدارة</title>
     <link rel="icon" type="image/png" href="/assets/images/logo.png">
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/robot.css">
     <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
     <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
+    <link rel="stylesheet" href="/assets/css/users-hub.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
   <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
   <link rel="stylesheet" href="/assets/responsive-global.css">
   <script src="/assets/responsive-global.js" defer></script>
+  <link rel="stylesheet" href="/assets/css/workspace-embed.css">
 </head>
 <body class="dash-layout">
     <div id="sidebar-container"></div>
 
-    <main class="admin-main">
+    <!-- المستخدمين في مكان واحد: كل المستخدمين والمحظورون هنا مباشرةً، وباقي القوائم
+         (العملاء، Super Users، مستخدميني، الطلبات، قائمة الانتظار) صفحاتها القائمة
+         نفسها مستضافة في تبويبها — بأدواتها وحراسها كما هي. -->
+    <main class="admin-main uh-main">
         <header class="page-header">
-            <h1>إدارة المستخدمين</h1>
-            <p>إدارة حسابات المستخدمين وصلاحياتهم في النظام</p>
+            <h1>المستخدمين</h1>
+            <p>كل الحسابات والعملاء والطلبات في مكان واحد — ابحث وفلتر، ومن «خيارات» نفّذ الإجراء.</p>
         </header>
 
-        <div class="section-card">
-            <div class="section-header">
-                <h2 class="section-title">قائمة المستخدمين</h2>
-            </div>
-            <div class="table-container">
-                <table class="admin-table">
+        <nav class="uh-tabs" id="uhTabs" role="tablist" aria-label="أقسام المستخدمين"></nav>
+
+        <section class="section-card uh-panel" id="uhListPanel" role="tabpanel" hidden>
+            <form class="uh-toolbar" id="uhFilters" role="search" onsubmit="return false">
+                <label class="uh-search">
+                    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <span class="visually-hidden">بحث</span>
+                    <input type="search" id="uhQuery" placeholder="بحث بالاسم أو البريد الإلكتروني أو رقم الجوال…" autocomplete="off">
+                </label>
+                <label class="uh-field">
+                    <span>الرتبة</span>
+                    <select id="uhRole">
+                        <option value="">الكل</option>
+                        <option value="user">مستخدم</option>
+                        <option value="super_user">مستخدم مميز</option>
+                        <option value="admin">مدير</option>
+                        <option value="support">دعم فني</option>
+                        <option value="platform_owner">مالك المنصة</option>
+                    </select>
+                </label>
+                <label class="uh-field" id="uhStatusField">
+                    <span>الحالة</span>
+                    <select id="uhStatus">
+                        <option value="">الكل</option>
+                        <option value="active">نشط</option>
+                        <option value="banned">محظور</option>
+                        <option value="frozen">رصيد مجمّد</option>
+                    </select>
+                </label>
+                <label class="uh-field">
+                    <span>من تاريخ</span>
+                    <input type="date" id="uhFrom">
+                </label>
+                <label class="uh-field">
+                    <span>إلى تاريخ</span>
+                    <input type="date" id="uhTo">
+                </label>
+                <label class="uh-field">
+                    <span>الترتيب</span>
+                    <select id="uhSort">
+                        <option value="newest">الأحدث أولًا</option>
+                        <option value="oldest">الأقدم أولًا</option>
+                        <option value="name">الاسم</option>
+                        <option value="points">النقاط</option>
+                    </select>
+                </label>
+                <button type="button" class="btn btn-secondary btn-sm uh-reset" id="uhReset">مسح الفلاتر</button>
+            </form>
+
+            <p class="uh-count" id="uhCount" aria-live="polite"></p>
+
+            <div class="table-container uh-table-wrap">
+                <table class="admin-table uh-table">
                     <thead>
                         <tr>
-                            <th>الاسم الكامل</th>
+                            <th>الاسم</th>
                             <th>البريد الإلكتروني</th>
+                            <th>الجوال</th>
                             <th>الرتبة</th>
+                            <th>الحالة</th>
+                            <th>النقاط</th>
                             <th>تاريخ الانضمام</th>
-                            <th>الإجراء</th>
+                            <th><span class="visually-hidden">خيارات</span></th>
                         </tr>
                     </thead>
                     <tbody id="usersBody">
-                        <tr><td colspan="5" style="text-align: center; padding: 3rem;">جاري تحميل البيانات...</td></tr>
+                        <tr><td colspan="8" class="uh-empty">جاري تحميل البيانات...</td></tr>
                     </tbody>
                 </table>
             </div>
-        </div>
+        </section>
+
+        <!-- إطارات التبويبات المستضافة تُنشأ عند أول فتح لكل تبويب -->
+        <section class="uh-frames" id="uhFrames"></section>
     </main>
 
     <script type="module" src="/assets/js/admin/users.js"></script>

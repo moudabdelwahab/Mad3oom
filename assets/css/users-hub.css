@@ -1,0 +1,246 @@
+/* ============================================================================
+   users-hub.css — صفحة «المستخدمين» الموحّدة (admin/users.html)
+   ----------------------------------------------------------------------------
+   لا لون جديد: كل لون من رموز styles.css (‎--color-*) وظلال admin-style.css،
+   فالسمة الداكنة والفاتحة تعملان وحدهما.
+   ========================================================================== */
+
+/* السمة hidden تغلب أي display تحدده الأنماط هنا (‎.uh-field‎ مرن مثلًا) */
+.uh-main [hidden] { display: none !important; }
+
+.visually-hidden {
+    position: absolute !important;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ── التبويبات ─────────────────────────────────────────────────────────── */
+.uh-tabs {
+    display: flex;
+    gap: .35rem;
+    padding: .35rem;
+    margin-bottom: 1rem;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: .9rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.uh-tab {
+    flex-shrink: 0;
+    padding: .55rem 1rem;
+    border: 0;
+    border-radius: .6rem;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: .88rem;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease;
+}
+
+.uh-tab:hover { background: var(--color-muted); color: var(--color-text); }
+
+.uh-tab.is-active {
+    background: var(--color-accent);
+    color: #fff;
+}
+
+.uh-tab:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* ── شريط البحث والفلاتر ───────────────────────────────────────────────── */
+.uh-toolbar {
+    display: grid;
+    grid-template-columns: minmax(14rem, 2.2fr) repeat(5, minmax(7.5rem, 1fr)) auto;
+    gap: .75rem;
+    align-items: end;
+}
+
+.uh-search,
+.uh-field {
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+    min-width: 0;
+    font-size: .78rem;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+}
+
+.uh-search {
+    flex-direction: row;
+    align-items: center;
+    gap: .5rem;
+    padding: 0 .8rem;
+    height: 2.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: .65rem;
+    background: var(--input-bg, var(--color-surface));
+}
+
+.uh-search:focus-within { border-color: var(--color-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent); }
+
+.uh-search input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--color-text);
+    font: inherit;
+    font-size: .88rem;
+    font-weight: 500;
+}
+
+.uh-field select,
+.uh-field input {
+    height: 2.6rem;
+    padding: 0 .65rem;
+    border: 1px solid var(--color-border);
+    border-radius: .65rem;
+    background: var(--input-bg, var(--color-surface));
+    color: var(--color-text);
+    font: inherit;
+    font-size: .85rem;
+    font-weight: 500;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.uh-field select:focus-visible,
+.uh-field input:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+
+.uh-reset { height: 2.6rem; white-space: nowrap; }
+
+.uh-count {
+    margin: 1rem 0 0;
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+}
+
+/* ── الجدول ────────────────────────────────────────────────────────────── */
+.uh-table-wrap { margin-top: .6rem; }
+/* الحاوية المرِّرة أصلٌ للعناصر المطلقة داخل الجدول (التسمية المخفية لعمود
+   «خيارات»)، وإلا أفلتت من القصّ وأحدثت تمريرًا أفقيًا للصفحة كلها */
+.uh-table-wrap,
+.uh-table-wrap .table-responsive { position: relative; }
+.uh-table { min-width: 860px; }
+.uh-table td { vertical-align: middle; }
+.uh-name { font-weight: 700; color: var(--color-text); }
+.uh-ltr { direction: ltr; text-align: right; unicode-bidi: plaintext; }
+.uh-status { display: flex; flex-wrap: wrap; gap: .3rem; }
+.uh-empty { text-align: center; padding: 2.5rem 1rem !important; color: var(--color-text-secondary); }
+.uh-actions-cell { white-space: nowrap; text-align: left; }
+
+.uh-options-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .4rem .7rem;
+    border: 1px solid var(--color-border);
+    border-radius: .55rem;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-size: .8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
+}
+
+.uh-options-btn:hover,
+.uh-options-btn[aria-expanded="true"] { background: var(--color-muted); border-color: var(--color-accent); }
+.uh-options-btn:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* ── قائمة «خيارات» ────────────────────────────────────────────────────── */
+.uh-menu {
+    position: fixed;
+    z-index: 2500;
+    width: 16rem;
+    max-height: min(26rem, calc(100vh - 16px));
+    overflow-y: auto;
+    padding: .35rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: .8rem;
+    box-shadow: var(--shadow);
+    font-family: inherit;
+}
+
+.uh-menu[hidden] { display: none; }
+
+.uh-menu-head {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    padding: .5rem .65rem .6rem;
+    margin-bottom: .25rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.uh-menu-head strong { font-size: .88rem; color: var(--color-text); }
+.uh-menu-head span { font-size: .75rem; color: var(--color-text-secondary); text-align: right; unicode-bidi: plaintext; overflow-wrap: anywhere; }
+
+.uh-menu-group {
+    padding: .55rem .65rem .2rem;
+    font-size: .7rem;
+    font-weight: 800;
+    color: var(--color-text-secondary);
+}
+
+.uh-menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: .55rem .65rem;
+    border: 0;
+    border-radius: .5rem;
+    background: transparent;
+    color: var(--color-text);
+    font: inherit;
+    font-size: .85rem;
+    font-weight: 600;
+    text-align: start;
+    cursor: pointer;
+}
+
+.uh-menu-item:hover,
+.uh-menu-item:focus-visible { background: var(--color-muted); outline: none; }
+.uh-menu-item.is-current { color: var(--color-accent); }
+.uh-menu-item small { font-size: .7rem; font-weight: 700; opacity: .8; }
+.uh-menu-item.is-danger { color: var(--color-danger); }
+
+/* ── التبويبات المستضافة ──────────────────────────────────────────────── */
+.uh-frame {
+    display: block;
+    width: 100%;
+    height: max(32rem, calc(100vh - 15rem));
+    height: max(32rem, calc(100dvh - 15rem));
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    background: var(--color-background);
+}
+
+.uh-frame[hidden] { display: none; }
+
+/* ── الشاشات الأصغر ────────────────────────────────────────────────────── */
+@media (max-width: 1280px) {
+    .uh-toolbar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .uh-search { grid-column: 1 / -1; }
+}
+
+@media (max-width: 640px) {
+    .uh-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .uh-reset { grid-column: 1 / -1; }
+    .uh-frame { height: calc(100dvh - 13rem); min-height: 28rem; }
+}
