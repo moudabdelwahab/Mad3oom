@@ -23,6 +23,17 @@ import { accessMessageFor } from '/assets/js/access-policy.js';
 import { resolveAccountHome, DESTINATIONS } from '/assets/js/account-destination.js';
 
 const LOGIN_PATH = '/login.html';
+
+/**
+ * «?redirect=<الصفحة الحالية>» ليعود الزائر إليها بعد الدخول (login.html يقرؤه ويقبل الأصل نفسه وحده).
+ * مثال: زر «عرض التذكرة» في البريد يفتح customer-dashboard.html?ticket=<uuid> بلا جلسة ⇒ الدخول ⇒ التذكرة
+ * نفسها، وفتحها بعد ذلك يمر بـ RLS كأي زيارة. مسار نسبي فقط؛ الصفحة الرئيسية بلا معامل.
+ */
+export function returnQuery(loc = window.location) {
+    const path = String(loc?.pathname || '/');
+    if (path === '/' || path.endsWith('/index.html') || path.endsWith(LOGIN_PATH)) return '';
+    return `?redirect=${encodeURIComponent(path + (loc.search || '') + (loc.hash || ''))}`;
+}
 const PANEL_ID = 'accessDeniedPanel';
 
 /**
@@ -70,7 +81,7 @@ export async function guardPage(requiredRole = null, options = {}) {
 
     // الحالة الوحيدة التي يجوز فيها التحويل إلى صفحة الدخول.
     if (access.status === ACCESS.ANONYMOUS) {
-        window.location.replace(LOGIN_PATH);
+        window.location.replace(LOGIN_PATH + returnQuery());
         return null;
     }
 

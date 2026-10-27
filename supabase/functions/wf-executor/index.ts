@@ -2,6 +2,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { assertWorkflowTicketAllowed } from "./ticket-guard.js";
 import { emailConfig, senderFor, sendEmail } from "../_shared/email.js";
+import { esc as escapeHtml, ticketEmail } from "../_shared/ticket-email.js";
+import { ticketEmailData } from "../_shared/ticket-email-data.js";
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -231,7 +233,7 @@ async function h_send_whatsapp(cfg: any, _raw: any, ctx: Ctx) {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-async function sendEmailCustom(db: ReturnType<typeof admin>, opts: { from?: string; to: string; subject: string; body: string }) {
+async function sendEmailCustom(db: ReturnType<typeof admin>, opts: { from?: string; to: string; subject: string; body: string; text?: string }) {
   if (!EMAIL_RE.test(opts.to || "")) {
     throw new Error(`صيغة البريد الإلكتروني للمستلم غير صحيحة: "${opts.to}"`);
   }
@@ -245,7 +247,7 @@ async function sendEmailCustom(db: ReturnType<typeof admin>, opts: { from?: stri
     if (!allowed) throw new Error("عنوان المرسل غير مسموح به");
     from = allowed;
   }
-  const sent = await sendEmail({ from, to: opts.to, subject: opts.subject, html: opts.body }, { config: mail });
+  const sent = await sendEmail({ from, to: opts.to, subject: opts.subject, html: opts.body, text: opts.text }, { config: mail });
   const res = { ok: sent.ok };
   const result = sent.ok ? { id: sent.id } : { code: sent.code, status: sent.status, detail: sent.detail };
   await db.from("mailbox_emails").insert({
@@ -257,6 +259,25 @@ async function sendEmailCustom(db: ReturnType<typeof admin>, opts: { from?: stri
   });
   if (!res.ok) throw new Error(`فشل إرسال البريد: ${JSON.stringify(result)}`);
   return result;
+}
+
+/**
+ * بريد خطوة سير عمل عن تذكرة بقالب مدعوم الموحّد (_shared/ticket-email.js): بطاقة الحالة وتفاصيل التذكرة
+ * الفعلية وزر «عرض التذكرة»، والمحتوى الذي كتبه الأدمن في الخطوة داخله كما هو.
+ */
+async function workflowTicketEmail(db: ReturnType<typeof admin>, ticketId: string, opts: { subject?: string; messageHtml: string }) {
+  const data = ticketEmailData(db);
+  const ticket = await data.getTicket(ticketId);
+  if (!ticket) throw new Error("التذكرة غير موجودة");
+  const profile = await data.getProfile(ticket.user_id);
+  let companyName: string | null = null;
+  try { companyName = await data.getCompanyName(ticket); } catch { companyName = null; }
+  const name = String(profile?.full_name || "").trim() || [profile?.first_name, profile?.last_name].filter(Boolean).join(" ");
+  const content = ticketEmail({
+    event: "workflow", ticket, companyName, recipientName: name, subject: opts.subject, messageHtml: opts.messageHtml,
+    siteOrigin: Deno.env.get("PUBLIC_SITE_ORIGIN") ?? "https://mad3oom.com",
+  });
+  return { to: String(profile?.email || ""), content };
 }
 
 async function h_send_email(cfg: any, _raw: any, ctx: Ctx) {
@@ -271,7 +292,8 @@ async function h_send_email(cfg: any, _raw: any, ctx: Ctx) {
 
   if (ctx.dryRun) return dryRunResult(`[معاينة] كان سيتم إرسال بريد إلى ${profile.email}`, { "email.id": null });
 
-  const result = await sendEmailCustom(ctx.db, { from: cfg.from_email, to: profile.email, subject: cfg.subject || "", body: cfg.body || "" });
+  const { content } = await workflowTicketEmail(ctx.db, cfg.ticket_id, { subject: cfg.subject || "", messageHtml: cfg.body || "" });
+  const result = await sendEmailCustom(ctx.db, { from: cfg.from_email, to: profile.email, subject: content.subject, body: content.html, text: content.text });
   return { output: { "email.id": result?.id || null } };
 }
 
@@ -351,7 +373,8 @@ async function h_send_satisfaction_survey(cfg: any, _raw: any, ctx: Ctx) {
   }
   if (cfg.channel === "email") {
     if (!profile.email) throw new Error("send_satisfaction_survey: لا يوجد بريد إلكتروني لهذا العميل");
-    await sendEmailCustom(ctx.db, { to: profile.email, subject: "قيّم تجربتك معنا", body: surveyText });
+    const { content } = await workflowTicketEmail(ctx.db, cfg.ticket_id, { subject: "قيّم تجربتك معنا", messageHtml: escapeHtml(surveyText) });
+    await sendEmailCustom(ctx.db, { to: profile.email, subject: content.subject, body: content.html, text: content.text });
   } else {
     if (!profile.phone) throw new Error("send_satisfaction_survey: لا يوجد رقم واتساب لهذا العميل");
     await sendWhatsAppText(ctx.db, profile.phone, surveyText);
