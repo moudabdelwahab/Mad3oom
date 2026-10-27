@@ -120,6 +120,15 @@
                         <span class="context-card-foot"><span class="context-card-go">فتح القسم
                             <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span></span>
                     </a>
+                    <a class="context-card" href="#pi">
+                        <span class="context-card-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"></line><path d="M9 7v12"></path><path d="M15 7v9a3 3 0 0 0 3 3"></path></svg>
+                        </span>
+                        <span class="context-card-name">Pi Network</span>
+                        <p class="context-card-desc">الدفع بعملة Pi، أسعار الخطط بالـPi، الشبكة، وسجل المعاملات.</p>
+                        <span class="context-card-foot"><span class="context-card-go">فتح القسم
+                            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span></span>
+                    </a>
                     <a class="context-card" href="/admin/stats.html">
                         <span class="context-card-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
@@ -411,6 +420,88 @@
                 </div>
             </section>
 
+            <!-- ═══ Pi Network ═════════════════════════════════════════════
+                 الإعدادات والأسعار وسجل المدفوعات (migrations/115). مفتاح Pi API
+                 سرّ Edge Function (PI_API_KEY) ولا يظهر هنا. -->
+            <section class="panel tab-content" id="piTabContent" aria-labelledby="piHeading">
+                <div class="panel-header">
+                    <div>
+                        <h2 class="panel-title" id="piHeading">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"></line><path d="M9 7v12"></path><path d="M15 7v9a3 3 0 0 0 3 3"></path></svg>
+                            Pi Network
+                        </h2>
+                        <p class="panel-subtitle">تسجيل الدخول بحساب Pi، والدفع بعملة Pi لاشتراكات المنصة. الدفع يعمل داخل Pi Browser وحده، وكل دفعة يوافق عليها الخادم بعد مطابقة المبلغ والشبكة وصاحب الحساب.</p>
+                    </div>
+                    <div class="panel-head-actions">
+                        <button type="button" class="panel-link" id="piRefresh">تحديث</button>
+                    </div>
+                </div>
+
+                <div class="state-block state-block--compact" id="piSetupNotice" hidden>
+                    <p class="state-title">جداول Pi غير موجودة بعد</p>
+                    <p class="state-text">طبّق migrations/115_pi_network_integration.sql على القاعدة، ثم انشر دالة pi-payments واضبط السرّ PI_API_KEY.</p>
+                </div>
+
+                <div class="kpi-grid" id="piKpis" aria-live="polite">
+                    <div class="skeleton skeleton-card"></div>
+                </div>
+
+                <div class="owner-subsection">
+                    <div class="owner-subsection-head">
+                        <div>
+                            <h3 class="owner-subsection-title">إعدادات الدفع</h3>
+                            <p class="panel-subtitle" id="piSettingsMeta"></p>
+                        </div>
+                    </div>
+                    <form class="owner-sie-grant" id="piSettingsForm" hidden novalidate>
+                        <div class="form-field">
+                            <label for="piNetwork">الشبكة</label>
+                            <select class="form-control" id="piNetwork">
+                                <option value="testnet">Testnet — للتجربة</option>
+                                <option value="mainnet">Mainnet — عملة حقيقية</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label for="piEnabled">
+                                <input type="checkbox" id="piEnabled">
+                                قبول الدفع بـPi
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="piSettingsSave">حفظ الإعدادات</button>
+                    </form>
+                    <p class="field-hint">مفتاح Pi API من Developer Portal (develop.pi داخل Pi Browser) يُضبط كسرّ Edge Function باسم PI_API_KEY، ولا يُكتب في هذه الصفحة.</p>
+                </div>
+
+                <div class="owner-subsection">
+                    <h3 class="owner-subsection-title">أسعار الخطط بالـPi</h3>
+                    <p class="panel-subtitle">الخطة بلا سعر لا تقبل الدفع بـPi. اترك الخانة فارغة لإيقافها.</p>
+                    <form id="piPricesForm" hidden novalidate>
+                        <div id="piPricesBody"><div class="skeleton skeleton-card"></div></div>
+                        <button type="submit" class="btn btn-primary btn-sm" id="piPricesSave">حفظ الأسعار</button>
+                    </form>
+                </div>
+
+                <div class="owner-subsection">
+                    <div class="owner-subsection-head">
+                        <div>
+                            <h3 class="owner-subsection-title">سجل المعاملات</h3>
+                            <p class="panel-subtitle">آخر 200 دفعة. الدفعة المكتملة لا تفعّل الاشتراك تلقائيًا — التفعيل من صفحة الاشتراكات.</p>
+                        </div>
+                        <label class="visually-hidden" for="piPaymentsFilter">تصفية بالحالة</label>
+                        <select class="form-control" id="piPaymentsFilter">
+                            <option value="all">كل الحالات</option>
+                            <option value="approved">بانتظار الإتمام</option>
+                            <option value="completed">مكتملة</option>
+                            <option value="cancelled">ملغاة</option>
+                            <option value="failed">فشلت</option>
+                        </select>
+                    </div>
+                    <div id="piPaymentsBody"><div class="skeleton skeleton-card"></div></div>
+                </div>
+
+                <p class="owner-sie-status ows-toast" id="piStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
+            </section>
+
             <!-- ═══ الإشعارات ══════════════════════════════════════════════
                  الجرس كان ينادي قسمًا غير موجود فيعود للنظرة العامة. الجرس يفتح الآن آخر الإشعارات
                  في نافذة منبثقة، و«عرض الكل» (أو القائمة) يفتح هذا القسم. -->
@@ -444,6 +535,7 @@ import { initTenancyGovernance } from '/assets/js/owner/tenancy-governance.js';
 import { createWorkspaceTabs, announce } from '/assets/js/owner/owner-workspace.js';
 import { ownerDestinationFor, createOwnerNotifications } from '/assets/js/owner/owner-notifications.js';
 import * as notificationsService from '/notifications-service.js';
+import { initPiIntegration } from '/assets/js/owner/pi-integration.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -482,6 +574,7 @@ const SECTIONS = Object.freeze({
     authority:  'السلطة والمنح',
     governance: 'حوكمة الشركات',
     audit:      'سجل السياق',
+    pi:         'Pi Network',
     notifications: 'الإشعارات'
 });
 const BASE_TITLE = document.title;
@@ -507,10 +600,12 @@ function showSection(name, { history: mode = 'push' } = {}) {
     }
     window.scrollTo({ top: 0, behavior: 'auto' });
     if (section === 'notifications') ownerNotifications().load();
+    if (section === 'pi') piSection?.load();
 }
 
 /* ── الإشعارات ─────────────────────────────────────────────────────────── */
 let notificationsSection = null;
+let piSection = null;
 function ownerNotifications() {
     notificationsSection ??= createOwnerNotifications({
         container: $('ownerNotifications'), markAllButton: $('ownerNotifMarkAll'),
@@ -607,7 +702,7 @@ function gate(title, text) {
         supabase.from('owner_context_audit')
                 .select('event, from_context, to_context, at, detail')
                 .order('at', { ascending: false }).limit(50),
-        supabase.from('profiles').select('id, email, full_name, role'),
+        supabase.from('profiles').select('id, email, full_name, role, pi_uid'),
         supabase.from('companies').select('id', { count: 'exact', head: true }),
         supabase.from('whatsapp_subscriptions').select('id', { count: 'exact', head: true })
                 .eq('status', 'active')
@@ -672,6 +767,9 @@ function gate(title, text) {
     // 096–099: حوكمة الشركات والوصول — المرشحون للتفويض من طاقم المنصة وحده
     initTenancyGovernance({ supabase, $, esc, when, table, td, badge: governanceTabs.setBadge,
                             staff: rows.filter(p => p.role === 'admin' || p.role === 'support') }).render();
+    // Pi Network: يُحمَّل عند فتح قسمه أول مرة، لا مع الدخول
+    piSection = initPiIntegration({ supabase, $, esc, when, table, td, errorBlock, rows });
+    if (sectionFromHash() === 'pi') piSection.load();
 })();
 
 /* ─────────────────────────── سلطة SIE ───────────────────────────
