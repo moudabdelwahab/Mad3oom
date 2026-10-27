@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>تسجيل الدخول - منصة مدعوم</title>
+<script src="/assets/js/pi-mode-flag.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -618,6 +619,21 @@
   .modal-title { font-size: 1.05rem; font-weight: 800; color: var(--text); margin-bottom: 0.5rem; }
   .modal-message { font-size: 0.88rem; color: var(--muted); line-height: 1.7; margin-bottom: 1.3rem; }
   .modal-box .btn-primary { margin-bottom: 0; }
+
+  /* ══ وضع Pi (mainnet.mad3oom.com): شروط إدراج Mainnet — الدخول بحساب Pi وحده.
+     كل وسيلة دخول أخرى مخفية، وحساب Pi يُنشأ تلقائيًا عند أول دخول فلا حاجة
+     لنموذج التسجيل. ══ */
+  html[data-pi-mode] .acct-type-row,
+  html[data-pi-mode] #login-form,
+  html[data-pi-mode] .forgot-link,
+  html[data-pi-mode] .divider,
+  html[data-pi-mode] .btn-google,
+  html[data-pi-mode] .btn-github,
+  html[data-pi-mode] .register-row,
+  html[data-pi-mode] #register-panel { display: none !important; }
+  html[data-pi-mode] .btn-pi { margin-top: 1.25rem; padding-block: 0.95rem; font-size: 1rem; }
+  html[data-pi-mode] .pi-mode-note { display: block; }
+  .pi-mode-note { display: none; text-align: center; font-size: 0.85rem; color: var(--muted); margin-top: 0.9rem; line-height: 1.8; }
 </style>
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
   <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
@@ -748,6 +764,7 @@
           <span id="pi-login-label">المتابعة بـ Pi Network</span>
           <span class="pi-spinner" id="pi-login-spinner" style="display:none;"></span>
         </button>
+        <p class="pi-mode-note">ادخل بحساب Pi بتاعك — لو أول مرة، حسابك على مدعوم بيتعمل تلقائيًا.</p>
 
         <p class="register-row">
           ليس لديك حساب؟ <a href="#" id="go-register">إنشاء حساب جديد</a>
@@ -1168,7 +1185,9 @@
 
   const ROOT_DOMAIN      = 'mad3oom.com';
   const hostname         = window.location.hostname;
-  const isSubdomain      = hostname.endsWith('.' + ROOT_DOMAIN) && hostname !== 'www.' + ROOT_DOMAIN;
+  // نطاقات المنصة نفسها ليست نطاقات عملاء: www، وmainnet (تطبيق Pi Mainnet).
+  const PLATFORM_HOSTS   = ['www.' + ROOT_DOMAIN, 'mainnet.' + ROOT_DOMAIN];
+  const isSubdomain      = hostname.endsWith('.' + ROOT_DOMAIN) && !PLATFORM_HOSTS.includes(hostname);
   const currentSubdomain = isSubdomain ? hostname.replace('.' + ROOT_DOMAIN, '') : null;
 
   if (currentSubdomain) {

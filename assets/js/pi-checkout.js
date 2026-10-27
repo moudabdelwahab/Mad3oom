@@ -3,12 +3,13 @@
 
    الواجهة لا تقرّر شيئًا: المبلغ يُقرأ من pi_plan_prices للعرض فقط، والموافقة
    والإتمام في دالة pi-payments التي تقرأ الدفعة من Pi نفسها وتطابق المبلغ
-   والشبكة وصاحب الحساب. بعد الإتمام يُرسَل طلب الاشتراك المعتاد بمرجع الدفعة،
-   فيبقى التفعيل في يد الإدارة كأي طلب آخر.
+   والشبكة وصاحب الحساب. بعد الإتمام يسوّي الخادم الدفعة وحده: تذكرة + تفعيل
+   + فاتورة (pi_settle_payment).
 
    Pi.createPayment يعمل داخل Pi Browser وحده، فالخيار لا يظهر خارجه.
 ============================================================================ */
 import { supabase } from '/api-config.js';
+import { currentPiNetwork } from '/assets/js/pi-network.js';
 
 const SDK_URL = 'https://sdk.minepi.com/pi-sdk.js';
 
@@ -35,7 +36,10 @@ function loadSdk() {
 }
 
 async function callServer(body) {
-    const { data, error } = await supabase.functions.invoke('pi-payments', { body });
+    // الشبكة من النطاق: mainnet.mad3oom.com ← تطبيق Mainnet، وغيره ← Testnet
+    const { data, error } = await supabase.functions.invoke('pi-payments', {
+        body: { ...body, network: currentPiNetwork() }
+    });
     if (error) {
         let message = error.message;
         try { message = (await error.context?.json())?.error || message; } catch (_) { /* نص الخطأ الأصلي */ }

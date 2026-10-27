@@ -2,8 +2,10 @@
    قسم «Pi Network» في لوحة المالك.
 
    يعرض ويحرّر، ولا يقرّر: كل كتابة محكومة بـRLS على is_platform_owner()
-   (migrations/115). ومفتاح Pi API سرّ Edge Function (PI_API_KEY) لا يمرّ
-   بهذه الصفحة أبدًا — القسم يسأل pi-payments هل هو مضبوط فقط.
+   (migrations/115). ومفتاحا Pi API سرّان في Edge Functions لا يمرّان بهذه
+   الصفحة أبدًا — القسم يسأل pi-payments هل هما مضبوطان فقط:
+     PI_API_KEY          تطبيق Testnet (mad3oom.com)
+     PI_API_KEY_MAINNET  تطبيق Mainnet (mainnet.mad3oom.com)
 ============================================================================ */
 import { announce } from '/assets/js/owner/owner-workspace.js';
 
@@ -22,6 +24,7 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
     const say = (text, tone = 'info') => announce($('piStatus'), text, tone);
     let loaded = false;
     let filter = 'all';
+    let lastSettings = null;
 
     const friendly = (error) => error?.code === '42501'
         ? 'القاعدة رفضت الطلب: هذا القسم لمالك المنصة وحده.'
@@ -42,19 +45,26 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
             fn = error ? { error } : data;
         } catch (e) { fn = { error: e }; }
 
-        const keyState = fn?.error
-            ? ['دالة pi-payments غير منشورة', 'kpi--warning']
-            : !fn.key_configured
-                ? ['غير مضبوط', 'kpi--warning']
-                : fn.key_valid === false ? ['مرفوض من Pi', 'kpi--danger'] : ['مضبوط', 'kpi--success'];
+        // حالة كل شبكة: التفعيل من القاعدة، والمفتاح من الدالة
+        const netState = (n) => {
+            const enabled = settings[`${n}_enabled`] === true;
+            const k = fn?.[n];
+            if (fn?.error) return ['الدالة غير منشورة', 'kpi--warning'];
+            if (!k?.key_configured) return [enabled ? 'مفعّل بلا مفتاح' : 'لا مفتاح', 'kpi--warning'];
+            if (k.key_valid === false) return ['المفتاح مرفوض', 'kpi--danger'];
+            return enabled ? ['يعمل', 'kpi--success'] : ['جاهز — متوقف', ''];
+        };
+        const sum = (n) => done.filter(p => p.network === n).reduce((a, p) => a + Number(p.amount || 0), 0);
+        const [tLabel, tTone] = netState('testnet');
+        const [mLabel, mTone] = netState('mainnet');
 
         $('piKpis').innerHTML = [
             ['حسابات مربوطة بـPi', linked, ''],
-            ['الدفع بـPi', settings.payments_enabled ? 'مفعّل' : 'متوقف', settings.payments_enabled ? 'kpi--success' : ''],
-            ['الشبكة', settings.network === 'mainnet' ? 'Mainnet' : 'Testnet', settings.network === 'mainnet' ? 'kpi--info' : ''],
-            ['مفتاح Pi API', keyState[0], keyState[1]],
+            ['Testnet · mad3oom.com', tLabel, tTone],
+            ['Mainnet · mainnet.mad3oom.com', mLabel, mTone],
             ['مدفوعات مكتملة', done.length, ''],
-            ['إجمالي المحصَّل', fmtPi(total), done.length ? 'kpi--success' : '']
+            ['المحصَّل — Mainnet', fmtPi(sum('mainnet')), sum('mainnet') ? 'kpi--success' : ''],
+            ['المحصَّل — Testnet (تجريبي)', fmtPi(sum('testnet')), '']
         ].map(([label, value, tone]) => `
             <div class="kpi ${tone}">
                 <p class="kpi-label">${esc(label)}</p>
@@ -64,8 +74,8 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
 
     // ── الإعدادات ─────────────────────────────────────────────────────────────
     function renderSettings(settings) {
-        $('piEnabled').checked = settings.payments_enabled;
-        $('piNetwork').value = settings.network;
+        $('piTestnetEnabled').checked = settings.testnet_enabled === true;
+        $('piMainnetEnabled').checked = settings.mainnet_enabled === true;
         const by = settings.updated_by ? rows.find(p => p.id === settings.updated_by) : null;
         $('piSettingsMeta').textContent = settings.updated_by
             ? `آخر تغيير ${when(settings.updated_at)}${by ? ` — ${by.full_name || by.email}` : ''}`
@@ -75,16 +85,16 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
 
     $('piSettingsForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const enabled = $('piEnabled').checked;
-        const network = $('piNetwork').value;
-        if (enabled && network === 'mainnet' && !window.confirm(
-            'تفعيل الدفع على Mainnet: أي دفعة جديدة ستكون بعملة Pi حقيقية. متابعة؟')) return;
+        const testnet_enabled = $('piTestnetEnabled').checked;
+        const mainnet_enabled = $('piMainnetEnabled').checked;
+        if (mainnet_enabled && !lastSettings?.mainnet_enabled && !window.confirm(
+            'تفعيل الدفع على Mainnet: أي دفعة جديدة على mainnet.mad3oom.com ستكون بعملة Pi حقيقية. متابعة؟')) return;
         const btn = $('piSettingsSave');
         btn.disabled = true;
         say('جارٍ الحفظ…');
         // select() بعد التعديل: RLS لا تُرجع خطأ حين ترفض، بل صفرًا من الصفوف
         const { data, error } = await supabase.from('pi_settings')
-            .update({ payments_enabled: enabled, network }).eq('id', true).select('id');
+            .update({ testnet_enabled, mainnet_enabled }).eq('id', true).select('id');
         btn.disabled = false;
         if (error || !data?.length) { say(error ? friendly(error) : 'لم يُحفظ — القاعدة لم تسمح بالتعديل.', 'error'); return; }
         say('تم حفظ الإعدادات.', 'success');
@@ -201,7 +211,7 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
         loaded = true;
 
         const [settings, plans, prices, payments] = await Promise.all([
-            supabase.from('pi_settings').select('payments_enabled, network, updated_at, updated_by').eq('id', true).maybeSingle(),
+            supabase.from('pi_settings').select('testnet_enabled, mainnet_enabled, updated_at, updated_by').eq('id', true).maybeSingle(),
             supabase.from('subscription_plans').select('id, name, name_ar, price_monthly, currency, sort_order')
                 .eq('is_active', true).order('sort_order'),
             supabase.from('pi_plan_prices').select('plan_id, price_monthly_pi, price_yearly_pi'),
@@ -228,6 +238,7 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
         allPayments = payments.data || [];
         planNames = new Map((plans.data || []).map(p => [p.id, p.name_ar || p.name]));
 
+        lastSettings = settings.data;
         renderSettings(settings.data);
         if (plans.error || prices.error) $('piPricesBody').innerHTML = errorBlock((plans.error || prices.error).message);
         else renderPrices(plans.data || [], prices.data || []);

@@ -18,6 +18,20 @@
   ],
   "rewrites": [
     {
+      "source": "/validation-key.txt",
+      "has": [
+        {
+          "type": "host",
+          "value": "mainnet.mad3oom.com"
+        }
+      ],
+      "destination": "/validation-key-mainnet.txt"
+    },
+    {
+      "source": "/validation-key.txt",
+      "destination": "/validation-key-testnet.txt"
+    },
+    {
       "source": "/.well-known/oauth-authorization-server",
       "destination": "https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/oauth-discovery"
     },

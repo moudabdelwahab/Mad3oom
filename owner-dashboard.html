@@ -485,21 +485,20 @@
                     </div>
                     <form class="owner-sie-grant" id="piSettingsForm" hidden novalidate>
                         <div class="form-field">
-                            <label for="piNetwork">الشبكة</label>
-                            <select class="form-control" id="piNetwork">
-                                <option value="testnet">Testnet — للتجربة</option>
-                                <option value="mainnet">Mainnet — عملة حقيقية</option>
-                            </select>
+                            <label for="piTestnetEnabled">
+                                <input type="checkbox" id="piTestnetEnabled">
+                                Testnet — mad3oom.com (Test-Pi للتجربة)
+                            </label>
                         </div>
                         <div class="form-field">
-                            <label for="piEnabled">
-                                <input type="checkbox" id="piEnabled">
-                                قبول الدفع بـPi
+                            <label for="piMainnetEnabled">
+                                <input type="checkbox" id="piMainnetEnabled">
+                                Mainnet — mainnet.mad3oom.com (Pi حقيقي)
                             </label>
                         </div>
                         <button type="submit" class="btn btn-primary" id="piSettingsSave">حفظ الإعدادات</button>
                     </form>
-                    <p class="field-hint">مفتاح Pi API من Developer Portal (develop.pi داخل Pi Browser) يُضبط كسرّ Edge Function باسم PI_API_KEY، ولا يُكتب في هذه الصفحة.</p>
+                    <p class="field-hint">لكل تطبيق في Developer Portal مفتاحه، ويُضبط كسرّ Edge Function ولا يُكتب في هذه الصفحة: <span dir="ltr">PI_API_KEY</span> لتطبيق Testnet، و<span dir="ltr">PI_API_KEY_MAINNET</span> لتطبيق Mainnet. نطاق Mainnet يعمل في «وضع Pi»: دخول ودفع بحساب Pi وحده.</p>
                 </div>
 
                 <div class="owner-subsection">

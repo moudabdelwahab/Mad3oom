@@ -4,6 +4,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const RESERVED = new Set([
   "www", "api", "mail", "ftp", "admin", "app", "ns1", "ns2",
   "mad3oom", "support", "help", "blog", "status", "cdn", "assets",
+  // تطبيقا Pi للمنصة نفسها (mainnet.mad3oom.com)
+  "mainnet", "testnet",
 ]);
 
 const NAME_REGEX = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;

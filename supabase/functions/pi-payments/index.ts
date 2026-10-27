@@ -8,12 +8,15 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
  *   onReadyForServerApproval(paymentId)   → action: "approve"
  *   onReadyForServerCompletion(paymentId, txid) → action: "complete"
  *   onCancel(paymentId)                   → action: "cancel"
- * ولوحة المالك تنادي action: "status" لتعرف هل المفتاح مضبوط.
+ * وصفحة الاشتراكات تنادي "config"، ولوحة المالك "status" و"settle".
+ *
+ * شبكتان معًا، لكل منهما تطبيق في Developer Portal ومفتاح:
+ *   PI_API_KEY → Testnet (mad3oom.com)، PI_API_KEY_MAINNET → Mainnet (mainnet.mad3oom.com)
  *
  * الحدود:
- *   • مفتاح Pi API سرّ (PI_API_KEY) لا يغادر الدالة ولا يُكتب في سجل.
+ *   • مفتاحا Pi API سرّان لا يغادران الدالة ولا يُكتبان في سجل.
  *   • الموافقة لا تثق بأي رقم من العميل: الدفعة تُقرأ من Pi نفسها، والمبلغ
- *     يُطابَق بسعر الخطة في pi_plan_prices، والشبكة بإعداد pi_settings،
+ *     يُطابَق بسعر الخطة في pi_plan_prices، والشبكة بشبكة الطلب،
  *     وصاحب الدفعة بـpi_uid المكتوب في auth.users بدور الخدمة.
  *   • الموافقة تفحص قبل أي خصم أن الاشتراك مسموح (subscription_purchase_check).
  *   • الإتمام يسوّي الدفعة على الخادم: تذكرة + تفعيل + فاتورة (migrations/116)،
@@ -35,7 +38,8 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
-const NETWORK_LABEL: Record<string, string> = { testnet: "Pi Testnet", mainnet: "Pi Network" };
+type Network = "testnet" | "mainnet";
+const NETWORK_LABEL: Record<Network, string> = { testnet: "Pi Testnet", mainnet: "Pi Network" };
 
 async function piFetch(path: string, key: string, init: RequestInit = {}) {
   const res = await fetch(`${PI_API}${path}`, {
@@ -118,16 +122,28 @@ Deno.serve(async (req: Request) => {
   const action = String(body?.action ?? "");
 
   const { data: settings, error: setErr } = await admin
-    .from("pi_settings").select("payments_enabled, network").eq("id", true).single();
+    .from("pi_settings").select("testnet_enabled, mainnet_enabled").eq("id", true).single();
   if (setErr || !settings) return json({ error: "Pi settings missing" }, 500);
 
-  const key = Deno.env.get("PI_API_KEY") ?? "";
+  // تطبيقان منفصلان في Developer Portal: لكل شبكة مفتاحها. الشبكة يرسلها
+  // العميل من النطاق (assets/js/pi-network.js)، ومفتاح شبكة خاطئة لا يقرأ
+  // دفعة الشبكة الأخرى أصلًا، فلا ثقة مالية في هذه القيمة.
+  const KEYS: Record<Network, string> = {
+    testnet: Deno.env.get("PI_API_KEY") ?? "",
+    mainnet: Deno.env.get("PI_API_KEY_MAINNET") ?? "",
+  };
+  const ENABLED: Record<Network, boolean> = {
+    testnet: settings.testnet_enabled === true,
+    mainnet: settings.mainnet_enabled === true,
+  };
+  const network: Network = body?.network === "mainnet" ? "mainnet" : "testnet";
+  const key = KEYS[network];
 
   // ── إتاحة الدفع لصفحة الاشتراكات: لأي مسجّل، بلا تفاصيل المفتاح ─────────
   if (action === "config") {
     return json({
-      available: settings.payments_enabled && Boolean(key),
-      network: settings.network,
+      available: ENABLED[network] && Boolean(key),
+      network,
       pi_linked: Boolean(user.user_metadata?.pi_uid),
     });
   }
@@ -136,22 +152,26 @@ Deno.serve(async (req: Request) => {
   if (action === "status") {
     const { data: isOwner } = await userClient.rpc("is_platform_owner");
     if (isOwner !== true) return json({ error: "Forbidden" }, 403);
-    let key_valid: boolean | null = null;
-    if (key) {
-      // فحص خفيف: Pi ترفض المفتاح غير الصالح بـ401 على هذا المسار
-      const probe = await piFetch("/payments/incomplete_server_payments", key);
-      key_valid = probe.status !== 401 && probe.status !== 403;
-    }
-    return json({ key_configured: Boolean(key), key_valid, ...settings });
+    const describe = async (n: Network) => {
+      let key_valid: boolean | null = null;
+      if (KEYS[n]) {
+        // فحص خفيف: Pi ترفض المفتاح غير الصالح بـ401 على هذا المسار
+        const probe = await piFetch("/payments/incomplete_server_payments", KEYS[n]);
+        key_valid = probe.status !== 401 && probe.status !== 403;
+      }
+      return { enabled: ENABLED[n], key_configured: Boolean(KEYS[n]), key_valid };
+    };
+    const [testnet, mainnet] = await Promise.all([describe("testnet"), describe("mainnet")]);
+    return json({ testnet, mainnet });
   }
 
-  if (!key) return json({ error: "Pi payments are not configured" }, 503);
   const paymentId = String(body?.paymentId ?? "").trim();
   if (!paymentId) return json({ error: "paymentId is required" }, 400);
 
   // ── الموافقة ─────────────────────────────────────────────────────────────
   if (action === "approve") {
-    if (!settings.payments_enabled) return json({ error: "Pi payments are disabled" }, 403);
+    if (!key) return json({ error: "Pi payments are not configured" }, 503);
+    if (!ENABLED[network]) return json({ error: "Pi payments are disabled" }, 403);
 
     const planId = String(body?.planId ?? "");
     const cycle = body?.cycle === "yearly" ? "yearly" : "monthly";
@@ -191,7 +211,7 @@ Deno.serve(async (req: Request) => {
     const problems: string[] = [];
     if (p.user_uid !== piUid) problems.push("payer mismatch");
     if (Math.abs(Number(p.amount) - expected) > 1e-7) problems.push("amount mismatch");
-    if (p.network !== NETWORK_LABEL[settings.network]) problems.push("network mismatch");
+    if (p.network !== NETWORK_LABEL[network]) problems.push("network mismatch");
     if (p.status?.cancelled || p.status?.user_cancelled) problems.push("payment cancelled");
     if (problems.length) {
       console.error("[pi-payments] approve rejected:", paymentId, problems.join(", "));
@@ -201,7 +221,7 @@ Deno.serve(async (req: Request) => {
     const { error: insErr } = await admin.from("pi_payments").insert({
       pi_payment_id: paymentId, user_id: user.id, pi_uid: piUid, plan_id: planId,
       billing_cycle: cycle, amount: expected, memo: p.memo ?? null,
-      network: settings.network, status: "approved", approved_at: new Date().toISOString(),
+      network, status: "approved", approved_at: new Date().toISOString(),
     });
     if (insErr && insErr.code !== "23505") {
       console.error("[pi-payments] insert:", insErr.message);
@@ -228,8 +248,10 @@ Deno.serve(async (req: Request) => {
 
   // الدفعة المسجّلة لهذا المستخدم وحده
   const { data: row } = await admin.from("pi_payments")
-    .select("id, status").eq("pi_payment_id", paymentId).eq("user_id", user.id).maybeSingle();
+    .select("id, status, network").eq("pi_payment_id", paymentId).eq("user_id", user.id).maybeSingle();
   if (!row) return json({ error: "Payment not found" }, 404);
+  // الإتمام بمفتاح شبكة الدفعة المسجّلة، لا بما يرسله العميل
+  const rowKey = KEYS[row.network as Network];
 
   // ── الإتمام ──────────────────────────────────────────────────────────────
   if (action === "complete") {
@@ -240,7 +262,8 @@ Deno.serve(async (req: Request) => {
       return json({ completed: true, ...(await settle(admin, paymentId)) });
     }
 
-    const done = await piFetch(`/payments/${encodeURIComponent(paymentId)}/complete`, key, {
+    if (!rowKey) return json({ error: "Pi payments are not configured" }, 503);
+    const done = await piFetch(`/payments/${encodeURIComponent(paymentId)}/complete`, rowKey, {
       method: "POST", body: JSON.stringify({ txid }),
     });
     if (!done.ok) {

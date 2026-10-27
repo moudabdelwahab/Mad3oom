@@ -18,6 +18,7 @@ import { formatMoney, currencySymbol, discountPercent } from '/assets/js/plan-pr
 // الدفع بعملة Pi (داخل Pi Browser فقط). بعد الإتمام يُرسَل طلب الاشتراك المعتاد
 // بمرجع الدفعة، فالتفعيل يبقى بمراجعة الإدارة كأي وسيلة أخرى.
 import { getPiOffer, payWithPi } from '/assets/js/pi-checkout.js';
+import { isPiMode } from '/assets/js/pi-network.js';
 
 const PI_METHOD = 'pi';
 // سؤال «فرد أم شركة؟» قبل الشراء (migrations/068). الفرد يكمل للدفع، والشركة
@@ -85,7 +86,67 @@ async function loadPricesFromDatabase() {
         }
     }
 
+    if (isPiMode()) await applyPiPrices(plans);
     updatePricing(getActiveBillingCycle());
+}
+
+/**
+ * وضع Pi (mainnet.mad3oom.com): شروط إدراج Mainnet تمنع أي عملة غير Pi، فالبطاقات
+ * تعرض سعر Pi من pi_plan_prices بدل الجنيه، وبلا «السعر القديم» والخصم.
+ * الخطة اللي ملهاش سعر بالـPi بتتعلَّم غير متاحة.
+ */
+async function applyPiPrices(plans) {
+    const { data: prices } = await supabase.from('pi_plan_prices')
+        .select('plan_id, price_monthly_pi, price_yearly_pi');
+    const byPlan = new Map((prices || []).map(p => [p.plan_id, p]));
+
+    document.querySelectorAll('.pricing-card[data-plan] .currency').forEach(el => { el.textContent = 'π'; });
+    for (const plan of plans) {
+        const card = document.querySelector(`.pricing-card[data-plan="${plan.key}"]`);
+        if (!card) continue;
+        const price = byPlan.get(plan.id);
+        const amountEl = card.querySelector('.amount');
+        card.querySelector('.old-price')?.remove();
+        card.querySelector('.discount-badge')?.remove();
+        if (amountEl && price?.price_monthly_pi && price?.price_yearly_pi) {
+            amountEl.dataset.monthly = String(Number(price.price_monthly_pi));
+            amountEl.dataset.yearly = String(Number(price.price_yearly_pi));
+        } else if (amountEl) {
+            amountEl.dataset.monthly = amountEl.dataset.yearly = '';
+            amountEl.textContent = '—';
+            card.dataset.piUnavailable = '1';
+        }
+    }
+}
+
+const PI_UNAVAILABLE_MESSAGES = {
+    not_pi_browser: 'الدفع بـPi بيشتغل من جوه Pi Browser بس. افتح mainnet.mad3oom.com من Pi Browser.',
+    disabled: 'الدفع بـPi متوقف مؤقتًا. حاول تاني بعد شوية.',
+    no_plan: 'الباقة دي مش متاحة حاليًا.',
+    no_price: 'الباقة دي مش متاحة بالـPi حاليًا.',
+    not_linked: 'لازم تكون داخل بحساب Pi علشان تدفع. سجّل خروج وادخل بزر Pi Network.',
+    error: 'تعذّر التحقق من إتاحة الدفع بـPi. حاول تاني.'
+};
+
+/**
+ * الشراء في وضع Pi: Pi هي الوسيلة الوحيدة، فلا مودال اختيار وسيلة دفع —
+ * الضغط بيبدأ الدفع مباشرة لو متاح، وإلا رسالة بالسبب.
+ */
+async function handlePiModePurchase(plan, billingCycle, buttonEl, defaultLabel) {
+    const offer = await getPiOffer(plan, billingCycle);
+    if (!offer.available) {
+        alert(PI_UNAVAILABLE_MESSAGES[offer.reason] || PI_UNAVAILABLE_MESSAGES.error);
+        return;
+    }
+    const originalText = buttonEl ? buttonEl.textContent : '';
+    try {
+        if (buttonEl) { buttonEl.textContent = 'جاري الدفع بـPi...'; buttonEl.disabled = true; }
+        await payAndShowPi(plan, billingCycle, offer);
+    } catch (err) {
+        alert(err.message);
+    } finally {
+        if (buttonEl) { buttonEl.textContent = originalText || defaultLabel; buttonEl.disabled = false; }
+    }
 }
 
 /* ==================== Theme Toggle ==================== */
@@ -634,9 +695,22 @@ async function handleSubscribe(plan, buttonEl) {
     const quote = await getUpgradeQuote(plan);
     const isUpgrade = !!(quote && quote.eligible === true);
 
-    if (isUpgrade) {
+    if (isUpgrade && !isPiMode()) {
         const confirmed = await openUpgradeModal(quote);
         if (!confirmed) return;
+    }
+
+    if (isPiMode()) {
+        if (isUpgrade) {
+            alert('الترقية ودمج الباقة مش متاحة بالـPi حاليًا. تقدر تشترك في الباقة الجديدة بعد انتهاء باقتك الحالية.');
+            return;
+        }
+        if (account.asCompany) {
+            alert('الدفع بـPi متاح للحسابات الفردية حاليًا.');
+            return;
+        }
+        await handlePiModePurchase(plan, billingCycle, buttonEl, 'اشترك الآن');
+        return;
     }
 
     // الترقية مبلغها فرق سعر تحسبه القاعدة، وسعر Pi سعر كامل — فلا Pi للترقية
@@ -707,6 +781,10 @@ async function handleRenew() {
     }
 
     const billingCycle = getActiveBillingCycle();
+    if (isPiMode()) {
+        await handlePiModePurchase(plan, billingCycle, renewBtn, 'تجديد الاشتراك الحالي');
+        return;
+    }
     const piOffer = await getPiOffer(plan, billingCycle);
     let paymentInfo = await openPaymentMethodModal(piOffer);
     if (!paymentInfo) return; // العميل ألغى العملية
