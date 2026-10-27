@@ -159,13 +159,14 @@ test('الإدارة: القائمة ثابتة يمينًا والمحتوى ي
 
 test('Super User: روابط الطاقم مخفية كما كانت، والمجموعات الفارغة تختفي بعنوانها', { skip: !chromiumPath }, async () => {
     const { page, context, errors } = await openPage('/admin/my-users.html', staffFixtures('super_user'), { guardStub: true });
-    await page.waitForFunction(() => getComputedStyle(document.getElementById('myUsersLink')).display !== 'none');
+    await page.waitForFunction(() => getComputedStyle(document.getElementById('agentsLink')).display !== 'none');
 
-    for (const id of ['ticketsLink', 'teamPerformanceLink', 'usersLink', 'customerHistoryLink', 'bannedLink',
+    for (const id of ['ticketsLink', 'teamPerformanceLink', 'customerHistoryLink',
         'statsLink', 'activityLogLink', 'settingsLink', 'mcpLink', 'subscriptionsLink', 'passcodesLink']) {
         assert.equal(await page.locator('#' + id).isVisible(), false, `${id} يجب أن يبقى مخفيًا`);
     }
-    assert.ok(await page.locator('#myUsersLink').isVisible());
+    // «مستخدميني» صار تبويبًا في صفحة «المستخدمين» الموحّدة؛ رابطها ظاهر لأن له تبويبًا متاحًا
+    assert.ok(await page.locator('#usersLink').isVisible());
     assert.ok(await page.locator('#agentsLink').isVisible());
     assert.equal(await page.locator('.sidebar-group[data-group="support"]').isVisible(), false);
     assert.equal(await page.locator('.sidebar-group[data-group="monitoring"]').isVisible(), false);

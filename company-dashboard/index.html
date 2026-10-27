@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="/assets/css/portal-notifications.css">
     <link rel="stylesheet" href="/assets/css/company-member-admin.css">
     <link rel="stylesheet" href="/assets/css/account-settings.css">
+    <link rel="stylesheet" href="/assets/css/options-menu.css">
     <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
     <script>
         /* نفس السكربت في كل صفحات البوابة: يضبط الثيم وحالة طي القائمة قبل
@@ -221,6 +222,62 @@
                 </section>
             </section>
 
+
+            <!-- ═══ المستخدمون ═════════════════════════════════════════════
+                 الأعضاء والعملاء والدعوات المعلّقة في مكان واحد، ببحث وفلاتر وقائمة «خيارات»
+                 لكل صف. ما يظهر هنا هو ما ترجعه القاعدة لهذا الناظر (company-users-model.js)،
+                 والإجراءات هي أزرار صفحتي «أعضاء الفريق» و«عملاء الشركة» نفسها. -->
+            <section class="tab-content" id="usersTabContent">
+                <section class="panel" aria-labelledby="companyUsersHeading" id="companyUsersPanel">
+                    <div class="panel-header">
+                        <div>
+                            <h2 class="panel-title" id="companyUsersHeading">
+                                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                                المستخدمون
+                            </h2>
+                            <p class="panel-subtitle">أعضاء الفريق وعملاء الشركة والدعوات المعلّقة في مكان واحد — ابحث وفلتر، ومن «خيارات» نفّذ الإجراء.</p>
+                        </div>
+                        <div class="panel-head-actions">
+                            <button type="button" class="panel-link" id="usersAddMemberBtn" hidden>إضافة مستخدم</button>
+                            <a class="panel-link" id="usersInviteLink" href="/company-dashboard/#customers" hidden>دعوة عميل</a>
+                        </div>
+                    </div>
+
+                    <form class="cu-toolbar" id="companyUsersFilters" role="search">
+                        <label class="cu-search">
+                            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <span class="visually-hidden">بحث في المستخدمين</span>
+                            <input type="search" id="cuQuery" placeholder="بحث بالاسم أو البريد الإلكتروني أو رقم الجوال…" autocomplete="off">
+                        </label>
+                        <label class="cu-field">
+                            <span>النوع</span>
+                            <select id="cuKind">
+                                <option value="">الكل</option>
+                                <option value="member">أعضاء الفريق</option>
+                                <option value="customer">عملاء الشركة</option>
+                                <option value="invitation">دعوات معلّقة</option>
+                            </select>
+                        </label>
+                        <label class="cu-field">
+                            <span>الدور في الفريق</span>
+                            <select id="cuStaff">
+                                <option value="">الكل</option>
+                                <option value="staff">موظفون (دعم، مشرف، مدير)</option>
+                                <option value="customer">بلا دور موظف</option>
+                            </select>
+                        </label>
+                        <button type="button" class="btn btn-secondary btn-sm" id="cuReset">مسح الفلاتر</button>
+                    </form>
+
+                    <p class="cu-count" id="cuCount" aria-live="polite"></p>
+                    <p class="company-members-scope-note" id="cuScopeNote" hidden>
+                        تظهر هنا بياناتك ومدير شركتك فقط. قائمة مستخدمي الشركة الكاملة متاحة لمدير الشركة.
+                    </p>
+                    <div id="companyUsersDirectory">
+                        <div class="skeleton skeleton-card"></div>
+                    </div>
+                </section>
+            </section>
 
             <!-- ═══ مستخدمو الشركة ═════════════════════════════════════════ -->
             <section class="tab-content" id="membersTabContent">

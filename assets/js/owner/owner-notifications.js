@@ -14,7 +14,7 @@ import { safeNotificationHref } from '/assets/js/admin/notification-safety.js';
 export const OWNER_HOME = '/owner-dashboard.html';
 
 /** أقسام اللوحة نفسها (#hash) — الصفحات المستقلة في /owner/ تنقل إليها بدل أن تعرضها. */
-export const OWNER_SECTIONS = Object.freeze(['overview', 'authority', 'governance', 'audit', 'notifications']);
+export const OWNER_SECTIONS = Object.freeze(['overview', 'authority', 'governance', 'audit', 'users', 'pi', 'notifications']);
 
 /**
  * إلى أين يقود الإشعار؟ خالصة.

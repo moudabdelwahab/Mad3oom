@@ -1,15 +1,15 @@
 -- ============================================================================
--- 115: مالك المنصة في لوحة الإدارة — السياسات والدوال القديمة تفحص الرتبة الحرفية 'admin'، فتردّه.
+-- 117: مالك المنصة في لوحة الإدارة — السياسات والدوال القديمة تفحص الرتبة الحرفية 'admin'، فتردّه.
 -- على نسخة مطابقة للإنتاج حتى 114.
 --
---   ⓪ قبل 115: السياسات الخمسون والدوال الست تطابق الإنتاج (بصمة md5)، والمالك في سياق «الإدارة» —
+--   ⓪ قبل 117: السياسات الخمسون والدوال الست تطابق الإنتاج (بصمة md5)، والمالك في سياق «الإدارة» —
 --      وis_admin() له true — مرفوض في الإعدادات وقاعدة المعرفة والمحافظ ومراجعة المكافآت… (المشكلة مُثبتة)
---   ① بعد 115 (مرتين): المالك في سياق owner أو admin يقرأ ويكتب ما يكتبه الأدمن، وينادي دوال الإدارة
+--   ① بعد 117 (مرتين): المالك في سياق owner أو admin يقرأ ويكتب ما يكتبه الأدمن، وينادي دوال الإدارة
 --   ② لا توسيع: الأدمن والمرتفع كما هما، الدعم يكسب جداول الطاقم وحدها، العميل ومالك الشركة لا شيء،
 --      والمالك في العميل/الشركة/المعاينة/بلا سياق لا شيء
 --   ③ المحفظة المركزية بمستوى السلطة المرتفعة: support@ (بريد JWT) والمالك في سياق owner — لا سياق admin
 --      ولا info@ ولا أي أدمن آخر
---   ④ التراجع يعيد بصمة الإنتاج حرفيًا، ثم يُعاد 115
+--   ④ التراجع يعيد بصمة الإنتاج حرفيًا، ثم يُعاد 117
 -- ============================================================================
 \set ON_ERROR_STOP on
 \pset tuples_only on
@@ -69,7 +69,7 @@ CREATE POLICY "Admin upload subdomain logos" ON storage.objects AS PERMISSIVE FO
   WITH CHECK (bucket_id = 'subdomain-logos' AND (SELECT profiles.role FROM profiles WHERE profiles.id = auth.uid()) = 'admin');
 
 -- ── أدوات ─────────────────────────────────────────────────────────────────
--- بصمة السياسات الخمسين المستهدفة (نفس الاستعلام على الإنتاج قبل 115: 34b1a68e8a87e3d9797d0098ff3a500c)
+-- بصمة السياسات الخمسين المستهدفة (نفس الاستعلام على الإنتاج قبل 117: 34b1a68e8a87e3d9797d0098ff3a500c)
 CREATE FUNCTION t.policy_digest() RETURNS text LANGUAGE sql AS $$
   select md5(string_agg(schemaname||'.'||tablename||'|'||policyname||'|'||permissive||'|'||roles::text||'|'||cmd||'|'
                         ||coalesce(qual,'')||'|'||coalesce(with_check,''), E'\n' order by schemaname, tablename, policyname))
@@ -138,7 +138,7 @@ begin
 end $$;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA t TO authenticated, service_role, anon;
 
--- ══ ⓪ قبل 115 ════════════════════════════════════════════════════════════
+-- ══ ⓪ قبل 117 ════════════════════════════════════════════════════════════
 DO $$
 BEGIN
   PERFORM t.ok(t.policy_digest() = '34b1a68e8a87e3d9797d0098ff3a500c', '⓪ السياسات الخمسون تطابق الإنتاج: ' || t.policy_digest());
@@ -155,12 +155,14 @@ BEGIN
   PERFORM t.ok(t.staff_ops('OW') = '0000', '⓪ المشكلة: والطاقم: ' || t.staff_ops('OW'));
   PERFORM t.ok(t.err(t.u('OW'), 'public.approve_reward_report(''5e000000-0000-4000-8000-000000000001'', 5)') <> 'ok', '⓪ مراجعة المكافآت مرفوضة');
   PERFORM t.ok(t.admin_ops('AD') = '1111111', '⓪ الأدمن: ' || t.admin_ops('AD'));
-  RAISE NOTICE 'PASS ⓪ قبل 115: مطابق للإنتاج، والمالك في سياق الإدارة مرفوض في عمليات الإدارة رغم is_admin()';
+  RAISE NOTICE 'PASS ⓪ قبل 117: مطابق للإنتاج، والمالك في سياق الإدارة مرفوض في عمليات الإدارة رغم is_admin()';
 END $$;
 
--- ══ ① 115 مرتين ══════════════════════════════════════════════════════════
-\i migrations/115_owner_admin_parity.sql
-\i migrations/115_owner_admin_parity.sql
+\i migrations/115_pi_network_integration.sql
+\i migrations/116_pi_auto_settlement.sql
+-- ══ ① 117 مرتين ══════════════════════════════════════════════════════════
+\i migrations/117_owner_admin_parity.sql
+\i migrations/117_owner_admin_parity.sql
 SET search_path = public, extensions;
 
 DO $$
@@ -176,7 +178,7 @@ BEGIN
   PERFORM t.ok((select available_points from public.user_wallets where user_id = t.u('PU')) = 15, '① والنقاط أُضيفت');
   PERFORM t.ok(t.err(t.u('OW'), 'public.reject_reward_report(''5e000000-0000-4000-8000-000000000002'', ''مكرر'')') = 'ok', '① المالك يرفض بلاغًا');
   PERFORM t.ok(t.n('OW', 'update public.knowledge_base set title = ''معدّل'' where is_internal') = 1, '① المالك يحرّر قاعدة المعرفة');
-  RAISE NOTICE 'PASS ① بعد 115: المالك في سياق owner أو admin ينفّذ عمليات الإدارة والطاقم ومراجعة المكافآت';
+  RAISE NOTICE 'PASS ① بعد 117: المالك في سياق owner أو admin ينفّذ عمليات الإدارة والطاقم ومراجعة المكافآت';
 END $$;
 
 -- ══ ② لا توسيع ═══════════════════════════════════════════════════════════
@@ -228,7 +230,7 @@ BEGIN
 END $$;
 
 -- ══ ④ التراجع ════════════════════════════════════════════════════════════
-\i migrations/_rollback/115_owner_admin_parity.down.sql
+\i migrations/_rollback/117_owner_admin_parity.down.sql
 SET search_path = public, extensions;
 DO $$
 BEGIN
@@ -242,11 +244,11 @@ BEGIN
   PERFORM t.ok(to_regprocedure('public.can_manage_central_wallet()') IS NULL, '④ can_manage_central_wallet حُذفت');
   RAISE NOTICE 'PASS ④ التراجع يعيد تعريفات الإنتاج حرفيًا';
 END $$;
-\i migrations/115_owner_admin_parity.sql
+\i migrations/117_owner_admin_parity.sql
 SET search_path = public, extensions;
 DO $$ BEGIN
   PERFORM t.ctx('admin');
-  PERFORM t.ok(t.admin_ops('OW') = '1111111', '④ إعادة 115 بعد التراجع');
+  PERFORM t.ok(t.admin_ops('OW') = '1111111', '④ إعادة 117 بعد التراجع');
 END $$;
 
 SELECT 'ALL owner-admin-parity tests passed';

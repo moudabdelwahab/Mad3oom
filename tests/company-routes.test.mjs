@@ -97,9 +97,9 @@ test('مسار التنقّل ثلاثي في المجالات، وثنائي ح
 test('رأس المجال: الصفحات الشقيقة المتاحة فقط، والحالية معلَّمة', () => {
     const head = pageHeadFor('members', { viewerRole: 'agent' });
     assert.equal(head.title, 'الفريق والصلاحيات');
-    assert.deepEqual(head.tabs.map(t => t.page), ['members'], 'موظف الدعم يرى صفحات المدير في رأس المجال');
+    assert.deepEqual(head.tabs.map(t => t.page), ['users', 'members'], 'موظف الدعم يرى صفحات المدير في رأس المجال');
     const admin = pageHeadFor('permissions', { viewerRole: 'admin' });
-    assert.deepEqual(admin.tabs.map(t => t.page), ['members', 'customers', 'permissions', 'accessLog']);
+    assert.deepEqual(admin.tabs.map(t => t.page), ['users', 'members', 'customers', 'permissions', 'accessLog']);
     assert.deepEqual(admin.tabs.filter(t => t.current).map(t => t.page), ['permissions']);
     // المجال ذو الصفحة الواحدة بلا رأس (لا عنوان مكرّر فوق عنوان لوحته)
     assert.equal(pageHeadFor('notifications', { viewerRole: 'admin' }), null);

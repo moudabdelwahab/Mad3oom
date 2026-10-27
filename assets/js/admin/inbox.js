@@ -1904,7 +1904,7 @@ async function boot() {
     if (!user) { reportUnavailable('forbidden'); return; }
     updateAdminUI(user);
     state.me = user;
-    // إنشاء الوسوم: سياسة ticket_tags ← is_admin() (115) — الأدمن، أو المالك في سياقه
+    // إنشاء الوسوم: سياسة ticket_tags ← is_admin() (117) — الأدمن، أو المالك في سياقه
     state.isAdmin = (await platformAuthority()).isAdmin;
 
     wire();

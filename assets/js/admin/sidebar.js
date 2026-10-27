@@ -1,6 +1,7 @@
 import { supabase } from '/api-config.js';
 import { safeNotificationHref } from '/assets/js/admin/notification-safety.js';
 import { initNavGroups, initCollapseToggle, initCollapsedTooltips, isSidebarCollapsed, setSidebarCollapsed } from '/assets/js/dashboard-nav.js';
+import { visibleHubTabs } from '/assets/js/admin/users-hub-model.js';
 
 export function initSidebar() {
     const sidebarContainer = document.getElementById('sidebar-container');
@@ -308,10 +309,9 @@ function setupSidebarLogic() {
 // على مستوى المنصة بالكامل (كل العملاء/التذاكر/الإعدادات)، وليست خاصة بحسابه.
 // الأدمن والدعم لا يتأثرون بهذه القائمة إطلاقاً — سلوكهم يبقى كما هو.
 const STAFF_ONLY_LINK_IDS = [
-    'ticketsLink', 'teamPerformanceLink', 'usersLink', 'customerHistoryLink', 'bannedLink',
+    'ticketsLink', 'teamPerformanceLink', 'customerHistoryLink',
     'statsLink', 'activityLogLink', 'statusPageLink', 'settingsLink', 'suggestionsLink',
-    'sendEmailLink', 'knowledgeBaseLink', 'blogAdminLink', 'subscriptionsLink', 'subdomainsLink', 'mcpLink',
-    'customersLink', 'accountRequestsLink'
+    'sendEmailLink', 'knowledgeBaseLink', 'blogAdminLink', 'subscriptionsLink', 'subdomainsLink', 'mcpLink'
 ];
 
 function showLink(id) {
@@ -324,11 +324,18 @@ function hideLink(id) {
     if (el) el.style.display = 'none';
 }
 
-// نقطة واحدة تجلب صلاحيات المستخدم الحالي وتبني السايدبار بناءً عليها
-// (بدلاً من عدة استعلامات منفصلة لنفس الملف الشخصي).
-async function applySidebarPermissions() {
+// نقطة واحدة تجلب صلاحيات المستخدم الحالي — يبني عليها السايدبار، وتبني عليها
+// صفحة «المستخدمين» تبويباتها (users.js) بنفس القواعد، بنداء واحد للقاعدة.
+// null = لا جلسة أو لا ملف شخصي.
+let accessPromise = null;
+export function getAdminAccess() {
+    accessPromise ??= resolveAdminAccess();
+    return accessPromise;
+}
+
+async function resolveAdminAccess() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) return null;
 
     const { data: profile } = await supabase
         .from('profiles')
@@ -336,7 +343,7 @@ async function applySidebarPermissions() {
         .eq('id', user.id)
         .maybeSingle();
 
-    if (!profile) return;
+    if (!profile) return null;
 
     // كان هنا `user.email === 'support@mad3oom.online'`.
     //
@@ -368,6 +375,14 @@ async function applySidebarPermissions() {
     const isSuperUser = profile.role === 'super_user';
     const isPlatformOwner = profile.role === 'platform_owner';
 
+    return { profile, isMainAdmin, isAdmin, isSupport, isSuperUser, isPlatformOwner };
+}
+
+async function applySidebarPermissions() {
+    const access = await getAdminAccess();
+    if (!access) return;
+    const { profile, isMainAdmin, isAdmin, isSupport, isSuperUser, isPlatformOwner } = access;
+
     // أكواد المرور: مالك المنصة وحده. الفرض الحقيقي في سياسات
     // access_passcodes ودوال owner_set_passcode، وهذا إخفاء للواجهة فقط.
     if (isPlatformOwner) {
@@ -378,20 +393,13 @@ async function applySidebarPermissions() {
     if (isAdmin) {
         showLink('errorTrackerLink');
         showLink('rewardsLink');
-        showLink('waitlistLink');
-        showLink('companyRequestsLink');
-        // 105: دليل العملاء وطلبات الحسابات — إخفاء للواجهة فقط؛ الدوال ترفض في القاعدة من لا يحق له
-        showLink('customersLink');
-        showLink('accountRequestsLink');
     }
 
-    if (isMainAdmin) {
-        showLink('superUserLink');
-    }
-
-    if (isSuperUser || isAdmin) {
-        showLink('myUsersLink');
-    }
+    // «المستخدمين»: صفحة واحدة تجمع كل المستخدمين والمحظورين والعملاء وSuper Users
+    // ومستخدميني والطلبات وقائمة الانتظار. كل تبويب بنفس قاعدة رابطه القديم
+    // (users-hub-model.js → visibleHubTabs)، والرابط يظهر إن كان له تبويب واحد على الأقل.
+    if (visibleHubTabs(access).length) showLink('usersLink');
+    else hideLink('usersLink');
 
     // صندوق الرسائل = واجهة الإدارة لشات العملاء (ويدجت الشات + صفحة
     // المحادثة). للطاقم بس، زي رابط صفحة الإدارة القديمة (chat-admin) اللي حل محله: الصفحة

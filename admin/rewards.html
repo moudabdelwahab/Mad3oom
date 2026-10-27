@@ -152,7 +152,7 @@
         if (user) {
             updateAdminUI(user);
             // مراجعة/الموافقة على البلاغات صلاحية إدارة (يطابق فحص الخادم في
-            // approve_reward_report/reject_reward_report: is_admin() — الأدمن، أو المالك في سياقه، 115)
+            // approve_reward_report/reject_reward_report: is_admin() — الأدمن، أو المالك في سياقه، 117)
             if ((await platformAuthority()).isAdmin) {
                 initAdminRewards();
             } else {

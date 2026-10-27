@@ -91,7 +91,7 @@ export class CentralWalletUI {
 
             this.currentUser = user;
             
-            // من يدير المحفظة المركزية تقرّره القاعدة (can_manage_central_wallet، 115): حساب support@ كما كان،
+            // من يدير المحفظة المركزية تقرّره القاعدة (can_manage_central_wallet، 117): حساب support@ كما كان،
             // أو مالك المنصة في سياقه. نفس المُسنَد الذي يحرس central_wallet ودوال التحويل.
             const { canManageCentralWallet } = await platformAuthority();
             if (!canManageCentralWallet) {

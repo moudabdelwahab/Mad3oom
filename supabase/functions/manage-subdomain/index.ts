@@ -163,7 +163,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "غير مصرح، يرجى تسجيل الدخول" }, 401);
   }
 
-  // is_admin() بجلسة المنادي — نفس مُسنَد RLS: الأدمن، أو مالك المنصة في سياق owner/admin (115)
+  // is_admin() بجلسة المنادي — نفس مُسنَد RLS: الأدمن، أو مالك المنصة في سياق owner/admin (117)
   if (!(await callerHas("is_admin", authHeader))) {
     return jsonResponse({ error: "هذا الإجراء متاح للإدارة فقط" }, 403);
   }

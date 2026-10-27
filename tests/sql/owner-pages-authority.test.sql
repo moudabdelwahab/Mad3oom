@@ -7,7 +7,7 @@
 --   ② ويكتب ما تكتبه: حظر عميل ورفعه، تغيير حالة التذكرة ومسؤولها، حالة الاشتراك عبر الدالة،
 --      إيقاف مفتاح API، تحرير المدوّنة
 --   ③ ما يبقى مقيّدًا يُرفض من القاعدة نفسها لا بإخفاء زر: أعمدة اعتماد api_tokens، وحظر الطاقم بلا تحقق
---      بخطوتين، والمحفظة المركزية خارج سياق المالك؛ أما الإعدادات وساعات العمل والمحافظ فصارت للمالك منذ 115،
+--      بخطوتين، والمحفظة المركزية خارج سياق المالك؛ أما الإعدادات وساعات العمل والمحافظ فصارت للمالك منذ 117،
 --      وحساب المالك من غيره
 --   ④ السياق مُرشِّح: المالك في «العميل» أو بلا سياق لا يقرأ ولا يكتب شيئًا من ذلك
 --   ⑤ الإدارة كما هي: الأدمن يكتب advanced_settings ويقرأ الاشتراكات
@@ -46,7 +46,9 @@ SET check_function_bodies = on;
 \i migrations/112_company_invitation_email.sql
 \i migrations/113_company_member_management.sql
 \i migrations/114_ticket_email_payload.sql
-\i migrations/115_owner_admin_parity.sql
+\i migrations/115_pi_network_integration.sql
+\i migrations/116_pi_auto_settlement.sql
+\i migrations/117_owner_admin_parity.sql
 SET search_path = public, extensions;
 
 UPDATE auth.users SET email_confirmed_at = now() - interval '30 days';
@@ -112,10 +114,10 @@ END $$;
 DO $$
 BEGIN
   PERFORM t.ctx('owner');
-  -- 115: سياسات الإدارة بالرتبة الحرفية صارت is_admin() — المالك في سياقه يدير الإعدادات والمحافظ
-  PERFORM t.ok(t.n('OW', 'update public.advanced_settings set value = ''"owner"'' where key = ''owner_pages_probe''') = 1, '③ 115: advanced_settings للمالك');
-  PERFORM t.ok(t.exec(t.u('OW'), 'insert into public.working_hours (day_of_week) values (1)') = 'ok', '③ 115: working_hours للمالك');
-  PERFORM t.ok(t.rows(t.u('OW'), format('public.user_wallets where user_id = %L', t.u('PU'))) = 1, '③ 115: المحافظ للمالك');
+  -- 117: سياسات الإدارة بالرتبة الحرفية صارت is_admin() — المالك في سياقه يدير الإعدادات والمحافظ
+  PERFORM t.ok(t.n('OW', 'update public.advanced_settings set value = ''"owner"'' where key = ''owner_pages_probe''') = 1, '③ 117: advanced_settings للمالك');
+  PERFORM t.ok(t.exec(t.u('OW'), 'insert into public.working_hours (day_of_week) values (1)') = 'ok', '③ 117: working_hours للمالك');
+  PERFORM t.ok(t.rows(t.u('OW'), format('public.user_wallets where user_id = %L', t.u('PU'))) = 1, '③ 117: المحافظ للمالك');
   -- المحفظة المركزية بمستوى السلطة المرتفعة: في سياق owner نعم، وفي سياق admin لا
   PERFORM t.ok((t.call(t.u('OW'), 'public.can_manage_central_wallet()') #>> '{}')::boolean, '③ المحفظة المركزية في سياق owner');
   PERFORM t.ctx('admin');
@@ -143,7 +145,7 @@ BEGIN
   PERFORM t.ok(t.exec(t.u('AD'), format('update public.profiles set ban_status = ''permanent'' where id = %L', t.u('SUP'))) IN ('42501')
                OR t.n('AD', format('update public.profiles set ban_status = ''permanent'' where id = %L', t.u('SUP'))) = 0,
                '③ الأدمن لا يحظر فريق الدعم');
-  RAISE NOTICE 'PASS ③ الإعدادات والمحافظ للمالك (115)؛ أعمدة الاعتماد للخدمة وحدها؛ المحفظة المركزية في سياق owner؛ الطاقم بتحقق بخطوتين؛ حساب المالك محمي من غيره';
+  RAISE NOTICE 'PASS ③ الإعدادات والمحافظ للمالك (117)؛ أعمدة الاعتماد للخدمة وحدها؛ المحفظة المركزية في سياق owner؛ الطاقم بتحقق بخطوتين؛ حساب المالك محمي من غيره';
 END $$;
 
 -- ══ ④ السياق مُرشِّح ═══════════════════════════════════════════════════════

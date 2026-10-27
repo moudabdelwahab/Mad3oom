@@ -16,8 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import {
-    banPatch, subscriptionActions, subscriptionChangeError, accountActions, searchTerm, pageRange, pagerText,
-    SUBSCRIPTION_TRANSITIONS, UNBAN_PATCH
+    subscriptionActions, subscriptionChangeError, searchTerm, pageRange, pagerText, SUBSCRIPTION_TRANSITIONS
 } from '../assets/js/owner/owner-labels.js';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
@@ -144,7 +143,6 @@ const noHorizontalScroll = (page) => page.evaluate(() => document.documentElemen
 
 const PAGES = {
     stats: '#statsKpis .kpi',
-    users: '#usersTable table',
     tickets: '#ticketsTable table',
     subscriptions: '#subsTable table',
     blog: '#blogRows tr',
@@ -180,26 +178,6 @@ test('انتقالات الاشتراك نسخة من شرط admin_set_subscript
     assert.equal(subscriptionChangeError({ to: 'active', reason: 'تم الدفع', endDate: '2026-11-30' }, now), null);
 });
 
-test('قرار الحظر: السبب إلزامي، والمؤقت بتاريخ مستقبلي، ورفعه يعيد none', () => {
-    const now = new Date('2026-10-27T00:00:00Z');
-    assert.ok(banPatch({ kind: 'temporary', until: '2026-11-01', reason: 'قص' }, now).error);
-    assert.ok(banPatch({ kind: 'temporary', until: '2026-10-01', reason: 'إساءة استخدام' }, now).error);
-    assert.deepEqual(banPatch({ kind: 'temporary', until: '2026-11-01T00:00:00Z', reason: 'إساءة استخدام' }, now).patch,
-        { ban_status: 'temporary', ban_until: '2026-11-01T00:00:00.000Z', ban_reason: 'إساءة استخدام' });
-    assert.deepEqual(banPatch({ kind: 'permanent', reason: 'احتيال مثبت' }, now).patch,
-        { ban_status: 'permanent', ban_until: null, ban_reason: 'احتيال مثبت' });
-    assert.ok(banPatch({ kind: 'x', reason: 'سبب كافٍ' }, now).error);
-    assert.deepEqual({ ...UNBAN_PATCH }, { ban_status: 'none', ban_until: null, ban_reason: null });
-});
-
-test('ما يستطيعه المالك على حساب: لا نفسه ولا مالك المنصة، والطاقم بتحقق بخطوتين', () => {
-    assert.equal(accountActions({ id: OWNER, role: 'platform_owner' }, { selfId: OWNER }).canRestrict, false);
-    assert.equal(accountActions({ id: 'x', role: 'platform_owner' }, { selfId: OWNER }).canRestrict, false);
-    assert.deepEqual(accountActions({ id: 'x', role: 'admin' }, { selfId: OWNER }), { canRestrict: true, needsStepUp: true });
-    assert.deepEqual(accountActions({ id: 'x', role: 'support' }, { selfId: OWNER }), { canRestrict: true, needsStepUp: true });
-    assert.deepEqual(accountActions({ id: 'x', role: 'user' }, { selfId: OWNER }), { canRestrict: true, needsStepUp: false });
-});
-
 test('البحث لا يكسر مرشّح PostgREST، والترقيم شامل الحدّين', () => {
     assert.equal(searchTerm('a,b(c)*%d'), 'a b c d');
     assert.equal(searchTerm('name:"x" or'), 'name x or');
@@ -217,9 +195,11 @@ test('قائمة المالك: «الإدارة» و«التشغيل» صفحا�
     const items = [...html.matchAll(/<a href="([^"]+)" class="sidebar-item"([^>]*)>/g)].map(m => [m[1], m[2]]);
     assert.ok(!items.some(([href]) => href.startsWith('/admin/')), 'عنصر في قائمة المالك يقود إلى /admin/');
     const pages = items.filter(([href]) => href.startsWith('/owner/')).map(([href, attrs]) => [href, /data-page="([^"]+)"/.exec(attrs)?.[1]]);
-    assert.deepEqual(pages.map(([h]) => h), Object.keys(PAGES).map(p => `/owner/${p}.html`).sort((a, b) =>
-        ['stats', 'users', 'tickets', 'subscriptions', 'blog', 'activity', 'integrations', 'passcodes', 'settings']
-            .indexOf(a.slice(7, -5)) - ['stats', 'users', 'tickets', 'subscriptions', 'blog', 'activity', 'integrations', 'passcodes', 'settings'].indexOf(b.slice(7, -5))));
+    // ترتيب القائمة = ترتيب PAGES. «المستخدمون» و«Pi Network» قسمان داخل اللوحة نفسها (data-tab)، لا صفحتان
+    assert.deepEqual(pages.map(([h]) => h), Object.keys(PAGES).map(p => `/owner/${p}.html`));
+    for (const tab of ['users', 'pi']) {
+        assert.ok(items.some(([href, attrs]) => href === `/owner-dashboard.html#${tab}` && attrs.includes(`data-tab="${tab}"`)), tab);
+    }
     for (const [href, dataPage] of pages) {
         assert.equal(`/owner/${dataPage}.html`, href, `data-page لا يطابق الملف: ${href}`);
         assert.ok(fs.existsSync(path.join(ROOT, href)), `الصفحة غير موجودة: ${href}`);
@@ -260,69 +240,6 @@ for (const [file, ready] of Object.entries(PAGES)) {
 }
 
 /* ── العمليات ──────────────────────────────────────────────────────────── */
-
-test('المستخدمون: حظر عميل مؤقتًا يكتب أعمدة الحظر الحقيقية وأثرًا في السجل', { skip: !chromiumPath }, async () => {
-    const { page, context, dialogs } = await openPage(browser, baseUrl, 'users', fixtures());
-    await page.waitForSelector(`[data-user="${CUSTOMER}"]`);
-    await page.click(`[data-user="${CUSTOMER}"]`);
-    await page.waitForSelector('#banForm');
-    await page.fill('#banReason', 'قص');
-    await page.click('#banForm button[type=submit]');
-    assert.match(await page.textContent('#accountStatus'), /5 أحرف/);
-    assert.deepEqual(await writes(page, 'profiles'), []);
-
-    const until = new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 16);
-    await page.fill('#banUntil', until);
-    await page.fill('#banReason', 'إساءة استخدام متكررة');
-    await page.click('#banForm button[type=submit]');
-    await page.waitForSelector('.owner-modal', { state: 'detached' });
-    const [w] = await writes(page, 'profiles');
-    assert.equal(w.op, 'update');
-    assert.equal(w.row.ban_status, 'temporary');
-    assert.equal(w.row.ban_reason, 'إساءة استخدام متكررة');
-    assert.ok(new Date(w.row.ban_until) > new Date());
-    assert.ok(!('status' in w.row), 'العمود status غير موجود في profiles');
-    const [log] = await writes(page, 'activity_logs');
-    assert.equal(log.row.action, 'ban_user');
-    assert.equal(log.row.details.target_user_id, CUSTOMER);
-    assert.ok(dialogs.some(m => /حظر/.test(m)));
-    assert.match(await page.textContent('#pageStatus'), /تم حظر الحساب/);
-    await context.close();
-});
-
-test('المستخدمون: حساب المالك بلا إجراءات، وحساب الطاقم مقفل حتى التحقق بخطوتين', { skip: !chromiumPath }, async () => {
-    const { page, context } = await openPage(browser, baseUrl, 'users', fixtures());
-    await page.waitForSelector(`[data-user="${OWNER}"]`);
-    await page.click(`[data-user="${OWNER}"]`);
-    await page.waitForSelector('#accountActions .state-block');
-    assert.match(await page.textContent('#accountActions'), /حسابك بنفسك/);
-    assert.equal(await page.locator('#banForm').count(), 0);
-    await page.keyboard.press('Escape');
-    await page.waitForSelector('.owner-modal', { state: 'detached' });
-
-    await page.click(`[data-user="${SUPPORT}"]`);
-    await page.waitForSelector('#banForm');
-    assert.equal(await page.isDisabled('#banForm button[type=submit]'), true);
-    assert.equal(await page.isDisabled('[data-act="unlock"]'), true);
-    assert.match(await page.textContent('#accountActions'), /تحققًا بخطوتين/);
-    await context.close();
-});
-
-test('المستخدمون: رفض حارس القاعدة (42501) يظهر برسالته، والنافذة تبقى', { skip: !chromiumPath }, async () => {
-    const fx = fixtures();
-    fx.rpc.owner_security_status = { mfa_enrolled: true, step_up_fresh: true, step_up_expires_at: '2099-01-01T00:00:00Z' };
-    fx.writeErrors = { profiles: 'حظر حسابات فريق المنصة وقفلها لمالك المنصة وحده بعد التحقق بخطوتين' };
-    const { page, context } = await openPage(browser, baseUrl, 'users', fx);
-    await page.waitForSelector(`[data-user="${SUPPORT}"]`);
-    await page.click(`[data-user="${SUPPORT}"]`);
-    await page.waitForSelector('[data-act="unlock"]:not([disabled])');
-    await page.click('[data-act="unlock"]');
-    await page.waitForSelector('#accountStatus:not([hidden])');
-    assert.match(await page.textContent('#accountStatus'), /لمالك المنصة وحده بعد التحقق بخطوتين/);
-    assert.equal(await page.locator('.owner-modal').count(), 1);
-    assert.deepEqual(await writes(page, 'activity_logs'), []);
-    await context.close();
-});
 
 test('التذاكر: المحادثة نصّ لا HTML، وتغيير الحالة والمسؤول يُرسل الحقول المتغيرة مع الفاعل', { skip: !chromiumPath }, async () => {
     const { page, context, errors } = await openPage(browser, baseUrl, 'tickets', fixtures());

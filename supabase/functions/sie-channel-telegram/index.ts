@@ -133,7 +133,7 @@ const deps = {
  * readable or triggerable anonymously, so GET now carries the same bar the
  * rest of the admin surface uses: a real session the database considers an
  * admin — is_admin(), which also covers the platform owner inside the
- * owner/admin context (115). No new role was introduced.
+ * owner/admin context (117). No new role was introduced.
  */
 async function isAdminCaller(req: Request): Promise<boolean> {
     const authHeader = req.headers.get('authorization') ?? '';
@@ -144,7 +144,7 @@ async function isAdminCaller(req: Request): Promise<boolean> {
         const { data, error } = await supabase.auth.getUser(jwt);
         if (error || !data?.user) return false;
 
-        // is_admin() بجلسة المنادي: الأدمن، أو مالك المنصة في سياق owner/admin (115)
+        // is_admin() بجلسة المنادي: الأدمن، أو مالك المنصة في سياق owner/admin (117)
         return await callerHas('is_admin', authHeader);
     } catch (err) {
         logger.error('admin check failed', { error: err instanceof Error ? err.message : String(err) });

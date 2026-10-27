@@ -13,6 +13,8 @@ const VERCEL_CNAME_TARGET = "cname.vercel-dns.com";
 const RESERVED = new Set([
   "www", "api", "mail", "ftp", "admin", "app", "ns1", "ns2",
   "mad3oom", "support", "help", "blog", "status", "cdn", "assets",
+  // تطبيقا Pi للمنصة نفسها (mainnet.mad3oom.com)
+  "mainnet", "testnet",
 ]);
 
 const NAME_REGEX = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -68,7 +70,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "غير مصرح، يرجى تسجيل الدخول" }, 401);
   }
 
-  // is_admin() بجلسة المنادي — نفس مُسنَد RLS: الأدمن، أو مالك المنصة في سياق owner/admin (115)
+  // is_admin() بجلسة المنادي — نفس مُسنَد RLS: الأدمن، أو مالك المنصة في سياق owner/admin (117)
   if (!(await callerHas("is_admin", authHeader))) {
     return jsonResponse({ error: "هذا الإجراء متاح للإدارة فقط" }, 403);
   }

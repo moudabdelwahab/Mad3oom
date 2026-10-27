@@ -27,40 +27,49 @@
     --dash-sidebar-current: 0px;
     --dash-gap: .5rem;
     --dash-header-h: 3.5rem;
-    --dash-top: calc(var(--dash-header-h) + var(--dash-gap) * 2);
+    --dash-top: var(--dash-header-h);
     --dash-radius: 1rem;
     --dash-content-max: 1560px;
 
-    /* القائمة: كحلي الهوية (‎--color-primary) ينحدر إلى لمسة من الأزرق
-       الأساسي في أسفلها — نفس لوني كل لوحة، لا لون ثالث. */
-    --dash-side-bg: linear-gradient(180deg,
-        var(--color-primary) 0%,
-        var(--color-primary) 55%,
-        color-mix(in srgb, var(--color-accent) 38%, var(--color-primary)) 100%);
+    /* ألوان القائمة: ألوان كل لوحة كما كانت قبل إعادة التصميم، بلا تغيير.
+       الإدارة: ‎--color-sidebar-bg‎ الكحلي بنص أبيض وتمييز أزرق شفاف (admin-style.css).
+       المالك والشركة: رموز القائمة في customer-dashboard.css (بيضاء نهارًا) — تحت. */
+    --dash-side-bg: var(--color-sidebar-bg);
     --dash-side-text: rgba(255, 255, 255, .8);
     --dash-side-text-strong: #fff;
     --dash-side-muted: rgba(255, 255, 255, .55);
-    --dash-side-hover: rgba(255, 255, 255, .08);
+    --dash-side-hover: rgba(255, 255, 255, .06);
     --dash-side-border: rgba(255, 255, 255, .1);
-    --dash-side-active-bg: var(--color-accent);
-
-    /* قواعد customer-dashboard.css تقرأ هذه الرموز للقائمة؛ نوجّهها للكحلي */
-    --color-sidebar-text: var(--dash-side-text);
-    --color-sidebar-text-active: var(--dash-side-text-strong);
-    --color-sidebar-hover: var(--dash-side-hover);
-    --color-sidebar-active-bg: var(--dash-side-active-bg);
-    --color-sidebar-active: var(--dash-side-active-bg);
-    --color-sidebar-border: var(--dash-side-border);
+    --dash-side-active-bg: rgba(0, 119, 204, .18);
+    --dash-side-active-text: #fff;
+    --dash-side-active-icon: currentColor;
+    --dash-side-indicator: var(--color-accent);
     --sidebar-current: var(--dash-sidebar-current);
 
     box-sizing: border-box;
     padding-top: var(--dash-top);
 }
 
+:root:not(.ws-embedded) body.dash-layout.customer-shell {
+    --dash-side-text: var(--color-sidebar-text);
+    --dash-side-text-strong: var(--color-sidebar-text-active);
+    --dash-side-muted: var(--color-text-3);
+    --dash-side-hover: var(--color-sidebar-hover);
+    --dash-side-border: var(--color-sidebar-border);
+    --dash-side-active-bg: var(--color-sidebar-active-bg);
+    --dash-side-active-text: var(--color-sidebar-text-active);
+    --dash-side-indicator: var(--color-sidebar-active);
+}
+
+/* لوحة الشركة: العنصر النشط بلون التمييز وأيقونته بالأزرق، كما كان (company-dashboard.css) */
+:root:not(.ws-embedded) body.dash-layout.company-app {
+    --dash-side-active-text: var(--on-accent);
+    --dash-side-active-icon: var(--color-accent);
+}
+
 @media (min-width: 1100px) {
     :root:not(.ws-embedded) body.dash-layout {
         --dash-gap: 1rem;
-        --dash-header-h: 4rem;
         --dash-sidebar-current: var(--dash-sidebar-w);
         padding-right: var(--dash-sidebar-current);
     }
@@ -70,99 +79,32 @@
     }
 }
 
-/* ==================== 2) الشريط العلوي (بطاقة) ==================== */
-/* الشريط نفسه شريحة شفافة ثابتة، والبطاقة هي .nav-container داخله.
-   ألوان الشريط كانت مبنية على خلفية كحلية (نص أبيض)؛ هنا البطاقة على سطح
-   الصفحة، فنعيد توجيه رموز الشريط نفسها لرموز النص والسطح. */
+/* ==================== 2) الشريط العلوي ==================== */
+/* شريط كحلي ثابت فوق منطقة المحتوى، بألوانه السابقة: الخلفية ‎--color-primary‎
+   ونص الأزرار أبيض من قواعد كل لوحة نفسها (admin-style.css للإدارة،
+   customer-dashboard.css للمالك والشركة) — هنا الموضع والارتفاع فقط. */
 :root:not(.ws-embedded) body.dash-layout .admin-nav {
     position: fixed;
     top: 0;
     left: 0;
     right: var(--dash-sidebar-current);
     z-index: 1000;
-    padding: var(--dash-gap) var(--dash-gap) 0;
-    background: transparent;
-    border: 0;
-    box-shadow: none;
-    color: var(--color-text);
+    padding: 0;
+    background: var(--color-primary);
+    border-bottom: 1px solid var(--color-nav-border, rgba(255, 255, 255, .1));
+    box-shadow: var(--shadow-sm);
     transition: right var(--dur-base, .25s) var(--ease-out, ease);
-
-    --color-nav-text: var(--color-text);
-    --color-nav-text-dim: var(--color-text-secondary);
-    --color-nav-border: var(--color-border);
-    --nav-hover-bg: var(--color-muted);
-    --nav-hover-strong: var(--color-border);
-    --nav-field-bg: var(--color-background);
-    --nav-field-border: var(--color-border);
-}
-
-/* خلفية الشريحة: سطح الصفحة شبه معتم يتلاشى أسفل البطاقة، فالمحتوى يمرّ
-   تحته بهدوء. على عنصر زائف لا على الشريط نفسه: backdrop-filter على الشريط
-   كان سيجعله أصلًا لعناصره الثابتة (طبقة البحث على الجوال). */
-:root:not(.ws-embedded) body.dash-layout .admin-nav::before {
-    content: "";
-    position: absolute;
-    inset: 0 0 calc(var(--dash-gap) * -1) 0;
-    z-index: -1;
-    pointer-events: none;
-    background: color-mix(in srgb, var(--color-background) 82%, transparent);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-    -webkit-mask-image: linear-gradient(to bottom, #000 75%, transparent);
-    mask-image: linear-gradient(to bottom, #000 75%, transparent);
 }
 
 :root:not(.ws-embedded) body.dash-layout .nav-container {
     box-sizing: border-box;
-    max-width: var(--dash-content-max);
+    max-width: none;
     height: var(--dash-header-h);
     min-height: 0;
-    margin: 0 auto;
-    padding: 0 var(--dash-gap);
+    margin: 0;
+    padding: 0 1rem;
     gap: .75rem;
     flex-wrap: nowrap;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--dash-radius);
-    box-shadow: var(--shadow-sm);
-}
-
-:root:not(.ws-embedded) body.dash-layout .admin-title {
-    color: var(--color-text);
-    font-size: 1.05rem;
-}
-
-:root:not(.ws-embedded) body.dash-layout .admin-nav .nav-btn,
-:root:not(.ws-embedded) body.dash-layout .admin-nav .menu-toggle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    padding: 0;
-    border: 1px solid var(--color-border);
-    border-radius: .75rem;
-    background: transparent;
-    color: var(--color-text-secondary);
-}
-
-:root:not(.ws-embedded) body.dash-layout .admin-nav .nav-btn:hover,
-:root:not(.ws-embedded) body.dash-layout .admin-nav .menu-toggle:hover {
-    background: var(--color-muted);
-    border-color: var(--color-border);
-    color: var(--color-text);
-}
-
-:root:not(.ws-embedded) body.dash-layout .admin-nav .nav-btn:focus-visible,
-:root:not(.ws-embedded) body.dash-layout .admin-nav .menu-toggle:focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
-}
-
-/* شارات العدّ كان إطارها بلون الشريط الكحلي؛ الآن بلون البطاقة */
-:root:not(.ws-embedded) body.dash-layout .nav-badge,
-:root:not(.ws-embedded) body.dash-layout #notificationBadge {
-    border-color: var(--color-surface) !important; /* الشارة في الإدارة بأسلوب مضمّن */
 }
 
 /* زر الحساب: صورة رمزية + اسم المستخدم (يُملأ من نفس مصدر الهوية) */
@@ -188,11 +130,11 @@
 .nav-user-name {
     font-size: .82rem;
     font-weight: 700;
-    color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
+    color: var(--color-nav-text, #fff);
     unicode-bidi: plaintext; /* الأسماء والبريد قد تكون إنجليزية داخل واجهة عربية */
 }
 
@@ -200,7 +142,7 @@
     font-size: .68rem;
     line-height: 1.2;
     font-weight: 600;
-    color: var(--color-text-secondary);
+    color: var(--color-nav-text-dim, rgba(255, 255, 255, .68));
 }
 
 :root:not(.ws-embedded) body.dash-layout .nav-user-meta:has(.nav-user-name:not(:empty)) { display: flex; }
@@ -210,13 +152,9 @@
     :root:not(.ws-embedded) body.dash-layout .admin-nav .nav-user-btn { width: 2.5rem; padding: 0; border-radius: .75rem; }
 }
 
-/* البحث على الجوال: طبقة تحت الشريط بلون السطح بدل الكحلي */
+/* البحث على الجوال: طبقة تحت الشريط (بلونها الكحلي كما كانت) */
 @media (max-width: 768px) {
-    :root:not(.ws-embedded) body.dash-layout .portal-search {
-        top: var(--dash-top);
-        background: var(--color-surface);
-        border-bottom: 1px solid var(--color-border);
-    }
+    :root:not(.ws-embedded) body.dash-layout .portal-search { top: var(--dash-top); }
 }
 
 /* الهوية في القائمة الجانبية على الشاشات الكبيرة؛ في الشريط فقط حين تكون
@@ -230,9 +168,7 @@
 }
 
 @media (max-width: 480px) {
-    :root:not(.ws-embedded) body.dash-layout .nav-container { gap: .35rem; padding: 0 .4rem; }
-    :root:not(.ws-embedded) body.dash-layout .admin-nav .nav-btn,
-    :root:not(.ws-embedded) body.dash-layout .admin-nav .menu-toggle { width: 2.2rem; height: 2.2rem; border-radius: .6rem; }
+    :root:not(.ws-embedded) body.dash-layout .nav-container { gap: .35rem; padding: 0 .5rem; }
 }
 
 /* ==================== 3) القائمة الجانبية ==================== */
@@ -240,6 +176,7 @@
     background: var(--dash-side-bg);
     color: var(--dash-side-text);
     border: 0;
+    border-left: 1px solid var(--dash-side-border);
 }
 
 @media (min-width: 1100px) {
@@ -252,7 +189,7 @@
         width: var(--dash-sidebar-current);
         max-width: none;
         z-index: 1001;
-        box-shadow: -6px 0 28px rgba(0, 0, 0, .12);
+        box-shadow: none;
         transition: width var(--dur-base, .25s) var(--ease-out, ease);
     }
 
@@ -350,23 +287,24 @@
 
 :root:not(.ws-embedded) body.dash-layout .sidebar-item.active {
     background: var(--dash-side-active-bg);
-    color: var(--dash-side-text-strong);
+    color: var(--dash-side-active-text);
     font-weight: 700;
-    box-shadow: 0 6px 18px color-mix(in srgb, var(--color-accent) 35%, transparent);
+    /* شريط التمييز الأزرق على حافة البداية، كما كان (حدّ أيمن 4px) — ظلّ داخلي
+       بدل الحدّ ليتبع الزوايا المستديرة */
+    box-shadow: inset -4px 0 0 var(--dash-side-indicator);
 }
 
-:root:not(.ws-embedded) body.dash-layout .sidebar-item.active svg { color: var(--dash-side-text-strong); }
+:root:not(.ws-embedded) body.dash-layout .sidebar-item.active svg { color: var(--dash-side-active-icon); }
 
 :root:not(.ws-embedded) body.dash-layout .sidebar-item:focus-visible {
-    outline: 2px solid var(--dash-side-text-strong);
+    outline: 2px solid var(--color-accent);
     outline-offset: -2px;
 }
 
-/* تسجيل الخروج يبقى أحمر كما كان، بدرجة مقروءة على الكحلي */
+/* تسجيل الخروج: أحمر اللوحة نفسها (‎--color-danger‎)؛ زر الإدارة يحمل لونه
+   المضمّن ‎#ff6b6b‎ كما كان */
 :root:not(.ws-embedded) body.dash-layout .sidebar-item.is-danger,
-:root:not(.ws-embedded) body.dash-layout #sidebarSignOut { color: #ff6b6b; }
-:root:not(.ws-embedded) body.dash-layout .sidebar-item.is-danger:hover,
-:root:not(.ws-embedded) body.dash-layout #sidebarSignOut:hover { color: #ff6b6b; background: var(--dash-side-hover); }
+:root:not(.ws-embedded) body.dash-layout .sidebar-item.is-danger:hover { color: var(--color-danger); }
 
 :root:not(.ws-embedded) body.dash-layout .sidebar-footer {
     padding: .75rem;
@@ -407,9 +345,9 @@
 :root:not(.ws-embedded) body.dash-layout .admin-main {
     box-sizing: border-box;
     width: 100%;
-    max-width: calc(var(--dash-content-max) + var(--dash-gap) * 2);
+    max-width: calc(var(--dash-content-max) + var(--dash-gap) * 3);
     margin: 0 auto;
-    padding: .25rem var(--dash-gap) 2.5rem;
+    padding: 1.25rem calc(var(--dash-gap) * 1.5) 2.5rem;
     transition: none;
 }
 

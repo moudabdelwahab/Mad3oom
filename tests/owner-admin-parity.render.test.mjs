@@ -1,5 +1,5 @@
 /**
- * مالك المنصة داخل لوحة الإدارة (115) — صفحات الإدارة الحقيقية في Chromium مقابل البديل الاختباري.
+ * مالك المنصة داخل لوحة الإدارة (117) — صفحات الإدارة الحقيقية في Chromium مقابل البديل الاختباري.
  *
  * كانت الصفحات تقرر «هل هو إداري؟» بمقارنة profile.role بـ 'admin' (أو بالبريد support@)، فتعامل المالك —
  * رتبته platform_owner — كمستخدم عادي رغم أن الحارس فتح له اللوحة. الآن تسأل القاعدة (platform-authority.js):
@@ -58,7 +58,8 @@ function fixtures(who, { isAdmin = true, isStaff = true, elevated = false, walle
         owner_context_status: { is_platform_owner: owner, active_context: owner ? context : null },
         available_contexts: [], my_account_gate: { status: 'active' },
         can_manage_central_wallet: wallet,
-        manage_user_points: { success: true, message: 'تم' }
+        manage_user_points: { success: true, message: 'تم' }, is_sie_admin: false,
+        admin_customer_filter_options: { companies: [], managers: [] }, admin_customer_directory: { total: 0, rows: [] }
     };
     const fx = {
         returnUpdatedRows: true,
@@ -127,16 +128,23 @@ test('① المكافآت: المالك في سياق الإدارة يراجع
     await denied.context.close();
 });
 
+/** مركز المستخدمين: يفتح قائمة «خيارات» للعضو ويعيد أسماء إجراءاتها (data-action). */
+async function menuActions(page, userId) {
+    await page.waitForSelector(`.uh-options-btn[data-user-id="${userId}"]`);
+    await page.click(`.uh-options-btn[data-user-id="${userId}"]`);
+    await page.waitForSelector('#uhMenu:not([hidden])');
+    return page.$$eval('#uhMenu .opt-menu-item', els => els.map(e => e.dataset.action));
+}
+
 test('① المستخدمون: تجميد المحفظة يتبع can_manage_central_wallet لا بريد support@', { skip: !chromiumPath }, async () => {
     for (const [fx, expected, label] of [
         [fixtures('owner', { wallet: true, context: 'owner' }), true, 'المالك في سياق owner'],
         [fixtures('owner', { wallet: false }), false, 'المالك في سياق admin'],
         [fixtures('admin', { wallet: false }), false, 'أدمن عادي'],
-        [fixtures('admin', { walletRpc: 'missing' }), false, 'قبل 115: أدمن ليس support@']
+        [fixtures('admin', { walletRpc: 'missing' }), false, 'قبل 117: أدمن ليس support@']
     ]) {
         const { page, context, errors } = await openAdmin(browser, baseUrl, 'users.html', fx);
-        await page.waitForSelector(`[data-user-id="${CUSTOMER}"].options-btn`);
-        assert.equal(await page.locator('.freeze-btn').count() > 0, expected, label);
+        assert.equal((await menuActions(page, CUSTOMER)).includes('freeze'), expected, label);
         assert.deepEqual(errors, [], label);
         await context.close();
     }
@@ -144,32 +152,29 @@ test('① المستخدمون: تجميد المحفظة يتبع can_manage_ce
 
 test('③ المستخدمون: الحظر ورفعه يكتبان أعمدة الحظر الحقيقية، والرتب بلا super_user', { skip: !chromiumPath }, async () => {
     const { page, context, dialogs } = await openAdmin(browser, baseUrl, 'users.html', fixtures('owner'), { prompt: 'إساءة استخدام متكررة' });
-    await page.waitForSelector(`.options-btn[data-user-id="${CUSTOMER}"]`);
-    assert.equal(await page.locator('#optRoleSuper').count(), 0, 'super_user ليست رتبة في القاعدة');
-    await page.click(`.options-btn[data-user-id="${CUSTOMER}"]`);
-    await page.click('#optBanBtn');
+    const actions = await menuActions(page, CUSTOMER);
+    assert.ok(!actions.some(a => /super/i.test(a)), 'super_user ليست رتبة في القاعدة: ' + actions);
+    await page.click('#uhMenu .opt-menu-item[data-action="ban"]');
     await page.waitForFunction(() => (window.__WRITES__ || []).some(w => w.table === 'profiles'));
     const [ban] = await writes(page, 'profiles');
     assert.deepEqual(ban.row, { ban_status: 'permanent', ban_until: null, ban_reason: 'إساءة استخدام متكررة' });
     assert.ok(dialogs.some(m => /سبب الحظر/.test(m)));
 
-    await page.waitForSelector('.unban-btn[data-user-id="b1"]');
-    await page.click('.unban-btn[data-user-id="b1"]');
+    await menuActions(page, 'b1');
+    await page.click('#uhMenu .opt-menu-item[data-action="unban"]');
     await page.waitForFunction(() => (window.__WRITES__ || []).filter(w => w.table === 'profiles').length >= 2);
     const unban = (await writes(page, 'profiles'))[1];
     assert.deepEqual(unban.row, { ban_status: 'none', ban_until: null, ban_reason: null });
     await context.close();
 });
 
-test('① الدخول كعضو: المالك في سياق الإدارة يُسمح له (نفس canImpersonate في auth-client)، وخارجه لا', { skip: !chromiumPath }, async () => {
-    for (const [fx, allowed] of [[fixtures('owner', { context: 'admin' }), true], [fixtures('admin'), true]]) {
+test('① الدخول كعضو: المالك في سياق الإدارة يُسمح له (نفس canImpersonate في auth-client)', { skip: !chromiumPath }, async () => {
+    for (const fx of [fixtures('owner', { context: 'admin' }), fixtures('admin')]) {
         const { page, context } = await openAdmin(browser, baseUrl, 'users.html', fx);
-        await page.waitForSelector(`.impersonate-btn[data-user-id="${CUSTOMER}"]`);
-        await page.click(`.impersonate-btn[data-user-id="${CUSTOMER}"]`);
-        await page.waitForTimeout(400);
-        const done = await page.evaluate(() => window.__IMPERSONATED__ || []);
-        assert.equal(done.length > 0, allowed);
-        if (allowed) assert.equal(done[0].userId, CUSTOMER);
+        await menuActions(page, CUSTOMER);
+        await page.click('#uhMenu .opt-menu-item[data-action="view"]');
+        await page.waitForFunction(() => (window.__IMPERSONATED__ || []).length > 0);
+        assert.equal((await page.evaluate(() => window.__IMPERSONATED__))[0].userId, CUSTOMER);
         await context.close();
     }
 });

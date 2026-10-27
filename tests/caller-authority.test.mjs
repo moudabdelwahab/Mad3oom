@@ -1,5 +1,5 @@
 /**
- * 115: دوال Edge تسأل القاعدة عن سلطة المنادي (is_admin / is_platform_staff) بجلسته، ولا تقارن رتبته حرفيًا.
+ * 117: دوال Edge تسأل القاعدة عن سلطة المنادي (is_admin / is_platform_staff) بجلسته، ولا تقارن رتبته حرفيًا.
  *
  *   ① callerHas: النداء الصحيح (REST rpc بمفتاح anon وجلسة المنادي)، و fail-closed على كل فشل
  *   ② لا دالة Edge تفوّض المنادي بمقارنة profiles.role حرفيًا — كانت تردّ مالك المنصة في سياق الإدارة
@@ -74,7 +74,7 @@ test('② لا دالة Edge تفوّض المنادي بمقارنة رتبته
     for (const file of edgeSources()) {
         const src = fs.readFileSync(file, 'utf8');
         const rel = path.relative(ROOT, file);
-        // mcp/_shared/actor.ts: هوية مفتاح API (لا جلسة ولا سياق) — خارج نطاق 115 وموثّق في التقرير
+        // mcp/_shared/actor.ts: هوية مفتاح API (لا جلسة ولا سياق) — خارج نطاق 117 وموثّق في التقرير
         if (rel.endsWith('mcp/_shared/actor.ts')) continue;
         // approve-waitlist-entry: الرتبة ∨ rpc('is_admin') — المُسنَد الواعي بالسياق حاضر، والرتبة فرع زائد لا مانع
         if (rel.endsWith('approve-waitlist-entry/index.ts') && /callerIsAdmin !== true/.test(src)) continue;

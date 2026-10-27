@@ -1,7 +1,7 @@
 -- ============================================================================
--- تراجع 115 — يعيد السياسات والدوال إلى فحص الرتبة الحرفية (والبريد) كما كانت على الإنتاج قبل 115.
+-- تراجع 117 — يعيد السياسات والدوال إلى فحص الرتبة الحرفية (والبريد) كما كانت على الإنتاج قبل 117.
 -- أثره: مالك المنصة يعود مرفوضًا في أقسام لوحة الإدارة القائمة على هذه السياسات. لا بيانات تُمسّ.
--- دوال Edge المعدّلة مع 115 تبقى صالحة بعد التراجع (is_admin/is_platform_staff ما زالتا تشملان الأدمن والدعم).
+-- دوال Edge المعدّلة مع 117 تبقى صالحة بعد التراجع (is_admin/is_platform_staff ما زالتا تشملان الأدمن والدعم).
 -- معاملة واحدة.
 -- ============================================================================
 begin;
@@ -329,7 +329,7 @@ DECLARE
   v_fn regprocedure;
   v_def text;
   v_new text := $q$IF COALESCE(auth.jwt() ->> 'email', '') != 'support@mad3oom.online' THEN$q$;
-  v_old text := $q$IF NOT COALESCE(public.can_manage_central_wallet(), false) THEN -- [115] support@ أو المالك في سياقه$q$;
+  v_old text := $q$IF NOT COALESCE(public.can_manage_central_wallet(), false) THEN -- [117] support@ أو المالك في سياقه$q$;
 BEGIN
   FOREACH v_fn IN ARRAY array['public.manage_user_points(text,bigint,text)'::regprocedure,
                              'public.transfer_points_from_central(text,bigint)'::regprocedure] LOOP

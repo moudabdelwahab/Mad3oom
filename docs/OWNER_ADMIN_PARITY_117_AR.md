@@ -1,4 +1,4 @@
-# 115 — مالك المنصة داخل لوحة الإدارة
+# 117 — مالك المنصة داخل لوحة الإدارة
 
 ## السبب الجذري
 
@@ -38,7 +38,7 @@
 | Edge | `['admin','support'].includes(role)` | `callerHas('is_platform_staff', …)` |
 | الواجهة | `profile.role === 'admin'` / البريد | `platformAuthority()` — نفس المُسنَدات من القاعدة |
 
-## مصفوفة الصلاحيات بعد 115
+## مصفوفة الصلاحيات بعد 117
 
 | العملية | أدمن | دعم | مالك (سياق admin) | مالك (سياق owner) | مالك (عميل/شركة/معاينة/بلا سياق) |
 |---|---|---|---|---|---|
@@ -66,7 +66,7 @@
 
 وحدة واحدة، بهذا الترتيب:
 
-1. `migrations/115_owner_admin_parity.sql`، ثم التحقق: `select public.can_manage_central_wallet();`
+1. `migrations/117_owner_admin_parity.sql`، ثم التحقق: `select public.can_manage_central_wallet();`
 2. دوال Edge: `create-subdomain`، `manage-subdomain`، `check-dns-status`، `get-attachment-url`، `send-ticket-email`،
    `create-template`، `wf-executor`، `sie-channel-telegram` (كلها تستورد `_shared/caller-authority.js`).
 3. الواجهة.
@@ -74,7 +74,7 @@
 الواجهة قبل الترحيل آمنة: `platformAuthority` تعود لشرط البريد القديم للمحفظة المركزية إن غابت الدالة. والدوال
 قبل الترحيل آمنة أيضًا، لأن `is_admin()` و`is_platform_staff()` موجودتان منذ 040.
 
-**التراجع:** `migrations/_rollback/115_owner_admin_parity.down.sql` يعيد تعريفات الإنتاج حرفيًا (بصمة md5 مُختبَرة).
+**التراجع:** `migrations/_rollback/117_owner_admin_parity.down.sql` يعيد تعريفات الإنتاج حرفيًا (بصمة md5 مُختبَرة).
 
 ## الاختبارات
 
@@ -83,6 +83,6 @@
   - ① المالك في السياقين ينفّذ عمليات الإدارة.
   - ② لا توسيع لأحد.
   - ③ المحفظة المركزية.
-  - ④ التراجع يعيد البصمة حرفيًا، ثم يُعاد تطبيق 115.
+  - ④ التراجع يعيد البصمة حرفيًا، ثم يُعاد تطبيق 117.
 - `tests/caller-authority.test.mjs` — المساعد fail-closed، ولا دالة Edge تفوّض بالرتبة الحرفية.
 - `tests/owner-admin-parity.render.test.mjs` — صفحات الإدارة الحقيقية بالمالك والأدمن.

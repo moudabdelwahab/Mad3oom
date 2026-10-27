@@ -479,7 +479,7 @@ async function authorize(req: Request): Promise<{ ok: true; userId: string } | {
   const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } } });
   const { data: userData, error } = await userClient.auth.getUser();
   if (error || !userData?.user) return { ok: false, status: 401, error: "Unauthorized" };
-  // is_platform_staff() بجلسة المنادي: الأدمن والدعم، أو مالك المنصة في سياق owner/admin (115)
+  // is_platform_staff() بجلسة المنادي: الأدمن والدعم، أو مالك المنصة في سياق owner/admin (117)
   if (!(await callerHas("is_platform_staff", authHeader, { supabaseUrl: SUPABASE_URL, anonKey: ANON_KEY }))) {
     return { ok: false, status: 403, error: "هذه الميزة مقصورة على فريق الإدارة/الدعم" };
   }

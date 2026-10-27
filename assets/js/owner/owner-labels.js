@@ -95,38 +95,6 @@ export function subscriptionChangeError({ to, reason, endDate, currentEnd }, now
 }
 
 /**
- * قرار الحظر من نموذج المالك: { patch } أو { error }. خالص.
- *   kind = 'temporary' يحتاج تاريخًا مستقبليًا · 'permanent' بلا تاريخ · والسبب إلزامي في الحالتين.
- */
-export function banPatch({ kind, until, reason }, now = new Date()) {
-    const why = String(reason || '').trim();
-    if (why.length < 5) return { error: 'اكتب سبب الحظر (5 أحرف على الأقل) — يظهر للحساب ويُسجَّل.' };
-    if (kind === 'temporary') {
-        const end = until ? new Date(until) : null;
-        if (!end || Number.isNaN(end.getTime()) || end <= now) return { error: 'الحظر المؤقت يحتاج تاريخ انتهاء في المستقبل.' };
-        return { patch: { ban_status: 'temporary', ban_until: end.toISOString(), ban_reason: why } };
-    }
-    if (kind === 'permanent') return { patch: { ban_status: 'permanent', ban_until: null, ban_reason: why } };
-    return { error: 'اختر نوع الحظر.' };
-}
-
-export const UNBAN_PATCH = Object.freeze({ ban_status: 'none', ban_until: null, ban_reason: null });
-
-export const UNLOCK_PATCH = Object.freeze({ is_locked: false, failed_login_attempts: 0 });
-
-/**
- * ما يستطيعه المالك على حساب بعينه — للعرض فقط؛ القرار في حرّاس القاعدة:
- *   • حسابه هو وحساب مالك المنصة: لا حظر ولا قفل (guard_privileged_accounts يرفض)
- *   • فريق المنصة: مسموح بعد التحقق بخطوتين (needsStepUp)
- */
-export function accountActions(account, { selfId } = {}) {
-    if (!account) return { canRestrict: false, reason: 'الحساب غير موجود.' };
-    if (account.id === selfId) return { canRestrict: false, reason: 'لا تُقيَّد حسابك بنفسك.' };
-    if (account.role === 'platform_owner') return { canRestrict: false, reason: 'حساب مالك المنصة محمي من القاعدة.' };
-    return { canRestrict: true, needsStepUp: STAFF_ROLES.includes(account.role) };
-}
-
-/**
  * نص بحث آمن لمرشّح PostgREST (or=…ilike.*نص*). المحارف المحجوزة في صياغة المرشّح (, . داخل القيمة
  * مسموحة، أما , ( ) : " فتفصل الشروط أو تقتبسها) ومحارف النمط (* % \) تُحذف — فلا يغيّر المُدخَل بنية الاستعلام.
  */

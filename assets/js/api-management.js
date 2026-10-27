@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.location.href = '/login.html';
             return;
         }
-        // is_admin() من القاعدة — نفس سياسات bot_api_keys و memory_firewall_rules (115): الأدمن، أو المالك في سياقه
+        // is_admin() من القاعدة — نفس سياسات bot_api_keys و memory_firewall_rules (117): الأدمن، أو المالك في سياقه
         if (!(await platformAuthority()).isAdmin) {
             alert('غير مصرح لك بالدخول لهذه الصفحة');
             window.location.href = '/';

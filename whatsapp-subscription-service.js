@@ -432,7 +432,7 @@ export async function getPlanPrices() {
     try {
         const { data, error } = await supabase
             .from('subscription_plans')
-            .select('key, name, name_ar, price_monthly, price_yearly, currency, sort_order')
+            .select('id, key, name, name_ar, price_monthly, price_yearly, currency, sort_order')
             .eq('is_active', true)
             .order('sort_order');
         if (error) throw error;

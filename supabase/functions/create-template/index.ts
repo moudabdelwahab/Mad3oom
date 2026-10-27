@@ -35,7 +35,7 @@ serve(async (req) => {
       );
     }
 
-    // is_platform_staff() بجلسة المنادي: الأدمن والدعم، أو مالك المنصة في سياق owner/admin (115)
+    // is_platform_staff() بجلسة المنادي: الأدمن والدعم، أو مالك المنصة في سياق owner/admin (117)
     if (!(await callerHas("is_platform_staff", authHeader))) {
       return new Response(
         JSON.stringify({ error: "هذا الإجراء متاح لفريق الإدارة/الدعم فقط" }),

@@ -3,7 +3,7 @@
  *
  * إعدادات المالك نفسه (وضع التسجيل، أمانه، مفاتيح التفعيل) هنا. وإعدادات التشغيل اليومي (advanced_settings
  * وworking_hours وticket_distribution_config وrules_engine…) تُدار بواجهتها الكاملة في /admin/settings.html — كانت
- * سياساتها تشترط الرتبة الحرفية 'admin' فتُرسم للمالك فارغة، ومنذ 115 صارت is_admin() فيعدّلها المالك هناك.
+ * سياساتها تشترط الرتبة الحرفية 'admin' فتُرسم للمالك فارغة، ومنذ 117 صارت is_admin() فيعدّلها المالك هناك.
  */
 import { supabase, bootOwnerPage, esc, when, table, errorBlock, friendlyError } from '/assets/js/owner/owner-page.js';
 import { CONTEXT_PRESENTATION } from '/assets/js/owner/owner-context.js';

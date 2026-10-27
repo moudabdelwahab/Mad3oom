@@ -100,7 +100,7 @@ Deno.serve(async (req: Request) => {
   // نفس نموذج الصلاحيات الموجود بالفعل: create-subdomain و manage-subdomain
   // بيطلبوا is_admin()، وde بيسمح كمان لصاحب النطاق يتابع حالة نطاقه هو.
   // مفيش أي دور جديد اتضاف.
-  // is_admin() بجلسة المنادي — الأدمن، أو مالك المنصة في سياق owner/admin (115)
+  // is_admin() بجلسة المنادي — الأدمن، أو مالك المنصة في سياق owner/admin (117)
   const isAdmin = await callerHas("is_admin", authHeader);
   const isOwner = row.user_id === callerId;
 

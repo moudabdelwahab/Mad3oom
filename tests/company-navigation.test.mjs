@@ -179,7 +179,7 @@ test('كل قسم معلَن له حاوية في الصفحة ومُحمِّل 
 
     // الأقسام التي تُحمَّل عند الفتح لازم تكون مسجّلة في LOADERS
     for (const section of ['overview', 'tickets', 'customerTickets', 'inbox', 'support', 'notifications',
-                           'members', 'customers', 'permissions', 'accessLog', 'usage', 'company',
+                           'users', 'members', 'customers', 'permissions', 'accessLog', 'usage', 'company',
                            'api', 'integrations', 'reports', 'activity', 'profile', 'security']) {
         assert.match(js, new RegExp(`${section}:\\s*\\(\\)\\s*=>`),
             `القسم ${section} بلا مُحمِّل — سيفتح فارغًا`);
@@ -640,12 +640,16 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         المحفّزان مفتاحين فقط في الحمولة: previous_status (إعادة فتح/حل/إغلاق) وreply_id (قراءة الرد والتحقق
     //         أنه غير داخلي). لا تغيير في شروط الإطلاق ولا المستلم. مقيسٌ في tests/sql/ticket-email-payload.test.sql
     //         و tests/ticket-email.test.mjs.
-    //   115 — صلاحيات مالك المنصة داخل لوحة الإدارة بطلب صاحب المنتج (2026-10-27): 46 سياسة وأربع دوال كانت تفحص
+    //   115 — تكامل Pi Network (مدموج في main، 2026-10-27): ثلاثة جداول جديدة (pi_settings و pi_plan_prices و
+    //         pi_payments) بسياسات is_platform_owner()، ولا تعديل على جدول قائم. مفتاح Pi API سرّ Edge لا عمود.
+    //   116 — تسوية دفعات Pi المؤكَّدة على الخادم (مدموج في main، 2026-10-27): تذكرة + تفعيل + فاتورة بنفس مسار
+    //         submit_subscription_request وتأكيد الأدمن، فلا تُخصم دفعة بلا اشتراك إن لم يعد العميل للصفحة.
+    //   117 — صلاحيات مالك المنصة داخل لوحة الإدارة بطلب صاحب المنتج (2026-10-27): 46 سياسة وأربع دوال كانت تفحص
     //         profiles.role = 'admin' (أو admin/support أو بريد support@) حرفيًا فتردّ المالك في سياق الإدارة رغم
     //         is_admin(). أُعيدت إلى is_admin()/is_platform_staff() (نفس النطاق + فرع المالك المشروط بسياقه، قاعدة
     //         040 ①)، والمحفظة المركزية إلى can_manage_central_wallet(). لا يمكن أن يكون تغيير واجهة: الرفض في RLS.
     //         مقيسٌ في tests/sql/owner-admin-parity.test.sql (بصمة الإنتاج قبل وبعد التراجع).
-    assert.equal(migrations[migrations.length - 1], '115_owner_admin_parity.sql',
+    assert.equal(migrations[migrations.length - 1], '117_owner_admin_parity.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

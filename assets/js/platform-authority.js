@@ -4,7 +4,7 @@
  * كانت صفحات لوحة الإدارة تقارن profile.role بـ 'admin' (أو بالبريد support@) لتقرر ما تعرضه. مالك المنصة
  * رتبته platform_owner دائمًا، فكانت الصفحة تعامله كمستخدم عادي داخل لوحة الإدارة — رغم أن الحارس فتحها له
  * (guardPage يحترم السياق) ورغم أن القاعدة تعدّه إداريًا في سياقَي owner/admin (is_admin() منذ 040، وسياسات
- * الإدارة منذ 115).
+ * الإدارة منذ 117).
  *
  * هنا المُسنَدات نفسها التي تحرس بها RLS البيانات، فما تعرضه الواجهة = ما تسمح به القاعدة:
  *   isAdmin          ← is_admin()                 الأدمن، أو المالك في سياق owner/admin
@@ -12,7 +12,7 @@
  *   isElevated       ← has_elevated_authority()   الأدمن المرتفع، أو المالك في سياق owner
  *   isOwner          ← is_platform_owner()        الهوية وحدها (لا تمنح شيئًا بلا سياق)
  *   activeContext    ← active_context()
- *   canManageCentralWallet ← can_manage_central_wallet() (115)
+ *   canManageCentralWallet ← can_manage_central_wallet() (117)
  *
  * عرض لا حماية: إخفاء زر هنا تهذيب للواجهة، والرفض الحقيقي في RLS والدوال. وأي فشل نداء = false (fail-closed).
  */
@@ -31,7 +31,7 @@ async function rpc(name) {
     }
 }
 
-/** قبل تطبيق 115 لا توجد can_manage_central_wallet: نعود لشرط الإنتاج القديم حرفيًا (بريد الجلسة). */
+/** قبل تطبيق 117 لا توجد can_manage_central_wallet: نعود لشرط الإنتاج القديم حرفيًا (بريد الجلسة). */
 const missingFunction = (error) => ['PGRST202', '42883', 'PGRST404'].includes(error?.code);
 
 async function load() {

@@ -1,5 +1,5 @@
 -- ============================================================================
--- 115_owner_admin_parity.sql — مالك المنصة في لوحة الإدارة يملك ما تملكه الإدارة، عبر السياق لا الرتبة.
+-- 117_owner_admin_parity.sql — مالك المنصة في لوحة الإدارة يملك ما تملكه الإدارة، عبر السياق لا الرتبة.
 --
 -- السبب الجذري
 --   040 جعل دوال السلطة واعية بالسياق: is_admin() = رتبة admin أو owner_capability('admin')، و
@@ -25,17 +25,17 @@
 --     ولا _account_request_requester_ok (يستثني المالك عمدًا: الإداري يطلب والمالك يقرر).
 --   • لا يمسّ عزل الشركات (097+): السياسات التقييدية فوق هذه الجداول كما هي.
 --
--- لا مفتاح تفعيل ولا تغيير بيانات. قابل لإعادة التشغيل. التراجع: migrations/_rollback/115_owner_admin_parity.down.sql
+-- لا مفتاح تفعيل ولا تغيير بيانات. قابل لإعادة التشغيل. التراجع: migrations/_rollback/117_owner_admin_parity.down.sql
 -- ============================================================================
 do $$
 begin
   if to_regprocedure('public.is_admin()') is null or to_regprocedure('public.is_platform_staff()') is null
      or to_regprocedure('public.owner_capability(text)') is null then
-    raise exception '115 يتطلب 038/040 (is_admin و is_platform_staff و owner_capability)';
+    raise exception '117 يتطلب 038/040 (is_admin و is_platform_staff و owner_capability)';
   end if;
   if position('owner_capability' in pg_get_functiondef('public.is_admin()'::regprocedure)) = 0
      or position('owner_capability' in pg_get_functiondef('public.is_platform_staff()'::regprocedure)) = 0 then
-    raise exception '115: is_admin/is_platform_staff ليستا الصيغة الواعية بالسياق (040)';
+    raise exception '117: is_admin/is_platform_staff ليستا الصيغة الواعية بالسياق (040)';
   end if;
 end $$;
 
@@ -54,7 +54,7 @@ as $$
 $$;
 
 comment on function public.can_manage_central_wallet() is
-  'المحفظة المركزية: حساب support@ (كما كان) أو مالك المنصة في سياقه (owner_only) — 115.';
+  'المحفظة المركزية: حساب support@ (كما كان) أو مالك المنصة في سياقه (owner_only) — 117.';
 
 revoke all on function public.can_manage_central_wallet() from public, anon;
 grant execute on function public.can_manage_central_wallet() to authenticated;
@@ -275,7 +275,7 @@ DECLARE
     v_new_total integer;
     v_was_pro boolean;
 BEGIN
-    -- [115] is_admin() بدل الرتبة الحرفية — تشمل المالك في سياق owner/admin
+    -- [117] is_admin() بدل الرتبة الحرفية — تشمل المالك في سياق owner/admin
     IF NOT coalesce(public.is_admin(), false) THEN
         RAISE EXCEPTION 'غير مصرح: هذا الإجراء متاح للأدمن فقط';
     END IF;
@@ -340,7 +340,7 @@ AS $function$
 DECLARE
     v_report public.user_reports;
 BEGIN
-    -- [115] is_admin() بدل الرتبة الحرفية — تشمل المالك في سياق owner/admin
+    -- [117] is_admin() بدل الرتبة الحرفية — تشمل المالك في سياق owner/admin
     IF NOT coalesce(public.is_admin(), false) THEN
         RAISE EXCEPTION 'غير مصرح: هذا الإجراء متاح للأدمن فقط';
     END IF;
@@ -376,7 +376,7 @@ CREATE OR REPLACE FUNCTION public.get_service_report_summary()
  SET search_path TO 'public'
 AS $function$
 begin
-  -- [115] is_platform_staff() بدل الرتبتين الحرفيتين — تشمل المالك في سياق owner/admin
+  -- [117] is_platform_staff() بدل الرتبتين الحرفيتين — تشمل المالك في سياق owner/admin
   if not coalesce(public.is_platform_staff(), false) then
     raise exception 'غير مصرّح';
   end if;
@@ -411,14 +411,14 @@ DECLARE
   v_fn regprocedure;
   v_def text;
   v_old text := $q$IF COALESCE(auth.jwt() ->> 'email', '') != 'support@mad3oom.online' THEN$q$;
-  v_new text := $q$IF NOT COALESCE(public.can_manage_central_wallet(), false) THEN -- [115] support@ أو المالك في سياقه$q$;
+  v_new text := $q$IF NOT COALESCE(public.can_manage_central_wallet(), false) THEN -- [117] support@ أو المالك في سياقه$q$;
 BEGIN
   FOREACH v_fn IN ARRAY array['public.manage_user_points(text,bigint,text)'::regprocedure,
                              'public.transfer_points_from_central(text,bigint)'::regprocedure] LOOP
     v_def := pg_get_functiondef(v_fn);
     IF position(v_new in v_def) > 0 THEN CONTINUE; END IF;          -- مطبَّق من قبل (إعادة تشغيل)
     IF (length(v_def) - length(replace(v_def, v_old, ''))) / length(v_old) <> 1 THEN
-      RAISE EXCEPTION '115: % لا يحمل سطر فحص البريد المتوقع مرة واحدة — انحراف عن الإنتاج', v_fn;
+      RAISE EXCEPTION '117: % لا يحمل سطر فحص البريد المتوقع مرة واحدة — انحراف عن الإنتاج', v_fn;
     END IF;
     EXECUTE replace(v_def, v_old, v_new);
   END LOOP;
@@ -438,7 +438,7 @@ BEGIN
   -- سياسات «Support can …» على tickets/ticket_replies/whatsapp_wallets تمنح رتبة support وحدها بجوار
   -- is_admin()؛ المالك يمرّ من السياسة الأخرى، فتبقى كما هي.
   IF v_left IS NOT NULL THEN
-    RAISE EXCEPTION '115: سياسات ما زالت تفحص الرتبة أو البريد حرفيًا: %', v_left;
+    RAISE EXCEPTION '117: سياسات ما زالت تفحص الرتبة أو البريد حرفيًا: %', v_left;
   END IF;
-  RAISE NOTICE '115: سياسات الإدارة والطاقم والمحفظة المركزية واعية بالسياق';
+  RAISE NOTICE '117: سياسات الإدارة والطاقم والمحفظة المركزية واعية بالسياق';
 END $$;

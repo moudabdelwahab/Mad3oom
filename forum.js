@@ -39,7 +39,7 @@ function sanitizeUrl(url) {
 const supabaseClient = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
 
 let currentUser = null;
-// إشراف المنتدى: سياسات forum_* ← is_admin() (115) — الأدمن، أو مالك المنصة في سياقه
+// إشراف المنتدى: سياسات forum_* ← is_admin() (117) — الأدمن، أو مالك المنصة في سياقه
 let isForumAdmin = false;
 let currentView = 'categories'; // categories, subforum, thread
 let currentSubforumId = null;

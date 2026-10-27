@@ -41,7 +41,7 @@ Deno.serve(async (req: Request) => {
     const userData = await userRes.json();
     const userId = userData.id;
 
-    // is_admin() بجلسة المنادي — نفس مُسنَد سياسات mailbox_emails: الأدمن، أو المالك في سياق owner/admin (115)
+    // is_admin() بجلسة المنادي — نفس مُسنَد سياسات mailbox_emails: الأدمن، أو المالك في سياق owner/admin (117)
     if (!userId || !(await callerHas("is_admin", authHeader))) {
       return new Response(JSON.stringify({ error: "غير مصرح - يتطلب صلاحية أدمن" }), {
         status: 403,
