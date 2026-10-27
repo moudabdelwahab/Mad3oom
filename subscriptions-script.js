@@ -404,7 +404,8 @@ async function updatePlanButtonsState(activePlan) {
             return;
         }
 
-        btn.textContent = 'اشترك الآن';
+        // في وضع Pi الضغط بيبدأ الدفع بالـPi مباشرة، فالزر يقول ده
+        btn.textContent = isPiMode() ? 'اشترك بالـPi' : 'اشترك الآن';
         btn.disabled = false;
         btn.title = '';
         btn.classList.remove('btn-subscribed');
@@ -709,7 +710,7 @@ async function handleSubscribe(plan, buttonEl) {
             alert('الدفع بـPi متاح للحسابات الفردية حاليًا.');
             return;
         }
-        await handlePiModePurchase(plan, billingCycle, buttonEl, 'اشترك الآن');
+        await handlePiModePurchase(plan, billingCycle, buttonEl, 'اشترك بالـPi');
         return;
     }
 

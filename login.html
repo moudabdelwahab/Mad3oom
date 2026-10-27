@@ -634,6 +634,128 @@
   html[data-pi-mode] .btn-pi { margin-top: 1.25rem; padding-block: 0.95rem; font-size: 1rem; }
   html[data-pi-mode] .pi-mode-note { display: block; }
   .pi-mode-note { display: none; text-align: center; font-size: 0.85rem; color: var(--muted); margin-top: 0.9rem; line-height: 1.8; }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     وضع Pi — المظهر. هوية مدعوم في سماء ليلية مع ذهب عملة π. الألوان مستوحاة
+     من Pi لا منسوخة: شروط إدراج Mainnet تمنع شعار Pi وألوانه الرسمية.
+     عنصر مميز واحد: حلقة ذهبية حول الشعار تُرسم مرة عند الفتح.
+     ══════════════════════════════════════════════════════════════════════ */
+  .pi-orbit, .pi-subtitle, .pi-facts, .pi-brand { display: none; }
+
+  html[data-pi-mode] {
+    --pi-night: #120A2A;
+    --pi-indigo: #1D1245;
+    --pi-violet: #4B2A7B;
+    --pi-gold: #F2B33D;
+    --pi-gold-deep: #D9921C;
+    --pi-lavender: #CFC6EA;
+    --pi-line: rgba(207,198,234,0.14);
+    color-scheme: dark;
+  }
+  html[data-pi-mode], html[data-pi-mode] body {
+    background:
+      radial-gradient(1200px 600px at 85% -10%, rgba(75,42,123,0.55), transparent 60%),
+      radial-gradient(900px 500px at 0% 110%, rgba(22,119,255,0.22), transparent 60%),
+      var(--pi-night);
+  }
+  html[data-pi-mode] .login-panel { background: transparent; }
+  html[data-pi-mode] .login-panel::before {
+    background-image: radial-gradient(circle, rgba(242,179,61,0.18) 1px, transparent 1.2px);
+    background-size: 34px 34px;
+    mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
+  }
+
+  /* الكارت: زجاج ليلي */
+  html[data-pi-mode] .login-card {
+    background: linear-gradient(180deg, rgba(29,18,69,0.82), rgba(18,10,42,0.88));
+    border: 1px solid var(--pi-line);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
+    max-width: 400px;
+    padding: 2rem 1.9rem 1.7rem;
+  }
+  html[data-pi-mode] .card-logo { position: relative; width: 96px; height: 96px; margin: 0 auto 1rem; display: grid; place-items: center; }
+  html[data-pi-mode] .card-logo-img { width: 62px; height: 62px; position: relative; z-index: 1; }
+  html[data-pi-mode] #login-step-credentials > .card-subtitle { display: none; }
+  html[data-pi-mode] .card-title { color: #fff; font-size: 1.6rem; font-weight: 800; letter-spacing: -0.01em; }
+  html[data-pi-mode] .pi-subtitle {
+    display: block; text-align: center; color: var(--pi-lavender);
+    font-size: 0.95rem; margin-top: 0.3rem;
+  }
+
+  /* الحلقة الذهبية */
+  html[data-pi-mode] .pi-orbit { display: block; position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .pi-orbit-track { fill: none; stroke: rgba(242,179,61,0.14); stroke-width: 1.5; }
+  .pi-orbit-ring {
+    fill: none; stroke: var(--pi-gold); stroke-width: 2.4; stroke-linecap: round;
+    stroke-dasharray: 72 100; transform: rotate(-90deg); transform-origin: 60px 60px;
+    filter: drop-shadow(0 0 6px rgba(242,179,61,0.55));
+    animation: pi-ring-draw 1.4s cubic-bezier(0.22,1,0.36,1) 0.2s both;
+  }
+  .pi-orbit-coin circle { fill: var(--pi-gold); stroke: var(--pi-night); stroke-width: 2.5; }
+  .pi-orbit-coin text { font: 700 15px Georgia, 'Times New Roman', serif; fill: var(--pi-night); }
+  .pi-orbit-coin { animation: pi-coin-in 0.5s ease-out 1.2s both; }
+  @keyframes pi-ring-draw { from { stroke-dasharray: 0 100; } to { stroke-dasharray: 72 100; } }
+  @keyframes pi-coin-in { from { opacity: 0; } to { opacity: 1; } }
+
+  /* زر Pi: الفعل الوحيد في الصفحة، فهو الأقوى */
+  html[data-pi-mode] .btn-pi {
+    margin-top: 1.6rem;
+    padding: 1rem 1.2rem;
+    border: 0;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #F7C35A 0%, var(--pi-gold) 55%, var(--pi-gold-deep) 100%);
+    color: var(--pi-night);
+    font-size: 1.05rem; font-weight: 800;
+    box-shadow: 0 10px 28px rgba(242,179,61,0.32), inset 0 1px 0 rgba(255,255,255,0.45);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  html[data-pi-mode] .btn-pi:hover { transform: translateY(-1px); box-shadow: 0 14px 34px rgba(242,179,61,0.42), inset 0 1px 0 rgba(255,255,255,0.45); background: linear-gradient(180deg, #F9CB6B 0%, #F4BA48 55%, var(--pi-gold-deep) 100%); }
+  html[data-pi-mode] .btn-pi:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  html[data-pi-mode] .btn-pi svg circle { fill: var(--pi-night); }
+  html[data-pi-mode] .btn-pi svg text { fill: var(--pi-gold); }
+  html[data-pi-mode] .pi-mode-note { color: var(--pi-lavender); opacity: 0.85; font-size: 0.82rem; margin-top: 0.85rem; }
+
+  /* الحقائق الثلاث: خط ذهبي على البداية بدل كروت */
+  html[data-pi-mode] .pi-facts { display: grid; gap: 0.85rem; list-style: none; padding: 0; margin: 0; }
+  .pi-facts li { display: grid; gap: 0.1rem; padding-inline-start: 0.9rem; border-inline-start: 2px solid var(--pi-gold); }
+  .pi-facts strong { color: #fff; font-size: 0.95rem; font-weight: 700; }
+  .pi-facts span { color: var(--pi-lavender); font-size: 0.85rem; line-height: 1.7; }
+  html[data-pi-mode] .pi-facts--card { margin-top: 1.4rem; padding-top: 1.3rem; border-top: 1px solid var(--pi-line); }
+
+  /* اللوح الجانبي (سطح المكتب) */
+  html[data-pi-mode] .brand-panel {
+    background:
+      radial-gradient(600px 400px at 50% 30%, rgba(75,42,123,0.6), transparent 70%),
+      linear-gradient(160deg, var(--pi-indigo) 0%, var(--pi-night) 100%);
+    border-inline-start: 1px solid var(--pi-line);
+  }
+  html[data-pi-mode] .brand-panel::before {
+    background-image: radial-gradient(circle, rgba(242,179,61,0.16) 1px, transparent 1.2px);
+    background-size: 30px 30px;
+  }
+  html[data-pi-mode] .brand-panel::after,
+  html[data-pi-mode] .blob-br,
+  html[data-pi-mode] .brand-panel > :not(.pi-brand) { display: none !important; }
+  html[data-pi-mode] .pi-brand { display: block; position: relative; z-index: 1; width: 100%; max-width: 380px; text-align: start; }
+  html[data-pi-mode] .pi-facts--card { display: none; }
+  .pi-brand-mark { position: relative; width: 150px; height: 150px; display: grid; place-items: center; margin-bottom: 1.6rem; }
+  .pi-brand-mark img { width: 96px; height: 96px; position: relative; z-index: 1; filter: drop-shadow(0 10px 24px rgba(22,119,255,0.45)); }
+  .pi-brand-title { color: #fff; font-size: 2.6rem; font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; }
+  .pi-brand-tagline { color: var(--pi-lavender); font-size: 1.05rem; line-height: 1.8; margin: 0.6rem 0 2rem; max-width: 30ch; }
+  html[data-pi-mode] .page-footer { background: transparent; color: rgba(207,198,234,0.55); border-top-color: var(--pi-line); }
+
+  @media (max-width: 860px) {
+    html[data-pi-mode] .login-panel { background: transparent; padding: 1.25rem 1rem; }
+    html[data-pi-mode] .pi-facts--card { display: grid; }
+    html[data-pi-mode] .card-logo { width: 104px; height: 104px; }
+  }
+  @media (max-width: 440px) {
+    html[data-pi-mode] .login-card { padding: 1.8rem 1.25rem 1.5rem; border-radius: 20px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pi-orbit-ring, .pi-orbit-coin { animation: none !important; }
+    html[data-pi-mode] .btn-pi { transition: none; }
+  }
 </style>
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
   <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
@@ -650,6 +772,14 @@
 
       <div class="card-logo">
         <img class="card-logo-img" src="/logo.png" alt="شعار مدعوم">
+        <svg class="pi-orbit" viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="pi-orbit-track" cx="60" cy="60" r="54"/>
+            <circle class="pi-orbit-ring" cx="60" cy="60" r="54" pathLength="100"/>
+            <g class="pi-orbit-coin" transform="translate(98 22)">
+              <circle r="11"/>
+              <text y="5" text-anchor="middle">π</text>
+            </g>
+          </svg>
       </div>
 
       <!-- ══ STEP 1: EMAIL/PASSWORD ══ -->
@@ -657,6 +787,7 @@
 
         <h1 class="card-title">تسجيل الدخول</h1>
         <p class="card-subtitle">مرحباً بك في منصة مدعوم</p>
+        <p class="pi-subtitle">ادخل مدعوم بحساب Pi بتاعك</p>
 
         <div class="subdomain-banner" id="subdomainBanner">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -764,7 +895,12 @@
           <span id="pi-login-label">المتابعة بـ Pi Network</span>
           <span class="pi-spinner" id="pi-login-spinner" style="display:none;"></span>
         </button>
-        <p class="pi-mode-note">ادخل بحساب Pi بتاعك — لو أول مرة، حسابك على مدعوم بيتعمل تلقائيًا.</p>
+        <p class="pi-mode-note">أول مرة؟ حسابك على مدعوم بيتعمل تلقائيًا من حساب Pi.</p>
+        <ul class="pi-facts pi-facts--card">
+          <li><strong>دخول بحساب Pi</strong><span>من غير إيميل ولا كلمة مرور.</span></li>
+          <li><strong>اشتراكك بالـPi</strong><span>بيتفعّل أول ما الدفعة تتأكد.</span></li>
+          <li><strong>فاتورتك في تذكرتك</strong><span>بتوصلك مع كل اشتراك تلقائيًا.</span></li>
+        </ul>
 
         <p class="register-row">
           ليس لديك حساب؟ <a href="#" id="go-register">إنشاء حساب جديد</a>
@@ -969,6 +1105,29 @@
   <!-- ══ RIGHT = BRAND ══ -->
   <aside class="brand-panel">
     <div class="blob-br"></div>
+
+    <!-- وضع Pi (mainnet.mad3oom.com): هوية مدعوم بروح Pi — مستوحاة لا منسوخة،
+         فشروط الإدراج تمنع استخدام شعار Pi وألوانه الرسمية. -->
+    <div class="pi-brand">
+      <div class="pi-brand-mark">
+        <img src="/logo.png" alt="" aria-hidden="true">
+        <svg class="pi-orbit pi-orbit--lg" viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="pi-orbit-track" cx="60" cy="60" r="54"/>
+            <circle class="pi-orbit-ring" cx="60" cy="60" r="54" pathLength="100"/>
+            <g class="pi-orbit-coin" transform="translate(98 22)">
+              <circle r="11"/>
+              <text y="5" text-anchor="middle">π</text>
+            </g>
+          </svg>
+      </div>
+      <h2 class="pi-brand-title">مدعوم</h2>
+      <p class="pi-brand-tagline">منصة دعم العملاء وواتساب بيزنس، والاشتراك فيها بالـPi.</p>
+      <ul class="pi-facts">
+          <li><strong>دخول بحساب Pi</strong><span>من غير إيميل ولا كلمة مرور.</span></li>
+          <li><strong>اشتراكك بالـPi</strong><span>بيتفعّل أول ما الدفعة تتأكد.</span></li>
+          <li><strong>فاتورتك في تذكرتك</strong><span>بتوصلك مع كل اشتراك تلقائيًا.</span></li>
+        </ul>
+    </div>
 
     <div class="logo-stage">
       <svg class="connector" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">

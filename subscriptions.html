@@ -7,6 +7,7 @@
     <!-- SEO Meta Tags -->
     <title>الاشتراكات والخطط - منصة مدعوم</title>
     <script src="/assets/js/pi-mode-flag.js"></script>
+    <link rel="stylesheet" href="/assets/css/pi-mode.css">
     <style>
         /* وضع Pi (mainnet.mad3oom.com): شروط Mainnet — أسعار Pi وحدها، بلا عروض بالجنيه */
         html[data-pi-mode] .launch-offer-banner,
@@ -111,6 +112,19 @@
                  مسجل دخول وعنده اشتراك نشط. زرار "تجديد الاشتراك الحالي" بيتولد جوه المربع ده
                  مباشرة (نفس المنطق المستخدم في customer-subscriptions.html) -->
             <div id="subscriptionStatusContainer" style="margin: 1.5rem 0;"></div>
+
+
+            <!-- وضع Pi (mainnet.mad3oom.com) فقط -->
+            <div class="pi-strip" role="note">
+                <div class="pi-strip-mark" aria-hidden="true">
+                    <svg viewBox="0 0 56 56"><circle class="track" cx="28" cy="28" r="25"/><circle class="ring" cx="28" cy="28" r="25" pathLength="100"/></svg>
+                    <span>π</span>
+                </div>
+                <div class="pi-strip-text">
+                    <strong>ادفع اشتراكك بالـPi</strong>
+                    <p>بيتفعّل أول ما الدفعة تتأكد، وفاتورتك بتوصلك في تذكرة الاشتراك.</p>
+                </div>
+            </div>
 
             <!-- Toggle Button -->
             <div class="toggle-container">
