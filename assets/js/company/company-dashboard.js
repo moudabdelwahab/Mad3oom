@@ -1034,16 +1034,11 @@ function applyViewerRole() {
             item.hidden = !allowed;
             item.style.display = allowed ? '' : 'none';
         });
-        // عنوان مجموعة بلا عناصر ظاهرة يختفي معها
-        document.querySelectorAll('.sidebar-menu .sidebar-group-label').forEach(label => {
-            let next = label.nextElementSibling;
-            let visible = false;
-            while (next && !next.classList.contains('sidebar-group-label')) {
-                if (next.classList.contains('sidebar-item') && !next.hidden) visible = true;
-                next = next.nextElementSibling;
-            }
-            label.hidden = !visible;
-            label.style.display = visible ? '' : 'none';
+        // مجموعة بلا عناصر ظاهرة تختفي بعنوانها (القائمة مجموعات .sidebar-group قابلة للطي)
+        document.querySelectorAll('.sidebar-menu .sidebar-group').forEach(group => {
+            const visible = [...group.querySelectorAll('.sidebar-item')].some(item => !item.hidden);
+            group.hidden = !visible;
+            group.style.display = visible ? '' : 'none';
         });
         applyInboxBadge(inboxSummary);
     });

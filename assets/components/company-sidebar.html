@@ -89,7 +89,8 @@
             </div>
 
             <div class="portal-menu-wrap">
-                <button class="nav-btn nav-avatar-btn" id="customerAvatarBtn" aria-label="قائمة الحساب" aria-haspopup="true" aria-expanded="false">
+                <button class="nav-btn nav-avatar-btn nav-user-btn" id="customerAvatarBtn" aria-label="قائمة الحساب" aria-haspopup="true" aria-expanded="false">
+                    <span class="nav-user-meta"><span class="nav-user-name" id="customerNavName"></span><span class="nav-user-greeting">مرحبًا</span></span>
                     <span class="avatar-circle" id="customerInitial">U</span>
                 </button>
                 <div class="portal-menu portal-menu-account" id="customerAvatarMenu" role="menu" hidden>
@@ -124,7 +125,13 @@
 
 <aside class="sidebar" id="sidebar" aria-label="أقسام لوحة الشركة">
     <div class="sidebar-header">
-        <span class="sidebar-title">لوحة الشركة</span>
+        <a class="dash-brand" href="/company-dashboard/#overview" aria-label="مدعوم — لوحة الشركة">
+            <img src="/logo.png" alt="" class="dash-brand-logo" width="40" height="40" aria-hidden="true">
+            <span class="dash-brand-text sidebar-title">
+                <span class="dash-brand-name">مدعوم</span>
+                <span class="dash-brand-context">لوحة الشركة</span>
+            </span>
+        </a>
         <button type="button" class="sidebar-close" id="sidebarClose" aria-label="إغلاق القائمة">&times;</button>
         <button type="button" id="sidebarCollapseBtn" aria-label="طي القائمة الجانبية" aria-expanded="true" title="طي القائمة">
             <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
@@ -135,94 +142,126 @@
         <!-- مجالات العمل كما في assets/js/company/company-routes.js. كل رابط صفحة مستقلة
              (hash داخل /company-dashboard/)؛ ما لا يخص دور الناظر تخفيه اللوحة بعد قراءة الدور،
              وصندوق الرسائل يظهر فقط حين ترد القاعدة بصندوق لهذا الحساب (102). -->
-        <div class="sidebar-group-label">الرئيسية</div>
-        <a href="/company-dashboard/#overview" class="sidebar-item" data-tab="overview" data-label="نظرة عامة">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
-            <span>نظرة عامة</span>
-        </a>
-        <a href="/company-dashboard/#notifications" class="sidebar-item" data-tab="notifications" data-label="الإشعارات">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-            <span>الإشعارات</span>
-        </a>
-        <div class="sidebar-group-label">الدعم والتذاكر</div>
-        <a href="/company-dashboard/#tickets" class="sidebar-item" data-tab="tickets" data-label="تذاكري مع مدعوم">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-            <span>تذاكري مع مدعوم</span>
-        </a>
-        <a href="/company-dashboard/#customerTickets" class="sidebar-item" data-tab="customerTickets" data-label="تذاكر العملاء">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-            <span>تذاكر العملاء</span>
-        </a>
-        <a href="/company-dashboard/#inbox" class="sidebar-item" data-tab="inbox" data-label="صندوق الرسائل" hidden>
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>
-            <span>صندوق الرسائل</span>
-        </a>
-        <a href="/company-dashboard/#support" class="sidebar-item" data-tab="support" data-label="فتح تذكرة ومساعدة">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="4"></circle><line x1="4.93" y1="4.93" x2="9.17" y2="9.17"></line><line x1="14.83" y1="14.83" x2="19.07" y2="19.07"></line><line x1="14.83" y1="9.17" x2="19.07" y2="4.93"></line><line x1="9.17" y1="14.83" x2="4.93" y2="19.07"></line></svg>
-            <span>فتح تذكرة ومساعدة</span>
-        </a>
-        <div class="sidebar-group-label">الفريق والصلاحيات</div>
-        <a href="/company-dashboard/#members" class="sidebar-item" data-tab="members" data-label="أعضاء الفريق">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-            <span>أعضاء الفريق</span>
-        </a>
-        <a href="/company-dashboard/#customers" class="sidebar-item" data-tab="customers" data-label="عملاء الشركة">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-            <span>عملاء الشركة</span>
-        </a>
-        <a href="/company-dashboard/#permissions" class="sidebar-item" data-tab="permissions" data-label="الأدوار والصلاحيات">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
-            <span>الأدوار والصلاحيات</span>
-        </a>
-        <a href="/company-dashboard/#accessLog" class="sidebar-item" data-tab="accessLog" data-label="سجل وصول مدعوم">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-            <span>سجل وصول مدعوم</span>
-        </a>
-        <div class="sidebar-group-label">الاشتراك والفوترة</div>
-        <a href="/company-dashboard/#subscriptions" class="sidebar-item" data-tab="subscriptions" data-label="الاشتراكات">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
-            <span>الاشتراكات</span>
-        </a>
-        <a href="/company-dashboard/#entitlements" class="sidebar-item" data-tab="entitlements" data-label="الخدمات والامتيازات">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-            <span>الخدمات والامتيازات</span>
-        </a>
-        <a href="/company-dashboard/#usage" class="sidebar-item" data-tab="usage" data-label="الاستخدام والحدود">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
-            <span>الاستخدام والحدود</span>
-        </a>
-        <div class="sidebar-group-label">التكاملات وواجهة API</div>
-        <a href="/company-dashboard/#integrations" class="sidebar-item" data-tab="integrations" data-label="التكاملات">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-            <span>التكاملات</span>
-        </a>
-        <a href="/company-dashboard/#api" class="sidebar-item" data-tab="api" data-label="مفاتيح API">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-            <span>مفاتيح API</span>
-        </a>
-        <div class="sidebar-group-label">التقارير والنشاط</div>
-        <a href="/company-dashboard/#reports" class="sidebar-item" data-tab="reports" data-label="التقارير">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
-            <span>التقارير</span>
-        </a>
-        <a href="/company-dashboard/#activity" class="sidebar-item" data-tab="activity" data-label="النشاط">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-            <span>النشاط</span>
-        </a>
-        <div class="sidebar-group-label">حساب الشركة</div>
-        <a href="/company-dashboard/#company" class="sidebar-item" data-tab="company" data-label="بيانات الشركة">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"></path><path d="M5 21V7l8-4v18"></path><path d="M19 21V11l-6-4"></path></svg>
-            <span>بيانات الشركة</span>
-        </a>
-        <div class="sidebar-group-label">حسابي والأمان</div>
-        <a href="/company-dashboard/#profile" class="sidebar-item" data-tab="profile" data-label="الملف الشخصي">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-            <span>الملف الشخصي</span>
-        </a>
-        <a href="/company-dashboard/#security" class="sidebar-item" data-tab="security" data-label="الأمان">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-            <span>الأمان</span>
-        </a>
+        <div class="sidebar-group" data-group="home">
+            <button type="button" class="sidebar-group-toggle" aria-expanded="true" aria-controls="companyNavGroupHome"><span class="sidebar-group-label">الرئيسية</span><svg class="sidebar-group-chevron" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+            <div class="sidebar-group-items" id="companyNavGroupHome">
+                <a href="/company-dashboard/#overview" class="sidebar-item" data-tab="overview" data-label="نظرة عامة">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+                    <span>نظرة عامة</span>
+                </a>
+                <a href="/company-dashboard/#notifications" class="sidebar-item" data-tab="notifications" data-label="الإشعارات">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                    <span>الإشعارات</span>
+                </a>
+            </div>
+        </div>
+        <div class="sidebar-group" data-group="support">
+            <button type="button" class="sidebar-group-toggle" aria-expanded="true" aria-controls="companyNavGroupSupport"><span class="sidebar-group-label">الدعم والتذاكر</span><svg class="sidebar-group-chevron" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+            <div class="sidebar-group-items" id="companyNavGroupSupport">
+                <a href="/company-dashboard/#tickets" class="sidebar-item" data-tab="tickets" data-label="تذاكري مع مدعوم">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                    <span>تذاكري مع مدعوم</span>
+                </a>
+                <a href="/company-dashboard/#customerTickets" class="sidebar-item" data-tab="customerTickets" data-label="تذاكر العملاء">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    <span>تذاكر العملاء</span>
+                </a>
+                <a href="/company-dashboard/#inbox" class="sidebar-item" data-tab="inbox" data-label="صندوق الرسائل" hidden>
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>
+                    <span>صندوق الرسائل</span>
+                </a>
+                <a href="/company-dashboard/#support" class="sidebar-item" data-tab="support" data-label="فتح تذكرة ومساعدة">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="4"></circle><line x1="4.93" y1="4.93" x2="9.17" y2="9.17"></line><line x1="14.83" y1="14.83" x2="19.07" y2="19.07"></line><line x1="14.83" y1="9.17" x2="19.07" y2="4.93"></line><line x1="9.17" y1="14.83" x2="4.93" y2="19.07"></line></svg>
+                    <span>فتح تذكرة ومساعدة</span>
+                </a>
+            </div>
+        </div>
+        <div class="sidebar-group" data-group="team">
+            <button type="button" class="sidebar-group-toggle" aria-expanded="true" aria-controls="companyNavGroupTeam"><span class="sidebar-group-label">الفريق والصلاحيات</span><svg class="sidebar-group-chevron" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+            <div class="sidebar-group-items" id="companyNavGroupTeam">
+                <a href="/company-dashboard/#members" class="sidebar-item" data-tab="members" data-label="أعضاء الفريق">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                    <span>أعضاء الفريق</span>
+                </a>
+                <a href="/company-dashboard/#customers" class="sidebar-item" data-tab="customers" data-label="عملاء الشركة">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                    <span>عملاء الشركة</span>
+                </a>
+                <a href="/company-dashboard/#permissions" class="sidebar-item" data-tab="permissions" data-label="الأدوار والصلاحيات">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+                    <span>الأدوار والصلاحيات</span>
+                </a>
+                <a href="/company-dashboard/#accessLog" class="sidebar-item" data-tab="accessLog" data-label="سجل وصول مدعوم">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    <span>سجل وصول مدعوم</span>
+                </a>
+            </div>
+        </div>
+        <div class="sidebar-group" data-group="billing">
+            <button type="button" class="sidebar-group-toggle" aria-expanded="true" aria-controls="companyNavGroupBilling"><span class="sidebar-group-label">الاشتراك والفوترة</span><svg class="sidebar-group-chevron" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+            <div class="sidebar-group-items" id="companyNavGroupBilling">
+                <a href="/company-dashboard/#subscriptions" class="sidebar-item" data-tab="subscriptions" data-label="الاشتراكات">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                    <span>الاشتراكات</span>
+                </a>
+                <a href="/company-dashboard/#entitlements" class="sidebar-item" data-tab="entitlements" data-label="الخدمات والامتيازات">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    <span>الخدمات والامتيازات</span>
+                </a>
+                <a href="/company-dashboard/#usage" class="sidebar-item" data-tab="usage" data-label="الاستخدام والحدود">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+                    <span>الاستخدام والحدود</span>
+                </a>
+            </div>
+        </div>
+        <div class="sidebar-group" data-group="integrations">
+            <button type="button" class="sidebar-group-toggle" aria-expanded="true" aria-controls="companyNavGroupIntegrations"><span class="sidebar-group-label">التكاملات وواجهة API</span><svg class="sidebar-group-chevron" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+            <div class="sidebar-group-items" id="companyNavGroupIntegrations">
+                <a href="/company-dashboard/#integrations" class="sidebar-item" data-tab="integrations" data-label="التكاملات">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                    <span>التكاملات</span>
+                </a>
+                <a href="/company-dashboard/#api" class="sidebar-item" data-tab="api" data-label="مفاتيح API">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                    <span>مفاتيح API</span>
+                </a>
+            </div>
+        </div>
+        <div class="sidebar-group" data-group="reports">
+            <button type="button" class="sidebar-group-toggle" aria-expanded="true" aria-controls="companyNavGroupReports"><span class="sidebar-group-label">التقارير والنشاط</span><svg class="sidebar-group-chevron" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+            <div class="sidebar-group-items" id="companyNavGroupReports">
+                <a href="/company-dashboard/#reports" class="sidebar-item" data-tab="reports" data-label="التقارير">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
+                    <span>التقارير</span>
+                </a>
+                <a href="/company-dashboard/#activity" class="sidebar-item" data-tab="activity" data-label="النشاط">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    <span>النشاط</span>
+                </a>
+            </div>
+        </div>
+        <div class="sidebar-group" data-group="company">
+            <button type="button" class="sidebar-group-toggle" aria-expanded="true" aria-controls="companyNavGroupCompany"><span class="sidebar-group-label">حساب الشركة</span><svg class="sidebar-group-chevron" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+            <div class="sidebar-group-items" id="companyNavGroupCompany">
+                <a href="/company-dashboard/#company" class="sidebar-item" data-tab="company" data-label="بيانات الشركة">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"></path><path d="M5 21V7l8-4v18"></path><path d="M19 21V11l-6-4"></path></svg>
+                    <span>بيانات الشركة</span>
+                </a>
+            </div>
+        </div>
+        <div class="sidebar-group" data-group="account">
+            <button type="button" class="sidebar-group-toggle" aria-expanded="true" aria-controls="companyNavGroupAccount"><span class="sidebar-group-label">حسابي والأمان</span><svg class="sidebar-group-chevron" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+            <div class="sidebar-group-items" id="companyNavGroupAccount">
+                <a href="/company-dashboard/#profile" class="sidebar-item" data-tab="profile" data-label="الملف الشخصي">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    <span>الملف الشخصي</span>
+                </a>
+                <a href="/company-dashboard/#security" class="sidebar-item" data-tab="security" data-label="الأمان">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    <span>الأمان</span>
+                </a>
+            </div>
+        </div>
     </nav>
 
     <div class="sidebar-footer">

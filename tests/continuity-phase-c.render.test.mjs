@@ -589,7 +589,8 @@ test('record page at 390px: the confirmation is a bottom sheet inside the viewpo
     await page.waitForSelector('#ctRecordTitle');
     await page.locator('[data-redact="s1"]').click();
     await page.waitForSelector('#ctConfirm[open]');
-    await page.waitForFunction(() => document.getAnimations().every((a) => a.playState === 'finished')); // حركة الظهور
+    // حركة ظهور النافذة وحدها: الصفحة فيها حركات دائمة لا تنتهي (نبض شارة «مدير النظام» في الشريط)
+    await page.waitForFunction(() => document.getElementById('ctConfirm').getAnimations({ subtree: true }).every((a) => a.playState === 'finished'));
     const box = await page.locator('#ctConfirm').boundingBox();
     assert.ok(box.x >= -1 && box.x + box.width <= 391, `dialog overflows horizontally: ${JSON.stringify(box)}`);
     assert.ok(Math.abs(box.y + box.height - 844) <= 2, `not anchored to the bottom: ${JSON.stringify(box)}`);

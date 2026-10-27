@@ -1,3 +1,5 @@
+import { isSidebarCollapsed, setSidebarCollapsed, initCollapseToggle, initCollapsedTooltips, initNavGroups, revealActiveNavItem } from '/assets/js/dashboard-nav.js';
+
 /**
  * customer-sidebar.js — قشرة البوابة المشتركة (شريط علوي + قائمة جانبية).
  *
@@ -55,44 +57,14 @@ const SHELLS = {
     }
 };
 
-const COLLAPSE_KEY = 'mad3oom-sidebar-collapsed';
+// حالة الطي والمجموعات القابلة للطي مشتركة مع لوحة الإدارة (dashboard-nav.js)؛
+// التصدير هنا باقٍ كما كان لمن يستورد من هذه القشرة.
+export { isSidebarCollapsed, setSidebarCollapsed };
 
 let tabChangeHandler = null;
 
 /** بيت البوابة الحالية — يُضبط عند التهيئة ويُقرأ في كل مكان بدل ثابت واحد. */
 let shell = SHELLS.customer;
-
-/** هل المستخدم مفضّل القائمة مطوية؟ (يُقرأ قبل الرسم لتفادي أي قفزة) */
-export function isSidebarCollapsed() {
-    try {
-        return localStorage.getItem(COLLAPSE_KEY) === '1';
-    } catch {
-        return false;
-    }
-}
-
-/**
- * يطبّق حالة الطي ويحفظها.
- * العلَم على <html> مش على <body>: السكربت اللي بيشتغل قبل أول رسم في <head>
- * ما بيقدرش يوصل لـbody، فلو الحالة اتحطت على body هتحصل قفزة في عرض المحتوى
- * بعد التحميل. الاتنين بيكتبوا نفس السمة هنا.
- */
-export function setSidebarCollapsed(collapsed, { persist = true } = {}) {
-    document.documentElement.setAttribute('data-sidebar', collapsed ? 'collapsed' : 'expanded');
-
-    const btn = document.getElementById('sidebarCollapseBtn');
-    if (btn) {
-        btn.setAttribute('aria-expanded', String(!collapsed));
-        btn.setAttribute('aria-label', collapsed ? 'توسيع القائمة الجانبية' : 'طي القائمة الجانبية');
-        btn.title = collapsed ? 'توسيع القائمة' : 'طي القائمة';
-    }
-
-    if (persist) {
-        try {
-            localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0');
-        } catch { /* التخزين غير متاح (وضع خاص) — الحالة تفضل للجلسة الحالية */ }
-    }
-}
 
 /** قشرة لوحة الشركة — نفس المنطق، قائمة وبيت مختلفان. */
 export function initCompanyShell(optionsOrCallback) {
@@ -129,6 +101,9 @@ function initPortalShell(variant, optionsOrCallback) {
             sidebarContainer.innerHTML = html;
             setupSidebarLogic(tabChangeHandler, options);
             setupCollapseToggle();
+            initNavGroups(document.getElementById('sidebar'), variant);
+            // بوابة العميل خارج نطاق تخطيط اللوحات: تلميحها كما هو
+            if (document.body.classList.contains('dash-layout')) initCollapsedTooltips(document.getElementById('sidebar'));
             syncNavHeight();
             markActivePage();
             loadAccountIdentity();
@@ -176,6 +151,7 @@ export function setActiveSidebarTab(tabName) {
         if (isActive) item.setAttribute('aria-current', 'page');
         else item.removeAttribute('aria-current');
     });
+    revealActiveNavItem();
 }
 
 /**
@@ -264,6 +240,8 @@ async function loadAccountIdentity() {
         if (initial) initial.textContent = String(name).trim().charAt(0).toUpperCase() || 'U';
         if (menuName) menuName.textContent = name;
         if (menuEmail) menuEmail.textContent = user.email || '';
+        const navName = document.getElementById('customerNavName');
+        if (navName) navName.textContent = name;
 
         // حالة الحساب معلومة يملكها العميل عن نفسه، ومفيدة قبل ما يسأل الدعم.
         // الشرط نفسه في is_banned() بالقاعدة — 'none' (الافتراضي) و'active'
@@ -281,16 +259,7 @@ async function loadAccountIdentity() {
 }
 
 function setupCollapseToggle() {
-    // الحالة المحفوظة تُطبَّق فورًا (بدون حفظ) قبل أي تفاعل
-    setSidebarCollapsed(isSidebarCollapsed(), { persist: false });
-
-    const btn = document.getElementById('sidebarCollapseBtn');
-    if (!btn) return;
-
-    btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        setSidebarCollapsed(document.documentElement.getAttribute('data-sidebar') !== 'collapsed');
-    });
+    initCollapseToggle();
 }
 
 /**
