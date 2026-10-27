@@ -2142,7 +2142,7 @@
         let elapsed = 0;
         const pollMs = 150;
         const maxWaitMs = 8000;
-        const tryInit = () => {
+        const tryInit = async () => {
           if (typeof window.Pi === 'undefined') {
             elapsed += pollMs;
             if (elapsed >= maxWaitMs) {
@@ -2154,10 +2154,12 @@
             return;
           }
           try {
-            window.Pi.init({ version: '2.0', sandbox: PI_SANDBOX });
+            // Pi.init ترجع Promise؛ لا تستدعِ authenticate قبل اكتمال التهيئة.
+            await window.Pi.init({ version: '2.0', sandbox: PI_SANDBOX });
             this._sdkReady = true;
             resolve();
           } catch (err) {
+            this._sdkReady = false;
             this._initPromise = null;
             reject(err);
           }
