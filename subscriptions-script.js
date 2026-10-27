@@ -516,29 +516,24 @@ function piOptionHtml(offer) {
 }
 
 /**
- * يشغّل دفع Pi ثم يحوّل النتيجة لبيانات طلب الاشتراك المعتاد.
- * 'gateway' هي الوسيلة الداخلية المسموحة في القاعدة، ومرجع الدفعة يميّزها.
+ * يشغّل دفع Pi كاملًا. الخادم هو اللي بيفتح التذكرة ويفعّل الاشتراك ويرفق
+ * الفاتورة فور تأكيد الدفعة (pi-payments → pi_settle_payment)، فالصفحة هنا
+ * بتعرض النتيجة بس — حتى لو العميل ما رجعش للصفحة، الاشتراك بيتفعّل.
  */
-async function settleWithPi(plan, billingCycle, offer) {
-    const { paymentId, txid } = await payWithPi({
+async function payAndShowPi(plan, billingCycle, offer) {
+    const { paymentId, settlement } = await payWithPi({
         planId: offer.planId,
         planLabel: PLAN_LABELS[plan] || plan,
         billingCycle,
         amount: offer.amount
     });
-    return {
-        paymentMethod: 'gateway',
-        paymentReference: `Pi Network · ${offer.amount} π · payment ${paymentId} · txid ${txid}`,
-        proofFile: null
-    };
-}
-
-/** لو الدفع بـPi تم ثم فشل إرسال الطلب: العميل دفع فعلًا، فلازم معه المرجع. */
-function piPaidNote(paymentInfo) {
-    const ref = paymentInfo?.paymentReference || '';
-    return ref.startsWith('Pi Network')
-        ? `\n\nدفعتك بـPi تمت بنجاح ومسجّلة لدينا. تواصل مع الدعم بهذا المرجع لإتمام اشتراكك:\n${ref}`
-        : '';
+    if (settlement?.settled) {
+        alert(`تم الدفع وتفعيل اشتراكك بنجاح! ✓\n\nرقم التذكرة: #${settlement.ticket_number ?? '—'}`
+            + (settlement.invoice_number ? `\nرقم الفاتورة: ${settlement.invoice_number} (مرفقة في التذكرة)` : '\nالفاتورة هتترفق في التذكرة خلال دقائق.'));
+    } else {
+        alert(`تم استلام دفعتك بـPi ومسجّلة لدينا، وجاري تفعيل اشتراكك.\nلو ما اتفعّلش خلال دقائق تواصل مع الدعم برقم الدفعة:\n${paymentId}`);
+    }
+    await loadSubscriptionStatus();
 }
 
 function initPlanButtons() {
@@ -654,12 +649,17 @@ async function handleSubscribe(plan, buttonEl) {
     if (paymentInfo.paymentMethod === PI_METHOD) {
         try {
             if (buttonEl) { buttonEl.textContent = 'جاري الدفع بـPi...'; buttonEl.disabled = true; }
-            paymentInfo = await settleWithPi(plan, billingCycle, piOffer);
+            if (account.asCompany) {
+                alert('الدفع بـPi متاح للحسابات الفردية حاليًا. اختر وسيلة دفع أخرى لحساب الشركة.');
+                return;
+            }
+            await payAndShowPi(plan, billingCycle, piOffer);
         } catch (err) {
             alert(err.message);
+        } finally {
             if (buttonEl) { buttonEl.textContent = originalText; buttonEl.disabled = false; }
-            return;
         }
+        return;
     }
 
     try {
@@ -681,7 +681,7 @@ async function handleSubscribe(plan, buttonEl) {
         await loadSubscriptionStatus();
     } catch (error) {
         console.error('Error creating subscription:', error);
-        alert((error.message || 'حدث خطأ أثناء إنشاء طلب الاشتراك. يرجى المحاولة مرة أخرى.') + piPaidNote(paymentInfo));
+        alert((error.message || 'حدث خطأ أثناء إنشاء طلب الاشتراك. يرجى المحاولة مرة أخرى.'));
     } finally {
         if (buttonEl) {
             buttonEl.textContent = originalText;
@@ -716,12 +716,13 @@ async function handleRenew() {
     if (paymentInfo.paymentMethod === PI_METHOD) {
         try {
             if (renewBtn) { renewBtn.textContent = 'جاري الدفع بـPi...'; renewBtn.disabled = true; }
-            paymentInfo = await settleWithPi(plan, billingCycle, piOffer);
+            await payAndShowPi(plan, billingCycle, piOffer);
         } catch (err) {
             alert(err.message);
+        } finally {
             if (renewBtn) { renewBtn.textContent = originalText || 'تجديد الاشتراك الحالي'; renewBtn.disabled = false; }
-            return;
         }
+        return;
     }
 
     try {
@@ -741,7 +742,7 @@ async function handleRenew() {
         await loadSubscriptionStatus();
     } catch (error) {
         console.error('Error renewing subscription:', error);
-        alert((error.message || 'حدث خطأ أثناء تجديد الاشتراك. يرجى المحاولة مرة أخرى.') + piPaidNote(paymentInfo));
+        alert((error.message || 'حدث خطأ أثناء تجديد الاشتراك. يرجى المحاولة مرة أخرى.'));
     } finally {
         if (renewBtn) {
             renewBtn.textContent = originalText || 'تجديد الاشتراك الحالي';

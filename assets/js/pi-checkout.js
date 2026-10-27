@@ -105,8 +105,9 @@ export async function payWithPi({ planId, planLabel, billingCycle, amount }) {
                     .catch(err => reject(new Error(`رُفضت الدفعة: ${err.message}`)));
             },
             onReadyForServerCompletion: (id, txid) => {
+                // الخادم يتم الدفعة ويسوّيها: تذكرة + تفعيل + فاتورة (pi_settle_payment)
                 callServer({ action: 'complete', paymentId: id, txid })
-                    .then(() => resolve({ paymentId: id, txid }))
+                    .then((settlement) => resolve({ paymentId: id, txid, settlement }))
                     .catch(err => reject(new Error(
                         `وصلت الدفعة للبلوكتشين لكن تعذّر تأكيدها (${err.message}). احتفظ بالرقم ${id} وتواصل مع الدعم.`)));
             },

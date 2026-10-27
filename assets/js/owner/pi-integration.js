@@ -146,7 +146,7 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
             return `<span class="owner-account-name">${esc(u?.full_name || u?.email || id)}</span>`;
         };
         $('piPaymentsBody').innerHTML = table(
-            ['الحساب', 'الخطة', 'المبلغ', 'الشبكة', 'الحالة', 'التاريخ', 'المعاملة'], list, p => {
+            ['الحساب', 'الخطة', 'المبلغ', 'الشبكة', 'الحالة', 'التاريخ', 'المعاملة', 'التسوية'], list, p => {
                 const [label, cls] = STATUS[p.status] || [p.status, 'status-neutral'];
                 return `<tr>
                     ${td(account(p.user_id))}
@@ -156,9 +156,42 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
                     ${td(`<span class="pill ${cls}">${esc(label)}</span>${p.error ? `<span class="owner-cell-muted" dir="ltr"> ${esc(p.error)}</span>` : ''}`)}
                     ${td(when(p.created_at))}
                     ${td(p.txid ? `<code class="owner-cell-muted" dir="ltr" title="${esc(p.txid)}">${esc(p.txid.slice(0, 10))}…</code>` : '—')}
+                    ${td(settlementCell(p))}
                 </tr>`;
             });
     }
+
+    /** التسوية: تذكرة + تفعيل + فاتورة (pi-payments → migrations/116). */
+    function settlementCell(p) {
+        if (p.status !== 'completed') return '<span class="owner-cell-muted">—</span>';
+        if (p.settled_at && p.invoice_attached_at) {
+            return `<a class="pill status-resolved" href="/admin/tickets.html?ticket_id=${esc(p.ticket_id)}">تذكرة مؤكَّدة + فاتورة</a>`;
+        }
+        const what = p.settled_at ? 'إرفاق الفاتورة' : 'إكمال التسوية';
+        return `<button type="button" class="btn btn-outline btn-sm" data-settle="${esc(p.pi_payment_id)}">${what}</button>
+            ${p.settle_error ? `<span class="owner-cell-muted" title="${esc(p.settle_error)}"> ⚠</span>` : ''}`;
+    }
+
+    $('piPaymentsBody').addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-settle]');
+        if (!btn) return;
+        btn.disabled = true;
+        say('جارٍ التسوية…');
+        try {
+            const { data, error } = await supabase.functions.invoke('pi-payments', {
+                body: { action: 'settle', paymentId: btn.dataset.settle }
+            });
+            if (error) throw error;
+            if (!data?.settled) throw new Error(data?.error || 'تعذّرت التسوية');
+            say(data.invoice === 'attached' || data.invoice === 'already_attached'
+                ? `تمت التسوية: تذكرة #${data.ticket_number ?? '—'} وفاتورة ${data.invoice_number ?? ''}.`
+                : `الاشتراك مفعّل (تذكرة #${data.ticket_number ?? '—'})، والفاتورة لم تصدر بعد — جرّب تاني بعد قليل.`,
+                data.invoice === 'pending' ? 'error' : 'success');
+        } catch (err) {
+            say(friendly(err), 'error');
+        }
+        load({ force: true });
+    });
 
     $('piPaymentsFilter').addEventListener('change', (e) => { filter = e.target.value; renderPayments(); });
 
@@ -173,7 +206,7 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
                 .eq('is_active', true).order('sort_order'),
             supabase.from('pi_plan_prices').select('plan_id, price_monthly_pi, price_yearly_pi'),
             supabase.from('pi_payments')
-                .select('id, user_id, plan_id, billing_cycle, amount, network, status, txid, error, created_at')
+                .select('id, pi_payment_id, user_id, plan_id, billing_cycle, amount, network, status, txid, error, created_at, ticket_id, settled_at, invoice_attached_at, settle_error')
                 .order('created_at', { ascending: false }).limit(200)
         ]);
 

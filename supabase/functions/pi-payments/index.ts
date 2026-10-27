@@ -15,8 +15,9 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
  *   • الموافقة لا تثق بأي رقم من العميل: الدفعة تُقرأ من Pi نفسها، والمبلغ
  *     يُطابَق بسعر الخطة في pi_plan_prices، والشبكة بإعداد pi_settings،
  *     وصاحب الدفعة بـpi_uid المكتوب في auth.users بدور الخدمة.
- *   • الإتمام لا يفعّل اشتراكًا تلقائيًا: يبقى قرار التفعيل في مسار
- *     الاشتراكات القائم.
+ *   • الموافقة تفحص قبل أي خصم أن الاشتراك مسموح (subscription_purchase_check).
+ *   • الإتمام يسوّي الدفعة على الخادم: تذكرة + تفعيل + فاتورة (migrations/116)،
+ *     فلا يعتمد إنشاء الاشتراك على بقاء الصفحة مفتوحة بعد محفظة Pi.
  */
 
 const PI_API = "https://api.minepi.com/v2";
@@ -43,6 +44,56 @@ async function piFetch(path: string, key: string, init: RequestInit = {}) {
   });
   const body = await res.json().catch(() => null);
   return { ok: res.ok, status: res.status, body };
+}
+
+/**
+ * التسوية بعد تأكيد الدفعة: تذكرة + تفعيل (pi_settle_payment)، ثم فاتورة
+ * المحاسبة (accounting-sync بالسر المشترك)، ثم إرفاقها (pi_attach_invoice).
+ * كل خطوة idempotent، والفشل يُسجَّل في settle_error ولا يُفقد شيئًا: النداء
+ * التالي لنفس الدفعة (أو onIncompletePaymentFound) يكمل من حيث توقّف.
+ */
+async function settle(admin: any, paymentId: string) {
+  const out: Record<string, unknown> = {};
+  const { data: settled, error: settleErr } = await admin.rpc("pi_settle_payment", { p_pi_payment_id: paymentId });
+  if (settleErr) {
+    console.error("[pi-payments] settle:", paymentId, settleErr.message);
+    await admin.from("pi_payments").update({ settle_error: settleErr.message.slice(0, 500) })
+      .eq("pi_payment_id", paymentId);
+    return { settled: false, error: settleErr.message };
+  }
+  out.settled = true;
+  out.subscription_id = settled?.subscription_id;
+  out.ticket_id = settled?.ticket_id;
+
+  const { data: t } = await admin.from("tickets").select("ticket_number").eq("id", settled?.ticket_id).maybeSingle();
+  out.ticket_number = t?.ticket_number ?? null;
+
+  // الفاتورة: لا تُفشل التسوية — الاشتراك مفعّل، والفاتورة تُستكمل لاحقًا
+  try {
+    const secret = Deno.env.get("SYNC_SECRET");
+    if (!secret) throw new Error("SYNC_SECRET غير مضبوط");
+    const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/accounting-sync`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-sync-secret": secret,
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+      },
+      body: JSON.stringify({ subscription_id: settled?.subscription_id }),
+    });
+    if (!res.ok) throw new Error(`accounting-sync ${res.status}`);
+    const { data: att, error: attErr } = await admin.rpc("pi_attach_invoice", { p_pi_payment_id: paymentId });
+    if (attErr) throw new Error(attErr.message);
+    out.invoice = att?.status;
+    out.invoice_number = att?.invoice_number ?? null;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[pi-payments] invoice:", paymentId, msg);
+    await admin.from("pi_payments").update({ settle_error: `invoice: ${msg}`.slice(0, 500) })
+      .eq("pi_payment_id", paymentId);
+    out.invoice = "pending";
+  }
+  return out;
 }
 
 Deno.serve(async (req: Request) => {
@@ -113,6 +164,26 @@ Deno.serve(async (req: Request) => {
     const piUid = user.user_metadata?.pi_uid;
     if (!piUid) return json({ error: "Account is not linked to Pi" }, 403);
 
+    // قبل أي خصم: هل يُسمح بالاشتراك أصلًا؟ نفس فحص submit_subscription_request،
+    // حتى لا يدفع العميل ثم يرفض الطلب بعد الدفع.
+    const { data: plan } = await admin.from("subscription_plans").select("key").eq("id", planId).maybeSingle();
+    if (!plan?.key) return json({ error: "Unknown plan" }, 400);
+    const { data: activeSame } = await admin.from("whatsapp_subscriptions").select("id")
+      .eq("user_id", user.id).eq("plan", plan.key).eq("status", "active")
+      .gt("end_date", new Date().toISOString()).limit(1);
+    const isRenewal = (activeSame?.length ?? 0) > 0;
+    const { data: pending } = await admin.from("whatsapp_subscriptions").select("id")
+      .eq("user_id", user.id).eq("plan", plan.key).eq("status", "pending").limit(1);
+    if (pending?.length) {
+      return json({ error: "لديك طلب قيد المراجعة في هذه الباقة. انتظر رد فريق الدعم قبل الدفع." }, 409);
+    }
+    const { data: check } = await admin.rpc("subscription_purchase_check", {
+      p_plan: plan.key, p_is_renewal: isRenewal, p_user_id: user.id,
+    });
+    if (check && check.allowed === false) {
+      return json({ error: check.reason || "لا يمكن شراء هذه الباقة لحسابك الآن." }, 409);
+    }
+
     const pay = await piFetch(`/payments/${encodeURIComponent(paymentId)}`, key);
     if (!pay.ok || !pay.body) return json({ error: "Payment not found on Pi" }, 404);
     const p = pay.body;
@@ -146,6 +217,15 @@ Deno.serve(async (req: Request) => {
     return json({ approved: true });
   }
 
+  // ── تسوية يدوية من لوحة المالك لدفعة مكتملة لم تُسوَّ ───────────────────
+  if (action === "settle") {
+    const { data: isOwner } = await userClient.rpc("is_platform_owner");
+    if (isOwner !== true) return json({ error: "Forbidden" }, 403);
+    const { data: r } = await admin.from("pi_payments").select("status").eq("pi_payment_id", paymentId).maybeSingle();
+    if (r?.status !== "completed") return json({ error: "الدفعة غير مكتملة" }, 409);
+    return json(await settle(admin, paymentId));
+  }
+
   // الدفعة المسجّلة لهذا المستخدم وحده
   const { data: row } = await admin.from("pi_payments")
     .select("id, status").eq("pi_payment_id", paymentId).eq("user_id", user.id).maybeSingle();
@@ -155,7 +235,10 @@ Deno.serve(async (req: Request) => {
   if (action === "complete") {
     const txid = String(body?.txid ?? "").trim();
     if (!txid) return json({ error: "txid is required" }, 400);
-    if (row.status === "completed") return json({ completed: true });
+    if (row.status === "completed") {
+      // اكتملت سابقًا: نكمل أي تسوية لم تتم (idempotent)
+      return json({ completed: true, ...(await settle(admin, paymentId)) });
+    }
 
     const done = await piFetch(`/payments/${encodeURIComponent(paymentId)}/complete`, key, {
       method: "POST", body: JSON.stringify({ txid }),
@@ -167,7 +250,7 @@ Deno.serve(async (req: Request) => {
     await admin.from("pi_payments").update({
       status: "completed", txid, completed_at: new Date().toISOString(), error: null,
     }).eq("id", row.id);
-    return json({ completed: true });
+    return json({ completed: true, ...(await settle(admin, paymentId)) });
   }
 
   // ── الإلغاء ──────────────────────────────────────────────────────────────
