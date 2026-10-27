@@ -678,3 +678,15 @@ a.context-card { text-decoration: none; }
 .owner-gov-caps { display: flex; flex-wrap: wrap; gap: 8px 14px; }
 .owner-tree { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .owner-tree-node { padding-inline-start: calc(var(--depth, 0) * 20px); display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+
+/* ── المستخدمون: صفحة «المستخدمين» الموحّدة مستضافة في القسم ─────────────── */
+.owner-users-host { margin-top: var(--sp-3, 12px); }
+.owner-users-frame {
+    display: block;
+    width: 100%;
+    height: max(36rem, calc(100vh - 15rem));
+    height: max(36rem, calc(100dvh - 15rem));
+    border: 0;
+    border-radius: var(--r-md, .75rem);
+    background: transparent;
+}

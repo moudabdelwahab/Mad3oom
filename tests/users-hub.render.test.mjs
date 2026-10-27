@@ -231,3 +231,49 @@ test('لا تمرير أفقي على الجوال', { skip: !chromiumPath }, as
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), 0);
     await context.close();
 });
+
+test('لوحة المالك: «المستخدمون» قسم داخل اللوحة يستضيف الصفحة الموحّدة بكل تبويباتها', { skip: !chromiumPath }, async () => {
+    const OWNER = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    const fx = {
+        user: { id: OWNER, email: 'owner@example.com' },
+        // activeContext: المالك داخل سياقه يُسمح له بصفحات الإدارة كما في الإنتاج (040)
+        authUser: { id: OWNER, email: 'owner@example.com', activeContext: 'owner',
+            profile: { id: OWNER, full_name: 'مالك المنصة', role: 'platform_owner', ban_status: 'none' } },
+        rpc: {
+            owner_context_status: { is_platform_owner: true, active_context: 'owner', preview_mode: false, expires_at: '2099-01-01T00:00:00Z' },
+            available_contexts: [{ key: 'owner' }],
+            owner_security_status: { mfa_enrolled: true, step_up_fresh: true, in_owner_context: true },
+            is_platform_owner: true, has_elevated_authority: true, active_context: 'owner',
+            my_account_gate: { status: 'active' }, is_sie_admin: false
+        },
+        tables: {
+            profiles: [{ id: OWNER, email: 'owner@example.com', full_name: 'مالك المنصة', role: 'platform_owner', created_at: '2026-01-01T00:00:00Z' },
+                       { id: 'u2', email: 'turki@gmail.com', full_name: 'تركي', role: 'user', status: 'active', created_at: '2026-02-01T00:00:00Z' }],
+            platform_authority: [], platform_capability_grants: [], privileged_audit: [], owner_context_audit: [], companies: [],
+            notifications: [], whatsapp_subscriptions: [], sie_settings: [], sie_admin_grants: [], sie_authority_audit: [], user_wallets: []
+        }
+    };
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const doubleSupabase = fs.readFileSync(path.join(ROOT, 'tests/fixtures/supabase-double.js'), 'utf8');
+    const doubleAuth = fs.readFileSync(path.join(ROOT, 'tests/fixtures/auth-client-double.js'), 'utf8');
+    // على مستوى السياق: الإطار المستضاف يحمّل نفس البدائل
+    await context.route('**/api-config.js', r => r.fulfill({ contentType: 'text/javascript; charset=utf-8', body: doubleSupabase }));
+    await context.route('**/auth-client.js', r => r.fulfill({ contentType: 'text/javascript; charset=utf-8', body: doubleAuth }));
+    await context.route('**/error-tracker.js', r => r.fulfill({ contentType: 'text/javascript', body: '' }));
+    await context.route(/^https?:\/\/(?!127\.0\.0\.1)/, r => r.abort());
+    await context.addInitScript(data => { window.__FIXTURES__ = data; }, fx);
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+
+    await page.goto(`${baseUrl}/owner-dashboard.html#users`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('#usersTabContent.active .owner-users-frame');
+    assert.equal(await page.getAttribute('.sidebar-item.active', 'data-tab'), 'users');
+    const frame = page.frameLocator('.owner-users-frame');
+    await frame.locator('#usersBody .uh-options-btn').first().waitFor();
+    assert.deepEqual(await frame.locator('.uh-tab').evaluateAll(els => els.map(e => e.dataset.tab)),
+        ['all', 'customers', 'superUsers', 'myUsers', 'banned', 'accountRequests', 'companyRequests', 'waitlist']);
+    assert.equal(await frame.locator('#sidebar-container').evaluate(el => getComputedStyle(el).display), 'none', 'لا قائمة جانبية مكررة داخل القسم');
+    assert.deepEqual(errors, []);
+    await context.close();
+});
