@@ -2275,15 +2275,15 @@
   document.getElementById('pi-login-btn')?.addEventListener('click',    () => triggerPiAuth('login'));
   document.getElementById('pi-register-btn')?.addEventListener('click', () => triggerPiAuth('register'));
 
+  // نهيّئ Pi SDK عند فتح الصفحة فقط، ولا نبدأ المصادقة تلقائيًا.
+  // Pi.authenticate يجب أن يبدأ من ضغط المستخدم على زر Pi Network؛
+  // الاستدعاء عند تحميل الصفحة قد يفشل في التواصل مع Pi Browser أو يظل معلّقًا.
   (async () => {
     try {
       await piService.init();
-      const inPiBrowser = /PiBrowser/i.test(navigator.userAgent);
-      if (inPiBrowser) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) await triggerPiAuth('login');
-      }
-    } catch (_) {}
+    } catch (err) {
+      console.warn('[Pi] SDK initialization failed:', err?.message || err);
+    }
   })();
 
 </script>
