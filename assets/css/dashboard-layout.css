@@ -467,7 +467,31 @@
     }
 
     :root[data-sidebar='collapsed']:not(.ws-embedded) body.dash-layout .sidebar-footer { padding-inline: .6rem; }
+
+    /* تلميح القشرة القديم (‎::after‎) يُقصّ داخل حاوية التمرير؛ البديل .dash-tooltip تحت */
+    :root[data-sidebar='collapsed']:not(.ws-embedded) body.dash-layout .sidebar-item::after { content: none; }
 }
+
+/* تلميح اسم العنصر في الوضع المطوي (dashboard-nav.js → initCollapsedTooltips):
+   عنصر واحد ثابت الموضع خارج القائمة، فلا تقصّه حاوية التمرير. */
+.dash-tooltip {
+    position: fixed;
+    z-index: 2100;
+    transform: translateY(-50%);
+    padding: .35rem .65rem;
+    border: 1px solid var(--color-border);
+    border-radius: .5rem;
+    background: var(--color-surface);
+    color: var(--color-text);
+    box-shadow: var(--shadow-sm);
+    font-family: inherit;
+    font-size: .82rem;
+    font-weight: 700;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.dash-tooltip[hidden] { display: none; }
 
 /* ==================== 6) تقليل الحركة ==================== */
 @media (prefers-reduced-motion: reduce) {

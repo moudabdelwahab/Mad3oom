@@ -206,6 +206,20 @@ test('طي القائمة لأيقونات يوسّع المحتوى ويُحف�
     assert.ok(await mainWidth() > before);
     assert.equal(await page.getAttribute('#ticketsLink', 'data-label'), 'إدارة التذاكر', 'تلميح الأيقونة');
 
+    // التلميح يُرى فعلًا: خارج القائمة يسارها، لا مقصوصًا داخل حاوية التمرير
+    await page.hover('#ticketsLink');
+    const tip = await page.evaluate(() => {
+        const t = document.querySelector('.dash-tooltip');
+        const r = t.getBoundingClientRect();
+        const s = document.getElementById('sidebar').getBoundingClientRect();
+        return { hidden: t.hidden, text: t.textContent, right: r.right, width: r.width, sidebarLeft: s.left };
+    });
+    assert.equal(tip.hidden, false, 'التلميح ظاهر عند المرور');
+    assert.equal(tip.text, 'إدارة التذاكر');
+    assert.ok(tip.width > 0 && tip.right <= tip.sidebarLeft, `التلميح خارج القائمة: ${JSON.stringify(tip)}`);
+    await page.mouse.move(400, 400);
+    assert.equal(await page.locator('.dash-tooltip').isHidden(), true, 'يختفي عند مغادرة القائمة');
+
     await page.reload({ waitUntil: 'networkidle' });
     assert.equal(await page.evaluate(() => document.documentElement.getAttribute('data-sidebar')), 'collapsed');
     await context.close();

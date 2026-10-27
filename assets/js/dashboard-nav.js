@@ -114,6 +114,54 @@ export function initNavGroups(sidebar, scope) {
     revealActiveNavItem(sidebar);
 }
 
+/**
+ * تلميح باسم العنصر حين تكون القائمة مطوية (أيقونات فقط).
+ *
+ * التلميح عنصر واحد ثابت الموضع على مستوى الصفحة، لا ‎::after‎ داخل العنصر:
+ * القائمة حاوية تمرير (overflow-y)، وأي شيء يُرسم خارج حدودها يُقصّ — فكان
+ * التلميح موجودًا ولا يُرى. الاسم نفسه متاح لقارئ الشاشة داخل العنصر، فالتلميح
+ * بصري فقط (aria-hidden).
+ */
+export function initCollapsedTooltips(sidebar) {
+    if (!sidebar || sidebar.dataset.tooltips === '1') return;
+    sidebar.dataset.tooltips = '1';
+
+    const tip = document.createElement('div');
+    tip.className = 'dash-tooltip';
+    tip.setAttribute('aria-hidden', 'true');
+    tip.hidden = true;
+    document.body.appendChild(tip);
+
+    const wide = window.matchMedia('(min-width: 1100px)');
+    const collapsed = () => wide.matches && document.documentElement.getAttribute('data-sidebar') === 'collapsed';
+    const hide = () => { tip.hidden = true; };
+    const show = (item) => {
+        const label = item?.dataset.label;
+        if (!label || !collapsed()) { hide(); return; }
+        const r = item.getBoundingClientRect();
+        tip.textContent = label;
+        tip.style.top = `${r.top + r.height / 2}px`;
+        // يسار القائمة في RTL: الحافة اليمنى للتلميح عند الحافة اليسرى للعنصر
+        tip.style.right = `${document.documentElement.clientWidth - r.left + 10}px`;
+        tip.hidden = false;
+    };
+
+    // pointermove لا pointerover: بعد تمرير القائمة (الذي يخفي التلميح) يعود التلميح
+    // بأول حركة فوق العنصر نفسه، دون الحاجة لمغادرته ثم العودة.
+    let current = null;
+    sidebar.addEventListener('pointermove', (e) => {
+        const item = e.target.closest('.sidebar-item');
+        if (item === current && !tip.hidden) return;
+        current = item;
+        show(item);
+    });
+    sidebar.addEventListener('pointerleave', hide);
+    sidebar.addEventListener('focusin', (e) => show(e.target.closest('.sidebar-item')));
+    sidebar.addEventListener('focusout', hide);
+    sidebar.addEventListener('click', hide);
+    sidebar.querySelector('.sidebar-menu')?.addEventListener('scroll', hide, { passive: true });
+}
+
 /** يفتح المجموعة التي تحوي العنصر النشط (بدون حفظ — تفضيل المستخدم يبقى كما هو). */
 export function revealActiveNavItem(sidebar = document.getElementById('sidebar')) {
     const group = sidebar?.querySelector('.sidebar-item.active')?.closest('.sidebar-group');

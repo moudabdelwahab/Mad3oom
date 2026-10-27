@@ -1,4 +1,4 @@
-import { isSidebarCollapsed, setSidebarCollapsed, initCollapseToggle, initNavGroups, revealActiveNavItem } from '/assets/js/dashboard-nav.js';
+import { isSidebarCollapsed, setSidebarCollapsed, initCollapseToggle, initCollapsedTooltips, initNavGroups, revealActiveNavItem } from '/assets/js/dashboard-nav.js';
 
 /**
  * customer-sidebar.js — قشرة البوابة المشتركة (شريط علوي + قائمة جانبية).
@@ -102,6 +102,8 @@ function initPortalShell(variant, optionsOrCallback) {
             setupSidebarLogic(tabChangeHandler, options);
             setupCollapseToggle();
             initNavGroups(document.getElementById('sidebar'), variant);
+            // بوابة العميل خارج نطاق تخطيط اللوحات: تلميحها كما هو
+            if (document.body.classList.contains('dash-layout')) initCollapsedTooltips(document.getElementById('sidebar'));
             syncNavHeight();
             markActivePage();
             loadAccountIdentity();

@@ -1,6 +1,6 @@
 import { supabase } from '/api-config.js';
 import { safeNotificationHref } from '/assets/js/admin/notification-safety.js';
-import { initNavGroups, initCollapseToggle, isSidebarCollapsed, setSidebarCollapsed } from '/assets/js/dashboard-nav.js';
+import { initNavGroups, initCollapseToggle, initCollapsedTooltips, isSidebarCollapsed, setSidebarCollapsed } from '/assets/js/dashboard-nav.js';
 
 export function initSidebar() {
     const sidebarContainer = document.getElementById('sidebar-container');
@@ -20,6 +20,7 @@ export function initSidebar() {
             labelSidebarItems();
             initCollapseToggle();
             initNavGroups(document.getElementById('sidebar'), 'admin');
+            if (document.body.classList.contains('dash-layout')) initCollapsedTooltips(document.getElementById('sidebar'));
             // التحقق قد ينتهي قبل وصول القائمة: نعيد تطبيق الاسم والحرف الأول
             import('./auth.js').then(m => m.refreshAdminIdentity()).catch(() => {});
         })
