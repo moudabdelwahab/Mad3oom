@@ -636,7 +636,11 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         الشركة (الاسم والجوال والبريد عبر مفتاح الخدمة في دالة Edge)، رابط إعادة كلمة المرور، الإيقاف المؤقت
     //         وإعادة التفعيل، وطلب نقل العضو بقرار مالك المنصة. مقيسٌ في tests/sql/company-member-management.test.sql
     //         و tests/http/company-member-admin-http.test.mjs.
-    assert.equal(migrations[migrations.length - 1], '113_company_member_management.sql',
+    //   114 — قوالب بريد التذاكر بطلب صاحب المنتج (2026-10-27): الدالة تقرأ التذكرة من القاعدة بمعرّفها، فيحتاج
+    //         المحفّزان مفتاحين فقط في الحمولة: previous_status (إعادة فتح/حل/إغلاق) وreply_id (قراءة الرد والتحقق
+    //         أنه غير داخلي). لا تغيير في شروط الإطلاق ولا المستلم. مقيسٌ في tests/sql/ticket-email-payload.test.sql
+    //         و tests/ticket-email.test.mjs.
+    assert.equal(migrations[migrations.length - 1], '114_ticket_email_payload.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

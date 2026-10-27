@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
     <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
     <link rel="stylesheet" href="/assets/css/owner-governance.css">
+    <link rel="stylesheet" href="/assets/css/owner-workspace.css">
     <link rel="stylesheet" href="/assets/css/owner-notifications.css">
     <link rel="stylesheet" href="/assets/css/portal-notifications.css">
     <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
@@ -140,7 +141,9 @@
                 </nav>
             </section>
 
-            <!-- ═══ السلطة والمنح ══════════════════════════════════════════ -->
+            <!-- ═══ السلطة والمنح ══════════════════════════════════════════
+                 مساحة عمل بتبويبات داخلية (owner-workspace.js): كل قسم فرعي لوحة مستقلة،
+                 والبيانات تُحمَّل كلها مرة واحدة كما كانت — التبديل عرض فقط. -->
             <section class="panel tab-content" id="authorityTabContent" aria-labelledby="authorityHeading">
                 <div class="panel-header">
                     <div>
@@ -152,167 +155,252 @@
                     </div>
                 </div>
 
-                <!-- A. الملكية وحمايتها + التحقق بخطوتين -->
-                <div class="owner-subsection owner-subsection--first" id="ownershipBlock" aria-labelledby="ownershipHeading">
-                    <div class="owner-subsection-head">
-                        <div>
-                            <h3 class="owner-subsection-title" id="ownershipHeading">الملكية</h3>
-                            <p class="panel-subtitle">مفروضة في قاعدة البيانات، لا في هذه الواجهة.</p>
+                <div class="ows" id="authorityWorkspace" data-ws="authority">
+                    <div class="ows-bar" data-ws-anchor>
+                        <div class="view-tabs ows-tabs" role="tablist" aria-label="أقسام السلطة والمنح">
+                            <button type="button" role="tab" class="view-tab ows-tab" id="authTab-ownership" data-ws-tab="ownership" aria-controls="ownershipBlock" aria-selected="true">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+                                <span>الملكية والتحقق</span>
+                                <span class="view-tab-count" data-ws-count="ownership" hidden></span>
+                            </button>
+                            <button type="button" role="tab" class="view-tab ows-tab" id="authTab-staff" data-ws-tab="staff" aria-controls="staffBlock" aria-selected="false" tabindex="-1">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                                <span>فريق المنصة</span>
+                                <span class="view-tab-count" data-ws-count="staff" hidden></span>
+                            </button>
+                            <button type="button" role="tab" class="view-tab ows-tab" id="authTab-sie" data-ws-tab="sie" aria-controls="sieAuthority" aria-selected="false" tabindex="-1">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"></path></svg>
+                                <span>محرك SIE</span>
+                                <span class="view-tab-count" data-ws-count="sie" hidden></span>
+                            </button>
+                            <button type="button" role="tab" class="view-tab ows-tab" id="authTab-privileges" data-ws-tab="privileges" aria-controls="privAuditBlock" aria-selected="false" tabindex="-1">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                                <span>سجل الامتيازات</span>
+                                <span class="view-tab-count" data-ws-count="privileges" hidden></span>
+                            </button>
                         </div>
                     </div>
-                    <div class="owner-ownership-grid">
-                        <ul class="owner-protections" aria-label="حمايات حساب المالك">
-                            <li>لا يحظر أحدٌ حسابك أو يقفله أو يحذفه</li>
-                            <li>رتبتك وهويتك (الاسم، البريد، الهاتف) لا يعدّلها غيرك</li>
-                            <li>صف الملكية لا يُكتب من أي جلسة — ترحيل بمراجعة وحده</li>
-                            <li>لا تفويض يصنع مالكًا: القدرات قائمة مغلقة</li>
-                        </ul>
-                        <div class="owner-stepup" id="stepUpBox" aria-live="polite">
+
+                    <!-- A. الملكية وحمايتها + التحقق بخطوتين -->
+                    <div class="owner-subsection ows-panel" id="ownershipBlock" role="tabpanel" data-ws-panel="ownership" aria-labelledby="authTab-ownership">
+                        <div class="owner-subsection-head">
+                            <div>
+                                <h3 class="owner-subsection-title" id="ownershipHeading">الملكية</h3>
+                                <p class="panel-subtitle">مفروضة في قاعدة البيانات، لا في هذه الواجهة.</p>
+                            </div>
+                        </div>
+                        <div class="owner-ownership-grid">
+                            <ul class="owner-protections" aria-label="حمايات حساب المالك">
+                                <li>لا يحظر أحدٌ حسابك أو يقفله أو يحذفه</li>
+                                <li>رتبتك وهويتك (الاسم، البريد، الهاتف) لا يعدّلها غيرك</li>
+                                <li>صف الملكية لا يُكتب من أي جلسة — ترحيل بمراجعة وحده</li>
+                                <li>لا تفويض يصنع مالكًا: القدرات قائمة مغلقة</li>
+                            </ul>
+                            <div class="owner-stepup" id="stepUpBox" aria-live="polite">
+                                <div class="skeleton skeleton-card"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- B. الإداريون والتفويض -->
+                    <div class="owner-subsection ows-panel" id="staffBlock" role="tabpanel" data-ws-panel="staff" aria-labelledby="authTab-staff" hidden>
+                        <div class="owner-subsection-head">
+                            <div>
+                                <h3 class="owner-subsection-title" id="staffHeading">فريق المنصة</h3>
+                                <p class="panel-subtitle">مدير المنصة يشغّلها ولا يملكها ولا يدير الإداريين. التفويض «إدارة فريق الدعم» يتيح لإداري إدارة رتبة الدعم وحدها.</p>
+                            </div>
+                        </div>
+                        <div id="staffBody"><div class="skeleton skeleton-card"></div></div>
+                        <form class="owner-staff-add" id="staffAddForm" hidden novalidate>
+                            <div class="form-field">
+                                <label for="staffAddUser">إضافة عضو للفريق</label>
+                                <select class="form-control" id="staffAddUser"></select>
+                            </div>
+                            <div class="form-field">
+                                <label for="staffAddRole">الرتبة</label>
+                                <select class="form-control" id="staffAddRole">
+                                    <option value="support">فريق الدعم</option>
+                                    <option value="admin">إداري</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary" data-critical>إضافة</button>
+                        </form>
+                        <p class="owner-sie-status ows-toast" id="staffStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
+                    </div>
+
+                    <!-- سلطة SIE — المالك يملكها بقاعدة البيانات (sie_owner_authority()) لا
+                         بهذه الواجهة. كل زر هنا نداء تحرسه RLS أو RPC يرفض غير المالك. -->
+                    <div class="owner-subsection ows-panel" id="sieAuthority" role="tabpanel" data-ws-panel="sie" aria-labelledby="authTab-sie" hidden>
+                        <div class="owner-subsection-head">
+                            <div>
+                                <h3 class="owner-subsection-title" id="sieAuthorityHeading">محرك الدعم الذكي (SIE)</h3>
+                                <p class="panel-subtitle">سلطتك على SIE مطلقة ومفروضة من قاعدة البيانات: تشغيل المحرك وإيقافه، إعداداته، ومن يدير وصول العملاء إليه.</p>
+                            </div>
+                            <a class="btn btn-outline btn-sm owner-sie-console" href="https://sie.mad3oom.com/sie-admin/login.html" target="_blank" rel="noopener">
+                                <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                                <span>لوحة إدارة SIE</span>
+                            </a>
+                        </div>
+
+                        <div class="ows-duo">
+                            <div class="owner-sie-engine" id="sieEngineRow">
+                                <div class="skeleton skeleton-line"></div>
+                            </div>
+
+                            <!-- إصدارات SIE: الإدارة نفسها في لوحة SIE (المكان الوحيد)، وهنا
+                                 رابط لها فقط — لا نسخة ثانية. تغيير الإصدار والحدود والإتاحة
+                                 يرفضه sie_owner_authority() في القاعدة لأي حساب غير المالك. -->
+                            <div class="owner-sie-editions" id="sieEditionsEntry">
+                                <div>
+                                    <h4 class="owner-subsection-label">إصدارات SIE — المجاني · برو · ماكس</h4>
+                                    <p class="panel-subtitle">إصدار كل عميل، حدود كل إصدار، وإتاحته. لمالك المنصة وحده، وكل تغيير في «سجل الامتيازات».</p>
+                                </div>
+                                <a class="btn btn-primary btn-sm" href="https://sie.mad3oom.com/sie-admin/settings.html#/editions" target="_blank" rel="noopener">
+                                    <span>إدارة الإصدارات</span>
+                                </a>
+                            </div>
+                        </div>
+
+                        <h4 class="owner-subsection-label">مديرو وصول العملاء إلى SIE</h4>
+                        <div id="sieAdminsBody">
                             <div class="skeleton skeleton-card"></div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- B. الإداريون والتفويض -->
-                <div class="owner-subsection" id="staffBlock" aria-labelledby="staffHeading">
-                    <div class="owner-subsection-head">
-                        <div>
-                            <h3 class="owner-subsection-title" id="staffHeading">فريق المنصة</h3>
-                            <p class="panel-subtitle">مدير المنصة يشغّلها ولا يملكها ولا يدير الإداريين. التفويض «إدارة فريق الدعم» يتيح لإداري إدارة رتبة الدعم وحدها.</p>
-                        </div>
-                    </div>
-                    <div id="staffBody"><div class="skeleton skeleton-card"></div></div>
-                    <form class="owner-staff-add" id="staffAddForm" hidden novalidate>
-                        <div class="form-field">
-                            <label for="staffAddUser">إضافة عضو للفريق</label>
-                            <select class="form-control" id="staffAddUser"></select>
-                        </div>
-                        <div class="form-field">
-                            <label for="staffAddRole">الرتبة</label>
-                            <select class="form-control" id="staffAddRole">
-                                <option value="support">فريق الدعم</option>
-                                <option value="admin">إداري</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-primary" data-critical>إضافة</button>
-                    </form>
-                    <p class="owner-sie-status" id="staffStatus" role="status" aria-live="polite" hidden></p>
-                </div>
-
-                <!-- سلطة SIE — المالك يملكها بقاعدة البيانات (sie_owner_authority()) لا
-                     بهذه الواجهة. كل زر هنا نداء تحرسه RLS أو RPC يرفض غير المالك. -->
-                <div class="owner-subsection" id="sieAuthority" aria-labelledby="sieAuthorityHeading">
-                    <div class="owner-subsection-head">
-                        <div>
-                            <h3 class="owner-subsection-title" id="sieAuthorityHeading">محرك الدعم الذكي (SIE)</h3>
-                            <p class="panel-subtitle">سلطتك على SIE مطلقة ومفروضة من قاعدة البيانات: تشغيل المحرك وإيقافه، إعداداته، ومن يدير وصول العملاء إليه.</p>
-                        </div>
-                        <a class="btn btn-outline btn-sm owner-sie-console" href="https://sie.mad3oom.com/sie-admin/login.html" target="_blank" rel="noopener">
-                            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                            <span>لوحة إدارة SIE</span>
-                        </a>
+                        <form class="owner-sie-grant" id="sieGrantForm" hidden novalidate>
+                            <div class="form-field">
+                                <label for="sieGrantUser">عضو فريق المنصة</label>
+                                <select class="form-control" id="sieGrantUser" required></select>
+                            </div>
+                            <div class="form-field">
+                                <label for="sieGrantNote">ملاحظة (اختياري)</label>
+                                <input class="form-control" id="sieGrantNote" type="text" maxlength="200" autocomplete="off" placeholder="سبب المنح">
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="sieGrantBtn" data-critical>منح إدارة SIE</button>
+                        </form>
+                        <p class="field-hint owner-sie-hint">تُمنح لأعضاء فريق المنصة (admin/support) فقط، وكل منح أو سحب يُسجَّل في سجل لا يُعدَّل.</p>
+                        <p class="owner-sie-status ows-toast" id="sieStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
                     </div>
 
-                    <div class="owner-sie-engine" id="sieEngineRow">
-                        <div class="skeleton skeleton-line"></div>
-                    </div>
-
-                    <!-- إصدارات SIE: الإدارة نفسها في لوحة SIE (المكان الوحيد)، وهنا
-                         رابط لها فقط — لا نسخة ثانية. تغيير الإصدار والحدود والإتاحة
-                         يرفضه sie_owner_authority() في القاعدة لأي حساب غير المالك. -->
-                    <div class="owner-sie-editions" id="sieEditionsEntry">
-                        <div>
-                            <h4 class="owner-subsection-label">إصدارات SIE — المجاني · برو · ماكس</h4>
-                            <p class="panel-subtitle">إصدار كل عميل، حدود كل إصدار، وإتاحته. لمالك المنصة وحده، وكل تغيير في سجل الامتيازات أدناه.</p>
+                    <!-- D. سجل الامتيازات — الجدول يتمرّر داخل لوحته بعنوان ثابت -->
+                    <div class="owner-subsection ows-panel" id="privAuditBlock" role="tabpanel" data-ws-panel="privileges" aria-labelledby="authTab-privileges" hidden>
+                        <div class="owner-subsection-head">
+                            <div>
+                                <h3 class="owner-subsection-title" id="privAuditHeading">سجل الامتيازات</h3>
+                                <p class="panel-subtitle">كل تغيير في الرتب والحظر والسلطة والتفويض وإعدادات SIE — بفاعله وطبقته وسياقه. لا يُعدَّل ولا يُحذف.</p>
+                            </div>
                         </div>
-                        <a class="btn btn-primary btn-sm" href="https://sie.mad3oom.com/sie-admin/settings.html#/editions" target="_blank" rel="noopener">
-                            <span>إدارة الإصدارات</span>
-                        </a>
+                        <div id="privAuditBody" class="ows-scroll"><div class="skeleton skeleton-card"></div></div>
                     </div>
-
-                    <h4 class="owner-subsection-label">مديرو وصول العملاء إلى SIE</h4>
-                    <div id="sieAdminsBody">
-                        <div class="skeleton skeleton-card"></div>
-                    </div>
-
-                    <form class="owner-sie-grant" id="sieGrantForm" hidden novalidate>
-                        <div class="form-field">
-                            <label for="sieGrantUser">عضو فريق المنصة</label>
-                            <select class="form-control" id="sieGrantUser" required></select>
-                        </div>
-                        <div class="form-field">
-                            <label for="sieGrantNote">ملاحظة (اختياري)</label>
-                            <input class="form-control" id="sieGrantNote" type="text" maxlength="200" autocomplete="off" placeholder="سبب المنح">
-                        </div>
-                        <button type="submit" class="btn btn-primary" id="sieGrantBtn" data-critical>منح إدارة SIE</button>
-                    </form>
-                    <p class="field-hint owner-sie-hint">تُمنح لأعضاء فريق المنصة (admin/support) فقط، وكل منح أو سحب يُسجَّل في سجل لا يُعدَّل.</p>
-                    <p class="owner-sie-status" id="sieStatus" role="status" aria-live="polite" hidden></p>
-                </div>
-
-                <!-- D. سجل الامتيازات -->
-                <div class="owner-subsection" id="privAuditBlock" aria-labelledby="privAuditHeading">
-                    <div class="owner-subsection-head">
-                        <div>
-                            <h3 class="owner-subsection-title" id="privAuditHeading">سجل الامتيازات</h3>
-                            <p class="panel-subtitle">كل تغيير في الرتب والحظر والسلطة والتفويض وإعدادات SIE — بفاعله وطبقته وسياقه. لا يُعدَّل ولا يُحذف.</p>
-                        </div>
-                    </div>
-                    <div id="privAuditBody"><div class="skeleton skeleton-card"></div></div>
                 </div>
             </section>
 
             <!-- ═══ حوكمة تعدد الشركات (096–099) ═══════════════════════════
-                 كل زر هنا نداء يرفضه الخادم لغير المالك في سياقه وبعد التحقق بخطوتين. -->
+                 كل زر هنا نداء يرفضه الخادم لغير المالك في سياقه وبعد التحقق بخطوتين.
+                 مساحة عمل بتبويبات: شريط التبويبات وسبب العملية ثابتان أعلى اللوحة عند
+                 التمرير، ورسالة نتيجة العملية تطفو أسفل الشاشة داخل القسم — فلا حاجة
+                 للتمرير بحثًا عنهما. -->
             <section class="panel tab-content" id="governanceTabContent" aria-labelledby="governanceHeading">
                 <div class="panel-header">
                     <div>
-                        <h2 class="panel-title" id="governanceHeading">حوكمة الشركات والوصول</h2>
-                        <p class="panel-subtitle">مفاتيح التفعيل، طلبات الوصول المؤقت، مراجعة الإداريين، الهيكل الإداري، ومطابقة الاستهلاك.
+                        <h2 class="panel-title" id="governanceHeading">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"></path><path d="M5 21V10l7-5 7 5v11"></path><path d="M9 21v-6h6v6"></path></svg>
+                            حوكمة الشركات والوصول
+                        </h2>
+                        <p class="panel-subtitle">مفاتيح التفعيل، طلبات الوصول المؤقت، مراجعة الإداريين، الهيكل الإداري، المستندات والنقل، ومطابقة الاستهلاك.
                             كل عملية مسجّلة، ومفاتيح العزل والوصول تحتاج موافقة صريحة منفصلة قبل تفعيلها على الإنتاج.</p>
-                        <p class="panel-subtitle"><a href="/admin/account-requests.html" id="govAccountRequestsLink">طلبات الحسابات</a> ·
-                            <a href="/admin/customers.html" id="govCustomersLink">إدارة العملاء</a></p>
                     </div>
+                    <p class="panel-subtitle owner-gov-links"><a href="/admin/account-requests.html" id="govAccountRequestsLink">طلبات الحسابات</a> ·
+                        <a href="/admin/customers.html" id="govCustomersLink">إدارة العملاء</a></p>
                 </div>
-                <!-- التحقق بخطوتين يعيش في «السلطة والمنح» وحدها (لا نسخة ثانية منه)،
-                     وأزرار هذا القسم الحرجة تتبع حالته — فندلّ عليه من هنا. -->
-                <p class="owner-gov-stepup">العمليات الحرجة هنا تُفتح بعد التحقق بخطوتين من قسم
-                    <a href="#authority">السلطة والمنح</a>، وتبقى مفتوحة طوال نافذة التحقق.</p>
-                <div class="owner-gov-reason">
-                    <label for="govReason">سبب العملية (يُسجَّل مع كل تغيير)</label>
-                    <input class="form-control" id="govReason" maxlength="500" autocomplete="off" placeholder="مثال: بدء تجربة العضويات المتعددة لشركة واحدة">
-                    <p class="owner-sie-status" id="govStatus" role="status" aria-live="polite" hidden></p>
-                </div>
-                <div class="owner-subsection owner-subsection--first">
-                    <h3 class="owner-subsection-title">مفاتيح التفعيل</h3>
-                    <div id="govSwitches"><div class="skeleton skeleton-card"></div></div>
-                </div>
-                <div class="owner-subsection">
-                    <h3 class="owner-subsection-title">طلبات الوصول إلى بيانات الشركات</h3>
-                    <div id="govAccess"><div class="skeleton skeleton-card"></div></div>
-                </div>
-                <div class="owner-subsection">
-                    <h3 class="owner-subsection-title">مراجعة الحسابات الإدارية</h3>
-                    <p class="panel-subtitle">القرار ثم التطبيق؛ التحويل لا يُطبَّق قبل تسليم التذاكر والاستمرارية والتفويضات. التحقق بخطوتين معروض ولا يُفرض.</p>
-                    <div id="govReviews"><div class="skeleton skeleton-card"></div></div>
-                </div>
-                <div class="owner-subsection">
-                    <h3 class="owner-subsection-title">الهيكل الإداري والتفويض</h3>
-                    <p class="panel-subtitle">العضوية والتفويض لا يفتحان تذاكر الشركات ولا محادثاتها ولا مستنداتها.</p>
-                    <div id="govHierarchy"><div class="skeleton skeleton-card"></div></div>
-                </div>
-                <div class="owner-subsection">
-                    <h3 class="owner-subsection-title">مطابقة سجل الاستهلاك</h3>
-                    <div id="govUsage"><div class="skeleton skeleton-card"></div></div>
-                </div>
-                <div class="owner-subsection">
-                    <h3 class="owner-subsection-title">مستندات الشركات</h3>
-                    <p class="panel-subtitle">لا اعتماد ولا تنزيل قبل نتيجة فحص أمني نظيفة. عامل الفحص غير منشور بعد، فتبقى الملفات معزولة.</p>
-                    <div id="govDocuments"><div class="skeleton skeleton-card"></div></div>
-                </div>
-                <div class="owner-subsection">
-                    <h3 class="owner-subsection-title">نقل العملاء والاطلاع التاريخي</h3>
-                    <div id="govMoves"><div class="skeleton skeleton-card"></div></div>
+
+                <div class="ows" id="governanceWorkspace" data-ws="governance">
+                    <div class="ows-bar" data-ws-anchor>
+                        <div class="view-tabs ows-tabs" role="tablist" aria-label="أقسام حوكمة الشركات">
+                            <button type="button" role="tab" class="view-tab ows-tab" id="govTab-switches" data-ws-tab="switches" aria-controls="govPanelSwitches" aria-selected="true">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="6" width="22" height="12" rx="6"></rect><circle cx="16" cy="12" r="3"></circle></svg>
+                                <span>مفاتيح التفعيل</span>
+                                <span class="view-tab-count" data-ws-count="switches" hidden></span>
+                            </button>
+                            <button type="button" role="tab" class="view-tab ows-tab" id="govTab-access" data-ws-tab="access" aria-controls="govPanelAccess" aria-selected="false" tabindex="-1">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+                                <span>طلبات الوصول</span>
+                                <span class="view-tab-count" data-ws-count="access" hidden></span>
+                            </button>
+                            <button type="button" role="tab" class="view-tab ows-tab" id="govTab-reviews" data-ws-tab="reviews" aria-controls="govPanelReviews" aria-selected="false" tabindex="-1">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
+                                <span>مراجعة الإداريين</span>
+                                <span class="view-tab-count" data-ws-count="reviews" hidden></span>
+                            </button>
+                            <button type="button" role="tab" class="view-tab ows-tab" id="govTab-hierarchy" data-ws-tab="hierarchy" aria-controls="govPanelHierarchy" aria-selected="false" tabindex="-1">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="5" rx="1"></rect><rect x="2" y="17" width="6" height="5" rx="1"></rect><rect x="16" y="17" width="6" height="5" rx="1"></rect><path d="M12 7v5M5 17v-5h14v5"></path></svg>
+                                <span>الهيكل والتفويض</span>
+                                <span class="view-tab-count" data-ws-count="hierarchy" hidden></span>
+                            </button>
+                            <button type="button" role="tab" class="view-tab ows-tab" id="govTab-moves" data-ws-tab="moves" aria-controls="govPanelMoves" aria-selected="false" tabindex="-1">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+                                <span>النقل والاطلاع</span>
+                                <span class="view-tab-count" data-ws-count="moves" hidden></span>
+                            </button>
+                            <button type="button" role="tab" class="view-tab ows-tab" id="govTab-documents" data-ws-tab="documents" aria-controls="govPanelDocuments" aria-selected="false" tabindex="-1">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><polyline points="9 15 11 17 15 13"></polyline></svg>
+                                <span>المستندات</span>
+                                <span class="view-tab-count" data-ws-count="documents" hidden></span>
+                            </button>
+                            <button type="button" role="tab" class="view-tab ows-tab" id="govTab-usage" data-ws-tab="usage" aria-controls="govPanelUsage" aria-selected="false" tabindex="-1">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
+                                <span>الاستهلاك</span>
+                                <span class="view-tab-count" data-ws-count="usage" hidden></span>
+                            </button>
+                        </div>
+
+                        <!-- سبب العملية مشترك بين كل التبويبات، فيبقى ظاهرًا مع الشريط.
+                             التحقق بخطوتين يعيش في «السلطة والمنح» وحدها (لا نسخة ثانية منه)،
+                             وأزرار هذا القسم الحرجة تتبع حالته — فندلّ عليه من هنا. -->
+                        <div class="owner-gov-reason ows-context">
+                            <label for="govReason">سبب العملية (يُسجَّل مع كل تغيير)</label>
+                            <input class="form-control" id="govReason" maxlength="500" autocomplete="off" placeholder="مثال: بدء تجربة العضويات المتعددة لشركة واحدة">
+                            <p class="owner-gov-stepup">
+                                <span class="owner-gov-stepup-locked">العمليات الحرجة هنا تُفتح بعد التحقق بخطوتين، وتبقى مفتوحة طوال نافذة التحقق:</span>
+                                <span class="owner-gov-stepup-open">وضع العمليات الحساسة مفعّل لهذه الجلسة. التحقق في</span>
+                                <a href="#authority" data-ws-open="ownership">السلطة والمنح</a>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="owner-subsection ows-panel" id="govPanelSwitches" role="tabpanel" data-ws-panel="switches" aria-labelledby="govTab-switches">
+                        <h3 class="owner-subsection-title">مفاتيح التفعيل</h3>
+                        <div id="govSwitches"><div class="skeleton skeleton-card"></div></div>
+                    </div>
+                    <div class="owner-subsection ows-panel" id="govPanelAccess" role="tabpanel" data-ws-panel="access" aria-labelledby="govTab-access" hidden>
+                        <h3 class="owner-subsection-title">طلبات الوصول إلى بيانات الشركات</h3>
+                        <div id="govAccess"><div class="skeleton skeleton-card"></div></div>
+                    </div>
+                    <div class="owner-subsection ows-panel" id="govPanelReviews" role="tabpanel" data-ws-panel="reviews" aria-labelledby="govTab-reviews" hidden>
+                        <h3 class="owner-subsection-title">مراجعة الحسابات الإدارية</h3>
+                        <p class="panel-subtitle">القرار ثم التطبيق؛ التحويل لا يُطبَّق قبل تسليم التذاكر والاستمرارية والتفويضات. التحقق بخطوتين معروض ولا يُفرض.</p>
+                        <div id="govReviews"><div class="skeleton skeleton-card"></div></div>
+                    </div>
+                    <div class="owner-subsection ows-panel" id="govPanelHierarchy" role="tabpanel" data-ws-panel="hierarchy" aria-labelledby="govTab-hierarchy" hidden>
+                        <h3 class="owner-subsection-title">الهيكل الإداري والتفويض</h3>
+                        <p class="panel-subtitle">العضوية والتفويض لا يفتحان تذاكر الشركات ولا محادثاتها ولا مستنداتها.</p>
+                        <div id="govHierarchy"><div class="skeleton skeleton-card"></div></div>
+                    </div>
+                    <div class="owner-subsection ows-panel" id="govPanelMoves" role="tabpanel" data-ws-panel="moves" aria-labelledby="govTab-moves" hidden>
+                        <h3 class="owner-subsection-title">نقل العملاء والاطلاع التاريخي</h3>
+                        <div id="govMoves"><div class="skeleton skeleton-card"></div></div>
+                    </div>
+                    <div class="owner-subsection ows-panel" id="govPanelDocuments" role="tabpanel" data-ws-panel="documents" aria-labelledby="govTab-documents" hidden>
+                        <h3 class="owner-subsection-title">مستندات الشركات</h3>
+                        <p class="panel-subtitle">لا اعتماد ولا تنزيل قبل نتيجة فحص أمني نظيفة. عامل الفحص غير منشور بعد، فتبقى الملفات معزولة.</p>
+                        <div id="govDocuments"><div class="skeleton skeleton-card"></div></div>
+                    </div>
+                    <div class="owner-subsection ows-panel" id="govPanelUsage" role="tabpanel" data-ws-panel="usage" aria-labelledby="govTab-usage" hidden>
+                        <h3 class="owner-subsection-title">مطابقة سجل الاستهلاك</h3>
+                        <div id="govUsage"><div class="skeleton skeleton-card"></div></div>
+                    </div>
+
+                    <!-- نتيجة آخر عملية: تطفو أسفل الشاشة ما دام القسم ظاهرًا -->
+                    <p class="owner-sie-status ows-toast" id="govStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
                 </div>
             </section>
 
@@ -383,6 +471,7 @@ import { initOwnerShell, setActiveSidebarTab } from '/assets/js/customer-sidebar
 import { contextStatus, mountContextBar, CONTEXT_PRESENTATION } from '/assets/js/owner/owner-context.js';
 import { initAuthorityCenter, applyCriticalState } from '/assets/js/owner/authority-center.js';
 import { initTenancyGovernance } from '/assets/js/owner/tenancy-governance.js';
+import { createWorkspaceTabs, announce } from '/assets/js/owner/owner-workspace.js';
 import { ownerDestinationFor, createOwnerNotifications } from '/assets/js/owner/owner-notifications.js';
 import * as notificationsService from '/notifications-service.js';
 
@@ -545,6 +634,9 @@ function gate(title, text) {
     }
 
     $('ownerContent').hidden = false;
+    // تبويبات «السلطة والمنح» و«الحوكمة» الداخلية: عرض فقط، والشارات تُحدَّث من كل عرض للبيانات
+    const authorityTabs = createWorkspaceTabs({ root: $('authorityWorkspace'), id: 'authority', fallback: 'ownership' });
+    const governanceTabs = createWorkspaceTabs({ root: $('governanceWorkspace'), id: 'governance', fallback: 'switches' });
     showSection(sectionFromHash(), { history: 'none' });
     // الروابط داخل المحتوى (#authority…)، والرجوع والتقدّم، والروابط المباشرة
     const follow = () => showSection(sectionFromHash(), { history: 'none' });
@@ -618,10 +710,11 @@ function gate(title, text) {
     $('ownerIdentityName').textContent = me?.full_name || me?.email || session.user.email || '';
     $('ownerIdentity').hidden = false;
 
-    const center = initAuthorityCenter({ supabase, $, esc, when, table, td, byId, rows, accountCell, errorBlock });
-    initSieAuthority({ byId, rows, accountCell, errorBlock, center });
+    const center = initAuthorityCenter({ supabase, $, esc, when, table, td, byId, rows, accountCell, errorBlock,
+                                         badge: authorityTabs.setBadge });
+    initSieAuthority({ byId, rows, accountCell, errorBlock, center, badge: authorityTabs.setBadge });
     // 096–099: حوكمة الشركات والوصول — المرشحون للتفويض من طاقم المنصة وحده
-    initTenancyGovernance({ supabase, $, esc, when, table, td,
+    initTenancyGovernance({ supabase, $, esc, when, table, td, badge: governanceTabs.setBadge,
                             staff: rows.filter(p => p.role === 'admin' || p.role === 'support') }).render();
 })();
 
@@ -631,13 +724,8 @@ function gate(title, text) {
      • منح/سحب مدير SIE     → owner_grant_sie_admin / owner_revoke_sie_admin
                                (ترفض بـ42501 لغير المالك)
    فإخفاء زر أو إظهاره من devtools لا يغيّر شيئًا. */
-function initSieAuthority({ byId, rows, accountCell, errorBlock, center }) {
-    const status = $('sieStatus');
-    const say = (text, tone = 'info') => {
-        status.textContent = text;
-        status.dataset.tone = tone;
-        status.hidden = !text;
-    };
+function initSieAuthority({ byId, rows, accountCell, errorBlock, center, badge = () => {} }) {
+    const say = (text, tone = 'info') => announce($('sieStatus'), text, tone);
     const friendly = (error) => {
         if (!error) return '';
         if (error.code === '42501') return error.message || 'القاعدة رفضت الطلب: هذه العملية لمالك المنصة وحده.';
@@ -649,8 +737,9 @@ function initSieAuthority({ byId, rows, accountCell, errorBlock, center }) {
         const { data, error } = await supabase.from('sie_settings')
             .select('value, updated_at, updated_by').eq('key', 'engine_enabled').maybeSingle();
         const row = $('sieEngineRow');
-        if (error) { row.innerHTML = errorBlock(error.message); return; }
+        if (error) { row.innerHTML = errorBlock(error.message); badge('sie', null); return; }
         const on = data?.value === true;
+        badge('sie', on ? 'يعمل' : 'متوقف', on ? 'success' : 'danger');
         const by = data?.updated_by ? byId.get(data.updated_by) : null;
         row.innerHTML = `
             <div class="owner-sie-engine-text">
@@ -670,6 +759,7 @@ function initSieAuthority({ byId, rows, accountCell, errorBlock, center }) {
                 : 'إيقاف SIE: سيتوقف المحرك عن الرد على كل العملاء فورًا حتى تعيد تشغيله. متابعة؟';
             if (!window.confirm(warning)) return;
             e.currentTarget.disabled = true;
+            say('جارٍ الحفظ…');
             // select() بعد التعديل: RLS لا تُرجع خطأ حين ترفض، بل صفرًا من الصفوف.
             const { data: updated, error: upErr } = await supabase.from('sie_settings')
                 .update({ value: next }).eq('key', 'engine_enabled').select('key');
@@ -714,6 +804,7 @@ function initSieAuthority({ byId, rows, accountCell, errorBlock, center }) {
             const target = byId.get(btn.dataset.revoke);
             if (!window.confirm(`سحب إدارة SIE من ${target?.full_name || target?.email || 'هذا الحساب'}؟`)) return;
             btn.disabled = true;
+            say('جارٍ سحب الصلاحية…');
             const { error } = await supabase.rpc('owner_revoke_sie_admin', { p_user_id: btn.dataset.revoke });
             say(error ? friendly(error) : 'تم سحب الصلاحية.', error ? 'error' : 'success');
             renderAdmins();
@@ -755,6 +846,7 @@ function initSieAuthority({ byId, rows, accountCell, errorBlock, center }) {
         if (!userId) { say('اختر حسابًا أولًا.', 'error'); $('sieGrantUser').focus(); return; }
         const btn = $('sieGrantBtn');
         btn.disabled = true;
+        say('جارٍ المنح…');
         const { error } = await supabase.rpc('owner_grant_sie_admin', {
             p_user_id: userId, p_note: $('sieGrantNote').value.trim() || null
         });

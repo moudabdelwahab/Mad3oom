@@ -105,6 +105,12 @@ async function openOwner(browser, baseUrl, fx, hash = '#authority') {
     return { page, context, errors };
 }
 
+/** «السلطة والمنح» تبويبات داخلية: عنصر في لوحة مخفية لا يُنقر، فيُفتح تبويبه أولًا. */
+async function authTab(page, name) {
+    await page.click(`#authTab-${name}`);
+    await page.waitForSelector(`#authorityWorkspace [data-ws-panel="${name}"]:not([hidden])`);
+}
+
 const chromiumPath = resolveChromium();
 let server, baseUrl, browser;
 
@@ -129,6 +135,7 @@ test('هوية المالك ظاهرة، وحماياته معروضة، بلا 
 test('بلا 2FA: رابط التفعيل ظاهر وكل عملية حرجة معطّلة', { skip: !chromiumPath }, async () => {
     const { page, context } = await openOwner(browser, baseUrl, fixtures());
     await page.waitForSelector('#stepUpBox a[href="/admin-security-settings.html"]');
+    await authTab(page, 'staff');
     await page.waitForSelector('#staffBody [data-act]');
     const states = await page.$$eval('[data-critical]', els => els.map(e => e.disabled));
     assert.ok(states.length >= 5, 'لم تُعرض أزرار العمليات الحرجة');
@@ -165,6 +172,7 @@ test('التحقق بخطوتين يفتح العمليات الحرجة، وا�
 test('الطبقات صحيحة، والمالك محمي بلا أزرار، والإجراءات تنادي نداء المالك', { skip: !chromiumPath }, async () => {
     const fx = fixtures({ security: { mfa_enrolled: true, step_up_fresh: true, step_up_expires_at: '2099-01-01T00:10:00Z', in_owner_context: true } });
     const { page, context } = await openOwner(browser, baseUrl, fx);
+    await authTab(page, 'staff');
     await page.waitForSelector('#staffBody [data-act]');
 
     const rowOf = (name) => page.locator('#staffBody tr', { hasText: name });
@@ -183,6 +191,7 @@ test('الطبقات صحيحة، والمالك محمي بلا أزرار، و
 
 test('سجل الامتيازات بتسميات مفهومة وعلامة التحقق', { skip: !chromiumPath }, async () => {
     const { page, context } = await openOwner(browser, baseUrl, fixtures());
+    await authTab(page, 'privileges');
     await page.waitForSelector('#privAuditBody tr');
     const text = await page.textContent('#privAuditBody');
     assert.match(text, /تغيير رتبة/);
@@ -201,6 +210,7 @@ test('غير المالك يرى البوابة لا المركز', { skip: !chr
 
 test('إصدارات SIE: مدخل واحد يفتح لوحة SIE نفسها (لا نسخة ثانية)', { skip: !chromiumPath }, async () => {
     const { page, context, errors } = await openOwner(browser, baseUrl, fixtures());
+    await authTab(page, 'sie');
     await page.waitForSelector('#sieEditionsEntry');
     const links = await page.$$eval('#sieEditionsEntry a', els => els.map(a => ({ href: a.href, rel: a.rel, target: a.target })));
     assert.deepEqual(links, [{ href: 'https://sie.mad3oom.com/sie-admin/settings.html#/editions', rel: 'noopener', target: '_blank' }]);
@@ -253,9 +263,17 @@ test('القائمة تبدّل القسم بلا إعادة تحميل، وال
     assert.deepEqual(await activeSidebarTab(page), ['governance']);
 
     // رابط داخل المحتوى (تلميح التحقق بخطوتين) ينقل إلى قسمه
+    // …ويفتح تبويب «الملكية والتحقق» حيث نموذج التحقق، أيًّا كان التبويب المفتوح قبلها
+    await page.click('.sidebar-item[data-tab="authority"]');
+    await authTab(page, 'privileges');
+    await page.click('.sidebar-item[data-tab="governance"]');
+    await page.waitForSelector('#governanceTabContent.active');
     await page.click('.owner-gov-stepup a[href="#authority"]');
     await page.waitForSelector('#authorityTabContent.active');
     assert.deepEqual(await visibleSections(page), ['authority']);
+    await page.waitForSelector('#ownershipBlock:not([hidden])');
+    assert.equal(await page.getAttribute('#authTab-ownership', 'aria-selected'), 'true');
+    assert.equal(await page.isHidden('#privAuditBlock'), true);
     assert.deepEqual(errors, []);
     await context.close();
 });
@@ -271,5 +289,46 @@ test('hash غير معروف يعود إلى النظرة العامة، وبط�
     await page.click('.owner-sections a[href="#audit"]');
     await page.waitForSelector('#auditTabContent.active');
     assert.deepEqual(await visibleSections(page), ['audit']);
+    await context.close();
+});
+
+/* ── «السلطة والمنح» تبويبات داخلية ────────────────────────────────────────
+   الأقسام الأربعة (الملكية، الفريق، SIE، السجل) كانت متتابعة في صفحة طويلة. */
+const authPanels = (page) => page.$$eval('#authorityWorkspace [role="tabpanel"]',
+    els => els.filter(e => !e.hidden && e.offsetParent !== null).map(e => e.dataset.wsPanel));
+const authBadges = (page) => page.$$eval('#authorityWorkspace [data-ws-count]',
+    els => Object.fromEntries(els.map(e => [e.dataset.wsCount, e.hidden ? null : e.textContent.trim()])));
+
+test('السلطة والمنح: لوحة واحدة ظاهرة، والشارات تعكس الحالة وتتحدّث بعد التحقق', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ security: { mfa_enrolled: true, step_up_fresh: false, step_up_expires_at: null, in_owner_context: true } });
+    const { page, context, errors } = await openOwner(browser, baseUrl, fx);
+    await page.waitForSelector('#stepUpForm');
+    await page.waitForSelector('#privAuditBody tr', { state: 'attached' });
+    assert.deepEqual(await authPanels(page), ['ownership']);
+    assert.deepEqual(await authBadges(page), { ownership: 'مقفل', staff: '4', sie: 'يعمل', privileges: '2' });
+    // محاولة تحقق فاشلة في السجل: شارته تلفت النظر
+    assert.equal(await page.getAttribute('[data-ws-count="privileges"]', 'data-tone'), 'attention');
+
+    for (const name of ['staff', 'sie', 'privileges', 'ownership']) {
+        await authTab(page, name);
+        assert.deepEqual(await authPanels(page), [name]);
+    }
+
+    // التحقق يفتح العمليات: الشارة وملاحظة «الحوكمة» تتبدّلان بلا إعادة تحميل
+    await page.evaluate(() => {
+        window.__FIXTURES__.rpc.owner_step_up = { verified: true, expires_at: '2099-01-01T00:10:00Z' };
+        window.__FIXTURES__.rpc.owner_security_status = { mfa_enrolled: true, step_up_fresh: true, step_up_expires_at: '2099-01-01T00:10:00Z', in_owner_context: true };
+    });
+    await page.fill('#stepUpCode', '654321');
+    await page.click('#stepUpForm button[type=submit]');
+    await page.waitForSelector('.owner-stepup-state--ok');
+    assert.equal((await authBadges(page)).ownership, 'مفتوح');
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.criticalOps), 'open');
+
+    // سجل الامتيازات يتمرّر داخل لوحته (لا الصفحة كلها) حين يطول
+    await authTab(page, 'privileges');
+    const overflowY = await page.$eval('#privAuditBody .table-responsive, #privAuditBody .table-container', el => getComputedStyle(el).overflowY);
+    assert.equal(overflowY, 'auto');
+    assert.deepEqual(errors, []);
     await context.close();
 });

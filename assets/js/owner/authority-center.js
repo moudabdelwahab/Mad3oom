@@ -6,6 +6,7 @@
  * owner_set_platform_admin · owner_set_capability. تعطيل الأزرار قبل التحقق
  * بخطوتين مجاملة للمستخدم؛ الرفض الحقيقي في owner_critical_ok().
  */
+import { announce } from '/assets/js/owner/owner-workspace.js';
 
 const TIER_LABEL = {
     owner: 'مالك المنصة',
@@ -56,6 +57,8 @@ let stepUpFresh = false;
 
 /** يطبّق حالة التحقق على كل زر عملية حرجة في الصفحة (data-critical). */
 export function applyCriticalState(root = document) {
+    // للعرض وحده: ملاحظة «الحوكمة» تتبدّل بين «مقفلة» و«مفعّلة» (owner-workspace.css)
+    document.documentElement.dataset.criticalOps = stepUpFresh ? 'open' : 'locked';
     root.querySelectorAll('[data-critical]').forEach(el => {
         el.disabled = !stepUpFresh;
         if (stepUpFresh) el.removeAttribute('title');
@@ -64,23 +67,21 @@ export function applyCriticalState(root = document) {
 }
 
 export function initAuthorityCenter(ctx) {
-    const { supabase, $, esc, when, table, td, byId, rows, accountCell, errorBlock } = ctx;
+    const { supabase, $, esc, when, table, td, byId, rows, accountCell, errorBlock, badge = () => {} } = ctx;
     let expiryTimer = null;
 
-    const say = (el, text, tone = 'info') => {
-        el.textContent = text;
-        el.dataset.tone = tone;
-        el.hidden = !text;
-    };
+    const say = announce;
 
     /* ── A. الملكية والتحقق بخطوتين ─────────────────────────────────────── */
     async function renderStepUp() {
         const box = $('stepUpBox');
         const { data, error } = await supabase.rpc('owner_security_status');
-        if (error) { box.innerHTML = errorBlock(error.message); return; }
+        if (error) { box.innerHTML = errorBlock(error.message); badge('ownership', null); return; }
 
         stepUpFresh = !!data?.step_up_fresh;
         clearTimeout(expiryTimer);
+        badge('ownership', !data?.mfa_enrolled ? '2FA غير مفعّل' : stepUpFresh ? 'مفتوح' : 'مقفل',
+              !data?.mfa_enrolled ? 'danger' : stepUpFresh ? 'success' : 'attention');
 
         if (!data?.mfa_enrolled) {
             box.innerHTML = `
@@ -149,7 +150,7 @@ export function initAuthorityCenter(ctx) {
                 : Promise.resolve({ data: [] })
         ]);
         const body = $('staffBody');
-        if (authority.error) { body.innerHTML = errorBlock(authority.error.message); return; }
+        if (authority.error) { body.innerHTML = errorBlock(authority.error.message); badge('staff', null); return; }
 
         const levelOf = new Map((authority.data || []).map(a => [a.user_id, a.level]));
         const capsOf = new Map();
@@ -163,6 +164,7 @@ export function initAuthorityCenter(ctx) {
         const staff = rows.filter(p => staffIds.includes(p.id))
             .map(p => ({ ...p, tier: tierOf(p) }))
             .sort((a, b) => order[a.tier] - order[b.tier]);
+        badge('staff', staff.length);
 
         body.innerHTML = table(['الحساب', 'الطبقة', '2FA', 'التفويض', ''], staff, p => {
             const caps = capsOf.get(p.id) || [];
@@ -229,6 +231,7 @@ export function initAuthorityCenter(ctx) {
         const who = byId.get(id);
         if (!window.confirm(`${CONFIRM[act]}\n\n${who?.full_name || who?.email || id}`)) return;
         btn.disabled = true;
+        say($('staffStatus'), 'جارٍ التنفيذ…');
         const calls = {
             elevate: () => supabase.rpc('owner_set_platform_admin', { p_user_id: id, p_enabled: true, p_note: null }),
             unelevate: () => supabase.rpc('owner_set_platform_admin', { p_user_id: id, p_enabled: false, p_note: null }),
@@ -253,7 +256,10 @@ export function initAuthorityCenter(ctx) {
         e.preventDefault();
         const id = $('staffAddUser').value;
         const role = $('staffAddRole').value;
-        if (!id) { say($('staffStatus'), 'اختر حسابًا أولًا.', 'error'); return; }
+        if (!id) { say($('staffStatus'), 'اختر حسابًا أولًا.', 'error'); $('staffAddUser').focus(); return; }
+        const submit = e.submitter || e.currentTarget.querySelector('[type=submit]');
+        submit.disabled = true;
+        say($('staffStatus'), 'جارٍ الإضافة…');
         const { error } = await supabase.rpc('owner_set_staff_role', { p_user_id: id, p_role: role });
         say($('staffStatus'), error ? error.message : 'تمت الإضافة إلى الفريق.', error ? 'error' : 'success');
         if (!error) {
@@ -269,7 +275,9 @@ export function initAuthorityCenter(ctx) {
             .select('at, actor_id, actor_tier, action, target_user_id, old_value, new_value, context, step_up, source')
             .order('at', { ascending: false }).limit(50);
         const body = $('privAuditBody');
-        if (error) { body.innerHTML = errorBlock(error.message); return; }
+        if (error) { body.innerHTML = errorBlock(error.message); badge('privileges', null); return; }
+        const failedStepUps = (data || []).filter(r => r.action === 'step_up.failed').length;
+        badge('privileges', (data || []).length || null, failedStepUps ? 'attention' : '');
 
         const name = (id) => {
             const p = id && byId.get(id);

@@ -1191,6 +1191,8 @@
     try {
       const u = new URL(url, window.location.origin);
       if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
+      // الأصل نفسه دائمًا (page-guard.js يرسل المسار النسبي للصفحة المحمية، مثل رابط تذكرة من البريد)
+      if (u.origin === window.location.origin) return true;
       return u.hostname === ROOT_DOMAIN || u.hostname.endsWith('.' + ROOT_DOMAIN);
     } catch {
       return false;
