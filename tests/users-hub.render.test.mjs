@@ -178,9 +178,9 @@ test('قائمة «خيارات»: الإجراءات كلها، والحظر ي
     await page.waitForSelector('#usersBody .uh-options-btn');
     await page.click('.uh-options-btn[data-user-id="u2"]');
     await page.waitForSelector('#uhMenu:not([hidden])');
-    const items = await page.$$eval('#uhMenu .uh-menu-item', els => els.map(e => e.firstChild.textContent.trim()));
+    const items = await page.$$eval('#uhMenu .opt-menu-item', els => els.map(e => e.firstChild.textContent.trim()));
     assert.deepEqual(items, ['عرض الحساب (الدخول كمستخدم)', 'تعديل النقاط', 'عضو', 'Super User', 'Admin', 'نسخ البريد الإلكتروني', 'حظر المستخدم']);
-    assert.equal(await page.getAttribute('#uhMenu .uh-menu-item.is-current', 'aria-current'), 'true');
+    assert.equal(await page.getAttribute('#uhMenu .opt-menu-item.is-current', 'aria-current'), 'true');
     assert.equal(await page.getAttribute('.uh-options-btn[data-user-id="u2"]', 'aria-expanded'), 'true');
 
     // Escape يغلق ويعيد التركيز للزر
@@ -190,13 +190,13 @@ test('قائمة «خيارات»: الإجراءات كلها، والحظر ي
 
     page.on('dialog', d => d.accept());
     await page.click('.uh-options-btn[data-user-id="u2"]');
-    await page.click('#uhMenu .uh-menu-item.is-danger');
+    await page.click('#uhMenu .opt-menu-item.is-danger');
     await page.waitForFunction(() => (window.__WRITES__ || []).length > 0);
     assert.deepEqual(await page.evaluate(() => window.__WRITES__), [{ op: 'update', table: 'profiles', row: { status: 'banned' } }]);
 
     // المحظور: «إلغاء الحظر» بدل «حظر»
     await page.click('.uh-options-btn[data-user-id="u4"]');
-    const labels = await page.$$eval('#uhMenu .uh-menu-item', els => els.map(e => e.textContent.trim()));
+    const labels = await page.$$eval('#uhMenu .opt-menu-item', els => els.map(e => e.textContent.trim()));
     assert.ok(labels.includes('إلغاء الحظر') && !labels.includes('حظر المستخدم'));
     await context.close();
 });

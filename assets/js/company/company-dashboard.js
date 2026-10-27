@@ -44,6 +44,8 @@ import {
 import { loadCompanyPermissions, loadCompanyAccessLog } from '/assets/js/company/company-access.js';
 import { initMemberAdmin, openMemberDetails, renderMemberAdminLists } from '/assets/js/company/company-member-admin.js';
 import { loadCompanyUsage } from '/assets/js/company/company-billing.js';
+import { buildCompanyDirectory, filterCompanyDirectory, companyUserActions, DIRECTORY_KINDS } from '/assets/js/company/company-users-model.js';
+import { createOptionsMenu, optionsTrigger } from '/assets/js/options-menu.js';
 import {
     fetchCompanyDashboard,
     fetchAccountKind,
@@ -120,6 +122,11 @@ let canManageMembersNow = false;
 /** دور الحساب داخل شركته كما رجّعته company_members(): company_admin | company_user */
 let myCompanyRole = null;
 
+/** 086: فريق الشركة كما رجّعته company_staff_list() — null للعميل أو قبل 086. */
+let companyStaff = null;
+/** 085: غير المدير يرى نفسه ومديره فقط. */
+let membersScopeSelf = false;
+
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
@@ -172,7 +179,7 @@ async function init() {
     wireAddMember();
     wireInviteCustomer();
     // 113: نافذة تفاصيل العضو؛ أي تغيير فيها يعيد رسم القائمتين من القاعدة
-    initMemberAdmin({ onChanged: async () => { await renderMembers(); await renderCustomers(); } });
+    initMemberAdmin({ onChanged: async () => { await renderMembers(); await renderCustomers(); await reloadUsersDirectory(); } });
     wireSectionRouting();
 
     await boot();
@@ -221,6 +228,7 @@ const LOADERS = {
     customerTickets: () => ensureStreamLoaded('customerTickets', customerTickets),
     inbox: () => loadCompanyInbox(),
     support: () => loadCompanySupport(),
+    users: () => loadUsersPage(),
     members: () => ensureMembers(),
     customers: () => loadCustomersPage(),
     permissions: () => loadCompanyPermissions(),
@@ -619,6 +627,8 @@ async function renderMembers() {
     }
     if (!result.data) { panel.hidden = true; return; }
     const staff = staffResult.ok ? staffResult.data : null;
+    companyStaff = staff;
+    membersScopeSelf = membersScopeIsSelf(result.data);
     renderStaffNote(staff);
 
     // القرار جاي من القاعدة كما هو؛ الواجهة ما بتحسبوش.
@@ -731,9 +741,18 @@ function renderStaffNote(staff) {
  * القاعدة، فلا يبقى في الشاشة دور لم يُحفظ.
  */
 async function onStaffRoleChange(select) {
-    const memberId = select.getAttribute('data-staff-role');
-    const memberName = select.getAttribute('data-member-name');
-    const change = staffChangeFor(select.getAttribute('data-current-role'), select.value);
+    await changeStaffRole({
+        memberId: select.getAttribute('data-staff-role'),
+        memberName: select.getAttribute('data-member-name'),
+        currentRole: select.getAttribute('data-current-role'),
+        nextRole: select.value,
+        onBusy: () => { select.disabled = true; }
+    });
+}
+
+/** نفس التغيير من محدِّد صفحة الأعضاء ومن قائمة «خيارات» في صفحة المستخدمين. */
+async function changeStaffRole({ memberId, memberName, currentRole, nextRole, onBusy }) {
+    const change = staffChangeFor(currentRole, nextRole);
     if (!change) return;
 
     if (change.kind === 'revoke') {
@@ -746,7 +765,7 @@ async function onStaffRoleChange(select) {
         if (!ok) { await renderMembers(); return; }
     }
 
-    select.disabled = true;
+    onBusy?.();
     const result = change.kind === 'revoke'
         ? await revokeCompanyStaff(memberId)
         : await setCompanyStaffRole(memberId, change.role);
@@ -873,6 +892,183 @@ async function renderCustomers() {
                 </div>
             </li>`).join('')}
         </ul>`;
+}
+
+/* ── المستخدمون: الأعضاء والعملاء والدعوات في مكان واحد ───────────────────
+   القوائم كما ترجعها القاعدة لهذا الناظر، والإجراءات هي نفسها أزرار صفحتي
+   «أعضاء الفريق» و«عملاء الشركة» (company-users-model.js). القاعدة تعيد فحص كل نداء. */
+
+let usersLoaded = false;
+let usersWired = false;
+let usersRows = [];
+const usersFilters = { q: '', kind: '', staff: '' };
+let usersMenu = null;
+
+async function loadUsersPage() {
+    if (!usersWired) wireUsersPage();
+    usersLoaded = true;
+    await ensureMembers();
+    await reloadUsersDirectory();
+}
+
+/** يعيد قراءة العملاء والدعوات ويبني القائمة من آخر أعضاء قُرئوا. */
+async function reloadUsersDirectory() {
+    if (!usersLoaded) return;
+    const custResult = await fetchCompanyCustomers();
+    const view = customersPanelView(custResult.ok ? custResult.data : null, viewerRole);
+    let invitations = [];
+    if (view.canInvite) {
+        const inv = await fetchCompanyInvitations();
+        invitations = inv.ok && Array.isArray(inv.data) ? inv.data : [];
+    }
+    usersRows = buildCompanyDirectory({
+        members: companyMembers,
+        staff: companyStaff,
+        customers: view.showList ? view.customers : [],
+        invitations
+    });
+
+    document.getElementById('usersAddMemberBtn').hidden = !canManageMembersNow;
+    document.getElementById('usersInviteLink').hidden = !view.canInvite || !pageAvailable('customers', navContext());
+    document.getElementById('cuScopeNote').hidden = !membersScopeSelf;
+    // أنواع لا يملكها هذا الناظر لا تُعرض في الفلتر
+    const kinds = new Set(usersRows.map(r => r.kind));
+    document.querySelectorAll('#cuKind option[value]').forEach(o => { o.hidden = !!o.value && !kinds.has(o.value); });
+    renderUsersDirectory();
+}
+
+function wireUsersPage() {
+    usersWired = true;
+    usersMenu = createOptionsMenu({ id: 'cuMenu' });
+    const form = document.getElementById('companyUsersFilters');
+    form.addEventListener('submit', (e) => e.preventDefault());
+    const map = { cuQuery: 'q', cuKind: 'kind', cuStaff: 'staff' };
+    for (const [id, key] of Object.entries(map)) {
+        const el = document.getElementById(id);
+        el.addEventListener(id === 'cuQuery' ? 'input' : 'change', () => { usersFilters[key] = el.value; renderUsersDirectory(); });
+    }
+    document.getElementById('cuReset').addEventListener('click', () => {
+        Object.assign(usersFilters, { q: '', kind: '', staff: '' });
+        for (const [id, key] of Object.entries(map)) document.getElementById(id).value = usersFilters[key];
+        renderUsersDirectory();
+        document.getElementById('cuQuery').focus();
+    });
+    // «إضافة مستخدم» هنا = نفس نافذة صفحة الأعضاء
+    document.getElementById('usersAddMemberBtn').addEventListener('click', () => document.getElementById('addMemberBtn')?.click());
+
+    document.getElementById('companyUsersDirectory').addEventListener('click', (e) => {
+        const btn = e.target.closest('.cu-options-btn');
+        if (!btn) return;
+        const row = usersRows.find(r => r.key === btn.dataset.key);
+        if (!row) return;
+        if (usersMenu.isOpenFor(btn)) { usersMenu.close(); return; }
+        const actions = companyUserActions(row, { canManage: canManageMembersNow, staff: companyStaff });
+        usersMenu.open(btn, { title: row.name, subtitle: row.kind === 'invitation' ? DIRECTORY_KINDS.invitation : row.email, actions },
+            (id) => runCompanyUserAction(id, row));
+    });
+}
+
+function textCell(text, className) {
+    const td = document.createElement('td');
+    if (className) td.className = className;
+    td.textContent = text;
+    return td;
+}
+
+function pillCell(label, pill) {
+    const td = document.createElement('td');
+    if (label) {
+        const span = document.createElement('span');
+        span.className = `pill ${pill || 'status-neutral'}`;
+        span.textContent = label;
+        td.append(span);
+    }
+    return td;
+}
+
+function renderUsersDirectory() {
+    const box = document.getElementById('companyUsersDirectory');
+    const rows = filterCompanyDirectory(usersRows, usersFilters);
+    document.getElementById('cuCount').textContent =
+        `عرض ${rows.length.toLocaleString('ar-EG')} من ${usersRows.length.toLocaleString('ar-EG')}`;
+
+    if (!usersRows.length) {
+        renderState(box, { variant: 'empty', title: 'لا يوجد مستخدمون بعد', text: 'يظهر هنا أعضاء الفريق وعملاء الشركة والدعوات المعلّقة.' });
+        return;
+    }
+    if (!rows.length) {
+        renderState(box, { variant: 'empty', title: 'لا توجد نتائج مطابقة', text: 'غيّر البحث أو الفلاتر.' });
+        return;
+    }
+
+    const table = document.createElement('table');
+    table.className = 'admin-table cu-table';
+    table.innerHTML = `<thead><tr><th>الاسم</th><th>البريد الإلكتروني</th><th>الجوال</th><th>النوع</th>
+        <th>الدور في الفريق</th><th>الحالة</th><th>التاريخ</th><th><span class="visually-hidden">خيارات</span></th></tr></thead>`;
+    const body = document.createElement('tbody');
+    for (const r of rows) {
+        const tr = document.createElement('tr');
+        tr.dataset.kind = r.kind;
+        const kindTd = pillCell(r.kind === 'member' ? r.roleLabel : DIRECTORY_KINDS[r.kind], r.rolePill);
+        const optsTd = document.createElement('td');
+        optsTd.className = 'cu-actions-cell';
+        const actions = companyUserActions(r, { canManage: canManageMembersNow, staff: companyStaff });
+        if (actions.some(a => a.id)) {
+            const btn = optionsTrigger({ label: `خيارات ${r.name}`, className: 'cu-options-btn' });
+            btn.dataset.key = r.key;
+            optsTd.append(btn);
+        }
+        tr.append(
+            textCell(r.name, 'cu-name'),
+            textCell(r.email || '—', 'cu-ltr'),
+            textCell(r.phone || '—', 'cu-ltr'),
+            kindTd,
+            pillCell(r.staffLabel, 'status-tone-success'),
+            pillCell(r.statusLabel, r.statusPill || 'status-neutral'),
+            textCell(r.created_at ? formatDate(r.created_at) : '—'),
+            optsTd
+        );
+        body.append(tr);
+    }
+    table.append(body);
+    const wrap = document.createElement('div');
+    wrap.className = 'table-container cu-table-wrap';
+    wrap.append(table);
+    box.replaceChildren(wrap);
+}
+
+async function copyText(value, label) {
+    try {
+        await navigator.clipboard.writeText(value);
+        ui?.showToast?.(`تم نسخ ${label}`, 'success');
+    } catch {
+        prompt(`انسخ ${label}:`, value);
+    }
+}
+
+/** تنفيذ الإجراء بنفس دوال صفحتي الأعضاء والعملاء، ثم إعادة بناء القائمة من القاعدة. */
+async function runCompanyUserAction(id, row) {
+    if (id === 'details') { openMemberDetails(row.id); return; }
+    if (id === 'myProfile') { showSection('profile'); return; }
+    if (id === 'copyEmail') { await copyText(row.email, 'البريد الإلكتروني'); return; }
+    if (id === 'copyPhone') { await copyText(row.phone, 'رقم الجوال'); return; }
+
+    if (id.startsWith('staff:')) {
+        await changeStaffRole({ memberId: row.id, memberName: row.name, currentRole: row.staffRole, nextRole: id.slice(6) });
+    } else if (id === 'remove') {
+        await onRemoveMember(row.id, row.name);
+    } else if (id === 'cancelInvite') {
+        const r = await cancelCompanyInvitation(row.id);
+        if (!r.ok) ui?.showToast?.(r.error || 'تعذّر إلغاء الدعوة', 'error');
+        await renderCustomers();
+    } else if (id.startsWith('invite:')) {
+        const view = inviteResultView(await inviteCompanyCustomer(row.email, { resend: id === 'invite:resend' }));
+        ui?.showToast?.(view.message, view.ok ? 'success' : 'error');
+        await renderCustomers();
+    } else {
+        return;
+    }
+    await reloadUsersDirectory();
 }
 
 function wireInviteCustomer() {

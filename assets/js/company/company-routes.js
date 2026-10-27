@@ -20,6 +20,7 @@ export const COMPANY_PAGES = Object.freeze({
     customerTickets: { label: 'تذاكر العملاء' },
     inbox:           { label: 'صندوق الرسائل' },
     support:         { label: 'فتح تذكرة ومساعدة' },
+    users:           { label: 'المستخدمون' },
     members:         { label: 'أعضاء الفريق' },
     customers:       { label: 'عملاء الشركة' },
     permissions:     { label: 'الأدوار والصلاحيات' },
@@ -48,7 +49,8 @@ export const COMPANY_GROUPS = Object.freeze([
     {
         key: 'team', label: 'الفريق والصلاحيات',
         description: 'أعضاء الشركة وأدوارهم، والعملاء، ومن يصل إلى بيانات الشركة.',
-        pages: ['members', 'customers', 'permissions', 'accessLog']
+        // users: الأعضاء والعملاء والدعوات في مكان واحد بالبحث والفلاتر وقائمة «خيارات»
+        pages: ['users', 'members', 'customers', 'permissions', 'accessLog']
     },
     {
         key: 'billing', label: 'الاشتراك والفوترة',

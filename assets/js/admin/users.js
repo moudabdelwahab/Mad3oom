@@ -17,6 +17,7 @@ import { initSidebar, getAdminAccess } from './sidebar.js';
 import { impersonateUser } from './admin-utils.js';
 import { isCurrentUserSieAdmin, getSieAccessStatus, adminSetAccess, adminResetUsage } from '/assets/js/sie-client.js';
 import { visibleHubTabs, resolveHubTab, filterUsers, userActions, roleLabel, isBanned } from './users-hub-model.js';
+import { createOptionsMenu, optionsTrigger } from '/assets/js/options-menu.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -133,6 +134,7 @@ function ensureFrame(tab) {
 /* ── القائمة والفلاتر ──────────────────────────────────────────────────── */
 
 function bindFilters() {
+    $('uhFilters').addEventListener('submit', (e) => e.preventDefault());
     const map = { uhQuery: 'q', uhRole: 'role', uhStatus: 'status', uhFrom: 'from', uhTo: 'to', uhSort: 'sort' };
     let timer = null;
     for (const [id, key] of Object.entries(map)) {
@@ -220,14 +222,8 @@ function renderUsers() {
 
         const optsTd = document.createElement('td');
         optsTd.className = 'uh-actions-cell';
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'uh-options-btn';
+        const btn = optionsTrigger({ label: `خيارات ${u.full_name || u.email || ''}`, className: 'uh-options-btn' });
         btn.dataset.userId = u.id;
-        btn.setAttribute('aria-haspopup', 'menu');
-        btn.setAttribute('aria-expanded', 'false');
-        btn.setAttribute('aria-label', `خيارات ${u.full_name || u.email || ''}`);
-        btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg><span>خيارات</span>';
         optsTd.append(btn);
 
         tr.append(name, email, phone, roleTd, statusTd, points, joined, optsTd);
@@ -235,119 +231,26 @@ function renderUsers() {
     }));
 }
 
-/* ── قائمة «خيارات» ────────────────────────────────────────────────────── */
+/* ── قائمة «خيارات» (assets/js/options-menu.js) ─────────────────────────── */
 
-let menuEl = null;
-let menuFor = null; // { user, button }
+let menu = null;
 
 function initOptionsMenu() {
-    menuEl = document.createElement('div');
-    menuEl.className = 'uh-menu';
-    menuEl.id = 'uhMenu';
-    menuEl.setAttribute('role', 'menu');
-    menuEl.hidden = true;
-    document.body.appendChild(menuEl);
-
+    menu = createOptionsMenu({ id: 'uhMenu' });
     $('usersBody').addEventListener('click', (e) => {
         const btn = e.target.closest('.uh-options-btn');
         if (!btn) return;
-        e.stopPropagation();
         const target = allUsers.find(u => u.id === btn.dataset.userId);
         if (!target) return;
-        if (menuFor?.button === btn && !menuEl.hidden) closeMenu();
-        else openMenu(target, btn);
-    });
-
-    document.addEventListener('click', (e) => { if (!menuEl.hidden && !menuEl.contains(e.target)) closeMenu(); });
-    // القائمة تتبع زرها مع التمرير وتغيير الحجم، وتُغلق فقط حين يخرج الزر من الشاشة.
-    // (تمرير القائمة نفسها حين تطول لا يحرّكها)
-    const follow = (e) => { if (!menuEl.hidden && !menuEl.contains(e?.target)) positionMenu(); };
-    window.addEventListener('resize', follow);
-    window.addEventListener('scroll', follow, true);
-    menuEl.addEventListener('keydown', (e) => {
-        const items = [...menuEl.querySelectorAll('[role="menuitem"]')];
-        const i = items.indexOf(document.activeElement);
-        if (e.key === 'Escape') { e.preventDefault(); closeMenu(true); }
-        else if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length]?.focus(); }
-        else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length]?.focus(); }
-        else if (e.key === 'Tab') closeMenu();
-    });
-}
-
-function openMenu(target, button) {
-    closeMenu();
-    menuFor = { user: target, button };
-    const actions = userActions(target, {
-        viewer: { id: user?.id, role: user?.profile?.role, email: user?.email },
-        isSieAdmin,
-        frozen: !!walletMap.get(target.id)
-    });
-
-    const head = document.createElement('div');
-    head.className = 'uh-menu-head';
-    const n = document.createElement('strong');
-    n.textContent = target.full_name || 'بدون اسم';
-    const m = document.createElement('span');
-    m.textContent = target.email || '';
-    m.dir = 'ltr';
-    head.append(n, m);
-
-    const nodes = [head];
-    for (const a of actions) {
-        if (a.group) {
-            const g = document.createElement('div');
-            g.className = 'uh-menu-group';
-            g.textContent = a.group;
-            nodes.push(g);
-            continue;
-        }
-        const item = document.createElement('button');
-        item.type = 'button';
-        item.setAttribute('role', 'menuitem');
-        item.className = 'uh-menu-item' + (a.danger ? ' is-danger' : '') + (a.current ? ' is-current' : '');
-        item.textContent = a.label;
-        if (a.current) {
-            item.setAttribute('aria-current', 'true');
-            const tag = document.createElement('small');
-            tag.textContent = 'الحالية';
-            item.append(tag);
-        }
-        item.addEventListener('click', () => {
-            const u = menuFor.user;
-            closeMenu();
-            runAction(a.id, u);
+        if (menu.isOpenFor(btn)) { menu.close(); return; }
+        const actions = userActions(target, {
+            viewer: { id: user?.id, role: user?.profile?.role, email: user?.email },
+            isSieAdmin,
+            frozen: !!walletMap.get(target.id)
         });
-        nodes.push(item);
-    }
-    menuEl.replaceChildren(...nodes);
-    menuEl.hidden = false;
-    button.setAttribute('aria-expanded', 'true');
-    positionMenu();
-    menuEl.querySelector('[role="menuitem"]')?.focus({ preventScroll: true });
-}
-
-/** تحت الزر (أو فوقه إن لم يتسع) داخل حدود النافذة، ومحاذاة حافة البداية في RTL. */
-function positionMenu() {
-    const button = menuFor?.button;
-    if (!button || !button.isConnected) { closeMenu(); return; }
-    const r = button.getBoundingClientRect();
-    const vw = document.documentElement.clientWidth, vh = window.innerHeight;
-    if (r.bottom < 0 || r.top > vh) { closeMenu(); return; }
-    const w = menuEl.offsetWidth, h = menuEl.offsetHeight;
-    const rtl = getComputedStyle(button).direction === 'rtl';
-    const left = Math.min(Math.max(8, rtl ? r.right - w : r.left), vw - w - 8);
-    let top = r.bottom + 6;
-    if (top + h > vh - 8) top = Math.max(8, r.top - h - 6);
-    menuEl.style.left = `${left}px`;
-    menuEl.style.top = `${top}px`;
-}
-
-function closeMenu(returnFocus = false) {
-    if (!menuEl || menuEl.hidden) return;
-    menuEl.hidden = true;
-    menuFor?.button.setAttribute('aria-expanded', 'false');
-    if (returnFocus) menuFor?.button.focus();
-    menuFor = null;
+        menu.open(btn, { title: target.full_name || 'بدون اسم', subtitle: target.email || '', actions },
+            (id) => runAction(id, target));
+    });
 }
 
 /** تنفيذ الإجراء — نفس الاستعلامات والتأكيدات والشروط التي كانت في الصفحة. */
