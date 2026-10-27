@@ -94,7 +94,7 @@
         .service-title {
             font-weight: 800;
             font-size: 1.15rem;
-            color: var(--color-primary);
+            color: var(--color-heading);
         }
 
         .uptime-visual {
@@ -299,7 +299,7 @@
             container.innerHTML = incidents.map(inc => `
                 <div class="incident-entry ${inc.status === 'resolved' ? 'resolved' : 'active'}">
                     <div class="incident-entry-header">
-                        <span style="font-weight: 800; font-size: 1.1rem; color: var(--color-primary);">${inc.title}</span>
+                        <span style="font-weight: 800; font-size: 1.1rem; color: var(--color-heading);">${inc.title}</span>
                         <span class="status-badge status-${inc.status === 'resolved' ? 'resolved' : 'danger'}">
                             ${inc.status === 'resolved' ? 'تم الحل' : 'نشط'}
                         </span>
