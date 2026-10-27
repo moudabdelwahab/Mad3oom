@@ -2139,10 +2139,28 @@
     init() {
       if (this._initPromise) return this._initPromise;
       this._initPromise = new Promise((resolve, reject) => {
+        let elapsed = 0;
+        const pollMs = 150;
+        const maxWaitMs = 8000;
         const tryInit = () => {
-          if (typeof window.Pi === 'undefined') { setTimeout(tryInit, 150); return; }
-          try { window.Pi.init({ version: '2.0', sandbox: PI_SANDBOX }); this._sdkReady = true; resolve(); }
-          catch (err) { reject(err); }
+          if (typeof window.Pi === 'undefined') {
+            elapsed += pollMs;
+            if (elapsed >= maxWaitMs) {
+              this._initPromise = null; // يسمح بإعادة المحاولة بعد فشل تحميل SDK
+              reject(new Error('تعذّر تحميل مكتبة Pi. اقفل الصفحة وافتحها من Pi Browser وحاول تاني.'));
+              return;
+            }
+            setTimeout(tryInit, pollMs);
+            return;
+          }
+          try {
+            window.Pi.init({ version: '2.0', sandbox: PI_SANDBOX });
+            this._sdkReady = true;
+            resolve();
+          } catch (err) {
+            this._initPromise = null;
+            reject(err);
+          }
         };
         tryInit();
       });
@@ -2150,11 +2168,18 @@
     }
     async authenticate() {
       await this.init();
-      return new Promise((resolve, reject) => {
-        window.Pi.authenticate(['username'], (p) => { console.warn('[Pi] Incomplete payment:', p?.identifier); })
-          .then(r => resolve({ uid: r.user.uid, username: r.user.username, accessToken: r.accessToken }))
-          .catch(reject);
-      });
+      // Pi.authenticate قد تظل معلّقة داخل المتصفح؛ لا نترك الزر يدور بلا نهاية.
+      const result = await withTimeout(
+        window.Pi.authenticate(['username'], (p) => {
+          console.warn('[Pi] Incomplete payment:', p?.identifier);
+        }),
+        20000,
+        'تسجيل الدخول عبر Pi Network'
+      );
+      if (!result?.user?.uid || !result?.accessToken) {
+        throw new Error('Pi لم تُرجع بيانات حساب كاملة. جرّب تسجيل الدخول مرة تانية.');
+      }
+      return { uid: result.user.uid, username: result.user.username, accessToken: result.accessToken };
     }
   }
 
