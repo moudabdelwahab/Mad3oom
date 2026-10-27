@@ -17,9 +17,11 @@ export const isPiBrowser = () => /PiBrowser/i.test(navigator.userAgent || '');
 let sdkPromise = null;
 function loadSdk() {
     sdkPromise ??= new Promise((resolve, reject) => {
-        const ready = () => {
-            try { window.Pi.init({ version: '2.0', sandbox: false }); resolve(window.Pi); }
-            catch (err) { reject(err); }
+        // Pi.init ترجع Promise ولازم تكتمل قبل authenticate/createPayment
+        // (توثيق SDK الرسمي) — من غير انتظارها الطلب بيعلّق بلا رد.
+        const ready = async () => {
+            try { await window.Pi.init({ version: '2.0', sandbox: false }); resolve(window.Pi); }
+            catch (err) { sdkPromise = null; reject(err); }
         };
         if (window.Pi) { ready(); return; }
         const s = document.createElement('script');
@@ -83,7 +85,12 @@ function onIncompletePaymentFound(payment) {
  */
 export async function payWithPi({ planId, planLabel, billingCycle, amount }) {
     const Pi = await loadSdk();
-    await Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
+    // نفس مهلة صفحة الدخول: authenticate قد لا يرد أبدًا لو Pi Browser لم يتعرّف على التطبيق
+    await Promise.race([
+        Pi.authenticate(['username', 'payments'], onIncompletePaymentFound),
+        new Promise((_, reject) => setTimeout(() => reject(new Error(
+            'انتهت المهلة: Pi Browser لم يرد على طلب الدفع. اقفل Pi Browser بالكامل وافتحه وحاول تاني.')), 45000))
+    ]);
 
     return new Promise((resolve, reject) => {
         let paymentId = null;
