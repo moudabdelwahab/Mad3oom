@@ -88,51 +88,57 @@ export async function handleTicketEmail(payload, deps) {
     } else {
         const ticketId = String(payload?.ticket_id || '');
         if (!UUID_RE.test(ticketId)) return fail(400, 'ticket_id is missing');
-
-        const ticket = await deps.data.getTicket(ticketId);
-        if (!ticket) {
-            log({ event: 'ticket_email_skipped', reason: 'ticket_not_found', ticket_id: ticketId, trigger: event });
-            return skipped('ticket_not_found');
-        }
-        if (event === 'UPDATE' && payload?.status && ticket.status !== payload.status) {
-            log({ event: 'ticket_email_skipped', reason: 'stale_status', ticket_id: ticketId });
-            return skipped('stale_status');
-        }
-
-        const owner = await deps.data.getProfile(ticket.user_id);
-        to = String(owner?.email || '').trim();
-        if (!to) {
-            log({ event: 'ticket_email_skipped', reason: 'no_recipient', ticket_id: ticketId });
-            return skipped('no_recipient');
-        }
-        relatedUserId = ticket.user_id;
-
-        let kind = 'created', replyText = null;
-        if (event === 'UPDATE') {
-            kind = statusEventKind(payload?.previous_status || null, ticket.status);
-        } else if (event === 'REPLY') {
-            kind = 'reply';
-            if (payload?.reply_id) {
-                const reply = UUID_RE.test(String(payload.reply_id)) ? await deps.data.getReply(String(payload.reply_id)) : null;
-                if (!reply || reply.ticket_id !== ticket.id || reply.is_internal === true || reply.user_id === ticket.user_id) {
-                    log({ event: 'ticket_email_skipped', reason: 'reply_not_public', ticket_id: ticketId });
-                    return skipped('reply_not_public');
-                }
-                replyText = reply.message;
-                idempotencyKey = `ticket-reply/${reply.id}`;
-            } else {
-                // محفّز ما قبل 114: نص الرد في الحمولة (يُهرَّب في القالب)
-                replyText = payload?.message || '';
+        try {
+            const ticket = await deps.data.getTicket(ticketId);
+            if (!ticket) {
+                log({ event: 'ticket_email_skipped', reason: 'ticket_not_found', ticket_id: ticketId, trigger: event });
+                return skipped('ticket_not_found');
             }
-            textBody = replyText || null;
-        } else {
-            idempotencyKey = `ticket-created/${ticket.id}`;
+            if (event === 'UPDATE' && payload?.status && ticket.status !== payload.status) {
+                log({ event: 'ticket_email_skipped', reason: 'stale_status', ticket_id: ticketId });
+                return skipped('stale_status');
+            }
+
+            const owner = await deps.data.getProfile(ticket.user_id);
+            to = String(owner?.email || '').trim();
+            if (!to) {
+                log({ event: 'ticket_email_skipped', reason: 'no_recipient', ticket_id: ticketId });
+                return skipped('no_recipient');
+            }
+            relatedUserId = ticket.user_id;
+
+            let kind = 'created', replyText = null;
+            if (event === 'UPDATE') {
+                kind = statusEventKind(payload?.previous_status || null, ticket.status);
+            } else if (event === 'REPLY') {
+                kind = 'reply';
+                if (payload?.reply_id) {
+                    const reply = UUID_RE.test(String(payload.reply_id)) ? await deps.data.getReply(String(payload.reply_id)) : null;
+                    if (!reply || reply.ticket_id !== ticket.id || reply.is_internal === true || reply.user_id === ticket.user_id) {
+                        log({ event: 'ticket_email_skipped', reason: 'reply_not_public', ticket_id: ticketId });
+                        return skipped('reply_not_public');
+                    }
+                    replyText = reply.message;
+                    idempotencyKey = `ticket-reply/${reply.id}`;
+                } else {
+                    // محفّز ما قبل 114: نص الرد في الحمولة (يُهرَّب في القالب)
+                    replyText = payload?.message || '';
+                }
+                textBody = replyText || null;
+            } else {
+                idempotencyKey = `ticket-created/${ticket.id}`;
+            }
+
+            let companyName = null;
+            try { companyName = await deps.data.getCompanyName(ticket); } catch { companyName = null; }
+
+            content = ticketEmail({ ...common, event: kind, ticket, companyName, recipientName: recipientName(owner), replyText });
+        } catch (err) {
+            // تعذّرت القراءة (لا «غير موجودة»): خطأ ظاهر في السجل ورد 503، لا تخطٍّ صامت
+            log({ event: 'ticket_email_read_failed', trigger: event, ticket_id: ticketId,
+                  table: err?.table || null, code: err?.code || null });
+            return fail(503, 'تعذّرت قراءة بيانات التذكرة');
         }
-
-        let companyName = null;
-        try { companyName = await deps.data.getCompanyName(ticket); } catch { companyName = null; }
-
-        content = ticketEmail({ ...common, event: kind, ticket, companyName, recipientName: recipientName(owner), replyText });
     }
 
     const attachments = Array.isArray(payload?.attachments)

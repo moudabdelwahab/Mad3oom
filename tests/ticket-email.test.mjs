@@ -10,13 +10,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-    ticketEmail, ticketUrl, statusEventKind, formatDateTime, TICKET_STATUSES, EMAIL_EVENTS, LOGO_PATH, esc, oneLine
+    ticketEmail, ticketUrl, statusEventKind, formatDateTime, TICKET_STATUSES, EMAIL_EVENTS, LOGO_PATH, esc, oneLine, htmlToText
 } from '../supabase/functions/_shared/ticket-email.js';
 import { handleTicketEmail, safeEqual, recipientName } from '../supabase/functions/send-ticket-email/handler.js';
-import { ticketEmailData } from '../supabase/functions/_shared/ticket-email-data.js';
+import { ticketEmailData, TicketDataError } from '../supabase/functions/_shared/ticket-email-data.js';
 import { emailConfig } from '../supabase/functions/_shared/email.js';
 
-const plain = (html) => html.replace(/<[^>]+>/g, '');
+const plain = htmlToText;
 const read = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8');
 const TID = '0b8c2f4e-1a2b-4c3d-8e9f-0123456789ab';
 const OWNER = '11111111-2222-4333-8444-555555555555';
@@ -268,6 +268,32 @@ test('أدوات صغيرة: مقارنة السر واسم المخاطبة', (
     assert.equal(esc(`"'<>&`), '&quot;&#39;&lt;&gt;&amp;');
 });
 
+test('البديل النصي: لا وسم ينجو من التنظيف، ولو متداخلًا', () => {
+    assert.equal(htmlToText('<scr<b>ipt>alert(1)</scr</b>ipt>'), 'alert(1)');
+    assert.equal(htmlToText('<<b>script>x'), 'x');
+    assert.equal(htmlToText('أ<br>ب</p>ج &amp; &quot;د&quot; &lt;b&gt;'), 'أ\nب\nج & "د" &lt;b&gt;');
+    const r = ticketEmail({ event: 'workflow', ticket: TICKET, messageHtml: '<p>مرحبا</p><scr<b>ipt>x</script>' });
+    assert.doesNotMatch(r.text, /[<>]/);
+    assert.ok(r.text.includes('مرحبا'));
+});
+
+test('تعذّر قراءة القاعدة ⇒ 503 وسجل خطأ، لا «غير موجودة» صامتة', async () => {
+    for (const failing of ['getTicket', 'getProfile', 'getReply']) {
+        const { d, calls } = deps();
+        d.data[failing] = async () => { throw new TicketDataError(failing, { code: '57014' }); };
+        const r = await handleTicketEmail({ event: 'REPLY', ticket_id: TID, reply_id: RID }, d);
+        assert.deepEqual(r, { status: 503, body: { error: 'تعذّرت قراءة بيانات التذكرة' } }, failing);
+        assert.equal(calls.send.length, 0, failing);
+        assert.equal(calls.log.at(-1).event, 'ticket_email_read_failed', failing);
+        assert.equal(calls.log.at(-1).code, '57014', failing);
+    }
+    // اسم الشركة اختياري: تعذّر قراءته لا يوقف البريد
+    const { d, calls } = deps();
+    d.data.getCompanyName = async () => { throw new TicketDataError('companies', { code: '57014' }); };
+    assert.equal((await handleTicketEmail({ event: 'INSERT', ticket_id: TID }, d)).status, 200);
+    assert.equal(calls.send.length, 1);
+});
+
 /* ── مصدر البيانات الموحّد ────────────────────────────────────────────────── */
 
 function fakeDb(rows) {
@@ -282,6 +308,7 @@ function fakeDb(rows) {
                 order() { return chain; },
                 limit() { return chain; },
                 async maybeSingle() {
+                    if (rows.__error?.[table]) return { data: null, error: rows.__error[table] };
                     const r = (rows[table] || []).find(x => state.filters.every(([c, v]) => x[c] === v));
                     return { data: r || null, error: null };
                 }
@@ -303,6 +330,10 @@ test('ticketEmailData: الشركة المختومة لتذكرة الشركة،
     assert.equal(await data.getCompanyName({ scope: 'company', company_id: 'c1', user_id: OWNER }), 'شركة أ');
     assert.equal(await data.getCompanyName({ scope: 'mad3oom_support', company_id: null, user_id: OWNER }), 'شركة المالك');
     assert.equal(await data.getCompanyName({ scope: 'mad3oom_support', company_id: null, user_id: 'nobody' }), null);
+    // خطأ القراءة يُرمى ولا يُعاد null
+    const broken = ticketEmailData(fakeDb({ __error: { tickets: { code: '57014', message: 'timeout' } } }).db);
+    await assert.rejects(broken.getTicket(TID), (e) => e instanceof TicketDataError && e.table === 'tickets' && e.code === '57014');
+    assert.equal(await ticketEmailData(fakeDb({}).db).getTicket(TID), null, 'غياب الصف ليس خطأ');
 });
 
 /* ── الربط ───────────────────────────────────────────────────────────────── */
