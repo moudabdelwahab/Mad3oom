@@ -58,4 +58,4 @@ export async function updatePassword(pw) {
 }
 export async function getCurrentUser() { return window.__FIXTURES__?.authUser || null; }
 export async function autoRedirect() {}
-export async function adminImpersonateUser() {}
+export async function adminImpersonateUser(userId, redirectPath) { (window.__IMPERSONATED__ = window.__IMPERSONATED__ || []).push({ userId, redirectPath }); }

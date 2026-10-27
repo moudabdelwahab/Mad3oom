@@ -187,6 +187,7 @@
 
     <script type="module">
         import { supabase } from '/api-config.js';
+        import { platformAuthority } from '/assets/js/platform-authority.js';
 
         let allDevices = [];
         let currentUser = null;
@@ -216,13 +217,8 @@
                     return;
                 }
 
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('role')
-                    .eq('id', user.id)
-                    .single();
-
-                if (profile?.role !== 'admin' && profile?.role !== 'support') {
+                // is_platform_staff() من القاعدة: الأدمن والدعم، أو مالك المنصة في سياقه (115)
+                if (!(await platformAuthority()).isStaff) {
                     window.location.href = '/customer-dashboard.html';
                     return;
                 }

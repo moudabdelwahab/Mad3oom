@@ -55,6 +55,7 @@
  *   SUPABASE_SERVICE_ROLE_KEY injected by the platform
  */
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { callerHas } from '../_shared/caller-authority.js';
 
 import { handleInbound } from 'https://cdn.jsdelivr.net/gh/moudabdelwahab/sie@8252e5774529196b323d72932df8b43c09f9cdbe/channels/core/channel-adapter.js';
 import { createTelegramAdapter } from 'https://cdn.jsdelivr.net/gh/moudabdelwahab/sie@8252e5774529196b323d72932df8b43c09f9cdbe/channels/telegram/telegram-adapter.js';
@@ -130,8 +131,9 @@ const deps = {
  * webhook URL, Telegram's last delivery error, and how many customer chats
  * are linked — and it can re-point the bot's webhook. None of that may be
  * readable or triggerable anonymously, so GET now carries the same bar the
- * rest of the admin surface uses: a real session whose profile role is
- * 'admin'. No new role was introduced.
+ * rest of the admin surface uses: a real session the database considers an
+ * admin — is_admin(), which also covers the platform owner inside the
+ * owner/admin context (115). No new role was introduced.
  */
 async function isAdminCaller(req: Request): Promise<boolean> {
     const authHeader = req.headers.get('authorization') ?? '';
@@ -142,9 +144,8 @@ async function isAdminCaller(req: Request): Promise<boolean> {
         const { data, error } = await supabase.auth.getUser(jwt);
         if (error || !data?.user) return false;
 
-        const { data: profile } = await supabase
-            .from('profiles').select('role').eq('id', data.user.id).maybeSingle();
-        return profile?.role === 'admin';
+        // is_admin() بجلسة المنادي: الأدمن، أو مالك المنصة في سياق owner/admin (115)
+        return await callerHas('is_admin', authHeader);
     } catch (err) {
         logger.error('admin check failed', { error: err instanceof Error ? err.message : String(err) });
         return false;

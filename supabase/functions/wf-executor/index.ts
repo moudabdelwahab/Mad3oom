@@ -4,6 +4,7 @@ import { assertWorkflowTicketAllowed } from "./ticket-guard.js";
 import { emailConfig, senderFor, sendEmail } from "../_shared/email.js";
 import { esc as escapeHtml, ticketEmail } from "../_shared/ticket-email.js";
 import { ticketEmailData } from "../_shared/ticket-email-data.js";
+import { callerHas } from "../_shared/caller-authority.js";
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -478,9 +479,8 @@ async function authorize(req: Request): Promise<{ ok: true; userId: string } | {
   const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } } });
   const { data: userData, error } = await userClient.auth.getUser();
   if (error || !userData?.user) return { ok: false, status: 401, error: "Unauthorized" };
-  const db = admin();
-  const { data: profile } = await db.from("profiles").select("role").eq("id", userData.user.id).maybeSingle();
-  if (!profile || !["admin", "support"].includes(profile.role)) {
+  // is_platform_staff() بجلسة المنادي: الأدمن والدعم، أو مالك المنصة في سياق owner/admin (115)
+  if (!(await callerHas("is_platform_staff", authHeader, { supabaseUrl: SUPABASE_URL, anonKey: ANON_KEY }))) {
     return { ok: false, status: 403, error: "هذه الميزة مقصورة على فريق الإدارة/الدعم" };
   }
   return { ok: true, userId: userData.user.id };

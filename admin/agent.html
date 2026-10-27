@@ -555,6 +555,7 @@ import { supabase } from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
 import { initSidebar } from '/assets/js/admin/sidebar.js';
 import { initAgentAdminPage } from '/assets/js/admin/agent.js';
+import { platformAuthority } from '/assets/js/platform-authority.js';
 
 initSidebar();
 
@@ -591,8 +592,8 @@ if (user) {
 
     const role = realUser.profile?.role;
     const email = realUser.email || realUser.profile?.email || '';
-    const MAIN_ADMIN_EMAILS = ['support@mad3oom.online', 'info@mad3oom.online'];
-    const isAdmin = role === 'admin' || MAIN_ADMIN_EMAILS.includes(email);
+    // is_admin() من القاعدة: الأدمن، أو مالك المنصة في سياقه (كانت قائمة بريد ثابتة لا تعرف المالك)
+    const { isAdmin } = await platformAuthority();
 
     console.log('[DEBUG] final check -> role:', role, '| email:', JSON.stringify(email), '| isAdmin:', isAdmin);
 

@@ -2,6 +2,7 @@ import { supabase } from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { initSidebar } from './sidebar.js';
 import { impersonateUser } from './admin-utils.js';
+import { platformAuthority } from '/assets/js/platform-authority.js';
 
 let currentUser = null;
 
@@ -36,7 +37,8 @@ async function renderSubUsers() {
             const headerP = document.querySelector('.page-header p');
             if (headerP) headerP.textContent = `عرض المستخدمين التابعين للمسؤول: ${adminProfile.full_name}`;
         }
-    } else if (currentUser.profile.role !== 'admin') {
+    } else if (!(await platformAuthority()).isAdmin) {
+        // is_admin() من القاعدة: الأدمن، أو مالك المنصة في سياقه، يرى الكل (نفس شرط RLS على profiles للإدارة)
         // إذا لم يكن هناك فلتر وكان المستخدم الحالي ليس أدمن رئيسي، يرى مستخدميه فقط
         query = query.eq('super_user_id', currentUser.id);
     }

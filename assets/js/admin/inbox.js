@@ -26,6 +26,7 @@
  */
 import { initSidebar } from './sidebar.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
+import { platformAuthority } from '/assets/js/platform-authority.js';
 import { iconize } from '/assets/js/chat-icons.js';
 import {
     attachmentFromMessage, renderAttachmentHtml, hydrateAttachments, autoLabelFor,
@@ -747,7 +748,7 @@ function renderDetails() {
     const stats = messageStats(session.messages);
     const ctx = state.customerCtx.get(session.user_id) || null;
     const kv = (k, v) => `<div class="ib-kv"><span>${esc(k)}</span><span>${esc(v)}</span></div>`;
-    const canCreateTag = state.me?.profile?.role === 'admin';
+    const canCreateTag = state.isAdmin === true;
 
     pane.innerHTML = `
       <button type="button" class="ib-details-back" data-close-details>→ رجوع للمحادثة</button>
@@ -1903,6 +1904,8 @@ async function boot() {
     if (!user) { reportUnavailable('forbidden'); return; }
     updateAdminUI(user);
     state.me = user;
+    // إنشاء الوسوم: سياسة ticket_tags ← is_admin() (115) — الأدمن، أو المالك في سياقه
+    state.isAdmin = (await platformAuthority()).isAdmin;
 
     wire();
     setMode('reply');

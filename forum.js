@@ -2,6 +2,7 @@ import { SUPABASE_CONFIG } from './supabase-config.js';
 import { requireAuth } from './auth-client.js';
 import { initCustomerSidebar } from './assets/js/customer-sidebar.js';
 import { initSidebar as initAdminSidebar } from './assets/js/admin/sidebar.js';
+import { platformAuthority } from './assets/js/platform-authority.js';
 // مكتبة تنقية HTML — ضرورية لأن محرر الموضوع/الرد (contenteditable) يولّد HTML حقيقي
 // (Bold/Italic/Links/Code) لا يمكن تنظيفه بمجرد escape كامل بدون تكسير التنسيق المشروع.
 // ملحوظة: لو المشروع يستخدم bundler (npm/vite/webpack) يُفضّل تثبيتها محليًا بـ
@@ -38,6 +39,8 @@ function sanitizeUrl(url) {
 const supabaseClient = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
 
 let currentUser = null;
+// إشراف المنتدى: سياسات forum_* ← is_admin() (115) — الأدمن، أو مالك المنصة في سياقه
+let isForumAdmin = false;
 let currentView = 'categories'; // categories, subforum, thread
 let currentSubforumId = null;
 let currentThreadId = null;
@@ -61,8 +64,10 @@ async function init() {
             return;
         }
 
+        isForumAdmin = (await platformAuthority()).isAdmin;
+
         // Load appropriate sidebar
-        if (currentUser.profile?.role === 'admin') {
+        if (isForumAdmin) {
             initAdminSidebar();
         } else {
             initCustomerSidebar();
@@ -476,7 +481,7 @@ function renderThreadDetail(thread, likesCountMap, likedByMeSet) {
                     <div class="post-header" style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem; margin-bottom: 1rem;">
                         <span class="post-date" style="font-size: 0.85rem; color: var(--color-text-secondary);">${formatDate(thread.created_at)}</span>
                         <div class="post-actions">
-                            ${currentUser.id === thread.author_id || currentUser.profile?.role === 'admin' ? `
+                            ${currentUser.id === thread.author_id || isForumAdmin ? `
                                 <button onclick="window.forum.editThread('${escapeHtml(thread.id)}')" style="background:none; border:none; color:var(--color-accent); cursor:pointer; font-size:0.9rem;">تعديل</button>
                             ` : ''}
                         </div>

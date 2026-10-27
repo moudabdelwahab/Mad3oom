@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { callerHas } from "../_shared/caller-authority.js";
 
 const ROOT_DOMAIN = "mad3oom.online";
 const VERCEL_CNAME_TARGET = "cname.vercel-dns.com";
@@ -162,14 +163,9 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "غير مصرح، يرجى تسجيل الدخول" }, 401);
   }
 
-  const { data: callerProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", callerData.user.id)
-    .maybeSingle();
-
-  if (callerProfile?.role !== "admin") {
-    return jsonResponse({ error: "هذا الإجراء متاح للأدمن فقط" }, 403);
+  // is_admin() بجلسة المنادي — نفس مُسنَد RLS: الأدمن، أو مالك المنصة في سياق owner/admin (115)
+  if (!(await callerHas("is_admin", authHeader))) {
+    return jsonResponse({ error: "هذا الإجراء متاح للإدارة فقط" }, 403);
   }
 
   let payload: {

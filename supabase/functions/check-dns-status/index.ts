@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { callerHas } from "../_shared/caller-authority.js";
 
 function corsHeaders() {
   return {
@@ -97,15 +98,10 @@ Deno.serve(async (req: Request) => {
 
   // ---- المتصل لازم يكون الأدمن أو صاحب الطلب نفسه ----
   // نفس نموذج الصلاحيات الموجود بالفعل: create-subdomain و manage-subdomain
-  // بيطلبوا role='admin'، وde بيسمح كمان لصاحب النطاق يتابع حالة نطاقه هو.
+  // بيطلبوا is_admin()، وde بيسمح كمان لصاحب النطاق يتابع حالة نطاقه هو.
   // مفيش أي دور جديد اتضاف.
-  const { data: callerProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", callerId)
-    .maybeSingle();
-
-  const isAdmin = callerProfile?.role === "admin";
+  // is_admin() بجلسة المنادي — الأدمن، أو مالك المنصة في سياق owner/admin (115)
+  const isAdmin = await callerHas("is_admin", authHeader);
   const isOwner = row.user_id === callerId;
 
   if (!isAdmin && !isOwner) {

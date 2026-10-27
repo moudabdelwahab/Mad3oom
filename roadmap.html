@@ -586,7 +586,9 @@
                 const user = await requireAuth();
                 if (!user) return;
 
-                if (user.role === 'admin') {
+                // is_admin() من القاعدة: الأدمن، أو مالك المنصة في سياقه — لا الرتبة الحرفية
+                const { platformAuthority } = await import('/assets/js/platform-authority.js');
+                if ((await platformAuthority()).isAdmin) {
                     initAdminSidebar();
                 } else {
                     initCustomerSidebar();

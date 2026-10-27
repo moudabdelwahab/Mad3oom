@@ -1,6 +1,7 @@
 import { supabase } from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { initSidebar } from './sidebar.js';
+import { platformAuthority } from '/assets/js/platform-authority.js';
 
 let currentUser = null;
 let selectedUserId = null;
@@ -11,8 +12,10 @@ async function init() {
     currentUser = await checkAdminAuth();
     if (!currentUser) return;
 
-    const isMainAdmin = currentUser.email === 'support@mad3oom.online';
-    if (!isMainAdmin) {
+    // السلطة المرتفعة من القاعدة (has_elevated_authority): الأدمن المرتفع، أو المالك في سياقه — نفس شرط
+    // رابط الصفحة في القائمة. كان بريد support@ وحده، فيُرفض المالك والمرتفع الثاني رغم ظهور الرابط لهما.
+    const { isElevated } = await platformAuthority();
+    if (!isElevated) {
         alert('عذراً، هذه الصفحة مخصصة للأدمن الرئيسي فقط.');
         window.location.href = '/admin-dashboard.html';
         return;

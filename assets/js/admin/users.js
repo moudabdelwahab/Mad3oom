@@ -3,15 +3,21 @@ import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { initSidebar } from './sidebar.js';
 import { impersonateUser } from './admin-utils.js';
 import { isCurrentUserSieAdmin, getSieAccessStatus, adminSetAccess, adminResetUsage } from '/assets/js/sie-client.js';
+import { platformAuthority } from '/assets/js/platform-authority.js';
+import { isAccountRestricted } from '/assets/js/account-status.js';
 
 let user = null;
 let currentOptionsUserId = null;
 let isSieAdmin = false; // من is_sie_admin() فقط — نفس القاعدة اللي هتتفرض في RLS/RPC، مفيش تكرار للشرط هنا
+let authority = null; // من القاعدة (platform-authority.js) — لا من profiles.role ولا من البريد
 let currentSieAccess = null; // صف customer_sie_access الخاص بالمستخدم اللي فاتح له نافذة الخيارات دلوقتي
 
 function roleLabel(role) {
+    if (role === 'platform_owner') return 'مالك المنصة';
     if (role === 'admin') return 'مدير';
-    if (role === 'super_user') return 'مستخدم مميز';
+    if (role === 'support') return 'فريق الدعم';
+    if (role === 'company_admin') return 'مدير شركة';
+    if (role === 'company_user') return 'عضو شركة';
     return 'مستخدم';
 }
 
@@ -21,6 +27,7 @@ async function init() {
     if (!user) return;
 
     updateAdminUI(user);
+    authority = await platformAuthority();
     isSieAdmin = await isCurrentUserSieAdmin(supabase);
     injectOptionsPanel();
     renderUsers();
@@ -62,12 +69,6 @@ function injectOptionsPanel() {
                 <span>عضو</span>
                 <span class="opt-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                </span>
-            </button>
-            <button class="option-row-btn" id="optRoleSuper" data-role="super_user">
-                <span>Super User</span>
-                <span class="opt-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                 </span>
             </button>
             <button class="option-row-btn" id="optRoleAdmin" data-role="admin">
@@ -129,14 +130,20 @@ function injectOptionsPanel() {
 
     document.getElementById('optBanBtn').addEventListener('click', async () => {
         if (!currentOptionsUserId) return;
-        if (confirm('هل أنت متأكد من حظر هذا المستخدم؟')) {
-            const { error } = await supabase.from('profiles').update({ status: 'banned' }).eq('id', currentOptionsUserId);
-            if (error) alert('خطأ في الحظر: ' + error.message);
-            else { closeOptionsPanel(); renderUsers(); }
-        }
+        const reason = prompt('سبب الحظر (يُسجَّل ويظهر للحساب):');
+        if (reason === null) return;
+        if (reason.trim().length < 5) { alert('اكتب سببًا واضحًا (5 أحرف على الأقل)'); return; }
+        // أعمدة الحظر الحقيقية (is_banned) — كان هنا { status: 'banned' } وprofiles بلا عمود status، فيفشل الحظر
+        // لكل حساب. حظر فريق المنصة يتطلب تحقق المالك بخطوتين (guard_privileged_accounts) وتصل رسالته كما هي.
+        const { data, error } = await supabase.from('profiles')
+            .update({ ban_status: 'permanent', ban_until: null, ban_reason: reason.trim() })
+            .eq('id', currentOptionsUserId).select('id');
+        if (error) alert('خطأ في الحظر: ' + error.message);
+        else if (!data?.length) alert('لم يُنفَّذ الحظر: القاعدة لم تسمح بتعديل هذا الحساب.');
+        else { closeOptionsPanel(); renderUsers(); }
     });
 
-    ['optRoleUser', 'optRoleSuper', 'optRoleAdmin'].forEach(id => {
+    ['optRoleUser', 'optRoleAdmin'].forEach(id => {
         document.getElementById(id).addEventListener('click', async (e) => {
             const newRole = e.currentTarget.getAttribute('data-role');
             if (!currentOptionsUserId) return;
@@ -145,7 +152,7 @@ function injectOptionsPanel() {
             const isSelf = !!user && currentOptionsUserId === user.id;
             if (isSelf && user?.profile?.role === 'super_user') return;
 
-            const labels = { user: 'عضو', super_user: 'Super User', admin: 'Admin' };
+            const labels = { user: 'عضو', admin: 'Admin' };
             if (confirm(`هل أنت متأكد من تغيير صلاحية هذا المستخدم إلى "${labels[newRole]}"؟`)) {
                 const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', currentOptionsUserId);
                 if (error) alert('خطأ في تغيير الصلاحية: ' + error.message);
@@ -282,7 +289,7 @@ async function renderUsers() {
 
     const { data: users } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, email, full_name, role, created_at, ban_status, ban_until')
         .order('created_at', { ascending: false });
 
     // Fetch wallet status for freezing info
@@ -291,7 +298,9 @@ async function renderUsers() {
 
     body.innerHTML = users?.map(u => {
         const isFrozen = walletMap.get(u.id) || false;
-        const isSupport = user?.email === 'support@mad3oom.online';
+        // تجميد المحفظة عبر manage_user_points ← can_manage_central_wallet (115): support@ أو المالك في سياقه
+        const canFreeze = authority?.canManageCentralWallet === true;
+        const restricted = isAccountRestricted(u);
         const safeName = (u.full_name || u.email || '').replace(/"/g, '&quot;');
 
         return `
@@ -304,7 +313,8 @@ async function renderUsers() {
                 <div style="display: flex; gap: 5px;">
                     <button class="btn btn-secondary btn-sm options-btn" data-user-id="${u.id}" data-user-name="${safeName}" data-user-email="${u.email}" data-user-role="${u.role}">خيارات</button>
                     <button class="btn btn-warning btn-sm points-btn" data-user-id="${u.id}" data-user-name="${u.full_name || u.email}">النقاط</button>
-                    ${isSupport ? `<button class="btn btn-sm freeze-btn ${isFrozen ? 'btn-info' : 'btn-secondary'}" data-user-id="${u.id}" data-user-email="${u.email}" data-frozen="${isFrozen}">${isFrozen ? 'إلغاء التجميد' : 'تجميد'}</button>` : ''}
+                    ${restricted ? `<button class="btn btn-success btn-sm unban-btn" data-user-id="${u.id}">رفع الحظر</button>` : ''}
+                    ${canFreeze ? `<button class="btn btn-sm freeze-btn ${isFrozen ? 'btn-info' : 'btn-secondary'}" data-user-id="${u.id}" data-user-email="${u.email}" data-frozen="${isFrozen}">${isFrozen ? 'إلغاء التجميد' : 'تجميد'}</button>` : ''}
                     <button class="btn btn-primary btn-sm impersonate-btn" data-user-id="${u.id}">عرض</button>
                 </div>
             </td>
@@ -357,6 +367,19 @@ async function renderUsers() {
     });
 
     // ربط أزرار التجميد
+    // رفع الحظر: نفس أعمدة is_banned (كان banned.js يكتب عمود status غير الموجود)
+    document.querySelectorAll('.unban-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            if (!confirm('رفع الحظر عن هذا المستخدم؟')) return;
+            const { data, error } = await supabase.from('profiles')
+                .update({ ban_status: 'none', ban_until: null, ban_reason: null })
+                .eq('id', btn.getAttribute('data-user-id')).select('id');
+            if (error) alert('خطأ: ' + error.message);
+            else if (!data?.length) alert('لم يُرفع الحظر: القاعدة لم تسمح بتعديل هذا الحساب.');
+            else renderUsers();
+        });
+    });
+
     document.querySelectorAll('.freeze-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             const userId = btn.getAttribute('data-user-id');

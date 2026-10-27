@@ -6,8 +6,8 @@
 --      مفاتيح API، الاشتراكات (admin_list_subscriptions)، الشركات (admin_customer_filter_options)
 --   ② ويكتب ما تكتبه: حظر عميل ورفعه، تغيير حالة التذكرة ومسؤولها، حالة الاشتراك عبر الدالة،
 --      إيقاف مفتاح API، تحرير المدوّنة
---   ③ وما يبقى للإدارة يُرفض من القاعدة نفسها لا بإخفاء زر: advanced_settings وworking_hours ومحافظ
---      user_wallets (الرتبة الحرفية admin)، وأعمدة اعتماد api_tokens، وحظر الطاقم بلا تحقق بخطوتين،
+--   ③ ما يبقى مقيّدًا يُرفض من القاعدة نفسها لا بإخفاء زر: أعمدة اعتماد api_tokens، وحظر الطاقم بلا تحقق
+--      بخطوتين، والمحفظة المركزية خارج سياق المالك؛ أما الإعدادات وساعات العمل والمحافظ فصارت للمالك منذ 115،
 --      وحساب المالك من غيره
 --   ④ السياق مُرشِّح: المالك في «العميل» أو بلا سياق لا يقرأ ولا يكتب شيئًا من ذلك
 --   ⑤ الإدارة كما هي: الأدمن يكتب advanced_settings ويقرأ الاشتراكات
@@ -46,6 +46,7 @@ SET check_function_bodies = on;
 \i migrations/112_company_invitation_email.sql
 \i migrations/113_company_member_management.sql
 \i migrations/114_ticket_email_payload.sql
+\i migrations/115_owner_admin_parity.sql
 SET search_path = public, extensions;
 
 UPDATE auth.users SET email_confirmed_at = now() - interval '30 days';
@@ -111,12 +112,15 @@ END $$;
 DO $$
 BEGIN
   PERFORM t.ctx('owner');
-  PERFORM t.ok(t.n('OW', 'update public.advanced_settings set value = ''"owner"'' where key = ''owner_pages_probe''') = 0, '③ advanced_settings: صفر صفوف للمالك');
-  PERFORM t.ok(t.exec(t.u('OW'), 'insert into public.advanced_settings (key, value) values (''owner_try'', ''1'')') = '42501', '③ advanced_settings: إدراج المالك مرفوض');
-  PERFORM t.ok(t.rows(t.u('OW'), 'public.advanced_settings where key = ''owner_pages_probe''') = 0, '③ advanced_settings: لا قراءة لغير registration_mode');
-  PERFORM t.ok(t.exec(t.u('OW'), 'insert into public.working_hours (day_of_week) values (1)') = '42501', '③ working_hours: مرفوض للمالك');
-  PERFORM t.ok(t.rows(t.u('OW'), format('public.user_wallets where user_id = %L', t.u('PU'))) = 0, '③ user_wallets: محفظة غيره غير مرئية');
-  PERFORM t.ok(t.n('OW', format('update public.user_wallets set total_points = 999 where user_id = %L', t.u('PU'))) = 0, '③ user_wallets: لا تعديل نقاط');
+  -- 115: سياسات الإدارة بالرتبة الحرفية صارت is_admin() — المالك في سياقه يدير الإعدادات والمحافظ
+  PERFORM t.ok(t.n('OW', 'update public.advanced_settings set value = ''"owner"'' where key = ''owner_pages_probe''') = 1, '③ 115: advanced_settings للمالك');
+  PERFORM t.ok(t.exec(t.u('OW'), 'insert into public.working_hours (day_of_week) values (1)') = 'ok', '③ 115: working_hours للمالك');
+  PERFORM t.ok(t.rows(t.u('OW'), format('public.user_wallets where user_id = %L', t.u('PU'))) = 1, '③ 115: المحافظ للمالك');
+  -- المحفظة المركزية بمستوى السلطة المرتفعة: في سياق owner نعم، وفي سياق admin لا
+  PERFORM t.ok((t.call(t.u('OW'), 'public.can_manage_central_wallet()') #>> '{}')::boolean, '③ المحفظة المركزية في سياق owner');
+  PERFORM t.ctx('admin');
+  PERFORM t.ok(NOT (t.call(t.u('OW'), 'public.can_manage_central_wallet()') #>> '{}')::boolean, '③ ولا في سياق admin');
+  PERFORM t.ctx('owner');
   PERFORM t.ok(t.exec(t.u('OW'), 'update public.api_tokens set secret_hash = ''x'' where id = ''a0000000-0000-4000-8000-0000000000e1''') = '42501',
                '③ api_tokens: أعمدة الاعتماد مرفوضة للمالك');
   -- حظر الطاقم: بلا تحقق بخطوتين مرفوض، ومعه مسموح (guard_privileged_accounts)
@@ -139,7 +143,7 @@ BEGIN
   PERFORM t.ok(t.exec(t.u('AD'), format('update public.profiles set ban_status = ''permanent'' where id = %L', t.u('SUP'))) IN ('42501')
                OR t.n('AD', format('update public.profiles set ban_status = ''permanent'' where id = %L', t.u('SUP'))) = 0,
                '③ الأدمن لا يحظر فريق الدعم');
-  RAISE NOTICE 'PASS ③ advanced_settings وworking_hours والمحافظ وأعمدة الاعتماد للإدارة/الخدمة وحدها؛ الطاقم بتحقق بخطوتين؛ حساب المالك محمي من غيره';
+  RAISE NOTICE 'PASS ③ الإعدادات والمحافظ للمالك (115)؛ أعمدة الاعتماد للخدمة وحدها؛ المحفظة المركزية في سياق owner؛ الطاقم بتحقق بخطوتين؛ حساب المالك محمي من غيره';
 END $$;
 
 -- ══ ④ السياق مُرشِّح ═══════════════════════════════════════════════════════

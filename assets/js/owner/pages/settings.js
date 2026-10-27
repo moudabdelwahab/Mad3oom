@@ -1,10 +1,9 @@
 /**
  * owner/settings.html — إعدادات المنصة كما يملكها مالكها.
  *
- * كان عنصر «الإعدادات» في قائمة المالك يفتح /admin/settings.html، وهناك تُرسم الأقسام فارغة: سياسات
- * advanced_settings وworking_hours وticket_distribution_config وrules_engine… تشترط الرتبة الحرفية 'admin'، والمالك
- * رتبته platform_owner في كل سياق. فهذه الصفحة تعرض ما يملكه المالك فعلًا (وكلها قراءات حقيقية) وتسمّي
- * ما يبقى لإداريي المنصة وسببه، بدل صفحة توحي بصلاحية لا وجود لها.
+ * إعدادات المالك نفسه (وضع التسجيل، أمانه، مفاتيح التفعيل) هنا. وإعدادات التشغيل اليومي (advanced_settings
+ * وworking_hours وticket_distribution_config وrules_engine…) تُدار بواجهتها الكاملة في /admin/settings.html — كانت
+ * سياساتها تشترط الرتبة الحرفية 'admin' فتُرسم للمالك فارغة، ومنذ 115 صارت is_admin() فيعدّلها المالك هناك.
  */
 import { supabase, bootOwnerPage, esc, when, table, errorBlock, friendlyError } from '/assets/js/owner/owner-page.js';
 import { CONTEXT_PRESENTATION } from '/assets/js/owner/owner-context.js';
@@ -72,7 +71,7 @@ async function switches() {
 function adminOnly() {
     $('settingsAdminOnly').innerHTML = table(['الجدول', 'ما يتحكم فيه'], ADMIN_ONLY_SETTINGS, ([t, d]) => `<tr>
         <td><span class="owner-mono">${esc(t)}</span></td><td>${esc(d)}</td></tr>`)
-        + `<p class="panel-subtitle owner-status-line">يعدّلها إداري المنصة من <a href="/admin/settings.html">إعدادات الإدارة</a>. فتحها للمالك قرار صلاحيات يحتاج ترحيلًا يراجَع، لا تعديل واجهة.</p>`;
+        + `<p class="panel-subtitle owner-status-line"><a href="/admin/settings.html">فتح إعدادات الإدارة</a> — تعمل للمالك من هذه الواجهة أو من واجهة «الإدارة».</p>`;
 }
 
 (async function init() {

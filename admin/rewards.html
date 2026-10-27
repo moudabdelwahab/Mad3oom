@@ -145,14 +145,15 @@
         import { checkAdminAuth, updateAdminUI } from '/assets/js/admin/auth.js';
         import { initSidebar } from '/assets/js/admin/sidebar.js';
         import { initAdminRewards } from '/admin-rewards.js';
+        import { platformAuthority } from '/assets/js/platform-authority.js';
 
         initSidebar();
         const user = await checkAdminAuth();
         if (user) {
             updateAdminUI(user);
-            // مراجعة/الموافقة على البلاغات صلاحية أدمن فقط (يطابق فحص الأدمن
-            // في الخادم عبر approve_reward_report/reject_reward_report RPC)
-            if (user.profile?.role === 'admin') {
+            // مراجعة/الموافقة على البلاغات صلاحية إدارة (يطابق فحص الخادم في
+            // approve_reward_report/reject_reward_report: is_admin() — الأدمن، أو المالك في سياقه، 115)
+            if ((await platformAuthority()).isAdmin) {
                 initAdminRewards();
             } else {
                 document.getElementById('rewardsMainArea').innerHTML = `
