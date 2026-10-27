@@ -513,12 +513,23 @@ export function ticketEmail(input) {
     return { subject, html, text, url };
 }
 
+/**
+ * HTML ⇒ نص للبديل النصي. الوسوم تُزال حتى لا يبقى منها شيء (وسم متداخل مثل «<scr<b>ipt>» لا ينجو من مرور
+ * واحد)، ثم كل «<» و«>» متبقٍّ، فلا يخرج من هنا وسم أبدًا. &lt; و&gt; لا تُفك لنفس السبب.
+ */
+export function htmlToText(html) {
+    let s = String(html ?? '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|li|h\d)>/gi, '\n');
+    for (let prev = null; prev !== s;) {
+        prev = s;
+        s = s.replace(/<[^<>]*>/g, '');
+    }
+    return s.replace(/[<>]/g, '')
+        .replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&').trim();
+}
+
 /** البديل النصي (عملاء البريد بلا HTML، وفلاتر البريد المزعج). */
 function ticketEmailText(c, d) {
-    const stripped = d.messageHtml
-        ? String(d.messageHtml).replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|li|h\d)>/gi, '\n').replace(/<[^>]+>/g, '')
-            .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&').trim()
-        : '';
+    const stripped = d.messageHtml ? htmlToText(d.messageHtml) : '';
     const lines = [
         d.heading,
         '',
