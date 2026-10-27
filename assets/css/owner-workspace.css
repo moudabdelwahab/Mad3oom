@@ -1,0 +1,211 @@
+/* ==========================================================================
+   مساحات العمل بتبويبات داخلية — «السلطة والمنح» و«حوكمة الشركات والوصول»
+   (owner-dashboard.html، assets/js/owner/owner-workspace.js)
+
+   كل قسم فرعي لوحة (tabpanel) مستقلة؛ تُعرض واحدة وتُخفى البقية بـhidden.
+   - الشريط (.ows-bar): التبويبات (+ سبب العملية في الحوكمة) ثابت أعلى القسم عند التمرير،
+     تحت الشريط العلوي للوحة (‎--dash-top من dashboard-layout.css).
+   - رسالة نتيجة العملية (.ows-toast): تطفو أسفل الشاشة ما دامت لوحتها ظاهرة.
+   - الجداول الطويلة (.ows-scroll): تمرير داخل اللوحة بعنوان أعمدة ثابت.
+   التبويبات نفسها .view-tab/.view-tab-count من customer-dashboard.css؛ لا لون جديد —
+   كل لون رمز موجود (فاتح/داكن).
+   ========================================================================== */
+
+.owner-shell .ows { position: relative; display: flex; flex-direction: column; }
+
+/* ── الشريط ──────────────────────────────────────────────────────────────── */
+.owner-shell .ows-bar {
+    display: grid;
+    gap: var(--sp-3);
+    margin: 0 calc(var(--sp-5) * -1);
+    padding: var(--sp-2) var(--sp-5) var(--sp-3);
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    scroll-margin-top: var(--dash-top, 0px);
+}
+
+.owner-shell .ows-tabs {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+}
+.owner-shell .ows-tabs { gap: 6px; }
+.owner-shell .ows-tab { flex: none; white-space: nowrap; gap: 6px; padding-inline: .6rem; }
+/* الشاشات العريضة: التبويبات تلتفّ لسطر ثانٍ بدل أن يختفي آخرها خلف التمرير الأفقي */
+@media (min-width: 900px) {
+    .owner-shell .ows-tabs { flex-wrap: wrap; overflow: visible; }
+}
+.owner-shell .ows-tab svg { flex: none; opacity: .85; }
+.owner-shell .ows-tab[aria-selected='true'] svg { opacity: 1; }
+/* علامة التبويب النشط واضحة حتى في الوضع عالي التباين */
+.owner-shell .ows-tab[aria-selected='true'] { box-shadow: inset 0 -2px 0 var(--color-accent); }
+
+.owner-shell .ows-tab .view-tab-count[hidden] { display: none; }
+.owner-shell .ows-tab .view-tab-count[data-tone='attention'] { background: var(--tint-warning); color: var(--on-warning); }
+.owner-shell .ows-tab .view-tab-count[data-tone='success']   { background: var(--tint-success); color: var(--on-success); }
+.owner-shell .ows-tab .view-tab-count[data-tone='danger']    { background: var(--tint-danger);  color: var(--on-danger); }
+
+/* شريط ثابت على الشاشات التي تتسع له؛ على الجوال القصير يمرّ مع المحتوى فلا يأكل الشاشة */
+@media (min-width: 720px) and (min-height: 600px) {
+    .owner-shell .ows-bar {
+        position: sticky;
+        top: var(--dash-top, 0px);
+        z-index: 20;
+        box-shadow: 0 6px 12px -10px rgba(15, 23, 42, .35);
+    }
+}
+
+/* سبب العملية وملاحظة التحقق بخطوتين: سطر واحد مضغوط داخل الشريط */
+.owner-shell .ows-context.owner-gov-reason {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 4px var(--sp-3);
+    margin: 0;
+}
+.owner-shell .ows-context label { font-size: var(--fs-sm); font-weight: 700; color: var(--color-text); white-space: nowrap; }
+.owner-shell .ows-context .owner-gov-stepup { grid-column: 1 / -1; margin: 0; }
+.owner-shell .owner-gov-stepup-open { display: none; }
+:root[data-critical-ops='open'] .owner-shell .owner-gov-stepup-locked { display: none; }
+:root[data-critical-ops='open'] .owner-shell .owner-gov-stepup-open { display: inline; color: var(--on-success); font-weight: 600; }
+
+@media (max-width: 560px) {
+    .owner-shell .ows-context.owner-gov-reason { grid-template-columns: 1fr; }
+}
+
+.owner-shell .owner-gov-links { margin: 0; }
+
+/* ── اللوحات ─────────────────────────────────────────────────────────────── */
+/* اللوحة نفسها كانت قسمًا فرعيًا بفاصل علوي؛ الآن هي المحتوى كله تحت الشريط */
+.owner-shell .ows-panel.owner-subsection {
+    margin-top: 0;
+    padding-top: var(--sp-4);
+    border-top: 0;
+    min-height: 12rem;
+}
+.owner-shell .ows-panel[hidden] { display: none; }
+.owner-shell .ows-panel:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 4px; border-radius: var(--r-sm); }
+.owner-shell .ows-panel > .owner-subsection-title + .panel-subtitle { margin-top: 0; }
+/* الحوكمة: عنوان اللوحة هو اسم تبويبها نفسه — يبقى لقارئ الشاشة ويُخفى بصريًا توفيرًا للمساحة */
+.owner-shell #governanceWorkspace .ows-panel > h3.owner-subsection-title {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* بطاقتا SIE (حالة المحرك والإصدارات) جنبًا إلى جنب على الشاشات العريضة */
+.owner-shell .ows-duo { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); align-items: stretch; }
+.owner-shell .ows-duo > .owner-sie-engine,
+.owner-shell .ows-duo > .owner-sie-editions { margin-top: var(--sp-3); }
+
+/* ── تمرير داخل اللوحة للجداول الطويلة (سجل الامتيازات) ─────────────────── */
+.owner-shell .ows-scroll .table-responsive,
+.owner-shell .ows-scroll .table-container {
+    max-height: max(22rem, calc(100dvh - var(--dash-top, 0px) - 15rem));
+    overflow: auto;
+    overscroll-behavior: contain;
+}
+.owner-shell .ows-scroll .table-container .table-responsive { max-height: none; overflow: visible; }
+.owner-shell .ows-scroll .admin-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--color-surface);
+}
+
+/* ── رسالة نتيجة العملية ─────────────────────────────────────────────────── */
+.owner-shell .owner-sie-status.ows-toast {
+    position: sticky;
+    bottom: var(--sp-4);
+    z-index: 15;
+    margin: var(--sp-4) auto 0;
+    width: fit-content;
+    max-width: min(100%, 40rem);
+    padding: var(--sp-2) var(--sp-4);
+    border: 1px solid var(--tint-accent-border);
+    box-shadow: var(--shadow-sm, 0 4px 14px rgba(15, 23, 42, .12));
+    font-weight: 600;
+    cursor: pointer;
+    animation: ows-toast-in var(--dur-fast, .15s) var(--ease, ease-out);
+}
+/* على سطح الصفحة لا فوق نص شفاف: الخلفية الملوّنة فوق سطح معتم */
+.owner-shell .owner-sie-status.ows-toast {
+    background:
+        linear-gradient(var(--tint-accent), var(--tint-accent)),
+        var(--color-surface);
+}
+.owner-shell .owner-sie-status.ows-toast[data-tone='success'] {
+    border-color: var(--on-success);
+    background: linear-gradient(var(--tint-success), var(--tint-success)), var(--color-surface);
+}
+.owner-shell .owner-sie-status.ows-toast[data-tone='error'] {
+    border-color: var(--on-danger);
+    background: linear-gradient(var(--tint-danger), var(--tint-danger)), var(--color-surface);
+}
+.owner-shell .owner-sie-status.ows-toast[hidden] { display: none; }
+
+@keyframes ows-toast-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .owner-shell .owner-sie-status.ows-toast { animation: none; }
+}
+
+/* زر عملية قيد التنفيذ */
+.owner-shell .ows button[aria-busy='true'] { cursor: progress; opacity: .7; }
+
+/* ── الهيكل الإداري: الشجرة والنماذج في عمودين ──────────────────────────── */
+.owner-shell .gov-split {
+    display: grid;
+    gap: var(--sp-4) var(--sp-5);
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    align-items: start;
+}
+.owner-shell .gov-split-main > .owner-subsection-label:first-child { margin-top: var(--sp-2); }
+.owner-shell .gov-split-main .owner-tree { margin-top: var(--sp-3); }
+.owner-shell .gov-split-side { display: grid; gap: var(--sp-3); }
+
+@media (max-width: 1000px) {
+    .owner-shell .gov-split { grid-template-columns: minmax(0, 1fr); }
+}
+
+.owner-shell .owner-gov-form.gov-card {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+    gap: var(--sp-2);
+    margin: 0;
+    padding: var(--sp-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-md);
+    background: var(--color-surface);
+}
+.owner-shell .owner-gov-form.gov-card .form-control { width: 100%; min-width: 0; }
+.owner-shell .owner-gov-form.gov-card > .btn { justify-self: start; }
+.owner-shell .owner-gov-form.gov-card > .gov-card-title,
+.owner-shell .owner-gov-form.gov-card > .owner-gov-caps,
+.owner-shell .owner-gov-form.gov-card > .btn { grid-column: 1 / -1; }
+.owner-shell .gov-card-title { margin: 0; font-size: var(--fs-sm); font-weight: 800; color: var(--color-text); }
+.owner-shell .gov-card-field { display: grid; gap: 4px; font-size: var(--fs-sm); color: var(--color-text-secondary); }
+
+/* النقل الاستثنائي: صف واحد على الشاشات العريضة */
+.owner-shell .owner-gov-form.gov-card--row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
+    align-items: center;
+    margin-top: var(--sp-3);
+}
+.owner-shell .owner-gov-form.gov-card--row > .btn { grid-column: auto; justify-self: stretch; }
+@media (max-width: 860px) {
+    .owner-shell .owner-gov-form.gov-card--row { grid-template-columns: minmax(0, 1fr); }
+    .owner-shell .owner-gov-form.gov-card--row > .btn { justify-self: start; }
+}
+
+@media (max-width: 768px) {
+    .owner-shell .ows-bar {
+        margin-inline: calc(var(--sp-4) * -1);
+        padding-inline: var(--sp-4);
+    }
+}
