@@ -2135,7 +2135,7 @@
   const PI_SANDBOX = false;
 
   class PiService {
-    constructor() { this._sdkReady = false; this._initPromise = null; }
+    constructor() { this._sdkReady = false; this._initPromise = null; this._authPromise = null; }
     init() {
       if (this._initPromise) return this._initPromise;
       this._initPromise = new Promise((resolve, reject) => {
@@ -2167,19 +2167,31 @@
       return this._initPromise;
     }
     async authenticate() {
-      await this.init();
-      // Pi.authenticate قد تظل معلّقة داخل المتصفح؛ لا نترك الزر يدور بلا نهاية.
-      const result = await withTimeout(
-        window.Pi.authenticate(['username'], (p) => {
-          console.warn('[Pi] Incomplete payment:', p?.identifier);
-        }),
-        20000,
-        'تسجيل الدخول عبر Pi Network'
-      );
-      if (!result?.user?.uid || !result?.accessToken) {
-        throw new Error('Pi لم تُرجع بيانات حساب كاملة. جرّب تسجيل الدخول مرة تانية.');
+      // صفحة الدخول قد تبدأ المصادقة تلقائيًا داخل Pi Browser، وفي نفس الوقت
+      // قد يضغط المستخدم الزر. لا نسمح باستدعاء Pi.authenticate مرتين بالتوازي.
+      if (this._authPromise) return this._authPromise;
+      this._authPromise = (async () => {
+        await this.init();
+        if (!this._sdkReady || typeof window.Pi?.authenticate !== 'function') {
+          throw new Error('مكتبة Pi لم تكتمل تهيئتها. افتح الصفحة من Pi Browser وحاول مرة أخرى.');
+        }
+        const result = await withTimeout(
+          window.Pi.authenticate(['username'], (p) => {
+            console.warn('[Pi] Incomplete payment:', p?.identifier);
+          }),
+          20000,
+          'تسجيل الدخول عبر Pi Network'
+        );
+        if (!result?.user?.uid || !result?.accessToken) {
+          throw new Error('Pi لم تُرجع بيانات حساب كاملة. جرّب تسجيل الدخول مرة تانية.');
+        }
+        return { uid: result.user.uid, username: result.user.username, accessToken: result.accessToken };
+      })();
+      try {
+        return await this._authPromise;
+      } finally {
+        this._authPromise = null;
       }
-      return { uid: result.user.uid, username: result.user.username, accessToken: result.accessToken };
     }
   }
 
