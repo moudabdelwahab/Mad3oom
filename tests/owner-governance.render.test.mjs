@@ -361,6 +361,81 @@ test('113: قرار طلب نقل العضو — السبب حسب نوع الق
     assert.equal(memberTransferDecisionError({ approve: false, reason: 'سبب رفض واضح' }), null);
 });
 
+/* ── الإشعارات: الجرس كان ينادي قسمًا غير موجود فيعود للنظرة العامة ─────────── */
+const ownerNotifs = await import('data:text/javascript,' + encodeURIComponent(
+    fs.readFileSync(new URL('../assets/js/owner/owner-notifications.js', import.meta.url), 'utf8')
+      .replace("import { safeNotificationHref } from '/assets/js/admin/notification-safety.js';",
+               fs.readFileSync(new URL('../assets/js/admin/notification-safety.js', import.meta.url), 'utf8'))));
+
+test('الإشعارات (خالصة): الرابط إلى قسم في لوحة المالك، أو صفحة على نفس الأصل، وغيره يُتجاهل', () => {
+    const sections = ['overview', 'authority', 'governance', 'audit', 'notifications'];
+    const o = 'https://mad3oom.com';
+    assert.deepEqual(ownerNotifs.ownerDestinationFor({ link: '/owner-dashboard.html#governance' }, o, sections), { kind: 'section', section: 'governance' });
+    assert.deepEqual(ownerNotifs.ownerDestinationFor({ link: 'https://mad3oom.com/owner-dashboard.html#nope' }, o, sections), { kind: 'section', section: 'overview' });
+    assert.deepEqual(ownerNotifs.ownerDestinationFor({ link: '/admin/account-requests.html' }, o, sections), { kind: 'href', href: '/admin/account-requests.html' });
+    for (const link of ['https://evil.test/x', 'javascript:alert(1)', '//evil.test', null, '']) {
+        assert.deepEqual(ownerNotifs.ownerDestinationFor({ link }, o, sections), { kind: 'none' }, String(link));
+    }
+});
+
+function notifFixture() {
+    const fx = fixtures({ fresh: true });
+    fx.tables.notifications = [
+        { id: 'n1', user_id: OWNER, title: 'طلب نقل عضو', message: 'شركة طلبت نقل أحد أعضائها', is_read: false,
+          link: '/owner-dashboard.html#governance', created_at: '2026-10-26T18:00:00Z' },
+        { id: 'n2', user_id: OWNER, title: '<img src=x onerror=alert(1)>', message: 'رابط خارجي', is_read: false,
+          link: 'https://evil.test/phish', created_at: '2026-10-26T17:00:00Z' },
+        { id: 'n3', user_id: OWNER, title: 'إشعار قديم', message: 'مقروء', is_read: true, link: null, created_at: '2026-10-20T10:00:00Z' },
+        { id: 'nx', user_id: ADMIN, title: 'إشعار حساب آخر', message: 'لا يظهر', is_read: false, link: null, created_at: '2026-10-26T19:00:00Z' }
+    ];
+    return fx;
+}
+const writes = (page) => page.evaluate(() => (window.__WRITES__ || []).filter(w => w.table === 'notifications'));
+const activeSection = (page) => page.evaluate(() => document.querySelector('.tab-content.active')?.id);
+
+test('الجرس يفتح آخر الإشعارات في مكانها، والضغط على إشعار يعلّمه مقروءًا ويفتح القسم الذي يشير إليه', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openOwner(browser, baseUrl, notifFixture());
+    await page.waitForSelector('#ownerContent:not([hidden])');
+    await page.evaluate(() => { location.hash = '#overview'; });
+    await page.waitForFunction(() => document.getElementById('overviewTabContent')?.classList.contains('active'));
+    await page.click('#notificationBtn');
+    await page.waitForSelector('#portalNotificationPopover .portal-notif-item');
+    const pop = await page.textContent('#portalNotificationPopover');
+    assert.match(pop, /طلب نقل عضو/);
+    assert.doesNotMatch(pop, /إشعار حساب آخر/, 'إشعار حساب آخر ظهر');
+    assert.equal(await page.locator('#portalNotificationPopover img').count(), 0, 'عنوان غير مهرَّب');
+    assert.equal(await activeSection(page), 'overviewTabContent', 'الجرس بدّل القسم');
+    await page.click('[data-notif-id="n1"]');
+    await page.waitForFunction(() => document.getElementById('governanceTabContent')?.classList.contains('active'));
+    assert.equal(new URL(page.url()).hash, '#governance');
+    assert.deepEqual((await writes(page)).map(w => w.op), ['update']);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('«عرض الكل» يفتح قسم الإشعارات؛ رابط خارجي لا يُتبع؛ «تعليم الكل كمقروء»', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openOwner(browser, baseUrl, notifFixture());
+    await page.waitForSelector('#ownerContent:not([hidden])');
+    await page.click('#notificationBtn');
+    await page.click('#portalNotifSeeAll');
+    await page.waitForSelector('#notificationsTabContent.active [data-owner-notif="n1"]');
+    assert.equal(await page.locator('#ownerNotifications .owner-notif.is-unread').count(), 2);
+    assert.equal(await page.locator('#ownerNotifications img').count(), 0);
+    assert.equal(await page.isVisible('#ownerNotifMarkAll'), true);
+    const before = page.url();
+    await page.click('[data-owner-notif="n2"]');
+    await page.waitForFunction(() => (window.__WRITES__ || []).some(w => w.table === 'notifications'));
+    assert.equal(page.url(), before, 'رابط خارجي اتُّبع');
+    assert.equal(await activeSection(page), 'notificationsTabContent');
+    await page.click('#ownerNotifMarkAll');
+    await page.waitForFunction(() => !document.querySelector('#ownerNotifications .owner-notif.is-unread'));
+    assert.equal(await page.isVisible('#ownerNotifMarkAll'), false);
+    // القسم مدخل في القائمة الجانبية كذلك
+    assert.equal(await page.locator('.sidebar-item[data-tab="notifications"]').count(), 1);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
 /* ── مفاتيح التفعيل: الأسماء العربية والزر الظاهر ─────────────────────────────── */
 // كل مفتاح تسجّله الترحيلات في platform_feature_switches، من نصوصها لا من قائمة يدوية
 const REGISTERED_SWITCHES = [...new Set(fs.readdirSync(path.join(ROOT, 'migrations')).filter(f => f.endsWith('.sql'))
