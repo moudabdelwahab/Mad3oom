@@ -9,6 +9,7 @@
  * (sidebar.js → applySidebarPermissions)، منقولة كما هي. الإخفاء هنا تنظيم
  * عرض فقط: كل صفحة وكل دالة تتحقق في القاعدة بنفسها.
  */
+import { isAccountRestricted } from '../account-status.js';
 
 /** التبويبات بترتيب العرض. src = الصفحة القائمة التي يستضيفها التبويب (وضع التضمين). */
 export const HUB_TABS = Object.freeze([
@@ -67,7 +68,8 @@ export function roleLabel(role) {
     return ROLE_LABELS[role] || ROLE_LABELS.user;
 }
 
-export const isBanned = (u) => u?.status === 'banned';
+// profiles بلا عمود status: الحظر في ban_status/ban_until، بنفس شرط is_banned() في القاعدة
+export const isBanned = (u) => isAccountRestricted(u);
 
 /** نص البحث: الاسم والبريد والجوال، بلا اعتبار لحالة الأحرف أو المسافات الزائدة. */
 function haystack(u) {

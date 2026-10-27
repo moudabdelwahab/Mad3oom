@@ -106,7 +106,7 @@ async function fetchAllStats() {
 async function fetchUserStats() {
     try {
         const { count: total } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-        const { count: banned } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'banned');
+        const { count: banned } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).not('ban_status', 'in', '(none,active)');
         const { count: tfa } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('two_factor_enabled', true);
         const { count: devices } = await supabase.from('trusted_devices').select('*', { count: 'exact', head: true });
 

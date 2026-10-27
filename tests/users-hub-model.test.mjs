@@ -7,7 +7,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { visibleHubTabs, resolveHubTab, filterUsers, userActions, roleLabel } from '../assets/js/admin/users-hub-model.js';
+import { visibleHubTabs, resolveHubTab, filterUsers, userActions, roleLabel, isBanned } from '../assets/js/admin/users-hub-model.js';
 
 const ids = (access) => visibleHubTabs(access).map(t => t.id);
 
@@ -48,10 +48,10 @@ test('الـhash يختار التبويب إن كان متاحًا، وإلا �
 });
 
 const users = [
-    { id: 'a', full_name: 'محمود', email: 'm@x.com', role: 'admin', status: 'active', points: 10, created_at: '2026-01-02T00:00:00Z' },
-    { id: 'b', full_name: 'تركي', email: 't@gmail.com', phone: '966555', role: 'user', status: 'active', points: 50, created_at: '2026-03-02T00:00:00Z' },
+    { id: 'a', full_name: 'محمود', email: 'm@x.com', role: 'admin', ban_status: 'none', points: 10, created_at: '2026-01-02T00:00:00Z' },
+    { id: 'b', full_name: 'تركي', email: 't@gmail.com', phone: '966555', role: 'user', ban_status: 'none', points: 50, created_at: '2026-03-02T00:00:00Z' },
     { id: 'c', full_name: 'Bank', email: 'b@gmail.com', role: 'super_user', points: 900, created_at: '2026-04-02T00:00:00Z' },
-    { id: 'd', full_name: 'سارة', email: 's@x.com', role: 'user', status: 'banned', points: 0, created_at: '2026-05-10T00:00:00Z' }
+    { id: 'd', full_name: 'سارة', email: 's@x.com', role: 'user', ban_status: 'permanent', points: 0, created_at: '2026-05-10T00:00:00Z' }
 ];
 const names = (rows) => rows.map(u => u.id);
 
@@ -65,6 +65,10 @@ test('فلتر الرتبة والحالة (المحظور، النشط بلا �
     assert.deepEqual(names(filterUsers(users, { role: 'super_user' })), ['c']);
     assert.deepEqual(names(filterUsers(users, { status: 'banned' })), ['d']);
     assert.deepEqual(names(filterUsers(users, { status: 'active' })), ['c', 'b', 'a']);
+    // الحظر من ban_status/ban_until كما في is_banned() — لا عمود status في profiles
+    assert.equal(isBanned({ ban_status: 'temporary', ban_until: '2000-01-01T00:00:00Z' }), false, 'حظر مؤقت منتهٍ');
+    assert.equal(isBanned({ ban_status: 'temporary', ban_until: '2999-01-01T00:00:00Z' }), true);
+    assert.equal(isBanned({ status: 'banned' }), false, 'العمود القديم status غير موجود في القاعدة');
     assert.deepEqual(names(filterUsers(users, { status: 'frozen' }, new Map([['b', true], ['c', false]]))), ['b']);
 });
 

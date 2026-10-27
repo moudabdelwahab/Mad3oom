@@ -55,10 +55,10 @@ function resolveChromium() {
 
 const ME = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const PEOPLE = [
-    { id: ME, full_name: 'محمود', email: 'admin@test.local', role: 'admin', status: 'active', points: 120, phone: '966562633284', created_at: '2026-01-02T00:00:00Z' },
-    { id: 'u2', full_name: 'تركي', email: 'turki@gmail.com', role: 'user', status: 'active', points: 40, phone: '966555438816', created_at: '2026-03-02T00:00:00Z' },
-    { id: 'u3', full_name: 'Bank', email: 'bank@gmail.com', role: 'super_user', status: 'active', points: 900, created_at: '2026-04-02T00:00:00Z' },
-    { id: 'u4', full_name: '<img src=x onerror="window.__XSS__=1">سارة', email: 'sara@example.com', role: 'user', status: 'banned', points: 0, created_at: '2026-05-10T00:00:00Z' }
+    { id: ME, full_name: 'محمود', email: 'admin@test.local', role: 'admin', ban_status: 'none', points: 120, phone: '966562633284', created_at: '2026-01-02T00:00:00Z' },
+    { id: 'u2', full_name: 'تركي', email: 'turki@gmail.com', role: 'user', ban_status: 'none', points: 40, phone: '966555438816', created_at: '2026-03-02T00:00:00Z' },
+    { id: 'u3', full_name: 'Bank', email: 'bank@gmail.com', role: 'super_user', ban_status: 'none', points: 900, created_at: '2026-04-02T00:00:00Z' },
+    { id: 'u4', full_name: '<img src=x onerror="window.__XSS__=1">سارة', email: 'sara@example.com', role: 'user', ban_status: 'permanent', points: 0, created_at: '2026-05-10T00:00:00Z' }
 ];
 
 function fixtures(role, rpc = {}) {
@@ -192,7 +192,7 @@ test('قائمة «خيارات»: الإجراءات كلها، والحظر ي
     await page.click('.uh-options-btn[data-user-id="u2"]');
     await page.click('#uhMenu .opt-menu-item.is-danger');
     await page.waitForFunction(() => (window.__WRITES__ || []).length > 0);
-    assert.deepEqual(await page.evaluate(() => window.__WRITES__), [{ op: 'update', table: 'profiles', row: { status: 'banned' } }]);
+    assert.deepEqual(await page.evaluate(() => window.__WRITES__), [{ op: 'update', table: 'profiles', row: { ban_status: 'permanent', ban_until: null } }]);
 
     // المحظور: «إلغاء الحظر» بدل «حظر»
     await page.click('.uh-options-btn[data-user-id="u4"]');
@@ -248,7 +248,7 @@ test('لوحة المالك: «المستخدمون» قسم داخل اللوح
         },
         tables: {
             profiles: [{ id: OWNER, email: 'owner@example.com', full_name: 'مالك المنصة', role: 'platform_owner', created_at: '2026-01-01T00:00:00Z' },
-                       { id: 'u2', email: 'turki@gmail.com', full_name: 'تركي', role: 'user', status: 'active', created_at: '2026-02-01T00:00:00Z' }],
+                       { id: 'u2', email: 'turki@gmail.com', full_name: 'تركي', role: 'user', ban_status: 'none', created_at: '2026-02-01T00:00:00Z' }],
             platform_authority: [], platform_capability_grants: [], privileged_audit: [], owner_context_audit: [], companies: [],
             notifications: [], whatsapp_subscriptions: [], sie_settings: [], sie_admin_grants: [], sie_authority_audit: [], user_wallets: []
         }
