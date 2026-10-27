@@ -405,6 +405,20 @@ test('الجرس يفتح آخر الإشعارات في مكانها، والض
     assert.doesNotMatch(pop, /إشعار حساب آخر/, 'إشعار حساب آخر ظهر');
     assert.equal(await page.locator('#portalNotificationPopover img').count(), 0, 'عنوان غير مهرَّب');
     assert.equal(await activeSection(page), 'overviewTabContent', 'الجرس بدّل القسم');
+    // مظهر لوحة الشركة نفسه (portal-notifications.css): لا أزرار خام بإطار رمادي، ونافذة بعرض محدود
+    const look = await page.evaluate(() => {
+        const item = getComputedStyle(document.querySelector('#portalNotificationPopover .portal-notif-item'));
+        const box = document.getElementById('portalNotificationPopover').getBoundingClientRect();
+        const dot = getComputedStyle(document.querySelector('[data-notif-id="n1"] .portal-notif-dot'));
+        return { border: item.borderTopStyle, bg: item.backgroundColor, width: box.width, dot: dot.width,
+                 right: box.right <= window.innerWidth, left: box.left >= 0 };
+    });
+    assert.equal(look.border, 'none', 'إطار الزر الخام');
+    assert.equal(look.bg, 'rgba(0, 0, 0, 0)');
+    assert.ok(look.width <= 352 + 1, `عرض النافذة ${look.width}`);
+    assert.equal(look.dot, '8px', 'نقطة غير المقروء بلا تنسيق');
+    assert.ok(look.right && look.left, 'النافذة خارج الشاشة');
+    if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/owner-notif-popover.png`, clip: { x: 0, y: 0, width: 520, height: 520 } });
     await page.click('[data-notif-id="n1"]');
     await page.waitForFunction(() => document.getElementById('governanceTabContent')?.classList.contains('active'));
     assert.equal(new URL(page.url()).hash, '#governance');
