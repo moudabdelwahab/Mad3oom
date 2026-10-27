@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>الإحصائيات - لوحة المالك - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-workspace.css">
+    <link rel="stylesheet" href="/assets/css/portal-notifications.css">
+    <link rel="stylesheet" href="/assets/css/owner-pages.css">
+    <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في لوحة المالك — الثيم وحالة الطي قبل أول رسم. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body class="customer-shell owner-shell dash-layout" data-owner-page="stats">
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main" id="ownerMain">
+        <!-- بوابة العرض: سبب المنع بدل صفحة فارغة. القرار الحقيقي في القاعدة؛ هذه رسالة. -->
+        <section class="panel" id="ownerGate" hidden>
+            <div class="state-block" id="ownerGateBody"></div>
+        </section>
+
+        <div id="ownerContent" hidden>
+            <header class="owner-banner owner-page-banner">
+                <div class="owner-banner-main">
+                    <span class="owner-level-tag">لوحة المالك · المنصة</span>
+                    <h1 class="owner-title">الإحصائيات</h1>
+                    <p class="owner-meta">مؤشرات المنصة كما تراها القاعدة لمالكها: الحسابات والتذاكر والاشتراكات والنشاط. قراءة فقط — كل رقم من استعلام تحرسه RLS.</p>
+                </div>
+                <div class="owner-banner-side">
+                    <button type="button" class="btn btn-outline btn-sm" id="statsRefresh">تحديث</button>
+                </div>
+            </header>
+            <div class="kpi-grid" id="statsKpis" aria-live="polite">
+                <div class="skeleton skeleton-card"></div>
+            </div>
+
+            <div class="split-grid">
+                <section class="panel" aria-labelledby="statsRolesHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="statsRolesHeading">الحسابات حسب الرتبة</h2>
+                        <p class="panel-subtitle">الرتبة هوية الحساب؛ السلطة الفعلية من platform_authority والسياق.</p>
+                    </div></div>
+                    <div id="statsRoles"><div class="skeleton skeleton-card"></div></div>
+                </section>
+                <section class="panel" aria-labelledby="statsTicketsHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="statsTicketsHeading">التذاكر حسب الحالة</h2>
+                        <p class="panel-subtitle">كل التذاكر: دعم مدعوم وتذاكر الشركات.</p>
+                    </div></div>
+                    <div id="statsTickets"><div class="skeleton skeleton-card"></div></div>
+                </section>
+                <section class="panel" aria-labelledby="statsSubsHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="statsSubsHeading">الاشتراكات</h2>
+                        <p class="panel-subtitle">الحالة والباقة من admin_list_subscriptions().</p>
+                    </div></div>
+                    <div id="statsSubs"><div class="skeleton skeleton-card"></div></div>
+                </section>
+                <section class="panel" aria-labelledby="statsActivityHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="statsActivityHeading">النشاط — آخر 14 يومًا</h2>
+                        <p class="panel-subtitle">عدد أحداث سجل النشاط في كل يوم.</p>
+                    </div></div>
+                    <div id="statsActivity"><div class="skeleton skeleton-card"></div></div>
+                </section>
+            </div>
+            <p class="panel-subtitle owner-status-line" id="statsUpdated" aria-live="polite"></p>
+        </div>
+    </main>
+
+    <script type="module" src="/assets/js/owner/pages/stats.js"></script>
+</body>
+</html>

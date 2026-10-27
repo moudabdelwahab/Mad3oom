@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>التكاملات ومفاتيح API - لوحة المالك - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-workspace.css">
+    <link rel="stylesheet" href="/assets/css/portal-notifications.css">
+    <link rel="stylesheet" href="/assets/css/owner-pages.css">
+    <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في لوحة المالك — الثيم وحالة الطي قبل أول رسم. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body class="customer-shell owner-shell dash-layout" data-owner-page="integrations">
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main" id="ownerMain">
+        <!-- بوابة العرض: سبب المنع بدل صفحة فارغة. القرار الحقيقي في القاعدة؛ هذه رسالة. -->
+        <section class="panel" id="ownerGate" hidden>
+            <div class="state-block" id="ownerGateBody"></div>
+        </section>
+
+        <div id="ownerContent" hidden>
+            <header class="owner-banner owner-page-banner">
+                <div class="owner-banner-main">
+                    <span class="owner-level-tag">لوحة المالك · التشغيل</span>
+                    <h1 class="owner-title">التكاملات ومفاتيح API</h1>
+                    <p class="owner-meta">إشراف المالك على وصول الأنظمة الخارجية: مفاتيح API لكل الحسابات واستهلاكها، وتكاملات المنصة العامة وحالة آخر اختبار — مع إيقاف ما يلزم إيقافه فورًا.</p>
+                </div>
+                <div class="owner-banner-side">
+                    <button type="button" class="btn btn-outline btn-sm" id="integrationsRefresh">تحديث</button>
+                    <a class="btn btn-outline btn-sm" href="/admin/mcp.html">إعداد التكاملات</a>
+                </div>
+            </header>
+            <div class="kpi-grid" id="integrationsKpis" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+
+            <div class="owner-page-stack">
+                <section class="panel" aria-labelledby="tokensHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="tokensHeading">مفاتيح API</h2>
+                        <p class="panel-subtitle">الإيقاف يسحب الوصول فورًا. أعمدة الاعتماد (السر والمفتاح والمالك) لا يكتبها أي حساب — 110.</p>
+                    </div></div>
+                    <form class="toolbar owner-filters" id="tokensFilters" role="search" novalidate>
+                        <label class="visually-hidden" for="tokensSearch">ابحث باسم المفتاح أو صاحبه</label>
+                        <input type="search" class="form-control owner-filter-search" id="tokensSearch" placeholder="ابحث باسم المفتاح أو صاحبه…" autocomplete="off" maxlength="100">
+                        <label class="visually-hidden" for="tokensState">الحالة</label>
+                        <select class="form-control owner-filter-select" id="tokensState">
+                            <option value="">كل المفاتيح</option>
+                            <option value="active">فعّالة</option>
+                            <option value="inactive">موقوفة</option>
+                        </select>
+                    </form>
+                    <div id="tokensTable" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                </section>
+
+                <section class="panel" aria-labelledby="platformIntegrationsHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="platformIntegrationsHeading">تكاملات المنصة</h2>
+                        <p class="panel-subtitle">مزوّدو الذكاء والخدمات الخارجية بنطاق المنصة. بيانات الاعتماد مشفّرة ولا تُقرأ من هنا.</p>
+                    </div></div>
+                    <div id="platformIntegrations" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                </section>
+
+                <section class="panel" aria-labelledby="usageHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="usageHeading">آخر استدعاءات API</h2>
+                        <p class="panel-subtitle">آخر 50 طلبًا مسجّلًا في api_token_usage_logs.</p>
+                    </div></div>
+                    <div id="usageTable" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                </section>
+            </div>
+
+                <details class="owner-limits">
+                    <summary>ما يبقى حصريًا للإدارة في هذه الصفحة</summary>
+                    <ul>
+                        <li>إضافة تكامل أو تعديل بيانات اعتماده واختبار الاتصال وخوادم MCP: في <a href="/admin/mcp.html">إعداد التكاملات</a> — الكتابة تمرّ بدوال طرفية تشفّر الاعتماد بمفتاح الخدمة.</li>
+                        <li>إنشاء مفتاح API أو تجديد سرّه: لصاحب الحساب نفسه عبر create-api-token وregenerate-api-token-secret؛ لا يُنشأ مفتاح باسم حساب آخر.</li>
+                    </ul>
+                </details>
+            <p class="owner-sie-status ows-toast" id="pageStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
+        </div>
+    </main>
+
+    <script type="module" src="/assets/js/owner/pages/integrations.js"></script>
+</body>
+</html>

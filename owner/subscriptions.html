@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>الاشتراكات - لوحة المالك - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-workspace.css">
+    <link rel="stylesheet" href="/assets/css/portal-notifications.css">
+    <link rel="stylesheet" href="/assets/css/owner-pages.css">
+    <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في لوحة المالك — الثيم وحالة الطي قبل أول رسم. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body class="customer-shell owner-shell dash-layout" data-owner-page="subscriptions">
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main" id="ownerMain">
+        <!-- بوابة العرض: سبب المنع بدل صفحة فارغة. القرار الحقيقي في القاعدة؛ هذه رسالة. -->
+        <section class="panel" id="ownerGate" hidden>
+            <div class="state-block" id="ownerGateBody"></div>
+        </section>
+
+        <div id="ownerContent" hidden>
+            <header class="owner-banner owner-page-banner">
+                <div class="owner-banner-main">
+                    <span class="owner-level-tag">لوحة المالك · الإدارة</span>
+                    <h1 class="owner-title">الاشتراكات</h1>
+                    <p class="owner-meta">كل اشتراكات المنصة من admin_list_subscriptions(): المؤشرات والتصفية وسجل التغييرات، وتغيير الحالة بسبب مُسجَّل (تعطيل، إعادة تفعيل، قبول طلب أو رفضه).</p>
+                </div>
+                <div class="owner-banner-side">
+                    <button type="button" class="btn btn-outline btn-sm" id="subsRefresh">تحديث</button>
+                </div>
+            </header>
+            <div class="kpi-grid" id="subsKpis" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+
+            <section class="panel" aria-labelledby="subsHeading">
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="subsHeading">قائمة الاشتراكات</h2>
+                    <p class="panel-subtitle">الانتقالات المسموحة تفرضها admin_set_subscription_status() في القاعدة، وكل تغيير يُكتب في subscription_audit_log.</p>
+                </div></div>
+
+                <form class="toolbar owner-filters" id="subsFilters" role="search" novalidate>
+                    <label class="visually-hidden" for="subsSearch">ابحث بالعميل أو الشركة</label>
+                    <input type="search" class="form-control owner-filter-search" id="subsSearch" placeholder="ابحث بالعميل أو البريد أو الشركة…" autocomplete="off" maxlength="100">
+                    <label class="visually-hidden" for="subsStatus">الحالة</label>
+                    <select class="form-control owner-filter-select" id="subsStatus">
+                        <option value="">كل الحالات</option>
+                        <option value="active">فعّال</option>
+                        <option value="pending">بانتظار المراجعة</option>
+                        <option value="expired">منتهٍ</option>
+                        <option value="rejected">مرفوض</option>
+                        <option value="superseded">مُستبدَل بترقية</option>
+                        <option value="expiring">ينتهي خلال 7 أيام</option>
+                    </select>
+                    <label class="visually-hidden" for="subsPlan">الباقة</label>
+                    <select class="form-control owner-filter-select" id="subsPlan">
+                        <option value="">كل الباقات</option>
+                    </select>
+                </form>
+
+                <div id="subsTable" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+            </section>
+
+                <details class="owner-limits">
+                    <summary>ما يبقى حصريًا للإدارة في هذه الصفحة</summary>
+                    <ul>
+                        <li>تعديل الباقة وتواريخ البدء والانتهاء وتأكيد الترقيات وطلبات شحن المحفظة: في <a href="/admin/subscriptions.html">اشتراكات الإدارة</a> وصفحة تفاصيل الاشتراك، حيث تعمل عمليات الفوترة اليومية.</li>
+                        <li>إنشاء اشتراك يدويًا: يمرّ بمسار الطلب والدفع، لا من لوحة المالك.</li>
+                    </ul>
+                </details>
+            <p class="owner-sie-status ows-toast" id="pageStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
+        </div>
+    </main>
+
+    <script type="module" src="/assets/js/owner/pages/subscriptions.js"></script>
+</body>
+</html>

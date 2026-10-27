@@ -53,7 +53,10 @@ const SHELLS = {
         home: '/owner-dashboard.html',
         showsCompanyEntry: false,
         showsWhatsapp: false,
-        singlePage: true
+        singlePage: true,
+        // وصفحاتها المستقلة (الإحصائيات، المستخدمون، التذاكر…) في هذا المجلد: هناك يُشتقّ
+        // العنصر النشط من اسم الملف (data-page) كما في بوابة العميل
+        pagesDir: '/owner/'
     }
 };
 
@@ -161,7 +164,7 @@ export function setActiveSidebarTab(tabName) {
 function markActivePage() {
     // القشرة أحادية الصفحة (لوحة الشركة) بتضبط عنصرها النشط من الـhash عبر
     // setActiveSidebarTab، مش من اسم الملف.
-    if (shell.singlePage) return;
+    if (shell.singlePage && !(shell.pagesDir && window.location.pathname.startsWith(shell.pagesDir))) return;
 
     const segments = window.location.pathname.split('/').filter(Boolean);
     let file = (segments.pop() || '').replace(/\.html$/, '');
@@ -171,8 +174,12 @@ function markActivePage() {
     if (!file || file === 'customer-dashboard') return;
 
     document.querySelectorAll('.sidebar-item[data-page]').forEach(item => {
-        item.classList.toggle('active', item.getAttribute('data-page') === file);
+        const isActive = item.getAttribute('data-page') === file;
+        item.classList.toggle('active', isActive);
+        if (isActive) item.setAttribute('aria-current', 'page');
+        else item.removeAttribute('aria-current');
     });
+    revealActiveNavItem();
 }
 
 /**

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>إعدادات المنصة - لوحة المالك - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-workspace.css">
+    <link rel="stylesheet" href="/assets/css/portal-notifications.css">
+    <link rel="stylesheet" href="/assets/css/owner-pages.css">
+    <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في لوحة المالك — الثيم وحالة الطي قبل أول رسم. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body class="customer-shell owner-shell dash-layout" data-owner-page="settings">
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main" id="ownerMain">
+        <!-- بوابة العرض: سبب المنع بدل صفحة فارغة. القرار الحقيقي في القاعدة؛ هذه رسالة. -->
+        <section class="panel" id="ownerGate" hidden>
+            <div class="state-block" id="ownerGateBody"></div>
+        </section>
+
+        <div id="ownerContent" hidden>
+            <header class="owner-banner owner-page-banner">
+                <div class="owner-banner-main">
+                    <span class="owner-level-tag">لوحة المالك · التشغيل</span>
+                    <h1 class="owner-title">إعدادات المنصة</h1>
+                    <p class="owner-meta">ما يملكه المالك من إعدادات المنصة في مكان واحد: وضع التسجيل، مفاتيح التفعيل، أمان حسابك وسياقك. وإعدادات التشغيل اليومي (البوت، ساعات العمل، توزيع التذاكر، قواعد الأتمتة) تبقى لإداريي المنصة.</p>
+                </div>
+                <div class="owner-banner-side">
+                    <button type="button" class="btn btn-outline btn-sm" id="settingsRefresh">تحديث</button>
+                </div>
+            </header>
+            <div class="split-grid">
+                <section class="panel" aria-labelledby="regHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="regHeading">وضع التسجيل</h2>
+                        <p class="panel-subtitle">كما يراه الزائر في صفحة الدخول (get_public_registration_settings).</p>
+                    </div></div>
+                    <div id="settingsRegistration"><div class="skeleton skeleton-card"></div></div>
+                </section>
+
+                <section class="panel" aria-labelledby="secHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="secHeading">أمان حساب المالك</h2>
+                        <p class="panel-subtitle">التحقق بخطوتين ونافذة العمليات الحساسة وسياقك الحالي.</p>
+                    </div></div>
+                    <div id="settingsSecurity"><div class="skeleton skeleton-card"></div></div>
+                </section>
+            </div>
+
+            <section class="panel" aria-labelledby="switchesHeading">
+                <div class="panel-header">
+                    <div>
+                        <h2 class="panel-title" id="switchesHeading">مفاتيح التفعيل</h2>
+                        <p class="panel-subtitle">حالتها هنا للاطلاع؛ تغييرها بسبب مسجَّل وتحقق بخطوتين في <a href="/owner-dashboard.html#governance">حوكمة الشركات ← مفاتيح التفعيل</a>.</p>
+                    </div>
+                </div>
+                <div id="settingsSwitches"><div class="skeleton skeleton-card"></div></div>
+            </section>
+
+            <section class="panel" aria-labelledby="adminOnlyHeading">
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="adminOnlyHeading">إعدادات تبقى لإداريي المنصة</h2>
+                    <p class="panel-subtitle">سياساتها في القاعدة تشترط الرتبة الحرفية <code>admin</code>، فلا يقرؤها المالك ولا يكتبها في أي سياق. هذا قرار صلاحيات قائم لا خلل في الصفحة.</p>
+                </div></div>
+                <div id="settingsAdminOnly"></div>
+            </section>
+        </div>
+    </main>
+
+    <script type="module" src="/assets/js/owner/pages/settings.js"></script>
+</body>
+</html>
