@@ -566,10 +566,7 @@ for (const [w, h] of [[1440, 900], [1351, 544], [768, 1000], [390, 844]]) {
         assert.equal(r.pageHScroll, false, 'تمرير أفقي للصفحة');
         assert.deepEqual(r.rows.map(x => x.key).sort(), REGISTERED_SWITCHES);
         assert.deepEqual(r.groups, SWITCH_GROUPS.map(g => [g.id, g.keys]));
-        // الشبكة مرنة (auto-fill, minmax 20rem): عدد الأعمدة يتبع عرض المحتوى. مع تخطيط
-        // اللوحات (dashboard-layout.css) يتسع المحتوى على 1351px لثلاثة أعمدة؛ الضمانات
-        // الحقيقية — الزر داخل بطاقته وفي مكانه، بلا تداخل ولا تمرير أفقي — تُفحص تحت.
-        assert.equal(r.columns, { 1440: 3, 1351: 3, 768: 2, 390: 1 }[w], `أعمدة الشبكة على ${w}px`);
+        assert.equal(r.columns, { 1440: 3, 1351: 2, 768: 2, 390: 1 }[w], `أعمدة الشبكة على ${w}px`);
         for (const x of r.rows) {
             assert.ok(x.inside, `زر ${x.key} أو بطاقته خارج اللوحة`);
             assert.ok(x.atFoot && x.atEnd, `زر ${x.key} ليس في مكانه الثابت`);

@@ -141,8 +141,8 @@ export function initCollapsedTooltips(sidebar) {
         const r = item.getBoundingClientRect();
         tip.textContent = label;
         tip.style.top = `${r.top + r.height / 2}px`;
-        // يسار القائمة في RTL: الحافة اليمنى للتلميح عند الحافة اليسرى للعنصر
-        tip.style.right = `${document.documentElement.clientWidth - r.left + 10}px`;
+        // يسار القائمة في RTL: الحافة اليمنى للتلميح خارج حافة القائمة نفسها
+        tip.style.right = `${document.documentElement.clientWidth - sidebar.getBoundingClientRect().left + 8}px`;
         tip.hidden = false;
     };
 
