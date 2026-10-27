@@ -8,8 +8,10 @@
  * الأقسام: مفاتيح التفعيل، طلبات الوصول، مراجعة الإداريين، الهيكل الإداري، مطابقة الاستهلاك،
  * ومستندات الشركات (طابور المراجعة والتجربة الجافة للاحتفاظ)، والنقل والاطلاع التاريخي (101).
  * كل قسم يعرض «غير مطبّق بعد» إن لم يُطبَّق ترحيله، فالصفحة تعمل بأي ترتيب نشر.
+ * كل قسم تبويب داخلي في الصفحة (owner-workspace.js)؛ ctx.badge يحدّث شارة تبويبه بعد كل عرض.
  */
 import { applyCriticalState } from '/assets/js/owner/authority-center.js';
+import { announce } from '/assets/js/owner/owner-workspace.js';
 
 const MISSING = new Set(['PGRST202', '42883', 'PGRST404']);
 
@@ -284,7 +286,7 @@ export function delegationExpiry(value, now = new Date()) {
 }
 
 export function initTenancyGovernance(ctx) {
-    const { supabase, $, esc, when, table, td, staff = [] } = ctx;
+    const { supabase, $, esc, when, table, td, staff = [], badge = () => {} } = ctx;
 
     const rpc = async (name, args) => {
         const { data, error } = await supabase.rpc(name, args);
@@ -294,12 +296,11 @@ export function initTenancyGovernance(ctx) {
     };
     const notApplied = (what) => `<div class="state-block state-block--compact"><p class="state-text">${esc(what)} — الترحيل غير مطبّق بعد.</p></div>`;
     const failed = (msg) => `<div class="state-block state-block--compact state-block--error"><p class="state-text">${esc(msg)}</p></div>`;
-    const status = (text, tone = 'info') => {
-        const el = $('govStatus');
-        el.textContent = text;
-        el.dataset.tone = tone;
-        el.hidden = !text;
-    };
+    const status = (text, tone = 'info') => announce($('govStatus'), text, tone);
+    // الزر الذي بدأ العملية: يُعطَّل ويُعلَّم «جارٍ» حتى الرد، فلا نقرة مزدوجة ولا انتظار بلا علامة
+    let trigger = null;
+    $('governanceTabContent')?.addEventListener('click', (e) => { trigger = e.target.closest?.('button') || null; }, true);
+    $('governanceTabContent')?.addEventListener('submit', (e) => { trigger = e.submitter || trigger; }, true);
     const reason = () => $('govReason').value.trim();
     const needReason = () => {
         const err = reasonError(reason());
@@ -307,10 +308,18 @@ export function initTenancyGovernance(ctx) {
         return !err;
     };
     async function act(name, args, done) {
+        const btn = trigger?.isConnected ? trigger : null;
+        if (btn) { btn.disabled = true; btn.setAttribute('aria-busy', 'true'); }
+        status('جارٍ التنفيذ…');
         const res = await rpc(name, args);
-        if (res.missing) { status('الترحيل غير مطبّق بعد.', 'error'); return null; }
-        if (res.error) { status(res.error, 'error'); return null; }
+        if (res.missing || res.error) {
+            status(res.missing ? 'الترحيل غير مطبّق بعد.' : res.error, 'error');
+            // لا إعادة عرض عند الفشل: الزر نفسه يعود ويبقى التركيز عنده، بجوار مدخلاته
+            if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); btn.focus({ preventScroll: true }); }
+            return null;
+        }
         status(done, 'success');
+        // إعادة العرض تستبدل محتوى اللوحات في مكانها: لا تمرير، والتبويب الحالي يبقى كما هو
         await renderAll();
         return res.data;
     }
@@ -319,6 +328,7 @@ export function initTenancyGovernance(ctx) {
     async function renderSwitches() {
         const box = $('govSwitches');
         const res = await rpc('owner_feature_switches');
+        if (res.missing || res.error) badge('switches', null);
         if (res.missing) { box.innerHTML = notApplied('مفاتيح التفعيل'); return; }
         if (res.error) { box.innerHTML = failed(res.error); return; }
         // بطاقات لا جدول: الجدول يلفّه responsive-global بـ min-width: max-content، فلا يلتفّ الوصف
@@ -327,6 +337,7 @@ export function initTenancyGovernance(ctx) {
         const views = all.map(s => switchView(s, all));
         if (!views.length) { box.innerHTML = '<div class="state-block state-block--compact"><p class="state-text">لا مفاتيح.</p></div>'; return; }
         const onCount = views.filter(v => v.enabled).length;
+        badge('switches', `${onCount}/${views.length}`);
         const card = (v) => {
             const id = `sw-${esc(v.key)}`;
             const notice = switchNotice(v);
@@ -362,7 +373,7 @@ export function initTenancyGovernance(ctx) {
         box.innerHTML = `<div class="gov-sw-board">
             <div class="gov-sw-summary">
                 <span class="gov-sw-count"><strong>${onCount}</strong> من ${views.length} مفعّلة</span>
-                <p class="gov-sw-locked" role="note">${ICON.lock}<span>الأزرار مقفلة حتى التحقق بخطوتين من <a href="#authority">السلطة والمنح</a>.</span></p>
+                <p class="gov-sw-locked" role="note">${ICON.lock}<span>الأزرار مقفلة حتى التحقق بخطوتين من <a href="#authority" data-ws-open="ownership">السلطة والمنح</a>.</span></p>
             </div>
             ${groupSwitchViews(views).map(g => `
             <section class="gov-sw-group" data-group="${esc(g.id)}" ${g.security ? 'data-security="true"' : ''} aria-labelledby="gov-sw-g-${esc(g.id)}">
@@ -396,10 +407,13 @@ export function initTenancyGovernance(ctx) {
     async function renderAccess() {
         const box = $('govAccess');
         const res = await rpc('owner_access_requests');
+        if (res.missing || res.error) badge('access', null);
         if (res.missing) { box.innerHTML = notApplied('طلبات الوصول'); return; }
         if (res.error) { box.innerHTML = failed(res.error); return; }
         const requests = res.data?.requests || [];
         const grants = res.data?.active_grants || [];
+        const pending = requests.filter(r => r.status === 'pending').length;
+        badge('access', pending || null, 'attention');
         box.innerHTML = `
             <h4 class="owner-subsection-title">الطلبات</h4>
             ${table(['الطالب', 'الشركة', 'النطاق', 'السبب', 'المدة', 'الحالة', ''], requests, r => `<tr>
@@ -433,9 +447,11 @@ export function initTenancyGovernance(ctx) {
     async function renderReviews() {
         const box = $('govReviews');
         const res = await rpc('owner_admin_reviews');
+        if (res.missing || res.error) badge('reviews', null);
         if (res.missing) { box.innerHTML = notApplied('مراجعة الإداريين'); return; }
         if (res.error) { box.innerHTML = failed(res.error); return; }
         const rows = (res.data || []).map(reviewRow);
+        badge('reviews', rows.filter(r => !r.applied).length || null, 'attention');
         const decisionLabel = (v) => REVIEW_DECISIONS.find(d => d.value === v)?.label || v;
         box.innerHTML = table(['الحساب', 'الرتبة', 'تحقق بخطوتين', 'عمل مفتوح', 'القرار', ''], rows, r => `<tr data-review-row="${esc(r.id)}">
             ${td(esc(r.name))}
@@ -482,9 +498,11 @@ export function initTenancyGovernance(ctx) {
     async function renderHierarchy() {
         const box = $('govHierarchy');
         const res = await rpc('owner_hierarchy');
+        if (res.missing || res.error) badge('hierarchy', null);
         if (res.missing) { box.innerHTML = notApplied('الهيكل الإداري'); return; }
         if (res.error) { box.innerHTML = failed(res.error); return; }
         const units = flattenUnits(res.data?.units);
+        badge('hierarchy', units.length || null);
         const caps = res.data?.capabilities || [];
         const unitOptions = units.map(u => `<option value="${esc(u.id)}">${'— '.repeat(u.depth)}${esc(u.name)}</option>`).join('');
         const staffOptions = staff.map(p => `<option value="${esc(p.id)}">${esc(p.full_name || p.email)}</option>`).join('');
@@ -492,36 +510,46 @@ export function initTenancyGovernance(ctx) {
         const allCompanies = [...(res.data?.unassigned_companies || []),
                               ...units.flatMap(u => (u.companies || []).map(c => ({ ...c, unit: u.name })))];
         const companyOptions = allCompanies.map(c => `<option value="${esc(c.company_id)}">${esc(c.name)}${c.unit ? ` (${esc(c.unit)})` : ''}</option>`).join('');
-        box.innerHTML = `
-            ${units.length ? `<ul class="owner-tree">${units.map(u => `
-                <li class="owner-tree-node" style="--depth:${u.depth}" data-unit="${esc(u.id)}">
-                    <strong>${esc(u.name)}</strong>
-                    <small>${esc((u.members || []).length)} عضو · ${esc((u.companies || []).length)} شركة</small>
-                    ${(u.delegations || []).map(d => `
-                        <span class="pill status-open">${esc(d.name)}: ${esc((d.capabilities || []).map(c => CAPABILITY_LABELS[c] || c).join('، '))}
-                            <button type="button" class="panel-link is-danger" data-critical data-revoke-delegation="${esc(d.id)}">سحب</button></span>`).join('')}
-                </li>`).join('')}</ul>`
-            : '<div class="state-block state-block--compact"><p class="state-text">لا وحدات بعد.</p></div>'}
-            <form class="owner-gov-form" id="govUnitForm" novalidate>
-                <input class="form-control" id="govUnitName" maxlength="120" placeholder="اسم وحدة جديدة" aria-label="اسم الوحدة">
-                <select class="form-control" id="govUnitParent" aria-label="الوحدة الأم"><option value="">(جذر)</option>${unitOptions}</select>
-                <button type="submit" class="btn btn-sm btn-primary" data-critical>إنشاء وحدة</button>
-            </form>
-            <form class="owner-gov-form" id="govAssignForm" novalidate>
-                <select class="form-control" id="govAssignCompany" aria-label="الشركة">${companyOptions}</select>
-                <select class="form-control" id="govAssignUnit" aria-label="الوحدة">${unitOptions}</select>
-                <button type="submit" class="btn btn-sm btn-primary" data-critical>إسناد الشركة</button>
-            </form>
-            <form class="owner-gov-form" id="govDelegateForm" novalidate>
-                <select class="form-control" id="govDelegateUser" aria-label="المفوَّض">${staffOptions}</select>
-                <select class="form-control" id="govDelegateUnit" aria-label="نطاق التفويض">${unitOptions}</select>
-                <span class="owner-gov-caps">${caps.map(c => `
-                    <label><input type="checkbox" value="${esc(c.key)}" data-cap> ${esc(c.label)}</label>`).join('')}</span>
-                <label>ينتهي في <input type="date" class="form-control" id="govDelegateExpiry" required
-                    value="${esc(defaultDelegationExpiry())}" min="${esc(defaultDelegationExpiry(new Date(Date.now() - 6 * DAY_MS)))}"
-                    max="${esc(new Date(Date.now() + (DELEGATION_MAX_DAYS - 1) * DAY_MS).toISOString().slice(0, 10))}" aria-label="تاريخ انتهاء التفويض"></label>
-                <button type="submit" class="btn btn-sm btn-primary" data-critical>منح التفويض</button>
-            </form>`;
+        // مساحة عمل من عمودين: الشجرة (ما هو قائم) والنماذج الثلاثة (ما يُغيَّر) جنبًا إلى جنب على الشاشات العريضة
+        box.innerHTML = `<div class="gov-split">
+            <div class="gov-split-main">
+                <h4 class="owner-subsection-label">الوحدات وتفويضاتها</h4>
+                ${units.length ? `<ul class="owner-tree">${units.map(u => `
+                    <li class="owner-tree-node" style="--depth:${u.depth}" data-unit="${esc(u.id)}">
+                        <strong>${esc(u.name)}</strong>
+                        <small>${esc((u.members || []).length)} عضو · ${esc((u.companies || []).length)} شركة</small>
+                        ${(u.delegations || []).map(d => `
+                            <span class="pill status-open">${esc(d.name)}: ${esc((d.capabilities || []).map(c => CAPABILITY_LABELS[c] || c).join('، '))}
+                                <button type="button" class="panel-link is-danger" data-critical data-revoke-delegation="${esc(d.id)}">سحب</button></span>`).join('')}
+                    </li>`).join('')}</ul>`
+                : '<div class="state-block state-block--compact"><p class="state-text">لا وحدات بعد.</p></div>'}
+            </div>
+            <div class="gov-split-side">
+                <form class="owner-gov-form gov-card" id="govUnitForm" novalidate>
+                    <h5 class="gov-card-title">وحدة جديدة</h5>
+                    <input class="form-control" id="govUnitName" maxlength="120" placeholder="اسم وحدة جديدة" aria-label="اسم الوحدة">
+                    <select class="form-control" id="govUnitParent" aria-label="الوحدة الأم"><option value="">(جذر)</option>${unitOptions}</select>
+                    <button type="submit" class="btn btn-sm btn-primary" data-critical>إنشاء وحدة</button>
+                </form>
+                <form class="owner-gov-form gov-card" id="govAssignForm" novalidate>
+                    <h5 class="gov-card-title">إسناد شركة إلى وحدة</h5>
+                    <select class="form-control" id="govAssignCompany" aria-label="الشركة">${companyOptions}</select>
+                    <select class="form-control" id="govAssignUnit" aria-label="الوحدة">${unitOptions}</select>
+                    <button type="submit" class="btn btn-sm btn-primary" data-critical>إسناد الشركة</button>
+                </form>
+                <form class="owner-gov-form gov-card" id="govDelegateForm" novalidate>
+                    <h5 class="gov-card-title">منح تفويض</h5>
+                    <select class="form-control" id="govDelegateUser" aria-label="المفوَّض">${staffOptions}</select>
+                    <select class="form-control" id="govDelegateUnit" aria-label="نطاق التفويض">${unitOptions}</select>
+                    <span class="owner-gov-caps">${caps.map(c => `
+                        <label><input type="checkbox" value="${esc(c.key)}" data-cap> ${esc(c.label)}</label>`).join('')}</span>
+                    <label class="gov-card-field">ينتهي في <input type="date" class="form-control" id="govDelegateExpiry" required
+                        value="${esc(defaultDelegationExpiry())}" min="${esc(defaultDelegationExpiry(new Date(Date.now() - 6 * DAY_MS)))}"
+                        max="${esc(new Date(Date.now() + (DELEGATION_MAX_DAYS - 1) * DAY_MS).toISOString().slice(0, 10))}" aria-label="تاريخ انتهاء التفويض"></label>
+                    <button type="submit" class="btn btn-sm btn-primary" data-critical>منح التفويض</button>
+                </form>
+            </div>
+        </div>`;
         $('govUnitForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const name = $('govUnitName').value.trim();
@@ -554,10 +582,13 @@ export function initTenancyGovernance(ctx) {
     async function renderUsage() {
         const box = $('govUsage');
         const res = await rpc('usage_reconciliation');
+        if (res.missing || res.error) badge('usage', null);
         if (res.missing) { box.innerHTML = notApplied('سجل الاستهلاك'); return; }
         if (res.error) { box.innerHTML = failed(res.error); return; }
         const r = res.data || {};
         const mismatches = r.mismatches || [];
+        const unexplained = mismatches.filter(m => m.reason !== 'membership_changed').length;
+        badge('usage', unexplained || (mismatches.length ? null : '✓'), unexplained ? 'attention' : 'success');
         box.innerHTML = `
             <p class="panel-subtitle">سجل الظل للشهر ${esc(r.period)}: ${esc(r.matching)} من ${esc(r.accounts)} حسابًا مطابق للعدّ الحي.
                 الفرض ما زال بالعدّ الحي — هذا للمراجعة فقط.</p>
@@ -574,18 +605,23 @@ export function initTenancyGovernance(ctx) {
         const box = $('govDocuments');
         if (!box) return;
         const res = await rpc('owner_documents_queue');
+        if (res.missing || res.error) badge('documents', null);
         if (res.missing) { box.innerHTML = notApplied('مستندات الشركات'); return; }
         if (res.error) { box.innerHTML = failed(res.error); return; }
         const docs = res.data || [];
+        const reviewable = (d) => {
+            const cur = (d.versions || []).find(v => v.is_current) || {};
+            return d.status === 'pending_review' && cur.status === 'clean' && cur.review_status === 'pending';
+        };
+        badge('documents', docs.filter(reviewable).length || null, 'attention');
         box.innerHTML = `
             ${table(['الشركة', 'المستند', 'الحالة', 'الإصدار الحالي', ''], docs, d => {
                 const cur = (d.versions || []).find(v => v.is_current) || {};
-                const reviewable = d.status === 'pending_review' && cur.status === 'clean' && cur.review_status === 'pending';
                 return `<tr>
                     ${td(esc(d.company_name))}${td(esc(d.label))}
                     ${td(`<span class="pill status-neutral">${esc(d.status)}</span>`)}
                     ${td(`v${esc(cur.version_no)} · ${esc(cur.status)}${cur.sha256 ? `<br><small dir="ltr">${esc(String(cur.sha256).slice(0, 12))}…</small>` : ''}`)}
-                    ${td(reviewable ? `
+                    ${td(reviewable(d) ? `
                         <input type="date" class="form-control" data-doc-expiry="${esc(cur.id)}" aria-label="تاريخ الانتهاء">
                         <button type="button" class="btn btn-sm btn-primary" data-critical data-doc-review="${esc(cur.id)}" data-approve="true">اعتماد</button>
                         <button type="button" class="btn btn-sm btn-secondary" data-critical data-doc-review="${esc(cur.id)}" data-approve="false">رفض</button>`
@@ -618,10 +654,12 @@ export function initTenancyGovernance(ctx) {
         const box = $('govMoves');
         if (!box) return;
         const [res, mt] = await Promise.all([rpc('owner_historical_requests'), rpc('owner_member_transfer_requests', { p_status: 'pending' })]);
+        if (res.missing || res.error) badge('moves', null);
         if (res.missing) { box.innerHTML = notApplied('النقل والاطلاع التاريخي'); return; }
         if (res.error) { box.innerHTML = failed(res.error); return; }
         const rows = res.data || [];
         const memberRows = Array.isArray(mt.data) ? mt.data : [];
+        badge('moves', (memberRows.length + rows.filter(r => r.status === 'awaiting_owner').length) || null, 'attention');
         // 113: طلبات الشركات نقل أعضائها. الموافقة = النقل نفسه (101) فهي حرجة وبسبب 20 حرفًا.
         const memberTransfers = mt.missing ? notApplied('طلبات نقل الأعضاء') : mt.error ? failed(mt.error) : `
             <p class="panel-subtitle">شركة طلبت نقل أحد أعضائها لشركة أخرى. الموافقة تنفّذ النقل فورًا بمحرك النقل نفسه
@@ -651,7 +689,7 @@ export function initTenancyGovernance(ctx) {
             </tr>`)}
             <h4 class="owner-subsection-title">نقل استثنائي لعميل</h4>
             <p class="panel-subtitle">بلا موافقات الشركتين: لتصحيح ربط خاطئ فقط. يُسجَّل بالسبب المكتوب أعلاه، ويُنفَّذ مرة واحدة.</p>
-            <div class="owner-gov-form">
+            <div class="owner-gov-form gov-card gov-card--row">
                 <input class="form-control" id="govXferCustomer" dir="ltr" placeholder="معرّف العميل" autocomplete="off">
                 <input class="form-control" id="govXferCompany" dir="ltr" placeholder="معرّف الشركة الجديدة" autocomplete="off">
                 <label><input type="checkbox" id="govXferKeep"> إبقاء الشركة السابقة إضافية</label>
