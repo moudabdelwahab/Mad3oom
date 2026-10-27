@@ -1,0 +1,209 @@
+/* ============================================================================
+   قسم «Pi Network» في لوحة المالك.
+
+   يعرض ويحرّر، ولا يقرّر: كل كتابة محكومة بـRLS على is_platform_owner()
+   (migrations/115). ومفتاح Pi API سرّ Edge Function (PI_API_KEY) لا يمرّ
+   بهذه الصفحة أبدًا — القسم يسأل pi-payments هل هو مضبوط فقط.
+============================================================================ */
+import { announce } from '/assets/js/owner/owner-workspace.js';
+
+const STATUS = Object.freeze({
+    approved:  ['بانتظار الإتمام', 'status-open'],
+    completed: ['مكتملة',          'status-resolved'],
+    cancelled: ['ملغاة',           'status-neutral'],
+    failed:    ['فشلت',            'status-rejected']
+});
+
+const fmtPi = (n) => n == null || n === ''
+    ? '—'
+    : `${Number(n).toLocaleString('ar-EG', { maximumFractionDigits: 7 })} π`;
+
+export function initPiIntegration({ supabase, $, esc, when, table, td, errorBlock, rows }) {
+    const say = (text, tone = 'info') => announce($('piStatus'), text, tone);
+    let loaded = false;
+    let filter = 'all';
+
+    const friendly = (error) => error?.code === '42501'
+        ? 'القاعدة رفضت الطلب: هذا القسم لمالك المنصة وحده.'
+        : (error?.message || 'حدث خطأ غير متوقع.');
+
+    const missingTables = (error) => error?.code === '42P01'
+        || /pi_settings|pi_payments|pi_plan_prices/.test(error?.message || '') && /exist|schema cache/.test(error?.message || '');
+
+    // ── الملخّص وحالة الاتصال ────────────────────────────────────────────────
+    async function renderSummary(settings, payments) {
+        const linked = rows.filter(p => p.pi_uid).length;
+        const done = payments.filter(p => p.status === 'completed');
+        const total = done.reduce((s, p) => s + Number(p.amount || 0), 0);
+
+        let fn = null;
+        try {
+            const { data, error } = await supabase.functions.invoke('pi-payments', { body: { action: 'status' } });
+            fn = error ? { error } : data;
+        } catch (e) { fn = { error: e }; }
+
+        const keyState = fn?.error
+            ? ['دالة pi-payments غير منشورة', 'kpi--warning']
+            : !fn.key_configured
+                ? ['غير مضبوط', 'kpi--warning']
+                : fn.key_valid === false ? ['مرفوض من Pi', 'kpi--danger'] : ['مضبوط', 'kpi--success'];
+
+        $('piKpis').innerHTML = [
+            ['حسابات مربوطة بـPi', linked, ''],
+            ['الدفع بـPi', settings.payments_enabled ? 'مفعّل' : 'متوقف', settings.payments_enabled ? 'kpi--success' : ''],
+            ['الشبكة', settings.network === 'mainnet' ? 'Mainnet' : 'Testnet', settings.network === 'mainnet' ? 'kpi--info' : ''],
+            ['مفتاح Pi API', keyState[0], keyState[1]],
+            ['مدفوعات مكتملة', done.length, ''],
+            ['إجمالي المحصَّل', fmtPi(total), done.length ? 'kpi--success' : '']
+        ].map(([label, value, tone]) => `
+            <div class="kpi ${tone}">
+                <p class="kpi-label">${esc(label)}</p>
+                <p class="kpi-value">${esc(value)}</p>
+            </div>`).join('');
+    }
+
+    // ── الإعدادات ─────────────────────────────────────────────────────────────
+    function renderSettings(settings) {
+        $('piEnabled').checked = settings.payments_enabled;
+        $('piNetwork').value = settings.network;
+        const by = settings.updated_by ? rows.find(p => p.id === settings.updated_by) : null;
+        $('piSettingsMeta').textContent = settings.updated_by
+            ? `آخر تغيير ${when(settings.updated_at)}${by ? ` — ${by.full_name || by.email}` : ''}`
+            : 'لم تُغيَّر بعد';
+        $('piSettingsForm').hidden = false;
+    }
+
+    $('piSettingsForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const enabled = $('piEnabled').checked;
+        const network = $('piNetwork').value;
+        if (enabled && network === 'mainnet' && !window.confirm(
+            'تفعيل الدفع على Mainnet: أي دفعة جديدة ستكون بعملة Pi حقيقية. متابعة؟')) return;
+        const btn = $('piSettingsSave');
+        btn.disabled = true;
+        say('جارٍ الحفظ…');
+        // select() بعد التعديل: RLS لا تُرجع خطأ حين ترفض، بل صفرًا من الصفوف
+        const { data, error } = await supabase.from('pi_settings')
+            .update({ payments_enabled: enabled, network }).eq('id', true).select('id');
+        btn.disabled = false;
+        if (error || !data?.length) { say(error ? friendly(error) : 'لم يُحفظ — القاعدة لم تسمح بالتعديل.', 'error'); return; }
+        say('تم حفظ الإعدادات.', 'success');
+        load({ force: true });
+    });
+
+    // ── أسعار الخطط بالـPi ───────────────────────────────────────────────────
+    function renderPrices(plans, prices) {
+        const byPlan = new Map(prices.map(p => [p.plan_id, p]));
+        const input = (planId, field, value) => `<input class="form-control pi-price-input" type="number"
+            inputmode="decimal" min="0" step="0.0000001" dir="ltr" placeholder="—"
+            data-plan="${esc(planId)}" data-field="${field}" value="${value ?? ''}"
+            aria-label="${field === 'price_monthly_pi' ? 'السعر الشهري' : 'السعر السنوي'} بالـPi">`;
+
+        $('piPricesBody').innerHTML = table(['الخطة', 'السعر الحالي', 'شهري (π)', 'سنوي (π)'], plans, plan => {
+            const p = byPlan.get(plan.id);
+            return `<tr>
+                ${td(`<span class="owner-account-name">${esc(plan.name_ar || plan.name)}</span>`)}
+                ${td(`<span class="owner-cell-muted">${esc(`${plan.price_monthly} ${plan.currency} / شهر`)}</span>`)}
+                ${td(input(plan.id, 'price_monthly_pi', p?.price_monthly_pi))}
+                ${td(input(plan.id, 'price_yearly_pi', p?.price_yearly_pi))}
+            </tr>`;
+        });
+        $('piPricesForm').hidden = !plans.length;
+    }
+
+    $('piPricesForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const byPlan = new Map();
+        for (const el of $('piPricesBody').querySelectorAll('.pi-price-input')) {
+            const v = el.value.trim();
+            if (v !== '' && !(Number(v) > 0)) {
+                say('السعر لازم يكون رقمًا أكبر من صفر، أو اتركه فارغًا.', 'error');
+                el.focus();
+                return;
+            }
+            const row = byPlan.get(el.dataset.plan) ?? { plan_id: el.dataset.plan };
+            row[el.dataset.field] = v === '' ? null : Number(v);
+            byPlan.set(el.dataset.plan, row);
+        }
+        const btn = $('piPricesSave');
+        btn.disabled = true;
+        say('جارٍ حفظ الأسعار…');
+        const { data, error } = await supabase.from('pi_plan_prices')
+            .upsert([...byPlan.values()], { onConflict: 'plan_id' }).select('plan_id');
+        btn.disabled = false;
+        if (error || !data?.length) { say(error ? friendly(error) : 'لم تُحفظ الأسعار.', 'error'); return; }
+        say('تم حفظ الأسعار.', 'success');
+    });
+
+    // ── سجل المعاملات ─────────────────────────────────────────────────────────
+    let allPayments = [];
+    let planNames = new Map();
+
+    function renderPayments() {
+        const list = filter === 'all' ? allPayments : allPayments.filter(p => p.status === filter);
+        const account = (id) => {
+            const u = rows.find(p => p.id === id);
+            return `<span class="owner-account-name">${esc(u?.full_name || u?.email || id)}</span>`;
+        };
+        $('piPaymentsBody').innerHTML = table(
+            ['الحساب', 'الخطة', 'المبلغ', 'الشبكة', 'الحالة', 'التاريخ', 'المعاملة'], list, p => {
+                const [label, cls] = STATUS[p.status] || [p.status, 'status-neutral'];
+                return `<tr>
+                    ${td(account(p.user_id))}
+                    ${td(esc(`${planNames.get(p.plan_id) || '—'}${p.billing_cycle ? ` · ${p.billing_cycle === 'yearly' ? 'سنوي' : 'شهري'}` : ''}`))}
+                    ${td(`<span dir="ltr">${esc(fmtPi(p.amount))}</span>`)}
+                    ${td(esc(p.network === 'mainnet' ? 'Mainnet' : 'Testnet'))}
+                    ${td(`<span class="pill ${cls}">${esc(label)}</span>${p.error ? `<span class="owner-cell-muted" dir="ltr"> ${esc(p.error)}</span>` : ''}`)}
+                    ${td(when(p.created_at))}
+                    ${td(p.txid ? `<code class="owner-cell-muted" dir="ltr" title="${esc(p.txid)}">${esc(p.txid.slice(0, 10))}…</code>` : '—')}
+                </tr>`;
+            });
+    }
+
+    $('piPaymentsFilter').addEventListener('change', (e) => { filter = e.target.value; renderPayments(); });
+
+    // ── التحميل ──────────────────────────────────────────────────────────────
+    async function load({ force = false } = {}) {
+        if (loaded && !force) return;
+        loaded = true;
+
+        const [settings, plans, prices, payments] = await Promise.all([
+            supabase.from('pi_settings').select('payments_enabled, network, updated_at, updated_by').eq('id', true).maybeSingle(),
+            supabase.from('subscription_plans').select('id, name, name_ar, price_monthly, currency, sort_order')
+                .eq('is_active', true).order('sort_order'),
+            supabase.from('pi_plan_prices').select('plan_id, price_monthly_pi, price_yearly_pi'),
+            supabase.from('pi_payments')
+                .select('id, user_id, plan_id, billing_cycle, amount, network, status, txid, error, created_at')
+                .order('created_at', { ascending: false }).limit(200)
+        ]);
+
+        if (missingTables(settings.error)) {
+            $('piSetupNotice').hidden = false;
+            $('piKpis').innerHTML = '';
+            for (const id of ['piPricesBody', 'piPaymentsBody']) $(id).innerHTML = '';
+            loaded = false;
+            return;
+        }
+        $('piSetupNotice').hidden = true;
+
+        if (settings.error || !settings.data) {
+            $('piKpis').innerHTML = errorBlock(settings.error?.message || 'لا يوجد صف إعدادات.');
+            loaded = false;
+            return;
+        }
+
+        allPayments = payments.data || [];
+        planNames = new Map((plans.data || []).map(p => [p.id, p.name_ar || p.name]));
+
+        renderSettings(settings.data);
+        if (plans.error || prices.error) $('piPricesBody').innerHTML = errorBlock((plans.error || prices.error).message);
+        else renderPrices(plans.data || [], prices.data || []);
+        if (payments.error) $('piPaymentsBody').innerHTML = errorBlock(payments.error.message);
+        else renderPayments();
+        await renderSummary(settings.data, allPayments);
+    }
+
+    $('piRefresh').addEventListener('click', () => { say(''); load({ force: true }); });
+
+    return { load };
+}
