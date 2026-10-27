@@ -266,8 +266,12 @@ test('لوحة المالك: «المستخدمون» قسم داخل اللوح
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
 
-    await page.goto(`${baseUrl}/owner-dashboard.html#users`, { waitUntil: 'networkidle' });
+    // من «نظرة عامة» بالنقر في القائمة: القسم يُفتح داخل اللوحة بلا مغادرتها
+    await page.goto(`${baseUrl}/owner-dashboard.html`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('#overviewTabContent.active');
+    await page.click('.sidebar-item[data-tab="users"]');
     await page.waitForSelector('#usersTabContent.active .owner-users-frame');
+    assert.equal(new URL(page.url()).pathname + new URL(page.url()).hash, '/owner-dashboard.html#users');
     assert.equal(await page.getAttribute('.sidebar-item.active', 'data-tab'), 'users');
     const frame = page.frameLocator('.owner-users-frame');
     await frame.locator('#usersBody .uh-options-btn').first().waitFor();
