@@ -13,7 +13,8 @@ import path from 'node:path';
 import { chromium } from 'playwright';
 // الوحدة تستورد authority-center بمسار مطلق للمتصفح؛ الأجزاء الخالصة لا تحتاجه
 const govSrc = fs.readFileSync(new URL('../assets/js/owner/tenancy-governance.js', import.meta.url), 'utf8')
-    .replace("import { applyCriticalState } from '/assets/js/owner/authority-center.js';", 'const applyCriticalState = () => {};');
+    .replace("import { applyCriticalState } from '/assets/js/owner/authority-center.js';", 'const applyCriticalState = () => {};')
+    .replace("import { announce } from '/assets/js/owner/owner-workspace.js';", 'const announce = () => {};');
 const { reasonError, flattenUnits, reviewRow, GUARDED_SWITCHES, historicalHours, exceptionalTransferError,
         delegationExpiry, defaultDelegationExpiry, SWITCH_REGISTRY, SWITCH_GROUPS, switchView, switchConfirmText, switchNotice, groupSwitchViews,
         memberTransferDecisionError } = await import('data:text/javascript,' + encodeURIComponent(govSrc));
@@ -137,6 +138,11 @@ async function openOwner(browser, baseUrl, fx, { confirm = true } = {}) {
     return { page, context, errors, dialogs };
 }
 const calls = (page, name) => page.evaluate(n => (window.__RPC_ARGS__ || []).filter(([x]) => x === n).map(([, a]) => a), name);
+/** الأقسام تبويبات داخلية: عنصر في لوحة مخفية لا يُنقر، فيُفتح تبويبه أولًا كما يفعل المستخدم. */
+async function govTab(page, name) {
+    await page.click(`#govTab-${name}`);
+    await page.waitForSelector(`#governanceWorkspace [data-ws-panel="${name}"]:not([hidden])`);
+}
 
 const chromiumPath = resolveChromium();
 let server, baseUrl, browser;
@@ -181,6 +187,7 @@ test('الأجزاء الخالصة: السبب، الشجرة، صف المرا
 
 test('قبل التحقق بخطوتين: كل أزرار الحوكمة معطّلة، والأقسام معروضة بلا أخطاء', { skip: !chromiumPath }, async () => {
     const { page, context, errors } = await openOwner(browser, baseUrl, fixtures());
+    await govTab(page, 'reviews');
     await page.waitForSelector('#govReviews table');
     const states = await page.$$eval('#governanceTabContent [data-critical]', els => els.map(e => e.disabled));
     assert.ok(states.length >= 6, 'أزرار حرجة قليلة: ' + states.length);
@@ -218,6 +225,7 @@ test('رفض التأكيد لا يرسل شيئًا', { skip: !chromiumPath }, 
 
 test('الموافقة على طلب وصول، وقرار مراجعة، وإسناد شركة — بالمعاملات الصحيحة', { skip: !chromiumPath }, async () => {
     const { page, context } = await openOwner(browser, baseUrl, fixtures({ fresh: true }));
+    await govTab(page, 'access');
     await page.waitForSelector('[data-access="r1"][data-approve="true"]:not([disabled])');
     await page.fill('#govReason', 'مراجعة مبررة وموثقة');
     await page.click('[data-access="r1"][data-approve="true"]');
@@ -225,6 +233,7 @@ test('الموافقة على طلب وصول، وقرار مراجعة، وإس
     assert.deepEqual((await calls(page, 'owner_decide_access_request'))[0],
         { p_request: 'r1', p_approve: true, p_note: 'مراجعة مبررة وموثقة', p_hours: null });
 
+    await govTab(page, 'reviews');
     await page.waitForSelector(`[data-review-decision="${ADMIN}"]`);
     await page.selectOption(`[data-review-decision="${ADMIN}"]`, 'keep');
     await page.click(`[data-review-save="${ADMIN}"]`);
@@ -232,6 +241,7 @@ test('الموافقة على طلب وصول، وقرار مراجعة، وإس
     assert.deepEqual((await calls(page, 'owner_decide_admin_review'))[0], { p_user: ADMIN, p_decision: 'keep', p_note: 'مراجعة مبررة وموثقة' });
     assert.equal(await page.locator(`[data-review-apply="${ADMIN}"]`).count(), 0, 'زر التطبيق مع عمل مفتوح');
 
+    await govTab(page, 'hierarchy');
     await page.waitForSelector('#govAssignForm button:not([disabled])');
     await page.click('#govAssignForm button');
     await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_assign_company_unit'));
@@ -241,6 +251,7 @@ test('الموافقة على طلب وصول، وقرار مراجعة، وإس
 
 test('103: تسليم تذاكر مدعوم قبل التحويل، القرار المطبَّق نهائي، والتفويض بتاريخ انتهاء', { skip: !chromiumPath }, async () => {
     const { page, context, errors } = await openOwner(browser, baseUrl, fixtures({ fresh: true }));
+    await govTab(page, 'reviews');
     await page.waitForSelector(`[data-handover="${ADMIN}"]:not([disabled])`);
     assert.match(await page.textContent('#govReviews'), /تذاكر شركات مسندة \(للعلم\): 2/);
     assert.equal(await page.locator(`[data-review-decision="${SUPPORT}"]`).count(), 0, 'تغيير قرار مطبَّق');
@@ -257,6 +268,7 @@ test('103: تسليم تذاكر مدعوم قبل التحويل، القرار
     await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_reassign_admin_tickets'));
     assert.deepEqual((await calls(page, 'owner_reassign_admin_tickets'))[0], { p_from: ADMIN, p_to: SUPPORT, p_reason: 'تسليم قبل تحويل الحساب' });
     // التفويض: تاريخ الانتهاء الافتراضي 7 أيام، ومطلوب
+    await govTab(page, 'hierarchy');
     await page.waitForSelector('#govDelegateForm button:not([disabled])');
     assert.equal(await page.inputValue('#govDelegateExpiry'), new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10));
     await page.check('#govDelegateForm [data-cap]');
@@ -286,6 +298,7 @@ test('قبل الترحيلات: كل قسم يقول «غير مطبّق بعد
 
 test('مستندات الشركات: الاعتماد للإصدار النظيف وحده، والمعزول بلا أزرار', { skip: !chromiumPath }, async () => {
     const { page, context } = await openOwner(browser, baseUrl, fixtures({ fresh: true }));
+    await govTab(page, 'documents');
     await page.waitForSelector('[data-doc-review="v1"][data-approve="true"]:not([disabled])');
     assert.equal(await page.locator('[data-doc-review="v2"]').count(), 0, 'زر مراجعة لملف معزول');
     assert.match(await page.textContent('#govDocuments'), /معزول حتى الفحص/);
@@ -298,6 +311,7 @@ test('مستندات الشركات: الاعتماد للإصدار النظي�
 
 test('101: الاطلاع التاريخي بعد موافقة العميل وحدها وبمدة، والنقل الاستثنائي بسبب وتأكيد ومفتاح منع تكرار', { skip: !chromiumPath }, async () => {
     const { page, context, dialogs, errors } = await openOwner(browser, baseUrl, fixtures({ fresh: true }));
+    await govTab(page, 'moves');
     await page.waitForSelector('[data-hist="h1"][data-approve="true"]:not([disabled])');
     assert.equal(await page.locator('[data-hist="h2"]').count(), 0, 'قرار قبل موافقة العميل');
     await page.fill('[data-hist-hours="h1"]', '500');
@@ -328,6 +342,7 @@ test('101: الاطلاع التاريخي بعد موافقة العميل وح
 
 test('113: طلبات نقل الأعضاء — الموافقة حرجة بسبب 20 حرفًا وتأكيد وتصحيح الوجهة، والرفض بسبب، والتحذير من الدوام', { skip: !chromiumPath }, async () => {
     const { page, context, dialogs, errors } = await openOwner(browser, baseUrl, fixtures({ fresh: true }));
+    await govTab(page, 'moves');
     await page.waitForSelector('[data-mt="mt1"][data-approve="true"]:not([disabled])');
     const text = await page.textContent('#govMoves');
     assert.match(text, /طلبات نقل الأعضاء/);
@@ -698,6 +713,7 @@ test('بقية جداول الحوكمة: سبب طويل لا يدفع زرّي
     fx.rpc.owner_access_requests.requests[0].reason = `${LONG} ${LONG}`;
     const { page, context } = await openOwner(browser, baseUrl, fx);
     await page.setViewportSize({ width: 1351, height: 544 });
+    await govTab(page, 'access');
     await page.waitForSelector('#govAccess [data-access]');
     const out = await page.evaluate(() => {
         const box = document.querySelector('#govAccess').getBoundingClientRect();
@@ -706,5 +722,105 @@ test('بقية جداول الحوكمة: سبب طويل لا يدفع زرّي
             .map(b => b.textContent.trim());
     });
     assert.deepEqual(out, [], 'أزرار خارج اللوحة');
+    await context.close();
+});
+
+/* ── التبويبات الداخلية ─────────────────────────────────────────────────────
+   كانت أقسام الحوكمة السبعة متتابعة في صفحة طويلة، فتظهر نتيجة العملية بعيدًا عن موضعها.
+   الآن كل قسم لوحة مستقلة؛ والتبديل عرض فقط (البيانات تُحمَّل مرة). */
+const visiblePanels = (page, ws = 'governanceWorkspace') => page.$$eval(`#${ws} [role="tabpanel"]`,
+    els => els.filter(e => !e.hidden && e.offsetParent !== null).map(e => e.dataset.wsPanel));
+const badges = (page, ws = 'governanceWorkspace') => page.$$eval(`#${ws} [data-ws-count]`,
+    els => Object.fromEntries(els.map(e => [e.dataset.wsCount, e.hidden ? null : e.textContent.trim()])));
+
+test('التبويبات: لوحة واحدة ظاهرة، الشارات من البيانات، الأسهم (RTL) وتذكّر التبويب', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openOwner(browser, baseUrl, fixtures());
+    await page.waitForSelector('#govMoves table', { state: 'attached' });
+    assert.deepEqual(await visiblePanels(page), ['switches']);
+    assert.deepEqual(await badges(page), { switches: '0/2', access: '1', reviews: '1', hierarchy: '1', moves: '3', documents: '1', usage: '✓' });
+    // الحساس: طلبات تنتظر قرارًا
+    assert.equal(await page.getAttribute('[data-ws-count="access"]', 'data-tone'), 'attention');
+
+    await govTab(page, 'access');
+    assert.deepEqual(await visiblePanels(page), ['access']);
+    assert.equal(await page.getAttribute('#govTab-access', 'aria-selected'), 'true');
+    assert.equal(await page.getAttribute('#govTab-switches', 'aria-selected'), 'false');
+    assert.equal(await page.getAttribute('#govTab-access', 'tabindex'), '0');
+    // التبديل لا يعيد النداءات
+    const before = await page.evaluate(() => window.__RPC_ARGS__.length);
+    await govTab(page, 'documents');
+    await govTab(page, 'access');
+    assert.equal(await page.evaluate(() => window.__RPC_ARGS__.length), before, 'التبديل أعاد تحميل البيانات');
+
+    // RTL: السهم الأيسر يتقدّم بصريًا، وHome/End للطرفين
+    await page.focus('#govTab-access');
+    await page.keyboard.press('ArrowLeft');
+    assert.deepEqual(await visiblePanels(page), ['reviews']);
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'govTab-reviews');
+    await page.keyboard.press('ArrowRight');
+    assert.deepEqual(await visiblePanels(page), ['access']);
+    await page.keyboard.press('End');
+    assert.deepEqual(await visiblePanels(page), ['usage']);
+    await page.keyboard.press('Home');
+    assert.deepEqual(await visiblePanels(page), ['switches']);
+
+    // التبويب الأخير يُتذكَّر بعد إعادة التحميل
+    await govTab(page, 'moves');
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForSelector('#govMoves table');
+    assert.deepEqual(await visiblePanels(page), ['moves']);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('نتيجة العملية في التبويب نفسه: لا قفز لأعلى، الشريط والسبب والرسالة ظاهرة، والشارة تتحدّث', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openOwner(browser, baseUrl, fixtures({ fresh: true }));
+    await page.setViewportSize({ width: 1440, height: 700 });
+    await govTab(page, 'moves');
+    await page.waitForSelector('[data-hist="h1"][data-approve="true"]:not([disabled])');
+    await page.fill('#govReason', 'متابعة شكوى سابقة بموافقة العميل');
+    await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
+    const y0 = await page.evaluate(() => scrollY);
+    assert.ok(y0 > 200, 'اللوحة لم تحتج تمريرًا: ' + y0);
+    // القاعدة تقبل: الطلب لم يعد ينتظر المالك
+    await page.evaluate(() => { window.__FIXTURES__.rpc.owner_historical_requests[0].status = 'approved'; });
+    await page.click('[data-hist="h1"][data-approve="true"]');
+    await page.waitForFunction(() => document.getElementById('govStatus').dataset.tone === 'success');
+    const view = await page.evaluate(() => {
+        const r = (sel) => document.querySelector(sel).getBoundingClientRect();
+        const inView = (b) => b.top >= 0 && b.bottom <= innerHeight;
+        return { y: scrollY, tab: document.getElementById('governanceWorkspace').dataset.wsActive,
+                 status: inView(r('#govStatus')), reason: inView(r('#govReason')), tabs: inView(r('#govTab-moves')) };
+    });
+    assert.equal(view.tab, 'moves');
+    assert.ok(Math.abs(view.y - y0) < 40, `قفزت الصفحة: ${y0} → ${view.y}`);
+    assert.deepEqual([view.status, view.reason, view.tabs], [true, true, true], 'الرسالة أو السبب أو التبويبات خارج الشاشة');
+    assert.match(await page.textContent('#govStatus'), /تمت الموافقة لمدة 24 ساعة/);
+    assert.deepEqual((await badges(page)).moves, '2', 'الشارة لم تتحدّث');
+
+    // فشل الخادم: الزر نفسه يعود متاحًا وعليه التركيز، والرسالة خطأ
+    await page.evaluate(() => { window.__FIXTURES__.rpcErrors = { owner_decide_member_transfer: { code: '42501', message: 'رفضت القاعدة' } }; });
+    await page.fill('#govReason', 'الوجهة غير معروفة للمراجعة');
+    await page.click('[data-mt="mt1"][data-approve="false"]');
+    await page.waitForFunction(() => document.getElementById('govStatus').dataset.tone === 'error');
+    assert.match(await page.textContent('#govStatus'), /رفضت القاعدة/);
+    assert.equal(await page.isDisabled('[data-mt="mt1"][data-approve="false"]'), false);
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset.mt), 'mt1');
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('التبويبات على الجوال: شريط واحد يتمرّر أفقيًا بلا تمرير للصفحة', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openOwner(browser, baseUrl, fixtures());
+    await page.setViewportSize({ width: 390, height: 800 });
+    await govTab(page, 'usage');
+    const m = await page.evaluate(() => {
+        const bar = document.querySelector('#governanceWorkspace .ows-tabs');
+        const tab = document.getElementById('govTab-usage').getBoundingClientRect();
+        return { page: document.documentElement.scrollWidth <= innerWidth, scrolls: bar.scrollWidth > bar.clientWidth,
+                 tabInView: tab.left >= 0 && tab.right <= innerWidth };
+    });
+    assert.deepEqual(m, { page: true, scrolls: true, tabInView: true });
+    assert.deepEqual(errors, []);
     await context.close();
 });
