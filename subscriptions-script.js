@@ -15,6 +15,11 @@ import {
     getPlanPrices
 } from '/whatsapp-subscription-service.js';
 import { formatMoney, currencySymbol, discountPercent } from '/assets/js/plan-pricing-model.js';
+// الدفع بعملة Pi (داخل Pi Browser فقط). بعد الإتمام يُرسَل طلب الاشتراك المعتاد
+// بمرجع الدفعة، فالتفعيل يبقى بمراجعة الإدارة كأي وسيلة أخرى.
+import { getPiOffer, payWithPi } from '/assets/js/pi-checkout.js';
+
+const PI_METHOD = 'pi';
 // سؤال «فرد أم شركة؟» قبل الشراء (migrations/068). الفرد يكمل للدفع، والشركة
 // تُرسل بياناتها كطلب تراجعه الإدارة. مسار الاشتراك نفسه لم يتغيّر:
 // طلب اشتراك → مراجعة الإدارة → تفعيل.
@@ -354,7 +359,7 @@ async function updatePlanButtonsState(activePlan) {
  * @returns {Promise<{paymentMethod: string, paymentReference: string, proofFile: File|null}|null>}
  *          null لو العميل ألغى العملية.
  */
-function openPaymentMethodModal() {
+function openPaymentMethodModal(piOffer = null) {
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.style.cssText = `
@@ -391,6 +396,7 @@ function openPaymentMethodModal() {
                         </span>
                     </label>
                 `).join('')}
+                ${piOptionHtml(piOffer)}
             </div>
 
             <div id="pmExternalDetails" style="background:var(--color-muted); border-radius:0.75rem; padding:0.85rem; margin-bottom:1rem; font-size:0.82rem; line-height:1.9; white-space:pre-line;"></div>
@@ -429,6 +435,7 @@ function openPaymentMethodModal() {
             externalDetailsEl.style.display = isExternal ? 'block' : 'none';
             externalDetailsEl.innerHTML = isExternal ? (EXTERNAL_PAYMENT_INSTRUCTIONS[selected] || '') : '';
             proofFieldEl.style.display = isExternal ? 'block' : 'none';
+            referenceInputEl.parentElement.style.display = selected === PI_METHOD ? 'none' : 'block';
         }
         radios.forEach((r) => r.addEventListener('change', updateVisibility));
         updateVisibility();
@@ -446,6 +453,11 @@ function openPaymentMethodModal() {
         box.querySelector('#pmConfirmBtn').addEventListener('click', () => {
             const selected = box.querySelector('input[name="pm_method"]:checked').value;
             errorEl.style.display = 'none';
+
+            if (selected === PI_METHOD && piOffer?.available) {
+                cleanup({ paymentMethod: PI_METHOD, paymentReference: '', proofFile: null });
+                return;
+            }
 
             if (!PAYMENT_METHODS.includes(selected)) {
                 errorEl.textContent = 'يجب اختيار وسيلة الدفع.';
@@ -482,6 +494,51 @@ function openPaymentMethodModal() {
             });
         });
     });
+}
+
+/** خيار Pi في مودال الدفع: يظهر فقط حين للخطة سعر بالـPi داخل Pi Browser. */
+function piOptionHtml(offer) {
+    if (!offer || !(offer.available || offer.reason === 'not_linked')) return '';
+    const amount = `${Number(offer.amount).toLocaleString('ar-EG', { maximumFractionDigits: 7 })} π`;
+    const disabled = !offer.available;
+    return `
+        <label style="display:flex; align-items:flex-start; gap:0.6rem; padding:0.85rem; border:2px solid var(--color-border); border-radius:0.75rem; margin-bottom:0.6rem; cursor:${disabled ? 'not-allowed' : 'pointer'}; opacity:${disabled ? '0.6' : '1'};" data-method-option="${PI_METHOD}">
+            <input type="radio" name="pm_method" value="${PI_METHOD}" ${disabled ? 'disabled' : ''} style="margin-top:0.2rem;">
+            <span>
+                <strong>Pi Network — ${amount}</strong>
+                <div style="font-size:0.8rem; color:var(--color-text-secondary); margin-top:0.2rem;">
+                    ${disabled
+                        ? 'لازم تكون مسجّل الدخول بحساب Pi علشان تدفع بـPi. سجّل خروج وادخل بزر Pi Network.'
+                        : 'ادفع من محفظة Pi مباشرة. بعد تأكيد الدفعة يُرسَل طلب اشتراكك للمراجعة والتفعيل.'}
+                </div>
+            </span>
+        </label>`;
+}
+
+/**
+ * يشغّل دفع Pi ثم يحوّل النتيجة لبيانات طلب الاشتراك المعتاد.
+ * 'gateway' هي الوسيلة الداخلية المسموحة في القاعدة، ومرجع الدفعة يميّزها.
+ */
+async function settleWithPi(plan, billingCycle, offer) {
+    const { paymentId, txid } = await payWithPi({
+        planId: offer.planId,
+        planLabel: PLAN_LABELS[plan] || plan,
+        billingCycle,
+        amount: offer.amount
+    });
+    return {
+        paymentMethod: 'gateway',
+        paymentReference: `Pi Network · ${offer.amount} π · payment ${paymentId} · txid ${txid}`,
+        proofFile: null
+    };
+}
+
+/** لو الدفع بـPi تم ثم فشل إرسال الطلب: العميل دفع فعلًا، فلازم معه المرجع. */
+function piPaidNote(paymentInfo) {
+    const ref = paymentInfo?.paymentReference || '';
+    return ref.startsWith('Pi Network')
+        ? `\n\nدفعتك بـPi تمت بنجاح ومسجّلة لدينا. تواصل مع الدعم بهذا المرجع لإتمام اشتراكك:\n${ref}`
+        : '';
 }
 
 function initPlanButtons() {
@@ -587,10 +644,23 @@ async function handleSubscribe(plan, buttonEl) {
         if (!confirmed) return;
     }
 
-    const paymentInfo = await openPaymentMethodModal();
+    // الترقية مبلغها فرق سعر تحسبه القاعدة، وسعر Pi سعر كامل — فلا Pi للترقية
+    const piOffer = isUpgrade ? null : await getPiOffer(plan, billingCycle);
+    let paymentInfo = await openPaymentMethodModal(piOffer);
     if (!paymentInfo) return; // العميل ألغى العملية
 
     const originalText = buttonEl ? buttonEl.textContent : '';
+
+    if (paymentInfo.paymentMethod === PI_METHOD) {
+        try {
+            if (buttonEl) { buttonEl.textContent = 'جاري الدفع بـPi...'; buttonEl.disabled = true; }
+            paymentInfo = await settleWithPi(plan, billingCycle, piOffer);
+        } catch (err) {
+            alert(err.message);
+            if (buttonEl) { buttonEl.textContent = originalText; buttonEl.disabled = false; }
+            return;
+        }
+    }
 
     try {
         if (buttonEl) {
@@ -611,7 +681,7 @@ async function handleSubscribe(plan, buttonEl) {
         await loadSubscriptionStatus();
     } catch (error) {
         console.error('Error creating subscription:', error);
-        alert(error.message || 'حدث خطأ أثناء إنشاء طلب الاشتراك. يرجى المحاولة مرة أخرى.');
+        alert((error.message || 'حدث خطأ أثناء إنشاء طلب الاشتراك. يرجى المحاولة مرة أخرى.') + piPaidNote(paymentInfo));
     } finally {
         if (buttonEl) {
             buttonEl.textContent = originalText;
@@ -636,11 +706,23 @@ async function handleRenew() {
         return;
     }
 
-    const paymentInfo = await openPaymentMethodModal();
+    const billingCycle = getActiveBillingCycle();
+    const piOffer = await getPiOffer(plan, billingCycle);
+    let paymentInfo = await openPaymentMethodModal(piOffer);
     if (!paymentInfo) return; // العميل ألغى العملية
 
-    const billingCycle = getActiveBillingCycle();
     const originalText = renewBtn ? renewBtn.textContent : '';
+
+    if (paymentInfo.paymentMethod === PI_METHOD) {
+        try {
+            if (renewBtn) { renewBtn.textContent = 'جاري الدفع بـPi...'; renewBtn.disabled = true; }
+            paymentInfo = await settleWithPi(plan, billingCycle, piOffer);
+        } catch (err) {
+            alert(err.message);
+            if (renewBtn) { renewBtn.textContent = originalText || 'تجديد الاشتراك الحالي'; renewBtn.disabled = false; }
+            return;
+        }
+    }
 
     try {
         if (renewBtn) {
@@ -659,7 +741,7 @@ async function handleRenew() {
         await loadSubscriptionStatus();
     } catch (error) {
         console.error('Error renewing subscription:', error);
-        alert(error.message || 'حدث خطأ أثناء تجديد الاشتراك. يرجى المحاولة مرة أخرى.');
+        alert((error.message || 'حدث خطأ أثناء تجديد الاشتراك. يرجى المحاولة مرة أخرى.') + piPaidNote(paymentInfo));
     } finally {
         if (renewBtn) {
             renewBtn.textContent = originalText || 'تجديد الاشتراك الحالي';

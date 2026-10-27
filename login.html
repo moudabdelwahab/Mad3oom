@@ -2178,24 +2178,24 @@
       throw new Error('تعذّر الاتصال بالخادم: ' + err.message);
     }
 
-    if (!res.ok || !data?.session) throw new Error(data?.error || 'فشل التحقق من حساب Pi Network');
+    // pi-auth لا يُرجع جلسة جاهزة بل توكن لمرة واحدة (token_hash) يُبدَّل بجلسة
+    // هنا عبر verifyOtp — نفس نمط aqar-auth. انتظار data.session كان يُفشل كل
+    // دخول بـPi منذ تقوية pi-auth.
+    if (!res.ok || !data?.token_hash) throw new Error(data?.error || 'فشل التحقق من حساب Pi Network');
 
     _handlingAuthManually = true;
-    const { error: setErr } = await withTimeout(
-      supabase.auth.setSession({
-        access_token:  data.session.access_token,
-        refresh_token: data.session.refresh_token,
-      }),
+    const { data: otp, error: setErr } = await withTimeout(
+      supabase.auth.verifyOtp({ token_hash: data.token_hash, type: 'magiclink' }),
       8000,
       'إنشاء الجلسة'
     );
-    if (setErr) {
+    if (setErr || !otp?.session) {
       _handlingAuthManually = false;
-      throw new Error('فشل إنشاء الجلسة: ' + setErr.message);
+      throw new Error('فشل إنشاء الجلسة: ' + (setErr?.message || 'لا جلسة'));
     }
 
     if (currentSubdomain) {
-      const check = await checkSubdomainOwnership(data.session.access_token);
+      const check = await checkSubdomainOwnership(otp.session.access_token);
       if (!check.ok) {
         await supabase.auth.signOut();
         _handlingAuthManually = false;

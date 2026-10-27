@@ -72,6 +72,15 @@ Deno.serve(async (req: Request) => {
 
   const key = Deno.env.get("PI_API_KEY") ?? "";
 
+  // ── إتاحة الدفع لصفحة الاشتراكات: لأي مسجّل، بلا تفاصيل المفتاح ─────────
+  if (action === "config") {
+    return json({
+      available: settings.payments_enabled && Boolean(key),
+      network: settings.network,
+      pi_linked: Boolean(user.user_metadata?.pi_uid),
+    });
+  }
+
   // ── حالة التكامل: للمالك وحده ─────────────────────────────────────────────
   if (action === "status") {
     const { data: isOwner } = await userClient.rpc("is_platform_owner");
