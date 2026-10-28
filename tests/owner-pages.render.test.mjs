@@ -193,13 +193,14 @@ test('البحث لا يكسر مرشّح PostgREST، والترقيم شامل 
 test('قائمة المالك: «الإدارة» و«التشغيل» صفحات /owner/ بقشرة المالك، لا روابط /admin/', () => {
     const html = fs.readFileSync(path.join(ROOT, 'assets/components/owner-sidebar.html'), 'utf8');
     const items = [...html.matchAll(/<a href="([^"]+)" class="sidebar-item"([^>]*)>/g)].map(m => [m[1], m[2]]);
-    assert.ok(!items.some(([href]) => href.startsWith('/admin/')), 'عنصر في قائمة المالك يقود إلى /admin/');
+    // الاستثناء الوحيد «المستخدمون»: data-tab يفتح القسم داخل اللوحة، والرابط /admin/users.html احتياط لصفحة بلا القسم
+    assert.ok(!items.some(([href, attrs]) => href.startsWith('/admin/') && !(href === '/admin/users.html' && attrs.includes('data-tab="users"'))),
+        'عنصر في قائمة المالك يقود إلى /admin/');
     const pages = items.filter(([href]) => href.startsWith('/owner/')).map(([href, attrs]) => [href, /data-page="([^"]+)"/.exec(attrs)?.[1]]);
     // ترتيب القائمة = ترتيب PAGES. «المستخدمون» و«Pi Network» قسمان داخل اللوحة نفسها (data-tab)، لا صفحتان
     assert.deepEqual(pages.map(([h]) => h), Object.keys(PAGES).map(p => `/owner/${p}.html`));
-    for (const tab of ['users', 'pi']) {
-        assert.ok(items.some(([href, attrs]) => href === `/owner-dashboard.html#${tab}` && attrs.includes(`data-tab="${tab}"`)), tab);
-    }
+    assert.ok(items.some(([href, attrs]) => href === '/admin/users.html' && attrs.includes('data-tab="users"')), 'users');
+    assert.ok(items.some(([href, attrs]) => href === '/owner-dashboard.html#pi' && attrs.includes('data-tab="pi"')), 'pi');
     for (const [href, dataPage] of pages) {
         assert.equal(`/owner/${dataPage}.html`, href, `data-page لا يطابق الملف: ${href}`);
         assert.ok(fs.existsSync(path.join(ROOT, href)), `الصفحة غير موجودة: ${href}`);

@@ -65,6 +65,10 @@ test('فلتر الرتبة والحالة (المحظور بأعمدة is_banne
     assert.deepEqual(names(filterUsers(users, { role: 'super_user' })), ['c']);
     assert.deepEqual(names(filterUsers(users, { status: 'banned' })), ['d']);
     assert.deepEqual(names(filterUsers(users, { status: 'active' })), ['c', 'b', 'a']);
+    // الحظر من ban_status/ban_until كما في is_banned() — لا عمود status في profiles
+    assert.equal(isBanned({ ban_status: 'temporary', ban_until: '2000-01-01T00:00:00Z' }), false, 'حظر مؤقت منتهٍ');
+    assert.equal(isBanned({ ban_status: 'temporary', ban_until: '2999-01-01T00:00:00Z' }), true);
+    assert.equal(isBanned({ status: 'banned' }), false, 'العمود القديم status غير موجود في القاعدة');
     assert.deepEqual(names(filterUsers(users, { status: 'frozen' }, new Map([['b', true], ['c', false]]))), ['b']);
 });
 

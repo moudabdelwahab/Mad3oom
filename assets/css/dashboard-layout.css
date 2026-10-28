@@ -1,9 +1,9 @@
 /* ============================================================================
    dashboard-layout.css — تخطيط اللوحات الثلاث (الإدارة، المالك، الشركة)
    ----------------------------------------------------------------------------
-   قائمة جانبية رأسية ثابتة يمين الشاشة (RTL) بارتفاع الصفحة كله، وفيها هوية
-   مدعوم في أعلاها؛ وشريط علوي على هيئة بطاقة فوق منطقة المحتوى يسارها؛
-   والمحتوى يبدأ تحته ويأخذ باقي العرض.
+   شريط علوي كحلي بعرض الشاشة كله وفيه هوية مدعوم، كما كان قبل إعادة
+   التصميم؛ وتحته قائمة جانبية رأسية ثابتة يمين الشاشة (RTL) قابلة للطي؛
+   والمحتوى يسارها ويأخذ باقي العرض.
 
    قاعدة صارمة: لا لون جديد. كل لون هنا إمّا رمز موجود (‎--color-*) من
    styles.css (الإدارة) أو customer-dashboard.css (المالك والشركة)، أو أبيض
@@ -80,20 +80,20 @@
 }
 
 /* ==================== 2) الشريط العلوي ==================== */
-/* شريط كحلي ثابت فوق منطقة المحتوى، بألوانه السابقة: الخلفية ‎--color-primary‎
-   ونص الأزرار أبيض من قواعد كل لوحة نفسها (admin-style.css للإدارة،
-   customer-dashboard.css للمالك والشركة) — هنا الموضع والارتفاع فقط. */
+/* شريط كحلي ثابت بعرض الشاشة كله، والقائمة الجانبية تحته — كما كان قبل
+   إعادة التصميم. الخلفية ‎--color-primary‎ ونص الأزرار أبيض من قواعد كل لوحة
+   نفسها (admin-style.css للإدارة، customer-dashboard.css للمالك والشركة) —
+   هنا الموضع والارتفاع فقط. */
 :root:not(.ws-embedded) body.dash-layout .admin-nav {
     position: fixed;
     top: 0;
     left: 0;
-    right: var(--dash-sidebar-current);
+    right: 0;
     z-index: 1000;
     padding: 0;
     background: var(--color-primary);
     border-bottom: 1px solid var(--color-nav-border, rgba(255, 255, 255, .1));
     box-shadow: var(--shadow-sm);
-    transition: right var(--dur-base, .25s) var(--ease-out, ease);
 }
 
 :root:not(.ws-embedded) body.dash-layout .nav-container {
@@ -157,14 +157,9 @@
     :root:not(.ws-embedded) body.dash-layout .portal-search { top: var(--dash-top); }
 }
 
-/* الهوية في القائمة الجانبية على الشاشات الكبيرة؛ في الشريط فقط حين تكون
-   القائمة درجًا مخفيًا. */
+/* الهوية في الشريط دائمًا كما كانت؛ زر فتح القائمة للدرج وحده (تحت 1100px) */
 @media (min-width: 1100px) {
-    :root:not(.ws-embedded) body.dash-layout .admin-nav .portal-brand,
-    :root:not(.ws-embedded) body.dash-layout .admin-nav .admin-logo,
-    :root:not(.ws-embedded) body.dash-layout .admin-nav .menu-toggle {
-        display: none !important;
-    }
+    :root:not(.ws-embedded) body.dash-layout .admin-nav .menu-toggle { display: none !important; }
 }
 
 @media (max-width: 480px) {
@@ -182,10 +177,10 @@
 @media (min-width: 1100px) {
     :root:not(.ws-embedded) body.dash-layout .sidebar {
         position: fixed;
-        top: 0;
+        top: var(--dash-header-h);
         right: 0;
-        height: 100vh;
-        height: 100dvh;
+        height: calc(100vh - var(--dash-header-h));
+        height: calc(100dvh - var(--dash-header-h));
         width: var(--dash-sidebar-current);
         max-width: none;
         z-index: 1001;
@@ -215,7 +210,19 @@
 
 /* ---------- الهوية ---------- */
 /* أنماط .dash-brand الأساسية في admin-style.css: القائمة نفسها تُركَّب أيضًا في
-   صفحات لا تحمل هذا الملف (المنتدى والمجتمع لحسابات الفريق). */
+   صفحات لا تحمل هذا الملف (المنتدى والمجتمع لحسابات الفريق).
+   على الشاشات الكبيرة الشعار في الشريط العلوي، فرأس القائمة يحمل اسم اللوحة
+   وحده («لوحة المالك» …) كما كان؛ الشعار يبقى في الدرج على الجوال. */
+@media (min-width: 1100px) {
+    :root:not(.ws-embedded) body.dash-layout .sidebar-header { min-height: 0; }
+    :root:not(.ws-embedded) body.dash-layout .dash-brand-logo,
+    :root:not(.ws-embedded) body.dash-layout .dash-brand-name { display: none; }
+    :root:not(.ws-embedded) body.dash-layout .dash-brand-context {
+        font-size: var(--fs-md, 1rem);
+        font-weight: 800;
+        opacity: 1;
+    }
+}
 
 /* ---------- زر الطي (الشاشات الكبيرة فقط) ---------- */
 :root:not(.ws-embedded) body.dash-layout #sidebarCollapseBtn { display: none; }
@@ -362,9 +369,7 @@
         padding-inline: 0;
     }
 
-    :root[data-sidebar='collapsed']:not(.ws-embedded) body.dash-layout .dash-brand { flex: 0 0 auto; }
-    :root[data-sidebar='collapsed']:not(.ws-embedded) body.dash-layout .dash-brand-text { display: none; }
-    :root[data-sidebar='collapsed']:not(.ws-embedded) body.dash-layout .dash-brand-logo { width: 2rem; height: 2rem; }
+    :root[data-sidebar='collapsed']:not(.ws-embedded) body.dash-layout .dash-brand { display: none; }
 
     :root[data-sidebar='collapsed']:not(.ws-embedded) body.dash-layout .sidebar-menu { padding-inline: .6rem; }
 

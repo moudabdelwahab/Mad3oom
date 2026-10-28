@@ -535,8 +535,9 @@ async function fillNotificationPopover(popover, options) {
         item.addEventListener('click', (e) => {
             const tabName = item.getAttribute('data-tab');
 
-            // خارج لوحة العميل: نسيب الرابط يشتغل عادي (href في الـHTML)
-            if (!onTabChange) return;
+            // خارج لوحة العميل، أو صفحة بلا قسم لهذا العنصر (نسخة أقدم من
+            // الصفحة مع قائمة أحدث): نسيب الرابط يشتغل عادي (href في الـHTML)
+            if (!onTabChange || !document.getElementById(`${tabName}TabContent`)) return;
 
             e.preventDefault();
             setActiveSidebarTab(tabName);
