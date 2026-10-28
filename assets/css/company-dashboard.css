@@ -1506,3 +1506,10 @@ body.company-app .cu-actions-cell { white-space: nowrap; text-align: left; }
 @media (max-width: 480px) {
     body.company-app .cu-toolbar { grid-template-columns: 1fr; }
 }
+
+/* ── 120: إدارة المتجر ─────────────────────────────────────────────────── */
+body.company-app .sm-nav { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0; }
+body.company-app .sm-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0; }
+body.company-app .btn-danger { background: var(--danger, #b42318); border-color: var(--danger, #b42318); color: #fff; }
+body.company-app .btn-danger:disabled { opacity: .55; cursor: not-allowed; }
+body.company-app [aria-busy="true"] { cursor: progress; }

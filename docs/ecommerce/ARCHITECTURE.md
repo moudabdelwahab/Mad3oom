@@ -64,7 +64,7 @@ All new tables: RLS on, **no table grants** to `anon`/`authenticated`, restricti
 
 ## 7. Order operations: tracking only
 
-`store_order_requests.kind` ∈ `return`, `exchange`, `cancellation`, `refund_inquiry`, `shipping_issue`, `other`. Status ∈ `recorded` (initial), `in_review`, `awaiting_customer`, `escalated`, `resolved`, `declined`; resolved/declined are terminal (only a store admin may reopen, to `in_review`). Every change is appended to `store_order_request_events`. Every JSON result carries `executes_in_shopify: false` and the UI repeats it (`NOT_EXECUTED_NOTE`). **Nothing is executed in Shopify**: there are no GraphQL mutations in the connector and no write scopes. A resolved refund request is a recorded decision, not a completed refund.
+`store_order_requests.kind` ∈ `return`, `exchange`, `cancellation`, `refund_inquiry`, `shipping_issue`, `other`. Status ∈ `recorded` (initial), `in_review`, `awaiting_customer`, `escalated`, `resolved`, `declined`; resolved/declined are terminal (only a store admin may reopen, to `in_review`). Every change is appended to `store_order_request_events`. Every JSON result carries `executes_in_shopify: false` and the UI repeats it (`NOT_EXECUTED_NOTE`). **A follow-up request executes nothing in Shopify** — not even after 120: Shopify actions that exist (§10, behind `shopify_management`) are separate, confirmed operations on «إدارة المتجر», and refunds are never executed from Mad3oom. A resolved refund request is a recorded decision, not a completed refund.
 
 Automation reuses `notifications`: owner on connection error/reauth, assignees on new/changed requests, the owner and assignees when a linked order changes, overdue requests once (`store_maintenance_sweep`, cron `23 * * * *`). No customer-facing message is sent automatically.
 
@@ -95,6 +95,10 @@ The Owner stays distinct from Admin. Read-only, metadata-only RPCs behind `owner
 `owner_accounts_overview` (individual/company/store, subscription status), `owner_store_integrations` (connection health, last sync, failed events, compliance counts — no tokens, no customer/order data), `owner_store_events`, `owner_entitlement_diagnostics`, plus the `shopify_config` action (which secrets are set, as booleans, and the public callback/webhook URLs).
 Writes need `owner_critical_ok()` (fresh step-up), a reason, and are written to `privileged_audit`: `owner_set_company_account_kind` and `owner_store_test_entitlements` (**only the owner's own store company**, ≤ 30 days, via `company_feature_overrides`). Viewing a store as staff uses the existing preview contexts (`company_user_preview`), which are read-only. The Owner cannot open another merchant's data, impersonate a merchant, or grant paid entitlements to real customers.
 
-## 10. Rollback
+## 10. Store management (120)
 
-`migrations/_rollback/118_*.down.sql` and `119_*.down.sql` refuse while store data or Shopify connections exist, restore the production text of every rewritten function (md5-verified in the SQL tests), and can be re-applied afterwards.
+`shopify-admin.js` holds 61 operations (20 reads, 41 writes), each `validate` (pure, strict) → `inputHash` → database authorization → `check` (reads Shopify's current state; refuses what Shopify state makes ineligible) → `run` (one GraphQL request) → journal result from the service role. The database owns the decision: `_ihub_shopify_op_catalog()` (permission, risk, confirmation, scopes), `_ihub_shopify_op_gate` (store, preview, entitlements incl. `shopify_management`, connection of the caller's company and role, permission, scopes), `ihub_shopify_op_confirm_begin` / `ihub_shopify_op_authorize` (one-time confirmation bound to user + connection + operation + input hash; rate limits; journal row), `ihub_svc_shopify_op_result`. The page «إدارة المتجر» (`store-manage.js`, `store-manage-model.js`) renders only what `ihub_shopify_manage_status` allows and runs every consequential operation as form → confirmation with Shopify's current state → execution. Financial mutations are absent by design (`SHOPIFY_MANAGEMENT_MATRIX.md` §2).
+
+## 11. Rollback
+
+`migrations/_rollback/118_*.down.sql`, `119_*.down.sql` and `120_*.down.sql` refuse while store data or Shopify connections exist, restore the production text of every rewritten function (md5-verified in the SQL tests), and can be re-applied afterwards.

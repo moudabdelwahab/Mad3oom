@@ -201,7 +201,7 @@ test('صفحة الصلاحيات لا تعرض مفاتيح تعديل حين �
 });
 
 test('118/119: صفحات المتجر لحساب ecommerce_store وحده، وShopify للمدير، والتقارير للمدير والمشرف', () => {
-    const store = ['storeOverview', 'shopify', 'storeOrders', 'storeRequests', 'storeReports'];
+    const store = ['storeOverview', 'shopify', 'storeOrders', 'storeManage', 'storeRequests', 'storeReports'];
     for (const page of store) {
         for (const viewerRole of ['admin', 'supervisor', 'agent']) {
             assert.equal(pageAvailable(page, { viewerRole }), false, `${page} بلا store`);
@@ -212,7 +212,8 @@ test('118/119: صفحات المتجر لحساب ecommerce_store وحده، وS
     assert.equal(pageAvailable('shopify', { viewerRole: 'supervisor', store: true }), false);
     assert.equal(pageAvailable('storeReports', { viewerRole: 'supervisor', store: true }), true);
     assert.equal(pageAvailable('storeReports', { viewerRole: 'agent', store: true }), false);
-    for (const page of ['storeOverview', 'storeOrders', 'storeRequests']) {
+    // 120: إدارة المتجر لكل أدوار فريق المتجر — الأقسام والأزرار من صلاحيات القاعدة (ihub_shopify_manage_status)
+    for (const page of ['storeOverview', 'storeOrders', 'storeManage', 'storeRequests']) {
         assert.equal(pageAvailable(page, { viewerRole: 'agent', store: true }), true, page);
     }
     // صفحات الشركة كما هي لحساب المتجر

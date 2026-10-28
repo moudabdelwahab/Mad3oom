@@ -30,6 +30,8 @@ import { initCompanyIntegrations, loadCompanyIntegrations, oauthCompletion } fro
 import {
     initCompanyStore, loadStoreOverview, loadShopifyPage, loadStoreOrders, loadStoreRequests, loadStoreReports
 } from '/assets/js/company/company-store.js';
+// 120: إدارة المتجر في Shopify (تظهر الأقسام حسب ihub_shopify_manage_status)
+import { loadStoreManage } from '/assets/js/company/store-manage.js';
 import { fetchAccountType } from '/assets/js/company/store-data.js';
 import {
     escapeHtml, formatDate, renderState, renderSkeletonLines
@@ -255,6 +257,7 @@ const LOADERS = {
     storeOverview: () => loadStoreOverview(),
     shopify: () => loadShopifyPage(),
     storeOrders: () => loadStoreOrders(),
+    storeManage: () => loadStoreManage(),
     storeRequests: () => loadStoreRequests(),
     storeReports: () => loadStoreReports(),
     activity: () => loadCompanyActivity(),

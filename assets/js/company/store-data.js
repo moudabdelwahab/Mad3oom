@@ -65,3 +65,27 @@ export const testConnection = (connectionId) => invokeIntegrationsApi('test', { 
 export const searchShopify = (connectionId, kind, query, after = null) =>
     invokeIntegrationsApi('shopify_search', { connection_id: connectionId, kind, query, after });
 export const getShopify = (connectionId, kind, id) => invokeIntegrationsApi('shopify_get', { connection_id: connectionId, kind, id });
+
+/* ── إدارة Shopify (120) ───────────────────────────────────────────────
+ * ما يستطيعه المستخدم من القاعدة (الصلاحيات والنطاقات)، والعمليات عبر ihub-api بخطوتين للمؤثرة:
+ * بلا رمز ← تأكيد ومعاينة من Shopify؛ بالرمز ← تنفيذ. جسم الخطأ كاملًا (الحقل، السبب، رفض Shopify). */
+export const fetchManageStatus = (connectionId) => rpc('ihub_shopify_manage_status', { p_connection: connectionId });
+export const fetchOpsLog = (connectionId, limit = 50) => rpc('ihub_shopify_ops_list', { p_connection: connectionId, p_limit: limit });
+export async function shopifyAdmin(connectionId, op, input, confirmationToken = null) {
+    const body = { action: 'shopify_admin', connection_id: connectionId, op, input };
+    if (confirmationToken) body.confirmation_token = confirmationToken;
+    try {
+        const { data, error } = await supabase.functions.invoke('ihub-api', { body });
+        if (error) {
+            let detail = { error: 'unknown_error' };
+            try {
+                const b = await error.context?.json?.();
+                if (b && typeof b.error === 'string') detail = b;
+            } catch { /* ignore */ }
+            return { ok: false, data: null, code: detail.error, detail };
+        }
+        return { ok: true, data, code: null, detail: null };
+    } catch {
+        return { ok: false, data: null, code: 'unknown_error', detail: { error: 'unknown_error' } };
+    }
+}

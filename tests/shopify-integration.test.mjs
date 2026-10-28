@@ -709,16 +709,19 @@ test('worker events: Shopify orders are created from events, customers/products 
 
 /* ══ حراسة ثابتة ═══════════════════════════════════════════════════════════ */
 
-test('static: shopify.app.toml subscribes exactly the handled topics + the three compliance topics, with read-only scopes', () => {
+test('static: shopify.app.toml subscribes exactly the handled topics + the three compliance topics, and lists exactly the requested scopes', () => {
     const toml = read('integrations/shopify/shopify.app.toml');
     const scopes = toml.match(/^scopes\s*=\s*"([^"]+)"/m)[1].split(',').map((s) => s.trim()).sort();
-    assert.deepEqual(scopes, [...S.SHOPIFY_SCOPES].sort());
+    assert.deepEqual(scopes, [...S.REQUESTED_SCOPES].sort());
     assert.match(toml, /^api_version\s*=\s*"2026-10"/m);
     const topics = [...toml.matchAll(/^\s*topics\s*=\s*\[([^\]]+)\]/gm)].flatMap((m) => [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]));
     assert.deepEqual(topics.sort(), [...S.SUBSCRIBED_TOPICS].sort());
     const compliance = [...toml.matchAll(/^\s*compliance_topics\s*=\s*\[([^\]]+)\]/gm)].flatMap((m) => [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]));
     assert.deepEqual(compliance.sort(), [...S.COMPLIANCE_TOPICS].sort());
-    assert.doesNotMatch(toml, /write_|client_secret|shpss_/);
+    // 120: نطاقات الكتابة = نطاقات عمليات الإدارة المنفّذة فقط، ولا أسرار
+    assert.deepEqual(scopes.filter((x) => x.startsWith('write_')), S.MANAGEMENT_SCOPES.filter((x) => x.startsWith('write_')).sort());
+    assert.doesNotMatch(scopes.join(','), /read_all_orders|write_fulfillments|assigned_fulfillment|third_party_fulfillment/);
+    assert.doesNotMatch(toml, /client_secret\s*=|shpss_/);
     assert.match(toml, /embedded\s*=\s*false/);
 });
 

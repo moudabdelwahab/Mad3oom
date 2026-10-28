@@ -10,7 +10,7 @@
  * migrations/118_ecommerce_store_accounts.sql · migrations/119_shopify_store_integration.sql
  */
 
-export const STORE_PAGES = Object.freeze(['storeOverview', 'shopify', 'storeOrders', 'storeRequests', 'storeReports']);
+export const STORE_PAGES = Object.freeze(['storeOverview', 'shopify', 'storeOrders', 'storeManage', 'storeRequests', 'storeReports']);
 
 export const REQUIRED_SCOPES = Object.freeze(['read_customers', 'read_orders', 'read_products']);
 
@@ -39,7 +39,7 @@ export const REQUEST_STATUSES = Object.freeze({
     declined: { label: 'مرفوض', pill: 'status-tone-danger' }
 });
 
-export const NOT_EXECUTED_NOTE = 'تسجيل الطلب هنا للمتابعة فقط: لا يُلغى طلب ولا يُسترد مبلغ ولا يُستبدل منتج في Shopify من مدعوم. نفّذ العملية من لوحة Shopify، ثم حدّث حالة الطلب هنا.';
+export const NOT_EXECUTED_NOTE = 'تسجيل الطلب هنا للمتابعة فقط: لا يُنفَّذ به شيء في Shopify ولا يُسترد أي مبلغ. نفّذ الإلغاء أو الاستبدال أو الاسترداد في Shopify، ثم حدّث حالة الطلب هنا.';
 
 const TERMINAL = new Set(['resolved', 'declined']);
 

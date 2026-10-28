@@ -227,7 +227,7 @@ test('حساب متجر: مجموعة المتجر ظاهرة، ونظرة ال�
     assert.match(text, /طلبات متأخرة/);
     await page.click('.sidebar-item[data-tab="storeRequests"]');
     await page.waitForSelector('#storeRequestsBody table');
-    assert.match(await page.textContent('#storeRequestsBody'), /لا يُلغى طلب ولا يُسترد مبلغ/);
+    assert.match(await page.textContent('#storeRequestsBody'), /لا يُنفَّذ به شيء في Shopify ولا يُسترد أي مبلغ/);
     assert.match(await page.textContent('#storeRequestsBody'), /متأخر/);
     assert.equal(await page.evaluate(() => window.__XSS__), undefined, 'order_ref is escaped');
     assert.deepEqual(errors, []);

@@ -20,6 +20,7 @@ export const COMPANY_PAGES = Object.freeze({
     storeOverview:   { label: 'نظرة المتجر' },
     shopify:         { label: 'Shopify' },
     storeOrders:     { label: 'العملاء والطلبات' },
+    storeManage:     { label: 'إدارة المتجر' },
     storeRequests:   { label: 'طلبات المتابعة' },
     storeReports:    { label: 'تقارير المتجر' },
     tickets:         { label: 'تذاكري مع مدعوم' },
@@ -50,8 +51,8 @@ export const COMPANY_GROUPS = Object.freeze([
     {
         // 118/119: لحسابات المتاجر الإلكترونية وحدها (ctx.store)
         key: 'store', label: 'المتجر',
-        description: 'ربط متجرك في Shopify، وطلبات العملاء وسياقها في الدعم، ومتابعة الإرجاع والاستبدال والإلغاء.',
-        pages: ['storeOverview', 'shopify', 'storeOrders', 'storeRequests', 'storeReports']
+        description: 'ربط متجرك في Shopify، وطلبات العملاء وسياقها في الدعم، وإدارة المنتجات والطلبات والمخزون، ومتابعة الإرجاع والاستبدال والإلغاء.',
+        pages: ['storeOverview', 'shopify', 'storeOrders', 'storeManage', 'storeRequests', 'storeReports']
     },
     {
         key: 'support', label: 'الدعم والتذاكر',

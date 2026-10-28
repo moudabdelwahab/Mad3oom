@@ -16,12 +16,13 @@ import { authorizeUrl } from './salla.js';
 import { pairingCode } from './wordpress.js';
 import { WEBHOOK_TOPICS } from './woocommerce.js';
 import * as Shopify from './shopify.js';
+import * as Admin from './shopify-admin.js';
 import { contextFor } from './shopify-session.js';
 import { safeLog } from './redact.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ACTIONS = new Set(['connect', 'test', 'rotate_secret', 'oauth_start', 'oauth_complete', 'link_record',
-                         'shopify_start', 'shopify_search', 'shopify_get', 'shopify_config']);
+                         'shopify_start', 'shopify_search', 'shopify_get', 'shopify_config', 'shopify_admin']);
 const LOOKUP_KINDS = new Set(['order', 'customer', 'product']);
 const CONNECTORS_SHOPIFY = CONNECTORS.shopify;
 
@@ -230,10 +231,21 @@ async function actionShopifyStart(deps, body) {
     await call(deps.userRpc, 'ihub_shopify_begin', {
         p_connection: body.connection_id, p_state_hash: await sha256Hex(state), p_binding_hash: await sha256Hex(binding), p_shop: shop
     });
+    const scopes = await requestedScopes(deps, body.connection_id);
     return ok({
-        authorize_url: Shopify.authorizeUrl({ clientId: deps.env.SHOPIFY_CLIENT_ID, redirectUri: deps.env.SHOPIFY_REDIRECT_URI, state, shop }),
-        binding, shop, scopes: Shopify.SHOPIFY_SCOPES
+        authorize_url: Shopify.authorizeUrl({ clientId: deps.env.SHOPIFY_CLIENT_ID, redirectUri: deps.env.SHOPIFY_REDIRECT_URI, state, shop, scopes }),
+        binding, shop, scopes
     });
+}
+
+// نطاقات الإدارة لمتجر يملك shopify_management (120) فقط؛ أي تعذّر = نطاقات القراءة كما قبل 120.
+async function requestedScopes(deps, connectionId) {
+    try {
+        const st = await deps.userRpc('ihub_shopify_manage_status', { p_connection: connectionId });
+        return st?.entitled === true ? [...Shopify.REQUESTED_SCOPES] : [...Shopify.SHOPIFY_SCOPES];
+    } catch {
+        return [...Shopify.SHOPIFY_SCOPES];
+    }
 }
 
 async function actionShopifyComplete(deps, body) {
@@ -315,13 +327,132 @@ async function actionShopifyGet(deps, body) {
     return ok({ ...out, record: publicRecord(r) });
 }
 
+/* ── إدارة Shopify (120) ───────────────────────────────────────────────
+ * خطوتان للعملية المؤثرة: بلا confirmation_token ← القاعدة تصدر تأكيدًا مربوطًا بالمستخدم والعملية وبصمة
+ * المدخلات، ويُعرض ما سيحدث كما يراه Shopify الآن (check). بالرمز ← القاعدة تستهلكه وتسجّل الطلب، ثم
+ * check من جديد (لا ثقة بما رآه المتصفح)، ثم الإرسال، ثم النتيجة في السجل من الخادم.
+ * ===================================================================== */
+
+const TOKEN_RE = /^[A-Za-z0-9_-]{20,128}$/;
+const BENIGN = new Set(['invalid_input', 'not_found', 'rate_limited', 'provider_rejected', 'not_eligible']);
+
+function adminFailure(err) {
+    const code = errorCode(err);
+    const body = { error: code };
+    if (err instanceof Admin.InputError) body.field = err.field;
+    if (code === 'not_eligible' && typeof err.reason === 'string') body.reason = err.reason.slice(0, 80);
+    if (code === 'provider_rejected' && Array.isArray(err.userErrors)) body.user_errors = err.userErrors;
+    if (code === 'rate_limited' && Number.isFinite(err.retryAfter)) body.retry_after = err.retryAfter;
+    return { status: new ConnectorError(code).status, body };
+}
+
+function boundedDetail(detail) {
+    const d = detail && typeof detail === 'object' && !Array.isArray(detail) ? detail : {};
+    return JSON.stringify(d).length <= 3500 ? d : { truncated: true };
+}
+
+async function recordOp(deps, opId, status, code, resource, detail) {
+    try {
+        await deps.svcRpc('ihub_svc_shopify_op_result', {
+            p_op_id: opId, p_status: status, p_error_code: code, p_resource: resource || null, p_detail: boundedDetail(detail)
+        });
+    } catch {
+        safeLog(deps.logger, 'shopify_op_record_failed', { op_id: opId, status });
+    }
+}
+
+// مثل shopifyCall، لكن رفض Shopify وعدم الأهلية ليسا عطلًا في الربط
+async function adminCall(deps, connectionId, fn) {
+    try {
+        return await fn();
+    } catch (err) {
+        const code = errorCode(err);
+        if (!BENIGN.has(code)) await health(deps, connectionId, false, code);
+        throw err;
+    }
+}
+
+async function actionShopifyAdmin(deps, body) {
+    const op = String(body.op || '');
+    const def = Admin.OPERATIONS[op];
+    if (!def) return fail('unsupported', 400);
+    let v;
+    try {
+        v = Admin.validateOperation(op, body.input, { nowMs: deps.now() });
+    } catch (err) {
+        return adminFailure(err);
+    }
+    const hash = await Admin.inputHash(op, v);
+    const token = body.confirmation_token;
+    if (token !== undefined && token !== null && !TOKEN_RE.test(String(token))) return fail('confirmation_invalid', 400);
+
+    // ① تأكيد
+    if (def.confirm && !token) {
+        const raw = randomToken(32);
+        const begun = await call(deps.userRpc, 'ihub_shopify_op_confirm_begin', {
+            p_connection: body.connection_id, p_op: op, p_input_hash: hash, p_token_hash: await sha256Hex(raw)
+        });
+        let preview = null;
+        if (def.check) {
+            const conn = await loadConnection(deps, body.connection_id);
+            if (!conn?.credentials) return fail('not_configured', 409);
+            try {
+                preview = await adminCall(deps, body.connection_id, () => def.check(contextFor(deps, conn), v));
+            } catch (err) {
+                return adminFailure(err);
+            }
+        }
+        return ok({ confirmation_required: true, confirmation_token: raw, expires_in: begun?.expires_in ?? 300, op, preview });
+    }
+
+    // ② تنفيذ (أو قراءة)
+    const auth = await call(deps.userRpc, 'ihub_shopify_op_authorize', {
+        p_connection: body.connection_id, p_op: op, p_input_hash: hash, p_token_hash: token ? await sha256Hex(String(token)) : null
+    });
+    const isWrite = auth.risk !== 'read';
+    const conn = await loadConnection(deps, auth.connection_id);
+    if (!conn?.credentials) {
+        if (isWrite) await recordOp(deps, auth.op_id, 'failed', 'not_configured', null, {});
+        return fail('not_configured', 409);
+    }
+    const ctx = contextFor(deps, conn);
+    if (!isWrite) {
+        try {
+            const out = await adminCall(deps, auth.connection_id, () => def.run(ctx, v));
+            return ok({ op, result: out.result });
+        } catch (err) {
+            return adminFailure(err);
+        }
+    }
+    try {
+        const check = def.check ? await def.check(ctx, v) : null;
+        const out = await def.run(ctx, v, { opId: auth.op_id, check });
+        const status = out.status === 'submitted' ? 'submitted' : 'succeeded';
+        await recordOp(deps, auth.op_id, status, null, out.resource, out.detail);
+        await health(deps, auth.connection_id, true);
+        safeLog(deps.logger, 'shopify_op', { op, status, op_id: auth.op_id });
+        return ok({ op, status, op_id: auth.op_id, result: out.result });
+    } catch (err) {
+        const code = errorCode(err);
+        await recordOp(deps, auth.op_id, 'failed', code, null, err?.reason ? { reason: String(err.reason).slice(0, 80) } : {});
+        if (!BENIGN.has(code)) await health(deps, auth.connection_id, false, code);
+        safeLog(deps.logger, 'shopify_op', { op, status: 'failed', code, op_id: auth.op_id });
+        const res = adminFailure(err);
+        res.body.op_id = auth.op_id;
+        // لم يصل رد: ربما نُفّذت في Shopify — لا إعادة قبل التحقق
+        if (['timeout', 'provider_unavailable', 'unknown_error'].includes(code)) res.body.outcome = 'unknown';
+        return res;
+    }
+}
+
 // تشخيص المالك: هل الإعداد موجود؟ (قيم منطقية فقط، وعناوين عامة) — لا قيمة سر تخرج.
 async function actionShopifyConfig(deps) {
     await call(deps.userRpc, 'owner_store_diagnostics_authorize', {});
     const env = deps.env;
     const base = String(env.IHUB_PUBLIC_BASE || '').replace(/\/+$/, '');
     return ok({
-        api_version: Shopify.apiVersion(env), scopes: Shopify.SHOPIFY_SCOPES, topics: Shopify.SUBSCRIBED_TOPICS,
+        api_version: Shopify.apiVersion(env), scopes: Shopify.SHOPIFY_SCOPES, management_scopes: Shopify.MANAGEMENT_SCOPES,
+        topics: Shopify.SUBSCRIBED_TOPICS,
         configured: {
             SHOPIFY_CLIENT_ID: !!env.SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET: !!env.SHOPIFY_CLIENT_SECRET,
             SHOPIFY_REDIRECT_URI: /^https:\/\//.test(String(env.SHOPIFY_REDIRECT_URI || '')),
@@ -347,6 +478,7 @@ export async function handleApi(deps, body) {
             case 'shopify_start': return await actionShopifyStart(deps, body);
             case 'shopify_search': return await actionShopifySearch(deps, body);
             case 'shopify_get': return await actionShopifyGet(deps, body);
+            case 'shopify_admin': return await actionShopifyAdmin(deps, body);
             case 'connect': return await actionConnect(deps, body);
             case 'test': return await actionTest(deps, body);
             case 'rotate_secret': return await actionRotate(deps, body);

@@ -26,6 +26,9 @@ export const ERROR_CODES = Object.freeze({
     app_uninstalled: { status: 422, retryable: false },
     account_in_use: { status: 409, retryable: false },
     state_invalid: { status: 409, retryable: false },
+    // 120: إدارة Shopify — رفض Shopify (userErrors، الحقل والرمز فقط)، وعدم أهلية تحقّق منها الخادم من حالة Shopify
+    provider_rejected: { status: 422, retryable: false },
+    not_eligible: { status: 409, retryable: false },
     unknown_error: { status: 500, retryable: true }
 });
 
