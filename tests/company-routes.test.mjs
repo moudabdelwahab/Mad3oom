@@ -39,9 +39,9 @@ test('كل صفحة في مجال واحد بالضبط، ولها اسم وحا
     assert.equal(COMPANY_ROUTES.length, Object.keys(COMPANY_PAGES).length);
 });
 
-test('المجالات التسعة كما في هيكل المعلومات', () => {
+test('المجالات العشرة كما في هيكل المعلومات (المتجر لحسابات المتاجر وحدها)', () => {
     assert.deepEqual(COMPANY_GROUPS.map(g => g.label), [
-        'الرئيسية', 'الدعم والتذاكر', 'الفريق والصلاحيات', 'الاشتراك والفوترة',
+        'الرئيسية', 'المتجر', 'الدعم والتذاكر', 'الفريق والصلاحيات', 'الاشتراك والفوترة',
         'التكاملات وواجهة API', 'التقارير والنشاط', 'الإشعارات', 'حساب الشركة', 'حسابي والأمان'
     ]);
     // بيانات الشركة منفصلة عن الحساب الشخصي
@@ -198,4 +198,25 @@ test('صفحة الصلاحيات لا تعرض مفاتيح تعديل حين �
     // فشل الحفظ يعيد القيمة ولا يعلن نجاحًا
     const toggle = src.slice(src.indexOf('async function onToggle'));
     assert.match(toggle, /if \(!result\.ok\) \{[\s\S]*?input\.checked = !next;[\s\S]*?return;/);
+});
+
+test('118/119: صفحات المتجر لحساب ecommerce_store وحده، وShopify للمدير، والتقارير للمدير والمشرف', () => {
+    const store = ['storeOverview', 'shopify', 'storeOrders', 'storeRequests', 'storeReports'];
+    for (const page of store) {
+        for (const viewerRole of ['admin', 'supervisor', 'agent']) {
+            assert.equal(pageAvailable(page, { viewerRole }), false, `${page} بلا store`);
+            assert.equal(pageAvailable(page, { viewerRole, store: false }), false, `${page} شركة عادية`);
+        }
+        assert.equal(pageAvailable(page, { viewerRole: 'admin', store: true }), true, page);
+    }
+    assert.equal(pageAvailable('shopify', { viewerRole: 'supervisor', store: true }), false);
+    assert.equal(pageAvailable('storeReports', { viewerRole: 'supervisor', store: true }), true);
+    assert.equal(pageAvailable('storeReports', { viewerRole: 'agent', store: true }), false);
+    for (const page of ['storeOverview', 'storeOrders', 'storeRequests']) {
+        assert.equal(pageAvailable(page, { viewerRole: 'agent', store: true }), true, page);
+    }
+    // صفحات الشركة كما هي لحساب المتجر
+    assert.equal(pageAvailable('integrations', { viewerRole: 'admin', store: true }), true);
+    assert.equal(routeFromHash('#shopify'), 'shopify');
+    assert.deepEqual(breadcrumbFor('storeOrders'), ['لوحة الشركة', 'المتجر', 'العملاء والطلبات']);
 });

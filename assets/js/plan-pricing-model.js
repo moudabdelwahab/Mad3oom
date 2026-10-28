@@ -14,7 +14,8 @@ export const PLAN_LABELS = {
     support: 'الخطة المتقدمة',
     ultimate: 'الخطة الفائقة',
     whatsapp: 'واتساب بيزنس',
-    bundle: 'الباقة الشاملة'
+    bundle: 'الباقة الشاملة',
+    store: 'باقة المتاجر الإلكترونية'
 };
 
 export const CURRENCY_SYMBOLS = { EGP: 'ج.م', USD: '$' };

@@ -8,13 +8,17 @@
  * migrations/088_integrations_hub.sql · supabase/functions/_shared/integrations/*
  */
 
+import { statusLabel, FINANCIAL_STATUS, FULFILLMENT_STATUS, RETURN_STATUS, PRODUCT_STATUS, trackingList } from './store-model.js';
+
 export const PROVIDER_ORDER = Object.freeze(['wordpress', 'woocommerce', 'salla', 'daftra']);
 
 export const PROVIDER_INFO = Object.freeze({
     wordpress: { name: 'ووردبريس', hint: 'إضافة «مدعوم» لموقعك: نموذج دعم يصل لطلبات الدعم هنا.' },
     woocommerce: { name: 'ووكومرس', hint: 'عرض حالة طلبات متجرك داخل تذاكر عملائك.' },
     salla: { name: 'سلة', hint: 'عرض حالة طلبات متجرك على سلة داخل تذاكر عملائك.' },
-    daftra: { name: 'دفترة', hint: 'عرض فواتير وعملاء دفترة داخل تذاكر عملائك (قراءة فقط).' }
+    daftra: { name: 'دفترة', hint: 'عرض فواتير وعملاء دفترة داخل تذاكر عملائك (قراءة فقط).' },
+    // 119: يُدار من صفحة «Shopify» لحسابات المتاجر (ليس في PROVIDER_ORDER: لا بطاقة عامة)
+    shopify: { name: 'Shopify', hint: 'طلبات متجرك وعملاؤه ومنتجاته داخل الدعم (قراءة فقط).' }
 });
 
 /** قدرات الكتالوج كما تُعرض للمدير. المفاتيح = ihub_providers.capabilities. */
@@ -181,15 +185,21 @@ export function isSallaAuthorizeUrl(url) {
     }
 }
 
-export const RECORD_TYPE_LABELS = Object.freeze({ order: 'طلب', invoice: 'فاتورة', customer: 'عميل' });
+export const RECORD_TYPE_LABELS = Object.freeze({ order: 'طلب', invoice: 'فاتورة', customer: 'عميل', product: 'منتج' });
 
 const SUMMARY_FIELDS = [
     ['status', 'الحالة'], ['total', 'الإجمالي'], ['paid', 'المدفوع'], ['unpaid', 'المتبقي'],
     ['date', 'التاريخ'], ['created_at', 'تاريخ الطلب'], ['created_local', 'تاريخ الطلب'], ['paid_at', 'تاريخ الدفع'],
     ['completed_at', 'تاريخ الإكمال'], ['payment_method_title', 'طريقة الدفع'], ['customer_name', 'العميل'],
     ['client_name', 'العميل'], ['business_name', 'الاسم التجاري'], ['customer_email_masked', 'البريد'],
-    ['item_count', 'عدد القطع'], ['payment_status_code', 'رمز حالة الدفع']
+    ['item_count', 'عدد القطع'], ['payment_status_code', 'رمز حالة الدفع'],
+    // 119: Shopify (القيم قائمة سماح من الموصل؛ الحالات مترجمة)
+    ['financial_status', 'الدفع'], ['fulfillment_status', 'التنفيذ'], ['return_status', 'الإرجاع'],
+    ['refunded_total', 'المسترد في Shopify'], ['cancelled_at', 'أُلغي في'], ['shipping_city', 'مدينة الشحن'],
+    ['title', 'المنتج'], ['total_inventory', 'المخزون'], ['name', 'الاسم'], ['email_masked', 'البريد'], ['orders_count', 'عدد الطلبات']
 ];
+
+const VALUE_LABELS = { financial_status: FINANCIAL_STATUS, fulfillment_status: FULFILLMENT_STATUS, return_status: RETURN_STATUS };
 
 /** صفوف العرض لملخص سجل (قائمة سماح — حقل خارج القائمة لا يُعرض). */
 export function summaryRows(summary = {}) {
@@ -197,8 +207,11 @@ export function summaryRows(summary = {}) {
     for (const [key, label] of SUMMARY_FIELDS) {
         let v = summary?.[key];
         if (v === undefined || v === null || v === '') continue;
-        if ((key === 'total' || key === 'paid' || key === 'unpaid') && summary.currency) v = `${v} ${summary.currency}`;
-        if (key === 'created_at' || key === 'paid_at' || key === 'completed_at') v = String(v).slice(0, 10);
+        if ((key === 'total' || key === 'paid' || key === 'unpaid' || key === 'refunded_total') && summary.currency) v = `${v} ${summary.currency}`;
+        if (key === 'created_at' || key === 'paid_at' || key === 'completed_at' || key === 'cancelled_at') v = String(v).slice(0, 10);
+        if (VALUE_LABELS[key]) v = statusLabel(VALUE_LABELS[key], v);
+        if (key === 'status' && summary.source === 'shopify') v = statusLabel(PRODUCT_STATUS, v);
+        if (v === null) continue;
         rows.push({ key, label, value: String(v) });
     }
     if (summary?.guest === true) rows.push({ key: 'guest', label: 'نوع العميل', value: 'زائر (بلا حساب في المتجر)' });
@@ -208,7 +221,8 @@ export function summaryRows(summary = {}) {
 
 export function itemsLine(summary = {}) {
     const items = Array.isArray(summary?.items) ? summary.items : [];
-    return items.slice(0, 10).map((i) => (i.quantity ? `${i.name} × ${i.quantity}` : i.name)).join('، ');
+    return items.slice(0, 10).filter((i) => i && (i.name || i.title))
+        .map((i) => (i.quantity ? `${i.name || i.title} × ${i.quantity}` : (i.name || i.title))).join('، ');
 }
 
 /** حالة سياق التذكرة كما تُرسم. null = لا لوحة إطلاقًا (غير مخوّل أو قبل 088). */
@@ -232,7 +246,10 @@ export function ticketContextView(ctx) {
             unverifiedMapping: l.summary?.field_mapping === 'unverified',
             url: typeof l.external_url === 'string' && /^https:\/\//.test(l.external_url) ? l.external_url : null,
             fetchedAt: l.fetched_at,
-            stale: l.connection_status && l.connection_status !== 'active'
+            stale: l.connection_status && l.connection_status !== 'active',
+            tracking: trackingList(l.summary),
+            deletedInProvider: l.summary?.deleted_in_provider === true,
+            restricted: l.summary?.protected_fields_restricted === true
         })),
         linkOptions: connections.flatMap((c) => (Array.isArray(c.link_types) ? c.link_types : []).map((t) => ({
             value: `${c.id}|${t}`, connectionId: c.id, recordType: t,

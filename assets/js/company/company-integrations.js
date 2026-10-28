@@ -13,7 +13,7 @@
 
 import {
     buildProviderCards, validateConnectForm, errorMessage, isSallaAuthorizeUrl,
-    oauthResultFrom, oauthBindingKey, VIEW_ROLE_OPTIONS
+    oauthResultFrom, oauthBindingKey, VIEW_ROLE_OPTIONS, PROVIDER_INFO
 } from '/assets/js/company/integrations-model.js';
 import {
     fetchIntegrationsOverview, prepareConnection, disconnectConnection, setConnectionViewRole,
@@ -51,7 +51,7 @@ async function completeOauth(result) {
         return;
     }
     const r = await invokeIntegrationsApi('oauth_complete', { connection_id: result.connectionId, binding, completion: result.completion });
-    if (r.ok) ui?.showToast?.('تم ربط سلة بنجاح.', 'success');
+    if (r.ok) ui?.showToast?.(`تم ربط ${PROVIDER_INFO[result.provider]?.name || 'الحساب'} بنجاح.`, 'success');
     else ui?.showToast?.(errorMessage(r.code), 'error');
 }
 
@@ -69,6 +69,11 @@ export function initCompanyIntegrations({ members } = {}) {
         if (result.confirm) pendingCompletion = completeOauth(result);
         else ui?.showToast?.(result.message, result.ok ? 'success' : 'error');
     }
+}
+
+/** إكمال OAuth الجاري (إن وُجد) — صفحة Shopify تنتظره قبل قراءة الحالة. */
+export function oauthCompletion() {
+    return pendingCompletion;
 }
 
 export async function loadCompanyIntegrations() {
