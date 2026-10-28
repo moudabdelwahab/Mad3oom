@@ -14,10 +14,12 @@
 import {
     fetchStoreOverview, fetchStoreReport, fetchSyncStatus, requestSync, retryFailedEvents, fetchComplianceList, exportCompliance,
     fetchRecordContext, fetchCategories, saveCategory, fetchRequests, createRequest, updateRequest, fetchStaff,
-    prepareConnection, disconnectConnection, setConnectionViewRole, startShopify, testConnection, searchShopify, getShopify
+    prepareConnection, disconnectConnection, setConnectionViewRole, startShopify, testConnection, searchShopify, getShopify,
+    fetchManageStatus
 } from '/assets/js/company/store-data.js';
 import {
     connectionHealth, overviewKpis, missingScopes, SCOPE_LABELS, REQUIRED_SCOPES, syncStatusLabel, normalizeShop,
+    missingManagementScopes, MANAGEMENT_SCOPE_SUMMARY,
     orderRows, trackingList, lineItems, customerRows, productRows, searchItem, validSearchText, storeErrorMessage,
     REQUEST_KINDS, REQUEST_STATUSES, NOT_EXECUTED_NOTE, allowedStatuses, reportCards, distributionRows, isStale
 } from '/assets/js/company/store-model.js';
@@ -156,7 +158,15 @@ async function beginConnect(shop, connection, button) {
     }
 }
 
-function connectForm(connection, prefill) {
+/** management: true = متجر مستحق لإدارة المتجر (الخادم سيطلب نطاقاتها)، false = قراءة فقط، null = غير معروف بعد. */
+function scopeHint(management) {
+    const read = REQUIRED_SCOPES.map((s) => esc(SCOPE_LABELS[s])).join('، ');
+    if (management === true) return `ستنتقل إلى Shopify لتوافق على صلاحيات القراءة (${read}) وصلاحيات إدارة المتجر: ${esc(MANAGEMENT_SCOPE_SUMMARY)}.`;
+    if (management === false) return `ستنتقل إلى Shopify لتوافق على صلاحيات القراءة فقط: ${read}. لا يطلب مدعوم أي صلاحية كتابة.`;
+    return `ستنتقل إلى Shopify لتوافق على صلاحيات القراءة: ${read}، وصلاحيات إدارة المتجر إن كانت مفعّلة لحسابك.`;
+}
+
+function connectForm(connection, prefill, { management = null } = {}) {
     const reconnect = connection && connection.status !== 'pending';
     const shop = prefill || (connection?.base_url ? connection.base_url.replace(/^https:\/\//, '') : '');
     return `<form class="company-form" id="shopifyConnectForm" novalidate>
@@ -164,8 +174,7 @@ function connectForm(connection, prefill) {
             <label for="shopifyShopInput">نطاق متجرك في Shopify</label>
             <input id="shopifyShopInput" class="form-control" name="shop" dir="ltr" autocomplete="off" required
                    placeholder="my-store.myshopify.com" value="${esc(shop)}" ${reconnect ? 'readonly' : ''} aria-describedby="shopifyShopHint">
-            <p class="field-hint" id="shopifyShopHint">ستنتقل إلى Shopify لتوافق على صلاحيات القراءة فقط:
-                ${REQUIRED_SCOPES.map((s) => esc(SCOPE_LABELS[s])).join('، ')}. لا يطلب مدعوم أي صلاحية كتابة.</p>
+            <p class="field-hint" id="shopifyShopHint">${scopeHint(management)}</p>
         </div></div>
         <p class="field-error" id="shopifyConnectError" role="alert" hidden></p>
         <div class="company-form-actions">
@@ -190,12 +199,15 @@ export async function loadShopifyPage() {
     }
     const conn = o.connection;
     if (!o.entitlements?.shopify_integration) { c.innerHTML = entitlementNotice(o); return; }
+    // 120: هل يطلب الخادم نطاقات الإدارة لهذا المتجر؟ (ihub_shopify_manage_status؛ أي تعذّر = غير معروف)
+    const manage = conn ? await fetchManageStatus(conn.id) : null;
+    const entitled = manage?.ok ? manage.data?.entitled === true : null;
     if (!conn || conn.status === 'pending') {
         c.innerHTML = `<section class="panel ihub-card"><div class="panel-header"><div>
                 <h2 class="panel-title">ربط متجر Shopify</h2>
                 <p class="panel-subtitle">بعد الموافقة في Shopify تعود إلى هذه الصفحة في التبويب نفسه ويكتمل الربط.</p>
             </div></div>${prefill ? '<p class="panel-subtitle">وصلت من Shopify — أكمل الربط بالضغط على الزر.</p>' : ''}
-            ${connectForm(conn, prefill)}</section>`;
+            ${connectForm(conn, prefill, { management: entitled })}</section>`;
         wireConnect(c, conn);
         return;
     }
@@ -203,6 +215,9 @@ export async function loadShopifyPage() {
     const status = s.ok ? s.data : null;
     const health = connectionHealth(status?.connection || conn);
     const missing = missingScopes((status?.connection || conn).granted_scopes);
+    // ربط سليم بصلاحيات القراءة لمتجر صار مستحقًا لإدارة المتجر: ترقية بإعادة التفويض للمتجر نفسه
+    const mgmtMissing = entitled === true ? missingManagementScopes(manage.data.granted_scopes ?? (status?.connection || conn).granted_scopes) : [];
+    const upgrade = mgmtMissing.length > 0 && health.action !== 'reconnect' && ['active', 'error'].includes(conn.status);
     const jobs = status?.jobs || [];
     const ev = status?.events || {};
     const failures = ev.recent_failures || [];
@@ -240,7 +255,12 @@ export async function loadShopifyPage() {
         ${health.action === 'reconnect' ? `<div class="state-block state-block--compact" role="alert">
             <p class="state-title">${esc(health.label)}</p>
             <p class="state-text">${conn.last_error_code === 'app_uninstalled' ? 'أُزيل تطبيق مدعوم من متجرك في Shopify.' : 'أعد التفويض لاستئناف المزامنة والبحث.'}</p>
-            ${connectForm(conn)}</div>` : ''}
+            ${connectForm(conn, null, { management: entitled })}</div>` : ''}
+        ${upgrade ? `<div class="state-block state-block--compact" role="note" id="shopifyUpgrade">
+            <p class="state-title">إدارة المتجر مفعّلة لحسابك — امنح التطبيق صلاحياتها في Shopify</p>
+            <p class="state-text">الربط الحالي بصلاحيات القراءة فقط، فيبقى البحث والدعم كما هما. لاستعمال «إدارة المتجر» أعد التفويض للمتجر نفسه؛
+                لا يتغير شيء حتى توافق في Shopify.</p>
+            ${connectForm(conn, null, { management: true })}</div>` : ''}
     </section>
     <section class="panel" aria-labelledby="shopifyJobsHeading">
         <div class="panel-header"><div><h2 class="panel-title" id="shopifyJobsHeading">المزامنة</h2>

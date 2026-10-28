@@ -87,6 +87,22 @@ export function missingScopes(granted) {
     return REQUIRED_SCOPES.filter((s) => !set.has(s) && !set.has(s.replace(/^read_/, 'write_')));
 }
 
+/** 120: نطاقات إدارة المتجر — نفس shopify.js MANAGEMENT_SCOPES (اختبار يطابقهما). تُطلب لمتجر مستحق فقط. */
+export const MANAGEMENT_SCOPES = Object.freeze([
+    'read_discounts', 'read_draft_orders', 'read_inventory', 'read_locations',
+    'read_merchant_managed_fulfillment_orders', 'read_publications', 'read_returns',
+    'write_customers', 'write_discounts', 'write_draft_orders', 'write_inventory',
+    'write_merchant_managed_fulfillment_orders', 'write_orders', 'write_products', 'write_publications', 'write_returns'
+]);
+/** ما ستطلبه الموافقة في Shopify لمتجر يملك إدارة المتجر (بلغة التاجر). */
+export const MANAGEMENT_SCOPE_SUMMARY = 'تعديل المنتجات والمجموعات وقنوات البيع، والطلبات ومسوداتها، والعملاء، والمخزون والمواقع، والخصومات، والتنفيذ والشحن، والمرتجعات — بلا تحصيل ولا استرداد مبالغ';
+
+/** نطاقات الإدارة الناقصة من الممنوح (write_x يغطي read_x). */
+export function missingManagementScopes(granted) {
+    const set = new Set(Array.isArray(granted) ? granted : []);
+    return MANAGEMENT_SCOPES.filter((s) => !set.has(s) && !set.has(s.replace(/^read_/, 'write_')));
+}
+
 const SYNC_STATUS = Object.freeze({
     queued: 'في الطابور', running: 'جارية', succeeded: 'ناجحة', failed: 'فشلت (ستُعاد تلقائيًا)', dead: 'توقفت بعد المحاولات',
     cancelled: 'أُلغيت'

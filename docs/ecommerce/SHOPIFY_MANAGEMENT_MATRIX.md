@@ -123,4 +123,4 @@ Each management operation checks **its own scope** against `ihub_connections.gra
 - **`read_all_orders`**: not requested (needs a separate Shopify approval).
 - **Merchant permissions**: we use an **offline** token, so Shopify's "user must have permission X" notes (staff permissions for online tokens) do not apply; Mad3oom's own per-user permissions (§5) are the control. The merchant approves all scopes at install / re-authorization.
 - **Store plan limits**: `collectionCreate/Update/Delete` refuse on Starter/Retail plans (Shopify returns an error, mapped to `provider_rejected`).
-- Re-authorization is needed for existing connections to gain write scopes (`use_legacy_install_flow = true` → our own OAuth start with the new scope list).
+- Re-authorization is needed for existing connections to gain write scopes (`use_legacy_install_flow = true` → our own OAuth start with the new scope list). The Shopify page offers it to an entitled store whose healthy connection lacks the management scopes.

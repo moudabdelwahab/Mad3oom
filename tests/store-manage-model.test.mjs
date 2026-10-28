@@ -7,6 +7,8 @@ import assert from 'node:assert/strict';
 import * as M from '../assets/js/company/store-manage-model.js';
 import * as A from '../supabase/functions/_shared/integrations/shopify-admin.js';
 import { G } from './fixtures/shopify/admin-fixtures.mjs';
+import * as SM from '../assets/js/company/store-model.js';
+import * as S from '../supabase/functions/_shared/integrations/shopify.js';
 
 const NOW = Date.parse('2026-10-28T10:00:00Z');
 const ADDR = { first_name: 'سارة', address1: '1 شارع النيل', city: 'القاهرة', country_code: 'eg' };
@@ -142,4 +144,13 @@ test('preview: inventory shows current vs. what the user saw and warns when stal
     assert.ok(order.rows.some((r) => r.label === 'حالة الدفع في Shopify' && r.value === 'PENDING'));
     const cancel = M.previewView('order.cancel', { name: '#1001', refund: false, restock: true, total: { amount: '200.00', currency: 'EGP' } });
     assert.ok(cancel.rows.some((r) => r.label === 'استرداد مالي' && r.value === 'لا'));
+});
+
+test('upgrade path: the browser management scope list equals the server list, and write_x covers read_x', () => {
+    assert.deepEqual([...SM.MANAGEMENT_SCOPES], [...S.MANAGEMENT_SCOPES]);
+    assert.deepEqual(SM.missingManagementScopes(S.REQUESTED_SCOPES), []);
+    assert.deepEqual(SM.missingManagementScopes(S.MANAGEMENT_SCOPES.filter((x) => x.startsWith('write_')).concat(['read_locations'])), [],
+                     'Shopify may return only write scopes after approval');
+    assert.equal(SM.missingManagementScopes(S.SHOPIFY_SCOPES).length, 16, 'a read-only connection lacks every management scope');
+    assert.doesNotMatch(SM.MANAGEMENT_SCOPE_SUMMARY, /مدفوع|استرداد مبلغ/);
 });

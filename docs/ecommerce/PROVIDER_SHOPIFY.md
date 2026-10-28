@@ -53,7 +53,9 @@ Code: `supabase/functions/_shared/integrations/shopify.js` (OAuth, reads, sync, 
 - **Secrets**: tokens are decrypted only inside the Edge Function for the call; never in responses, logs or the journal (tested for all 61 operations).
 
 ## Scopes and purposes
-Requested only when the store has `shopify_management` (`api.js` asks `ihub_shopify_manage_status`; any error → the three read scopes, as before 120). The OAuth callback still requires only the three read scopes, so existing connections keep working read-only and get a per-operation "re-authorize" prompt.
+Requested only when the store has `shopify_management` (`api.js` asks `ihub_shopify_manage_status`; any error → the three read scopes, as before 120). The OAuth callback still requires only the three read scopes, so existing connections keep working read-only.
+
+**Upgrading an existing connection:** when a store with a healthy read-only connection becomes entitled, the Shopify page shows «إدارة المتجر مفعّلة لحسابك — امنح التطبيق صلاحياتها في Shopify» with a re-authorize form locked to the same shop (`company-store.js`, `missingManagementScopes`). The browser sends only `shopify_start` + connection + shop; the server decides the 19 scopes. Nothing changes until the merchant approves in Shopify; the callback then replaces `granted_scopes` (and `app/scopes_update` keeps them current). The connect form states which scopes will be requested (read only, or read + management). A store that loses the entitlement keeps its Shopify grant but every management operation is refused by the database.
 
 | Scope | Purpose |
 |---|---|
@@ -97,9 +99,11 @@ Management (120) — schema-valid, never executed:
 - Query costs of `product.get` (100 variants) and `fulfillment_order.list` stay well under 1,000 points.
 - Collection writes on the dev store's plan; publication ids for Online Store.
 - The dashboard page against real data (only rendered with fixtures).
+- Re-authorizing an installed app with the larger scope list (consent screen, returned `scope` string), and whether a later re-authorization with only the read scopes narrows the grant.
+- Opening the app from the Shopify admin / install link → `/shopify/install` → `#shopify` with the shop prefilled.
 
 ## Setup (Mad3oom platform owner, once)
-1. Create the app in the **Shopify Dev Dashboard** (public distribution, unlisted, non-embedded).
+1. Create the app in the **Shopify Dev Dashboard** (public distribution, unlisted, non-embedded, legacy install flow on). App URL = `https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/integrations-inbound/shopify/install` (verifies Shopify's hmac + timestamp, stores nothing, lands on `#shopify` with the shop prefilled; connecting still starts from the merchant's Mad3oom session).
 2. From `integrations/shopify/`: `shopify app config link`, review, `shopify app deploy` (scopes, redirect, webhooks).
 3. Edge secrets: `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET`, `SHOPIFY_REDIRECT_URI`, optional `SHOPIFY_API_VERSION` (Owner → «المتاجر» → diagnostics shows which are set; the `shopify_config` action also returns the management scope list).
 4. Development-store verification (below). Only then enable the provider.
@@ -121,4 +125,4 @@ Prerequisites (each needs separate approval): 118/119 applied (done), **120 appl
 7. Revoke: `owner_store_test_management(false)`, `owner_store_test_entitlements(false)`, disable the provider. Record each result in "Unverified" above.
 
 ## Setup (merchant)
-Mad3oom company dashboard → المتجر → Shopify → enter `your-store` → approve on Shopify → return in the same tab. Management (when the platform enables it for the store): «إدارة المتجر»; the store admin grants team members the store permissions in «الأدوار والصلاحيات». To disconnect: Mad3oom → Disconnect, then uninstall the app in Shopify.
+Mad3oom company dashboard → المتجر → Shopify → enter `your-store` (prefilled when arriving from Shopify) → approve on Shopify → return in the same tab (`#shopify`). Management (when the platform enables it for the store): «إدارة المتجر»; the store admin grants team members the store permissions in «الأدوار والصلاحيات». To disconnect: Mad3oom → Disconnect, then uninstall the app in Shopify.

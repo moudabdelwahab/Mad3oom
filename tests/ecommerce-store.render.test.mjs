@@ -78,7 +78,7 @@ const CONNECTION = {
     last_sync_status: 'succeeded', created_at: '2026-10-01T00:00:00Z'
 };
 
-function storeFx({ store = true, connection = CONNECTION, overview = {} } = {}) {
+function storeFx({ store = true, connection = CONNECTION, overview = {}, rpc = {} } = {}) {
     return {
         user: { id: ME, email: 'owner@ward.test' },
         authUser: { id: ME, email: 'owner@ward.test', profile: { id: ME, full_name: 'صاحب المتجر', role: 'company_admin' } },
@@ -108,7 +108,8 @@ function storeFx({ store = true, connection = CONNECTION, overview = {} } = {}) 
                             integration: { webhook_events: { processed: 12 }, sync_jobs: { succeeded: 2 } }, definitions: {} },
             ihub_prepare_connection: { id: CONN, provider: 'shopify', status: 'pending' },
             ihub_store_record_context: { record_id: 'rec-1', cached: true, tickets: [], requests: [], linked_customer: null, conversations: [] },
-            fetch_inbox_summary: null
+            fetch_inbox_summary: null,
+            ...rpc
         },
         functions: {},
         tables: { profiles: [{ id: ME, email: 'owner@ward.test', full_name: 'صاحب المتجر', role: 'company_admin' }], notifications: [], services: [],
@@ -305,6 +306,55 @@ test('البحث في Shopify: نص غير صالح لا يُرسل؛ النتا
     assert.ok(!(await invocations(page)).some((b) => 'company_id' in b), 'no company id from the browser');
     assert.deepEqual(errors, []);
     await context.close();
+});
+
+test('120: ربط سليم بالقراءة لمتجر مستحق لإدارة المتجر — بطاقة ترقية تعيد التفويض للمتجر نفسه؛ غير المستحق أو المكتمل بلا بطاقة', { skip: !chromiumPath }, async () => {
+    const READ = ['read_customers', 'read_orders', 'read_products'];
+    const healthy = { ...CONNECTION, granted_scopes: READ, last_sync_at: new Date().toISOString() };
+    const status = (entitled, granted) => ({ ihub_shopify_manage_status: { enabled: entitled, entitled, reason: entitled ? null : 'management_not_enabled',
+                                                                       granted_scopes: granted, ops: [] } });
+    // مستحق وبلا نطاقات الإدارة: بطاقة الترقية
+    const { page, context, errors } = await openDashboard(storeFx({ connection: healthy, rpc: status(true, READ) }), '#shopify');
+    await page.waitForSelector('#shopifyUpgrade');
+    const card = await page.textContent('#shopifyUpgrade');
+    assert.match(card, /إدارة المتجر مفعّلة لحسابك/);
+    assert.match(card, /صلاحيات إدارة المتجر/);
+    assert.match(card, /بلا تحصيل ولا استرداد/);
+    assert.equal(await page.getAttribute('#shopifyUpgrade #shopifyShopInput', 'readonly'), '', 'the same shop only');
+    assert.equal(await page.inputValue('#shopifyUpgrade #shopifyShopInput'), 'ward.myshopify.com');
+    // رد يحوّل إلى مضيف آخر: يُلتقط الطلب ولا يُتبع التحويل (التحويل الصحيح مختبر في «ربط Shopify»)
+    await setFunction(page, { data: { authorize_url: 'https://evil.example/admin/oauth/authorize?state=x', binding: 'b'.repeat(43) } });
+    await page.click('#shopifyUpgrade button[type="submit"]');
+    await page.waitForFunction(() => (window.__INVOCATIONS__ || []).length === 1);
+    assert.match(page.url(), /company-dashboard/);
+    const [start] = await invocations(page);
+    assert.deepEqual(Object.keys(start).sort(), ['action', 'connection_id', 'shop'], 'scopes are decided by the server, never sent by the browser');
+    assert.deepEqual([start.action, start.connection_id, start.shop], ['shopify_start', CONN, 'ward.myshopify.com']);
+    assert.deepEqual(errors, []);
+    await context.close();
+    // غير مستحق، أو مستحق ونطاقاته ممنوحة، أو حالة الإدارة غير متاحة (قبل 120): لا بطاقة
+    const ALL = [...READ, 'read_locations', 'write_customers', 'write_discounts', 'write_draft_orders', 'write_inventory',
+                 'write_merchant_managed_fulfillment_orders', 'write_orders', 'write_products', 'write_publications', 'write_returns'];
+    for (const rpc of [status(false, READ), status(true, ALL), { ihub_shopify_manage_status: null }]) {
+        const r = await openDashboard(storeFx({ connection: healthy, rpc }), '#shopify');
+        await r.page.waitForSelector('#storeShopifyBody .ihub-card');
+        assert.equal(await r.page.isVisible('#shopifyUpgrade'), false, JSON.stringify(rpc).slice(0, 80));
+        assert.equal(await r.page.isVisible('#shopifyConnectForm'), false);
+        assert.deepEqual(r.errors, []);
+        await r.context.close();
+    }
+});
+
+test('120: نموذج الربط يقول الحقيقة عن الصلاحيات — قراءة فقط لغير المستحق، والإدارة للمستحق', { skip: !chromiumPath }, async () => {
+    const pending = { ...CONNECTION, status: 'pending', granted_scopes: null, base_url: null };
+    for (const [entitled, re] of [[false, /صلاحيات القراءة فقط.*لا يطلب مدعوم أي صلاحية كتابة/s], [true, /وصلاحيات إدارة المتجر: تعديل المنتجات/]]) {
+        const { page, context, errors } = await openDashboard(storeFx({ connection: pending, rpc: {
+            ihub_shopify_manage_status: { enabled: false, entitled, reason: entitled ? 'connection_inactive' : 'management_not_enabled', granted_scopes: [], ops: [] } } }), '#shopify');
+        await page.waitForSelector('#shopifyConnectForm');
+        assert.match(await page.textContent('#shopifyShopHint'), re);
+        assert.deepEqual(errors, []);
+        await context.close();
+    }
 });
 
 test('صفحات المتجر على الجوال: بلا تمرير أفقي', { skip: !chromiumPath }, async () => {

@@ -450,6 +450,7 @@ test('OAuth callback: bad HMAC or look-alike shop is refused before the state is
     assert.equal(u.origin + u.pathname, 'https://mad3oom.com/company-dashboard/');
     assert.equal(u.searchParams.get('ihub_result'), 'confirm');
     assert.equal(u.searchParams.get('ihub_provider'), 'shopify');
+    assert.equal(u.hash, '#shopify', 'Shopify returns to the Shopify page (completion runs from any page)');
     assert.ok(u.searchParams.get('ihub_completion').length >= 40);
     assert.ok(!hub.calls.includes('ihub_svc_activate') && !hub.calls.includes('ihub_svc_store_credentials'), 'nothing activated by the callback');
     assert.ok(f.calls.every((c) => c.url.startsWith(`https://${SHOP}/`)), 'tokens only travel to the signed shop');
@@ -486,6 +487,7 @@ test('install link from Shopify: signed and fresh → dashboard with the shop pr
     let r = await handleInbound(deps(hub), { method: 'GET', path: '/shopify/install', headers: new Headers(), rawBody: new Uint8Array(),
                                              query: await signedQuery({ shop: SHOP, timestamp: ts, host: 'abc' }) });
     assert.equal(new URL(r.redirect).searchParams.get('ihub_shop'), SHOP);
+    assert.equal(new URL(r.redirect).hash, '#shopify', 'lands on the Shopify page, where the shop is prefilled');
     assert.equal(hub.calls.length, 0);
     r = await handleInbound(deps(hub), { method: 'GET', path: '/shopify/install', headers: new Headers(), rawBody: new Uint8Array(),
                                          query: await signedQuery({ shop: SHOP, timestamp: String(Math.floor(NOW / 1000) - 3600) }) });
@@ -723,6 +725,11 @@ test('static: shopify.app.toml subscribes exactly the handled topics + the three
     assert.doesNotMatch(scopes.join(','), /read_all_orders|write_fulfillments|assigned_fulfillment|third_party_fulfillment/);
     assert.doesNotMatch(toml, /client_secret\s*=|shpss_/);
     assert.match(toml, /embedded\s*=\s*false/);
+    // App URL = المعالج الموقَّع للتثبيت على نفس مضيف رابط الرجوع والويب هوك
+    const redirect = toml.match(/^redirect_urls\s*=\s*\[\s*"([^"]+)"/m)[1];
+    const appUrl = toml.match(/^application_url\s*=\s*"([^"]+)"/m)[1];
+    assert.equal(appUrl, redirect.replace(/\/shopify\/callback$/, '/shopify/install'));
+    assert.match(toml, /^use_legacy_install_flow\s*=\s*true/m, 'OAuth started by Mad3oom with per-store scopes in the URL');
 });
 
 test('static: Shopify tokens never reach a log line; no write mutation exists in the connector', () => {
