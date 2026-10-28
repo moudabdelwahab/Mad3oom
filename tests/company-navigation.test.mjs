@@ -654,7 +654,10 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         ومحفّز يقصر باقة المتاجر على مالك متجر. مقيسٌ في tests/sql/ecommerce-store-accounts.test.sql.
     //   119 — Shopify في مركز التكاملات (2026-10-28): مزوّد مقفل، مزامنة طلبات 30 يومًا، امتثال، طلبات متابعة المتجر
     //         (سجل لا عملية في Shopify)، وتشخيص وصفي للمالك. مقيسٌ في tests/sql/shopify-store-integration.test.sql.
-    assert.equal(migrations[migrations.length - 1], '119_shopify_store_integration.sql',
+    //   120 — إدارة متجر Shopify بطلب صاحب المنتج (2026-10-28): امتياز shopify_management لا تمنحه أي باقة، سبع صلاحيات
+    //         للمتجر مطفأة افتراضيًا، كتالوج عمليات على الخادم، تأكيد لمرة واحدة مربوط ببصمة المدخلات، سجل عمليات،
+    //         وحدود. إضافي فقط، لا يمس دوال 088/119، ولا عمليات مالية. مقيسٌ في tests/sql/shopify-store-management.test.sql.
+    assert.equal(migrations[migrations.length - 1], '120_shopify_store_management.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
