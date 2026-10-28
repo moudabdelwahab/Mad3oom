@@ -88,13 +88,15 @@ async function sallaWebhook(deps, req) {
     return processEvent(deps, found.connection_id, 'salla', evt);
 }
 
-function dashboardRedirect(env, params) {
+function dashboardRedirect(env, params, page = 'integrations') {
     const base = /^https:\/\//.test(String(env.IHUB_DASHBOARD_URL || '')) ? env.IHUB_DASHBOARD_URL : 'https://mad3oom.com/company-dashboard/';
     const u = new URL(base);
     for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
-    u.hash = 'integrations';
+    u.hash = page;
     return { status: 302, redirect: u.toString(), body: null };
 }
+// Shopify لحسابات المتاجر: صفحة #shopify (إكمال OAuth يعمل من أي صفحة — company-integrations.js)
+const shopifyRedirect = (env, params) => dashboardRedirect(env, params, 'shopify');
 
 async function sallaCallback(deps, req) {
     const code = req.query.get('code');
@@ -170,35 +172,35 @@ async function wordpressRequest(deps, action, req) {
 // التثبيت من Shopify (رابط التطبيق): لا شيء يُربط هنا. المتجر يصل اللوحة ويبدأ الربط بجلسة مدير
 // المتجر في مدعوم (state مربوط بالتبويب). hmac يمنع رابطًا مزيّفًا يحمل نطاقًا آخر.
 async function shopifyInstall(deps, req) {
-    if (!deps.env.SHOPIFY_CLIENT_SECRET) return dashboardRedirect(deps.env, { ihub_result: 'error', ihub_code: 'not_configured' });
+    if (!deps.env.SHOPIFY_CLIENT_SECRET) return shopifyRedirect(deps.env, { ihub_result: 'error', ihub_code: 'not_configured' });
     const shop = String(req.query.get('shop') || '').toLowerCase();
     if (!Shopify.SHOP_RE.test(shop) || !Shopify.freshTimestamp(req.query.get('timestamp'), deps.now())
         || !(await Shopify.verifyQueryHmac(deps.env.SHOPIFY_CLIENT_SECRET, req.query))) {
-        return dashboardRedirect(deps.env, { ihub_result: 'error', ihub_code: 'signature_invalid' });
+        return shopifyRedirect(deps.env, { ihub_result: 'error', ihub_code: 'signature_invalid' });
     }
-    return dashboardRedirect(deps.env, { ihub_result: 'install', ihub_provider: 'shopify', ihub_shop: shop });
+    return shopifyRedirect(deps.env, { ihub_result: 'install', ihub_provider: 'shopify', ihub_shop: shop });
 }
 
 async function shopifyCallback(deps, req) {
     const env = deps.env;
-    if (!env.SHOPIFY_CLIENT_SECRET || !env.SHOPIFY_CLIENT_ID) return dashboardRedirect(env, { ihub_result: 'error', ihub_code: 'not_configured' });
+    if (!env.SHOPIFY_CLIENT_SECRET || !env.SHOPIFY_CLIENT_ID) return shopifyRedirect(env, { ihub_result: 'error', ihub_code: 'not_configured' });
     const state = req.query.get('state');
     const shop = String(req.query.get('shop') || '').toLowerCase();
-    if (!state || !/^[A-Za-z0-9_-]{20,128}$/.test(state)) return dashboardRedirect(env, { ihub_result: 'error', ihub_code: 'state_invalid' });
+    if (!state || !/^[A-Za-z0-9_-]{20,128}$/.test(state)) return shopifyRedirect(env, { ihub_result: 'error', ihub_code: 'state_invalid' });
     // التوقيع قبل أي كتابة؛ والمتجر مثبّت الطرفين قبل أي نداء له (لا رمز يذهب لمضيف آخر)
     if (!Shopify.SHOP_RE.test(shop) || !(await Shopify.verifyQueryHmac(env.SHOPIFY_CLIENT_SECRET, req.query))) {
-        return dashboardRedirect(env, { ihub_result: 'error', ihub_code: 'signature_invalid' });
+        return shopifyRedirect(env, { ihub_result: 'error', ihub_code: 'signature_invalid' });
     }
     const st = await deps.svcRpc('ihub_svc_consume_shop_oauth_state', { p_state_hash: await sha256Hex(state), p_shop: shop });
-    if (!st || st.mismatch) return dashboardRedirect(env, { ihub_result: 'error', ihub_code: 'state_invalid' });
+    if (!st || st.mismatch) return shopifyRedirect(env, { ihub_result: 'error', ihub_code: 'state_invalid' });
     const code = req.query.get('code');
-    if (!code || req.query.get('error')) return dashboardRedirect(env, { ihub_result: 'error', ihub_code: 'denied' });
+    if (!code || req.query.get('error')) return shopifyRedirect(env, { ihub_result: 'error', ihub_code: 'denied' });
     try {
         const tokens = await Shopify.exchangeCode({ fetch: deps.fetch, env, now: deps.now }, shop, code);
         const missing = Shopify.missingScopes(Shopify.parseScopes(tokens.scope));
         if (missing.length) {
             await deps.svcRpc('ihub_svc_record_health', { p_connection: st.connection_id, p_ok: false, p_error_code: 'forbidden_scope' });
-            return dashboardRedirect(env, { ihub_result: 'error', ihub_code: 'forbidden_scope' });
+            return shopifyRedirect(env, { ihub_result: 'error', ihub_code: 'forbidden_scope' });
         }
         const info = await Shopify.fetchShop({ fetch: deps.fetch, env, now: deps.now, externalAccountId: shop, credentials: tokens });
         if (info.domain !== shop) throw new ConnectorError('auth_failed', 'shop_changed');
@@ -208,8 +210,8 @@ async function shopifyCallback(deps, req) {
         const held = await deps.svcRpc('ihub_svc_hold_oauth_result', {
             p_state_hash: await sha256Hex(state), p_pending_cipher: cipher, p_completion_hash: await sha256Hex(completion)
         });
-        if (!held) return dashboardRedirect(env, { ihub_result: 'error', ihub_code: 'state_invalid' });
-        return dashboardRedirect(env, {
+        if (!held) return shopifyRedirect(env, { ihub_result: 'error', ihub_code: 'state_invalid' });
+        return shopifyRedirect(env, {
             ihub_result: 'confirm', ihub_provider: 'shopify', ihub_connection: st.connection_id, ihub_completion: completion
         });
     } catch (err) {
@@ -217,7 +219,7 @@ async function shopifyCallback(deps, req) {
         try {
             await deps.svcRpc('ihub_svc_record_health', { p_connection: st.connection_id, p_ok: false, p_error_code: c });
         } catch { /* ignore */ }
-        return dashboardRedirect(env, { ihub_result: 'error', ihub_code: c });
+        return shopifyRedirect(env, { ihub_result: 'error', ihub_code: c });
     }
 }
 

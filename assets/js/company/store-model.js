@@ -10,7 +10,7 @@
  * migrations/118_ecommerce_store_accounts.sql · migrations/119_shopify_store_integration.sql
  */
 
-export const STORE_PAGES = Object.freeze(['storeOverview', 'shopify', 'storeOrders', 'storeRequests', 'storeReports']);
+export const STORE_PAGES = Object.freeze(['storeOverview', 'shopify', 'storeOrders', 'storeManage', 'storeRequests', 'storeReports']);
 
 export const REQUIRED_SCOPES = Object.freeze(['read_customers', 'read_orders', 'read_products']);
 
@@ -39,7 +39,7 @@ export const REQUEST_STATUSES = Object.freeze({
     declined: { label: 'مرفوض', pill: 'status-tone-danger' }
 });
 
-export const NOT_EXECUTED_NOTE = 'تسجيل الطلب هنا للمتابعة فقط: لا يُلغى طلب ولا يُسترد مبلغ ولا يُستبدل منتج في Shopify من مدعوم. نفّذ العملية من لوحة Shopify، ثم حدّث حالة الطلب هنا.';
+export const NOT_EXECUTED_NOTE = 'تسجيل الطلب هنا للمتابعة فقط: لا يُنفَّذ به شيء في Shopify ولا يُسترد أي مبلغ. نفّذ الإلغاء أو الاستبدال أو الاسترداد في Shopify، ثم حدّث حالة الطلب هنا.';
 
 const TERMINAL = new Set(['resolved', 'declined']);
 
@@ -85,6 +85,22 @@ export function normalizeShop(input) {
 export function missingScopes(granted) {
     const set = new Set(Array.isArray(granted) ? granted : []);
     return REQUIRED_SCOPES.filter((s) => !set.has(s) && !set.has(s.replace(/^read_/, 'write_')));
+}
+
+/** 120: نطاقات إدارة المتجر — نفس shopify.js MANAGEMENT_SCOPES (اختبار يطابقهما). تُطلب لمتجر مستحق فقط. */
+export const MANAGEMENT_SCOPES = Object.freeze([
+    'read_discounts', 'read_draft_orders', 'read_inventory', 'read_locations',
+    'read_merchant_managed_fulfillment_orders', 'read_publications', 'read_returns',
+    'write_customers', 'write_discounts', 'write_draft_orders', 'write_inventory',
+    'write_merchant_managed_fulfillment_orders', 'write_orders', 'write_products', 'write_publications', 'write_returns'
+]);
+/** ما ستطلبه الموافقة في Shopify لمتجر يملك إدارة المتجر (بلغة التاجر). */
+export const MANAGEMENT_SCOPE_SUMMARY = 'تعديل المنتجات والمجموعات وقنوات البيع، والطلبات ومسوداتها، والعملاء، والمخزون والمواقع، والخصومات، والتنفيذ والشحن، والمرتجعات — بلا تحصيل ولا استرداد مبالغ';
+
+/** نطاقات الإدارة الناقصة من الممنوح (write_x يغطي read_x). */
+export function missingManagementScopes(granted) {
+    const set = new Set(Array.isArray(granted) ? granted : []);
+    return MANAGEMENT_SCOPES.filter((s) => !set.has(s) && !set.has(s.replace(/^read_/, 'write_')));
 }
 
 const SYNC_STATUS = Object.freeze({

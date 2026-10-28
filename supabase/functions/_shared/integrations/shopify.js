@@ -18,7 +18,9 @@
 //   • الحدود: سطل تكلفة (extensions.cost.throttleStatus)، 1000 نقطة أقصى للاستعلام، تأخير ~ ثانية.
 //   • read_orders يتيح آخر 60 يومًا فقط؛ read_all_orders غير مطلوب.
 //
-// النطاقات: read_orders, read_customers, read_products — قراءة فقط. لا عملية كتابة في هذا الموصل.
+// النطاقات: read_orders, read_customers, read_products — المطلوبة لصحة الربط والقراءة والمزامنة.
+// نطاقات الإدارة (120، shopify-admin.js) تُطلب فقط لمتجر يملك امتياز shopify_management، وكل عملية
+// إدارة تفحص نطاقها في القاعدة. لا عملية كتابة في هذا الموصل؛ عمليات الإدارة في shopify-admin.js.
 // ============================================================================
 
 import { defineConnector, unsupported, recordShape, shortText, amountText, isoUtc } from './contract.js';
@@ -29,6 +31,15 @@ import { maskEmail } from './redact.js';
 
 export const SHOPIFY_API_VERSION = '2026-10';
 export const SHOPIFY_SCOPES = Object.freeze(['read_customers', 'read_orders', 'read_products']);
+/** 120: نطاقات عمليات الإدارة المنفّذة فقط (docs/ecommerce/SHOPIFY_MANAGEMENT_MATRIX.md §3). */
+export const MANAGEMENT_SCOPES = Object.freeze([
+    'read_discounts', 'read_draft_orders', 'read_inventory', 'read_locations',
+    'read_merchant_managed_fulfillment_orders', 'read_publications', 'read_returns',
+    'write_customers', 'write_discounts', 'write_draft_orders', 'write_inventory',
+    'write_merchant_managed_fulfillment_orders', 'write_orders', 'write_products', 'write_publications', 'write_returns'
+]);
+/** كل ما قد يطلبه التطبيق — shopify.app.toml يطابقه. */
+export const REQUESTED_SCOPES = Object.freeze([...SHOPIFY_SCOPES, ...MANAGEMENT_SCOPES].sort());
 export const SHOP_RE = /^[a-z0-9][a-z0-9-]{0,59}\.myshopify\.com$/;
 const DIGITS = /^[0-9]{1,20}$/;
 
@@ -61,11 +72,14 @@ export function apiVersion(env = {}) {
     return /^20[2-9][0-9]-(01|04|07|10)$/.test(v) ? v : SHOPIFY_API_VERSION;
 }
 
-export function authorizeUrl({ clientId, redirectUri, state, shop }) {
+/** scopes: نطاقات القراءة وحدها افتراضيًا؛ نطاقات الإدارة لمتجر مستحق فقط (api.js يقرر من القاعدة). */
+export function authorizeUrl({ clientId, redirectUri, state, shop, scopes = SHOPIFY_SCOPES }) {
     if (!clientId || !redirectUri || !state) throw new ConnectorError('not_configured');
+    if (!Array.isArray(scopes) || !SHOPIFY_SCOPES.every((s) => scopes.includes(s))
+        || !scopes.every((s) => REQUESTED_SCOPES.includes(s))) throw new ConnectorError('invalid_input', 'scopes');
     const u = new URL(`https://${normalizeShopDomain(shop)}/admin/oauth/authorize`);
     u.searchParams.set('client_id', clientId);
-    u.searchParams.set('scope', SHOPIFY_SCOPES.join(','));
+    u.searchParams.set('scope', [...new Set(scopes)].join(','));
     u.searchParams.set('redirect_uri', redirectUri);
     u.searchParams.set('state', state);
     return u.toString();
@@ -176,7 +190,8 @@ export function throttleWait(cost, requested = 0) {
 }
 
 /**
- * نداء GraphQL واحد. يرجع { data, cost, restricted } — restricted = حقول محمية لم تُعتمد.
+ * نداء GraphQL واحد. يرجع { data, cost, restricted, errorCodes } — restricted = حقول محمية لم تُعتمد،
+ * errorCodes = رموز extensions.code فقط (لا نص من المزوّد).
  * الخنق يرمي rate_limited ومعه retryAfter (ثوانٍ).
  */
 export async function graphql(ctx, query, variables = {}) {
@@ -207,7 +222,8 @@ export async function graphql(ctx, query, variables = {}) {
     // حقول محمية غير معتمدة: null + خطأ، والطلب ناجح
     const restricted = errors.some((e) => /protected customer data|not approved to access|ACCESS_DENIED/i.test(
         `${e?.message || ''} ${e?.extensions?.code || ''}`));
-    return { data: res.json.data, cost, restricted };
+    const errorCodes = [...new Set(errors.map((e) => String(e?.extensions?.code || '')).filter((c) => /^[A-Z_]{1,60}$/.test(c)))];
+    return { data: res.json.data, cost, restricted, errorCodes };
 }
 
 const MONEY = 'shopMoney { amount currencyCode }';

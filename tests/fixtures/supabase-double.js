@@ -259,7 +259,13 @@ export const supabase = {
             window.__INVOCATIONS__ = window.__INVOCATIONS__ || [];
             window.__INVOCATIONS__.push({ name, body: options.body });
 
-            const spec = FX().functions?.[name];
+            let spec = FX().functions?.[name];
+            // byOp: ردّ لكل op (أو action) في جسم الطلب؛ { withToken, withoutToken } لخطوتي التأكيد
+            if (spec && spec.byOp) {
+                const b = options.body || {};
+                spec = spec.byOp[b.op || b.action] || spec.byOp['*'] || null;
+                if (spec && (spec.withToken || spec.withoutToken)) spec = b.confirmation_token ? spec.withToken : spec.withoutToken;
+            }
             if (!spec) return { data: { success: true }, error: null };
 
             // spec.body: جسم الخطأ كاملًا (مثل { status: 'send_failed', error }) بدل { error } وحده

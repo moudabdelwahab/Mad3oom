@@ -69,6 +69,16 @@ A passing development-store test does **not** prove production readiness.
 - Shopify **protected customer data** approval (Level 1 + name/e-mail fields used) before connecting real merchants; App Store review if the app will be listed.
 - Then enable `shopify` in `ihub_providers`.
 
+## 7b. Store management (120) — not applied, needs separate approval
+Implemented and tested locally only (`SHOPIFY_MANAGEMENT_MATRIX.md`, `PROVIDER_SHOPIFY.md`). Order when approved:
+1. Read-only pre-check: `migrations/120_*.sql` touches no 088/119 function (the SQL test fingerprints `ihub_authorize_lookup`, `_ihub_shopify_admin`, `owner_store_test_entitlements`, `ihub_shopify_begin` before/after); `company_permission_catalog` has no `store.catalog…store.returns`; no `ihub_shopify_ops`.
+2. Apply **120** (`apply_migration` name `120_shopify_store_management`; idempotent, additive). It adds the `shopify_management` feature (**granted to no plan**), seven permission keys (default off for supervisor/agent), the operation catalog, confirmations and journal tables (RLS, no grants), the RPCs, and capability metadata. Its final block aborts on any policy/direct grant, an inconsistent catalog, a plan granting `shopify_management`, or an exposed internal function.
+3. Then redeploy `ihub-api` with `_shared/integrations/shopify-admin.js` (and the updated `shopify.js`, `api.js`, `errors.js`). The new `ihub-api` is safe **before** 120 too: `shopify_start` falls back to the read scopes when `ihub_shopify_manage_status` is missing, and `shopify_admin` fails closed. `integrations-inbound` changed only its Shopify redirect target (`#shopify`); `integrations-worker` did not change (it imports `shopify.js`, whose changes are additive) — redeploy it only to keep the shared files identical.
+4. Shopify app: `shopify app deploy` with the new toml (scopes, App URL = the `/shopify/install` handler). Each store that gets management re-authorizes from the upgrade card on its Shopify page. Redeploy `integrations-inbound` too: Shopify redirects now land on `#shopify`.
+5. Development-store verification: `PROVIDER_SHOPIFY.md` → "Development-store testing steps (management)", with `owner_store_test_management` on the owner's own store only.
+6. Product-owner decisions before any merchant: which plan (if any) includes `shopify_management`, and protected customer data approval covering the Level 2 fields that are now written.
+Rollback: `migrations/_rollback/120_*.down.sql` (refuses while the journal has rows unless `mad3oom.rollback_discard_shopify_ops = 'on'` is set in the same transaction after exporting it; restores the pilot-override constraint and capability metadata; 119 untouched). Redeploy the previous `ihub-api` first.
+
 ## 8. Rollback
 - Disable first: `update ihub_providers set enabled = false where key = 'shopify'` (webhooks are ignored, actions refused, compliance still recorded).
 - `migrations/_rollback/119_*.down.sql` then `118_*.down.sql`; both refuse while Shopify connections, store requests or store companies exist, and restore the exact production text of every rewritten function. Redeploy the previous Edge Function versions **before** rolling back 119.

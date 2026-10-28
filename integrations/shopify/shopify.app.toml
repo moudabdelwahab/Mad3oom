@@ -18,12 +18,19 @@ client_id = "REPLACE_WITH_CLIENT_ID_FROM_DEV_DASHBOARD"
 name = "Mad3oom Support"
 handle = "mad3oom-support"
 # Non-embedded: merchants use the Mad3oom company dashboard, not the Shopify admin iframe.
-application_url = "https://mad3oom.com/company-dashboard/#shopify"
+# App URL = the signed install handler: it verifies Shopify's hmac + timestamp, stores nothing,
+# and sends the merchant to the dashboard (#shopify) with the shop prefilled. The connection is then
+# started from the merchant's Mad3oom session (state bound to that admin and browser tab).
+application_url = "https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/integrations-inbound/shopify/install"
 embedded = false
 
 [access_scopes]
-# Read-only. Orders older than 60 days would need read_all_orders (not requested).
-scopes = "read_customers,read_orders,read_products"
+# Every scope maps to an implemented operation (docs/ecommerce/SHOPIFY_MANAGEMENT_MATRIX.md §3).
+# Mad3oom requests the three read scopes only, unless the store has the shopify_management
+# entitlement (migration 120); then it requests this full list at (re-)authorization.
+# Not requested: read_all_orders, write_fulfillments, *_assigned_* / *_third_party_* fulfillment orders,
+# payments/refunds/store credit (financial operations are not implemented).
+scopes = "read_customers,read_discounts,read_draft_orders,read_inventory,read_locations,read_merchant_managed_fulfillment_orders,read_orders,read_products,read_publications,read_returns,write_customers,write_discounts,write_draft_orders,write_inventory,write_merchant_managed_fulfillment_orders,write_orders,write_products,write_publications,write_returns"
 # Mad3oom starts OAuth itself (authorization code grant, state bound to the
 # merchant's Mad3oom session). Verify this flag against the CLI version used.
 use_legacy_install_flow = true
