@@ -1,6 +1,10 @@
-# E-commerce Store accounts & Shopify — production install note (NOT EXECUTED)
+# E-commerce Store accounts & Shopify — production install note
 
-> **Nothing here has been applied, deployed or configured in production.** Production (`srnelrdpqkcntbgudyto`) was only read. Applying 118/119, deploying the Edge Functions, creating the Shopify app, setting secrets, pricing/activating the store plan and enabling the provider each need **separate explicit approval** from the product owner. Merging the branch is not that approval.
+> **Status 2026-10-28 (approved by the product owner):**
+> - **§2–§3 done.** 118 and 119 were run by the owner in the SQL Editor (not through `apply_migration`, so `supabase_migrations.schema_migrations` has **no** rows for them). Verified read-only afterwards: all 65 functions they define match a local build of the same files (the Editor stored them with CRLF line endings; identical once `\r` is removed, so production md5 fingerprints include `\r`); existing plans, plan features, companies, subscriptions and the four existing providers unchanged; new tables RLS-only with no grants; no new security advisor findings beyond the intended "authenticated can execute security-definer RPC".
+> - **§4 done.** `integrations-worker`, `integrations-inbound`, `ihub-api` deployed as v7 (same `verify_jwt` as before) from the unbundled sources (`index.ts` + `_shared/integrations/*`, import path `./_shared/…`); each deployed file was read back and matches the repo byte for byte. Smoke checks: install → 302 `not_configured`, webhooks → 503 `not_configured`, unknown WooCommerce id → 404, `ihub-api` without JWT → 401.
+> - **Pre-existing, not caused by this change:** the `ihub-worker` cron has returned **503 `not_configured` since before this work** — `IHUB_WORKER_SECRET` is not set as an Edge secret (see `docs/integrations/PROD_INSTALL.md` §5). Nothing depends on it yet (no connections, every provider disabled).
+> - **Not done (each still needs separate approval):** Shopify app + secrets (§5), development-store verification (§6), store plan pricing/activation and provider enablement (§7).
 > Production on 2026-10-28 (read-only): ledger has `088`, `090`, `092`, `095`–`111`, `114` and the Pi migrations; **not** `112`, `113`, `117`. Edge Functions `ihub-api`, `integrations-inbound`, `integrations-worker` are deployed (v6). `ihub-worker` cron runs every 5 min.
 
 ## 0. Order of operations
