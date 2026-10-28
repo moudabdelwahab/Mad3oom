@@ -2,6 +2,7 @@ import { supabase } from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { initSidebar } from './sidebar.js';
 import { impersonateUser } from './admin-utils.js';
+import { isAccountRestricted } from '../account-status.js';
 
 let user = null;
 
@@ -18,13 +19,15 @@ async function renderBannedUsers() {
     const body = document.getElementById('bannedBody');
     if (!body) return;
 
-    const { data: users } = await supabase
+    // profiles بلا عمود status: الحظر في ban_status/ban_until (نفس شرط is_banned())
+    const { data } = await supabase
         .from('profiles')
         .select('*')
-        .eq('status', 'banned')
+        .not('ban_status', 'in', '(none,active)')
         .order('created_at', { ascending: false });
+    const users = (data || []).filter(u => isAccountRestricted(u));
 
-    body.innerHTML = users?.map(u => `
+    body.innerHTML = users.map(u => `
         <tr>
             <td>${u.full_name || 'بدون اسم'}</td>
             <td>${u.email}</td>
@@ -48,7 +51,7 @@ async function renderBannedUsers() {
         btn.addEventListener('click', async () => {
             const userId = btn.getAttribute('data-user-id');
             if (confirm('هل أنت متأكد من إلغاء حظر هذا المستخدم؟')) {
-                await supabase.from('profiles').update({ status: 'active' }).eq('id', userId);
+                await supabase.from('profiles').update({ ban_status: 'none', ban_until: null }).eq('id', userId);
                 renderBannedUsers();
             }
         });

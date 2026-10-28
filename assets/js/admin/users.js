@@ -299,7 +299,7 @@ async function runAction(id, target) {
     if (id === 'ban') {
         // ملحوظة: تنفيذ الحظر/تغيير الصلاحية لمستخدم آخر محكوم بسياسات RLS في Supabase.
         if (confirm('هل أنت متأكد من حظر هذا المستخدم؟')) {
-            const { error } = await supabase.from('profiles').update({ status: 'banned' }).eq('id', userId);
+            const { error } = await supabase.from('profiles').update({ ban_status: 'permanent', ban_until: null }).eq('id', userId);
             if (error) alert('خطأ في الحظر: ' + error.message);
             else loadUsers();
         }
@@ -308,7 +308,7 @@ async function runAction(id, target) {
 
     if (id === 'unban') {
         if (confirm('هل أنت متأكد من إلغاء حظر هذا المستخدم؟')) {
-            const { error } = await supabase.from('profiles').update({ status: 'active' }).eq('id', userId);
+            const { error } = await supabase.from('profiles').update({ ban_status: 'none', ban_until: null }).eq('id', userId);
             if (error) alert('خطأ في إلغاء الحظر: ' + error.message);
             else loadUsers();
         }

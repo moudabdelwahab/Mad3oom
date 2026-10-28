@@ -1,6 +1,7 @@
 import { supabase } from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { initSidebar } from './sidebar.js';
+import { isAccountRestricted } from '../account-status.js';
 
 let currentUser = null;
 let selectedUserId = null;
@@ -284,7 +285,7 @@ function bindActionButtons() {
                     <div class="info-item"><span class="info-label">تاريخ التسجيل</span><div class="info-value">${new Date(u.created_at).toLocaleDateString('ar-EG')}</div></div>
                     <div class="info-item"><span class="info-label">آخر ظهور</span><div class="info-value">${u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString('ar-EG') : 'غير متوفر'}</div></div>
                     <div class="info-item"><span class="info-label">عنوان IP الحالي</span><div class="info-value">${u.last_ip || 'غير مسجل'}</div></div>
-                    <div class="info-item"><span class="info-label">الحالة</span><div class="info-value">${u.status === 'banned' ? 'محظور' : 'نشط'}</div></div>
+                    <div class="info-item"><span class="info-label">الحالة</span><div class="info-value">${isAccountRestricted(u) ? 'محظور' : 'نشط'}</div></div>
                 </div>
             `;
             document.getElementById('detailsContent').innerHTML = content;
