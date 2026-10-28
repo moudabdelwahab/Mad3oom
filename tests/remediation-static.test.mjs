@@ -80,14 +80,17 @@ test('check-dns-status requires an authenticated caller', () => {
 });
 
 test('check-dns-status authorizes against the specific record (admin or owner)', () => {
-  assert.match(dns, /const isAdmin = callerProfile\?\.role === "admin"/);
+  // 117: is_admin() بجلسة المنادي (الأدمن، أو مالك المنصة في سياقه) بدل مقارنة الرتبة حرفيًا
+  assert.match(dns, /const isAdmin = await callerHas\("is_admin", authHeader\)/);
   assert.match(dns, /const isOwner = row\.user_id === callerId/);
   assert.match(dns, /if \(!isAdmin && !isOwner\)/);
 });
 
 test('check-dns-status introduces no new role', () => {
+  // لا مقارنة رتبة حرفية إطلاقًا: السلطة من مُسنَد القاعدة نفسه (117)
   const roles = [...dns.matchAll(/role\s*===\s*"([a-z_]+)"/g)].map((m) => m[1]);
-  assert.deepEqual([...new Set(roles)], ['admin']);
+  assert.deepEqual(roles, []);
+  assert.match(dns, /from "\.\.\/_shared\/caller-authority\.js"/);
 });
 
 test('check-dns-status still performs the real HTTPS verification', () => {
@@ -165,7 +168,8 @@ test('sie-channel-telegram GET is admin-gated', () => {
 
 test('sie-channel-telegram admin check reads a real session and the admin role', () => {
   assert.match(sie, /supabase\.auth\.getUser\(jwt\)/);
-  assert.match(sie, /profile\?\.role === 'admin'/);
+  // 117: is_admin() بجلسة المنادي بدل profile.role === 'admin'
+  assert.match(sie, /callerHas\('is_admin', authHeader\)/);
 });
 
 test('autoRegisterWebhook is only reachable from the gated self-check', () => {

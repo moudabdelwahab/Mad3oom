@@ -68,7 +68,10 @@ export function roleLabel(role) {
     return ROLE_LABELS[role] || ROLE_LABELS.user;
 }
 
-// profiles بلا عمود status: الحظر في ban_status/ban_until، بنفس شرط is_banned() في القاعدة
+/**
+ * محظور فعلًا — نفس شرط is_banned() في القاعدة (account-status.js). كان هنا u.status === 'banned'، و profiles بلا
+ * عمود status: فلا يظهر أحد محظورًا، ولا يعمل الحظر نفسه.
+ */
 export const isBanned = (u) => isAccountRestricted(u);
 
 /** نص البحث: الاسم والبريد والجوال، بلا اعتبار لحالة الأحرف أو المسافات الزائدة. */
@@ -120,7 +123,7 @@ export function filterUsers(users, filters = {}, frozen = null) {
  *   freeze      تجميد الرصيد — كان يظهر فقط لحساب الدعم الرئيسي.
  *   sie         إعدادات SIE — لمن ترجع له is_sie_admin() true فقط.
  *   copyEmail   نسخ البريد (لا يغيّر شيئًا).
- * ctx: { viewer: { id, role, email }, isSieAdmin, frozen: boolean }
+ * ctx: { viewer: { id, role, email }, isSieAdmin, canManageCentralWallet, frozen: boolean }
  */
 export function userActions(target, ctx = {}) {
     const viewer = ctx.viewer || {};
@@ -133,12 +136,15 @@ export function userActions(target, ctx = {}) {
     ];
     if (!superUserSelf) {
         actions.push({ group: 'تغيير الصلاحية' });
-        for (const [r, label] of [['user', 'عضو'], ['super_user', 'Super User'], ['admin', 'Admin']]) {
+        // super_user ليست رتبة في القاعدة (profiles_role_check) — كان الخيار يُرفض دائمًا
+        for (const [r, label] of [['user', 'عضو'], ['admin', 'Admin']]) {
             actions.push({ id: `role:${r}`, label, current: role === r });
         }
     }
     actions.push({ group: 'الحساب' });
-    if (viewer.email === 'support@mad3oom.online') {
+    // التجميد عبر manage_user_points ← can_manage_central_wallet() (117): support@ كما كان، أو المالك في سياقه —
+    // من القاعدة (platform-authority.js)، لا من بريد المشاهد
+    if (ctx.canManageCentralWallet === true) {
         actions.push({ id: 'freeze', label: ctx.frozen ? 'إلغاء تجميد الرصيد' : 'تجميد الرصيد' });
     }
     if (ctx.isSieAdmin) actions.push({ id: 'sie', label: 'إعدادات محرك الدعم (SIE)…' });

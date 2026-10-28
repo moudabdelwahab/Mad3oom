@@ -8,6 +8,8 @@ import { adminImpersonateUser } from '/auth-client.js';
 import { logActivity } from '/activity-service.js';
 import { fetchTicketReplies } from '/tickets-service.js';
 import { getTicketStatusLabel } from '/constants.js';
+import { canImpersonate as policyCanImpersonate } from '/assets/js/access-policy.js';
+import { platformAuthority } from '/assets/js/platform-authority.js';
 
 /**
  * Impersonate a user (admin feature) - يفتح حساب مستخدم آخر ("الدخول كعضو")
@@ -36,8 +38,10 @@ export async function impersonateUser(userId, redirectPath = '/customer-dashboar
             .eq('id', currentAuthUser.id)
             .maybeSingle();
 
-        const isMainAdminEmail = currentAuthUser.email === 'support@mad3oom.online';
-        const canImpersonate = isMainAdminEmail || currentProfile?.role === 'admin';
+        // نفس القاعدة التي يقبل بها auth-client جلسة «الدخول كعضو» (canImpersonate): الأدمن، أو مالك المنصة
+        // في سياق يسمح بالإدارة. كان هنا بريد support@ أو الرتبة 'admin' حرفيًا، فيُردّ المالك في لوحة الإدارة.
+        const { activeContext } = await platformAuthority();
+        const canImpersonate = policyCanImpersonate({ role: currentProfile?.role }, activeContext);
 
         if (!canImpersonate) {
             alert('هذه الميزة متاحة للإدارة فقط.');

@@ -1,8 +1,9 @@
 import { supabase } from '/api-config.js';
+import { platformAuthority } from '/assets/js/platform-authority.js';
 
 /**
  * Enhanced Central Wallet Service
- * Handles all operations for the central wallet (support@mad3oom.online only)
+ * Handles all operations for the central wallet (can_manage_central_wallet: support@ or the platform owner in context)
  * With proper error handling and transaction verification
  */
 
@@ -151,7 +152,6 @@ export class CentralWalletUI {
 
     async init() {
         try {
-            // Check if user is support@mad3oom.online
             const { data: { user }, error } = await supabase.auth.getUser();
             
             if (error) {
@@ -166,9 +166,11 @@ export class CentralWalletUI {
 
             this.currentUser = user;
             
-            // Only show for support@mad3oom.online
-            if (user.email !== 'support@mad3oom.online') {
-                console.info('Central wallet is restricted to support@mad3oom.online');
+            // من يدير المحفظة المركزية تقرّره القاعدة (can_manage_central_wallet، 117): حساب support@ كما كان،
+            // أو مالك المنصة في سياقه. نفس المُسنَد الذي يحرس central_wallet ودوال التحويل.
+            const { canManageCentralWallet } = await platformAuthority();
+            if (!canManageCentralWallet) {
+                console.info('Central wallet is restricted to its managers (can_manage_central_wallet)');
                 return;
             }
 

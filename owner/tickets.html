@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>التذاكر - لوحة المالك - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-workspace.css">
+    <link rel="stylesheet" href="/assets/css/portal-notifications.css">
+    <link rel="stylesheet" href="/assets/css/owner-pages.css">
+    <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في لوحة المالك — الثيم وحالة الطي قبل أول رسم. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body class="customer-shell owner-shell dash-layout" data-owner-page="tickets">
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main" id="ownerMain">
+        <!-- بوابة العرض: سبب المنع بدل صفحة فارغة. القرار الحقيقي في القاعدة؛ هذه رسالة. -->
+        <section class="panel" id="ownerGate" hidden>
+            <div class="state-block" id="ownerGateBody"></div>
+        </section>
+
+        <div id="ownerContent" hidden>
+            <header class="owner-banner owner-page-banner">
+                <div class="owner-banner-main">
+                    <span class="owner-level-tag">لوحة المالك · الإدارة</span>
+                    <h1 class="owner-title">التذاكر</h1>
+                    <p class="owner-meta">إشراف المالك على التذاكر: المؤشرات، التصفية، قراءة المحادثة كاملة، وتغيير الحالة والأولوية والإسناد. الرد على العملاء يبقى في مساحة عمل الدعم.</p>
+                </div>
+                <div class="owner-banner-side">
+                    <button type="button" class="btn btn-outline btn-sm" id="ticketsRefresh">تحديث</button>
+                    <a class="btn btn-outline btn-sm" href="/admin/tickets.html">مساحة عمل الدعم</a>
+                </div>
+            </header>
+            <div class="kpi-grid" id="ticketsKpis" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+
+            <section class="panel" aria-labelledby="ticketsHeading">
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="ticketsHeading">كل التذاكر</h2>
+                    <p class="panel-subtitle">اضغط رقم التذكرة لعرض تفاصيلها ومحادثتها وإجراءات المالك عليها.</p>
+                </div></div>
+
+                <form class="toolbar owner-filters" id="ticketsFilters" role="search" novalidate>
+                    <label class="visually-hidden" for="ticketsSearch">ابحث بالعنوان أو الرقم</label>
+                    <input type="search" class="form-control owner-filter-search" id="ticketsSearch" placeholder="ابحث بالعنوان أو رقم التذكرة…" autocomplete="off" maxlength="100">
+                    <label class="visually-hidden" for="ticketsStatus">الحالة</label>
+                    <select class="form-control owner-filter-select" id="ticketsStatus">
+                        <option value="">كل الحالات</option>
+                        <option value="open">مفتوحة</option>
+                        <option value="in-progress">قيد المعالجة</option>
+                        <option value="resolved">محلولة</option>
+                        <option value="confirmed">مؤكدة</option>
+                        <option value="rejected">مرفوضة</option>
+                        <option value="closed">مغلقة</option>
+                    </select>
+                    <label class="visually-hidden" for="ticketsPriority">الأولوية</label>
+                    <select class="form-control owner-filter-select" id="ticketsPriority">
+                        <option value="">كل الأولويات</option>
+                        <option value="high">عالية</option>
+                        <option value="medium">متوسطة</option>
+                        <option value="low">منخفضة</option>
+                    </select>
+                    <label class="visually-hidden" for="ticketsScope">النطاق</label>
+                    <select class="form-control owner-filter-select" id="ticketsScope">
+                        <option value="">كل النطاقات</option>
+                        <option value="mad3oom_support">دعم مدعوم</option>
+                        <option value="company">تذاكر الشركات</option>
+                    </select>
+                    <label class="visually-hidden" for="ticketsAssignee">المسؤول</label>
+                    <select class="form-control owner-filter-select" id="ticketsAssignee">
+                        <option value="">كل المسؤولين</option>
+                        <option value="none">غير مسندة</option>
+                    </select>
+                    <button type="submit" class="btn btn-primary btn-sm">تطبيق</button>
+                </form>
+
+                <div id="ticketsTable" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                <div class="owner-pager" id="ticketsPager" hidden></div>
+            </section>
+
+                <details class="owner-limits">
+                    <summary>ما يبقى حصريًا للإدارة في هذه الصفحة</summary>
+                    <ul>
+                        <li>الرد على العميل والملاحظات الداخلية والمرفقات والوسوم: عمل الدعم اليومي، في <a href="/admin/tickets.html">مساحة عمل الدعم</a>. الرد يُرسَل باسم من كتبه ويبلغ العميل بالبريد.</li>
+                        <li>حذف التذاكر: لا يُتاح من هنا حفاظًا على سجل التذكرة والفوترة المرتبطة بها.</li>
+                        <li>تذاكر الشركات تُعرض للإشراف؛ والعمل عليها داخل الشركة لطاقمها بحسب صلاحيات 097–102.</li>
+                    </ul>
+                </details>
+            <p class="owner-sie-status ows-toast" id="pageStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
+        </div>
+    </main>
+
+    <script type="module" src="/assets/js/owner/pages/tickets.js"></script>
+</body>
+</html>

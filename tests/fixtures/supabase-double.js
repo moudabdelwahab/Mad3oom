@@ -153,6 +153,18 @@ function builder(table, mode = 'select') {
             let result;
             if (state.insertError) result = { data: null, error: state.insertError };
             else if (state.inserted) result = { data: state.inserted, error: null };
+            else if (state.patch && FX().writeErrors?.[table]) {
+                // رفض حارس في القاعدة (raise … errcode 42501) كما يصل من PostgREST
+                result = { data: null, error: { code: '42501', message: FX().writeErrors[table] } };
+            }
+            else if (state.patch && FX().returnUpdatedRows === true) {
+                // اختياري: update(...).eq(...).select() يعيد الصفوف المعدَّلة كما يفعل PostgREST، فتُختبر
+                // الواجهات التي تعدّ «صفر صفوف = رفض RLS». الافتراضي القديم (data: null) باقٍ لبقية الاختبارات.
+                const updated = (FX().updateDenied || []).includes(table) ? [] : run().data || [];
+                const live = FX().tables?.[table] || [];
+                updated.forEach(r => Object.assign(live.find(x => x.id === r.id) || r, state.patch));
+                result = { data: updated.map(r => ({ ...r, ...state.patch })), error: null };
+            }
             else if (state.patch || state.deleted) result = { data: null, error: null };
             else result = run();
             return Promise.resolve(result).then(onFulfilled, onRejected);

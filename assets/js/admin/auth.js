@@ -57,7 +57,7 @@ export function updateAdminUI(user) {
 
         // الارتباط بشركة لا يفتح لوحة الإدارة إطلاقًا (C2/H4): الرتبة هوية حساب،
         // وصلاحيات الشركة تأتي من العلاقة، والخدمات من الاشتراك.
-        const isAdmin = profile.role === 'admin' || profile.role === 'support';
+        const isAdmin = ['admin', 'support', 'platform_owner'].includes(profile.role);
         if (isAdmin && adminBadgeContainer) {
             adminBadgeContainer.style.display = 'block';
         }

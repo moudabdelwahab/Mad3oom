@@ -3,6 +3,7 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callerHas } from "../_shared/caller-authority.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,13 +35,8 @@ serve(async (req) => {
       );
     }
 
-    const { data: callerProfile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", callerData.user.id)
-      .maybeSingle();
-
-    if (!callerProfile || !["admin", "support"].includes(callerProfile.role)) {
+    // is_platform_staff() بجلسة المنادي: الأدمن والدعم، أو مالك المنصة في سياق owner/admin (117)
+    if (!(await callerHas("is_platform_staff", authHeader))) {
       return new Response(
         JSON.stringify({ error: "هذا الإجراء متاح لفريق الإدارة/الدعم فقط" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }

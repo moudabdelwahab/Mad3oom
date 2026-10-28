@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { callerHas } from "../_shared/caller-authority.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,17 +41,8 @@ Deno.serve(async (req: Request) => {
     const userData = await userRes.json();
     const userId = userData.id;
 
-    const profileRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=role&limit=1`,
-      {
-        headers: {
-          "apikey": SERVICE_ROLE_KEY,
-          "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
-        },
-      },
-    );
-    const profileData = await profileRes.json();
-    if (!Array.isArray(profileData) || profileData.length === 0 || profileData[0].role !== "admin") {
+    // is_admin() بجلسة المنادي — نفس مُسنَد سياسات mailbox_emails: الأدمن، أو المالك في سياق owner/admin (117)
+    if (!userId || !(await callerHas("is_admin", authHeader))) {
       return new Response(JSON.stringify({ error: "غير مصرح - يتطلب صلاحية أدمن" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

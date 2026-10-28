@@ -138,12 +138,12 @@
                         <span class="context-card-foot"><span class="context-card-go">فتح القسم
                             <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span></span>
                     </a>
-                    <a class="context-card" href="/admin/stats.html">
+                    <a class="context-card" href="/owner/stats.html">
                         <span class="context-card-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
                         </span>
                         <span class="context-card-name">الإحصائيات</span>
-                        <p class="context-card-desc">مؤشرات التشغيل التفصيلية للمنصة في صفحتها المستقلة.</p>
+                        <p class="context-card-desc">مؤشرات الحسابات والتذاكر والاشتراكات والنشاط في صفحة المالك المستقلة.</p>
                         <span class="context-card-foot"><span class="context-card-go">فتح الصفحة
                             <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span></span>
                     </a>
@@ -746,7 +746,9 @@ function gate(title, text) {
                 .select('event, from_context, to_context, at, detail')
                 .order('at', { ascending: false }).limit(50),
         supabase.from('profiles').select('id, email, full_name, role, pi_uid'),
-        supabase.from('companies').select('id', { count: 'exact', head: true }),
+        // companies لا تقرؤها سياسة المالك كاملة (صاحب الشركة وأعضاؤها) — فكان العدّ شركته وحدها.
+        // دليل العملاء (is_support_user ← owner_capability('staff')) يعيد كل الشركات.
+        supabase.rpc('admin_customer_filter_options'),
         supabase.from('whatsapp_subscriptions').select('id', { count: 'exact', head: true })
                 .eq('status', 'active')
     ]);
@@ -760,7 +762,7 @@ function gate(title, text) {
         ['الحسابات', rows.length, ''],
         ['أدمن', count('admin'), 'kpi--info'],
         ['حسابات شركات', count('company_admin') + count('company_user'), ''],
-        ['الشركات', companies.count ?? '—', ''],
+        ['الشركات', Array.isArray(companies.data?.companies) ? companies.data.companies.length : '—', ''],
         ['اشتراكات فعّالة', subs.count ?? '—', 'kpi--success'],
         ['محاولات واجهة مرفوضة', denied, denied > 0 ? 'kpi--warning' : '']
     ].map(([label, value, tone]) => `

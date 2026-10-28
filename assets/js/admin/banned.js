@@ -19,11 +19,12 @@ async function renderBannedUsers() {
     const body = document.getElementById('bannedBody');
     if (!body) return;
 
-    // profiles بلا عمود status: الحظر في ban_status/ban_until (نفس شرط is_banned())
+    // أعمدة الحظر الحقيقية (is_banned): profiles بلا عمود status، فكانت القائمة فارغة دائمًا
     const { data } = await supabase
         .from('profiles')
-        .select('*')
-        .not('ban_status', 'in', '(none,active)')
+        .select('id, email, full_name, created_at, ban_status, ban_until, ban_reason')
+        .in('ban_status', ['banned', 'permanent', 'temporary'])
+        .or(`ban_until.is.null,ban_until.gt.${new Date().toISOString()}`)
         .order('created_at', { ascending: false });
     const users = (data || []).filter(u => isAccountRestricted(u));
 
@@ -51,7 +52,11 @@ async function renderBannedUsers() {
         btn.addEventListener('click', async () => {
             const userId = btn.getAttribute('data-user-id');
             if (confirm('هل أنت متأكد من إلغاء حظر هذا المستخدم؟')) {
-                await supabase.from('profiles').update({ ban_status: 'none', ban_until: null }).eq('id', userId);
+                const { data, error } = await supabase.from('profiles')
+                    .update({ ban_status: 'none', ban_until: null, ban_reason: null })
+                    .eq('id', userId).select('id');
+                if (error) alert('خطأ: ' + error.message);
+                else if (!data?.length) alert('لم يُرفع الحظر: القاعدة لم تسمح بتعديل هذا الحساب.');
                 renderBannedUsers();
             }
         });

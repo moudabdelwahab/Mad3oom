@@ -179,8 +179,10 @@
                     .eq('id', user.id)
                     .single();
 
-                const role = profile?.role || 'customer';
-                const target = (role === 'admin' || role === 'support') ? 'admin-dashboard.html' : 'customer-dashboard.html';
+                // الوجهة من مصدرها الواحد (account-destination.js) — نفس قاعدة ما بعد الدخول: مالك المنصة إلى
+                // واجهة اللوحات، والطاقم إلى الإدارة، والشركة إلى لوحتها. كان المالك يُرسل لبوابة العميل.
+                const { resolveAccountHome } = await import('/assets/js/account-destination.js');
+                const target = await resolveAccountHome(supabase, profile || null);
                 
                 window.location.replace(target);
 

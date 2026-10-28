@@ -2,11 +2,12 @@ import { supabase } from './api-config.js';
 import { signedUrl, signedUrls, SIGNED_URL_TTL } from './storage-urls.js';
 import { logActivity } from './activity-service.js';
 import { createNotification } from './notifications-service.js';
+import { platformAuthority, resetPlatformAuthority } from '/assets/js/platform-authority.js';
 
-// ─── Auth/Profile cache ───────────────────────────────────────────────────────
-// Avoids repeating getUser() + profiles query on every service call.
+// ─── Auth cache ───────────────────────────────────────────────────────────────
+// Avoids repeating getUser() on every service call. «هل هو إداري؟» لا يُشتق من profiles.role
+// بل من مُسنَدات القاعدة (platform-authority.js) — المالك برتبة platform_owner إداري في سياقه.
 let _cachedUser = null;
-let _cachedProfile = null;
 
 async function getCurrentUser() {
     if (_cachedUser) return _cachedUser;
@@ -15,21 +16,10 @@ async function getCurrentUser() {
     return user;
 }
 
-async function getCurrentProfile(userId) {
-    if (_cachedProfile) return _cachedProfile;
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', userId)
-        .maybeSingle();
-    _cachedProfile = profile;
-    return profile;
-}
-
 // Invalidate cache on auth state changes (login / logout)
 supabase.auth.onAuthStateChange(() => {
     _cachedUser = null;
-    _cachedProfile = null;
+    resetPlatformAuthority();
 });
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -40,9 +30,8 @@ export async function fetchUserTickets(filters = {}) {
     const user = await getCurrentUser();
     if (!user) throw new Error('User not authenticated');
 
-    // جلب البروفايل لمعرفة الدور
-    const profile = await getCurrentProfile(user.id);
-    const isAdmin = profile && profile.role === 'admin';
+    // is_admin() من القاعدة — نفس شرط RLS على tickets: الأدمن، أو مالك المنصة في سياقه
+    const { isAdmin } = await platformAuthority();
 
     let query = supabase
         .from('tickets')
@@ -192,9 +181,8 @@ export async function fetchTicketStats() {
     const user = await getCurrentUser();
     if (!user) throw new Error('User not authenticated');
 
-    // جلب البروفايل لمعرفة الدور
-    const profile = await getCurrentProfile(user.id);
-    const isAdmin = profile && profile.role === 'admin';
+    // is_admin() من القاعدة — نفس شرط RLS على tickets: الأدمن، أو مالك المنصة في سياقه
+    const { isAdmin } = await platformAuthority();
 
     let query = supabase.from('tickets').select('status', { count: 'exact' });
 
@@ -661,9 +649,8 @@ export async function fetchTicketReplies(ticketId) {
     const user = await getCurrentUser();
     if (!user) throw new Error('User not authenticated');
 
-    // جلب البروفايل لمعرفة الدور
-    const profile = await getCurrentProfile(user.id);
-    const isStaff = profile && ['admin', 'support'].includes(profile.role);
+    // is_platform_staff() من القاعدة — نفس شرط RLS على الملاحظات الداخلية: الأدمن والدعم، أو المالك في سياقه
+    const { isStaff } = await platformAuthority();
 
     let query = supabase
         .from('ticket_replies')

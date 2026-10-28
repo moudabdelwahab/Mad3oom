@@ -18,12 +18,14 @@ import { impersonateUser } from './admin-utils.js';
 import { isCurrentUserSieAdmin, getSieAccessStatus, adminSetAccess, adminResetUsage } from '/assets/js/sie-client.js';
 import { visibleHubTabs, resolveHubTab, filterUsers, userActions, roleLabel, isBanned } from './users-hub-model.js';
 import { createOptionsMenu, optionsTrigger } from '/assets/js/options-menu.js';
+import { platformAuthority } from '/assets/js/platform-authority.js';
 
 const $ = (id) => document.getElementById(id);
 
 let user = null;
 let currentOptionsUserId = null;
 let isSieAdmin = false; // من is_sie_admin() فقط — نفس القاعدة اللي هتتفرض في RLS/RPC، مفيش تكرار للشرط هنا
+let authority = null;    // من القاعدة (platform-authority.js) — لا من profiles.role ولا من البريد
 let currentSieAccess = null; // صف customer_sie_access الخاص بالمستخدم اللي فاتح له نافذة SIE دلوقتي
 
 let tabs = [];
@@ -43,6 +45,7 @@ async function init() {
     renderTabs();
 
     isSieAdmin = await isCurrentUserSieAdmin(supabase);
+    authority = await platformAuthority();
     injectSiePanel();
     bindFilters();
     initOptionsMenu();
@@ -246,6 +249,7 @@ function initOptionsMenu() {
         const actions = userActions(target, {
             viewer: { id: user?.id, role: user?.profile?.role, email: user?.email },
             isSieAdmin,
+            canManageCentralWallet: authority?.canManageCentralWallet === true,
             frozen: !!walletMap.get(target.id)
         });
         menu.open(btn, { title: target.full_name || 'بدون اسم', subtitle: target.email || '', actions },
@@ -287,7 +291,7 @@ async function runAction(id, target) {
         const isSelf = !!user && userId === user.id;
         if (isSelf && user?.profile?.role === 'super_user') return;
 
-        const labels = { user: 'عضو', super_user: 'Super User', admin: 'Admin' };
+        const labels = { user: 'عضو', admin: 'Admin' };
         if (confirm(`هل أنت متأكد من تغيير صلاحية هذا المستخدم إلى "${labels[newRole]}"؟`)) {
             const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId);
             if (error) alert('خطأ في تغيير الصلاحية: ' + error.message);
@@ -298,18 +302,27 @@ async function runAction(id, target) {
 
     if (id === 'ban') {
         // ملحوظة: تنفيذ الحظر/تغيير الصلاحية لمستخدم آخر محكوم بسياسات RLS في Supabase.
-        if (confirm('هل أنت متأكد من حظر هذا المستخدم؟')) {
-            const { error } = await supabase.from('profiles').update({ ban_status: 'permanent', ban_until: null }).eq('id', userId);
-            if (error) alert('خطأ في الحظر: ' + error.message);
-            else loadUsers();
-        }
+        const reason = prompt('سبب الحظر (يُسجَّل ويظهر للحساب):');
+        if (reason === null) return;
+        if (reason.trim().length < 5) { alert('اكتب سببًا واضحًا (5 أحرف على الأقل)'); return; }
+        // أعمدة الحظر الحقيقية (is_banned) — profiles بلا عمود status. حظر فريق المنصة يتطلب تحقق المالك بخطوتين
+        // (guard_privileged_accounts) وتصل رسالة القاعدة كما هي، وصفر صفوف = رفض RLS لا «تم».
+        const { data, error } = await supabase.from('profiles')
+            .update({ ban_status: 'permanent', ban_until: null, ban_reason: reason.trim() })
+            .eq('id', userId).select('id');
+        if (error) alert('خطأ في الحظر: ' + error.message);
+        else if (!data?.length) alert('لم يُنفَّذ الحظر: القاعدة لم تسمح بتعديل هذا الحساب.');
+        else loadUsers();
         return;
     }
 
     if (id === 'unban') {
         if (confirm('هل أنت متأكد من إلغاء حظر هذا المستخدم؟')) {
-            const { error } = await supabase.from('profiles').update({ ban_status: 'none', ban_until: null }).eq('id', userId);
+            const { data, error } = await supabase.from('profiles')
+                .update({ ban_status: 'none', ban_until: null, ban_reason: null })
+                .eq('id', userId).select('id');
             if (error) alert('خطأ في إلغاء الحظر: ' + error.message);
+            else if (!data?.length) alert('لم يُرفع الحظر: القاعدة لم تسمح بتعديل هذا الحساب.');
             else loadUsers();
         }
         return;

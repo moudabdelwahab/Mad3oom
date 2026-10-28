@@ -435,7 +435,9 @@
                 if (!user) return;
 
                 // التحقق من نوع المستخدم لتحميل القائمة الجانبية المناسبة
-                if (user.role === 'admin') {
+                // is_admin() من القاعدة: الأدمن، أو مالك المنصة في سياقه — لا الرتبة الحرفية
+                const { platformAuthority } = await import('/assets/js/platform-authority.js');
+                if ((await platformAuthority()).isAdmin) {
                     initAdminSidebar();
                 } else {
                     initCustomerSidebar();

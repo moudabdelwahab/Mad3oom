@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { callerHas } from "../_shared/caller-authority.js";
 
 // ── Root domain ──────────────────────────────────────────────────────────────
 // Default is mad3oom.com. CLOUDFLARE_ZONE_ID must point at the mad3oom.com
@@ -69,14 +70,9 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "غير مصرح، يرجى تسجيل الدخول" }, 401);
   }
 
-  const { data: callerProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", callerData.user.id)
-    .maybeSingle();
-
-  if (callerProfile?.role !== "admin") {
-    return jsonResponse({ error: "هذا الإجراء متاح للأدمن فقط" }, 403);
+  // is_admin() بجلسة المنادي — نفس مُسنَد RLS: الأدمن، أو مالك المنصة في سياق owner/admin (117)
+  if (!(await callerHas("is_admin", authHeader))) {
+    return jsonResponse({ error: "هذا الإجراء متاح للإدارة فقط" }, 403);
   }
 
   let payload: { name?: string; client_user_id?: string; logo_url?: string };

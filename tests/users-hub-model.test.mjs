@@ -61,7 +61,7 @@ test('البحث في الاسم والبريد والجوال، بلا حساس
     assert.deepEqual(names(filterUsers(users, { q: '  تركي ' })), ['b']);
 });
 
-test('فلتر الرتبة والحالة (المحظور، النشط بلا قيمة status، الرصيد المجمّد)', () => {
+test('فلتر الرتبة والحالة (المحظور بأعمدة is_banned، النشط بلا قيمة ban_status، الرصيد المجمّد)', () => {
     assert.deepEqual(names(filterUsers(users, { role: 'super_user' })), ['c']);
     assert.deepEqual(names(filterUsers(users, { status: 'banned' })), ['d']);
     assert.deepEqual(names(filterUsers(users, { status: 'active' })), ['c', 'b', 'a']);
@@ -82,7 +82,7 @@ const actionIds = (target, ctx) => userActions(target, ctx).filter(a => a.id).ma
 
 test('قائمة الخيارات تجمع كل الإجراءات القائمة', () => {
     assert.deepEqual(actionIds(users[1], { viewer: { id: 'a', role: 'admin', email: 'm@x.com' } }),
-        ['view', 'points', 'role:user', 'role:super_user', 'role:admin', 'copyEmail', 'ban']);
+        ['view', 'points', 'role:user', 'role:admin', 'copyEmail', 'ban']);
     const current = userActions(users[1], { viewer: { id: 'a' } }).find(a => a.current);
     assert.equal(current.id, 'role:user');
 });
@@ -98,9 +98,11 @@ test('Super User لا يرى تغيير الصلاحية على نفسه (كما
     assert.ok(actionIds(users[1], { viewer: self }).some(id => id.startsWith('role:')));
 });
 
-test('تجميد الرصيد لحساب الدعم الرئيسي وحده، وSIE لمن is_sie_admin فقط', () => {
+test('تجميد الرصيد لمن تسمح له can_manage_central_wallet وحده (لا البريد)، وSIE لمن is_sie_admin فقط', () => {
     assert.ok(!actionIds(users[1], { viewer: { id: 'a', email: 'm@x.com' } }).includes('freeze'));
-    const support = { viewer: { id: 'z', email: 'support@mad3oom.online' }, frozen: true };
+    // البريد وحده لا يمنح شيئًا: القرار من القاعدة (117)
+    assert.ok(!actionIds(users[1], { viewer: { id: 'z', email: 'support@mad3oom.online' } }).includes('freeze'));
+    const support = { viewer: { id: 'z', email: 'support@mad3oom.online' }, canManageCentralWallet: true, frozen: true };
     assert.ok(actionIds(users[1], support).includes('freeze'));
     assert.equal(userActions(users[1], support).find(a => a.id === 'freeze').label, 'إلغاء تجميد الرصيد');
     assert.ok(!actionIds(users[1], { viewer: { id: 'a' } }).includes('sie'));
@@ -110,4 +112,15 @@ test('تجميد الرصيد لحساب الدعم الرئيسي وحده، و
 test('أسماء الرتب', () => {
     assert.equal(roleLabel('support'), 'دعم فني');
     assert.equal(roleLabel(undefined), 'مستخدم');
+});
+
+test('المحظور = شرط is_banned(): الحظر المؤقت المنتهي ليس حظرًا، و«active» و«none» ليسا حظرًا', () => {
+    const past = new Date(Date.now() - 864e5).toISOString();
+    const future = new Date(Date.now() + 864e5).toISOString();
+    assert.equal(isBanned({ ban_status: 'temporary', ban_until: future }), true);
+    assert.equal(isBanned({ ban_status: 'temporary', ban_until: past }), false);
+    assert.equal(isBanned({ ban_status: 'banned' }), true);
+    assert.equal(isBanned({ ban_status: 'active' }), false);
+    assert.equal(isBanned({ ban_status: 'none' }), false);
+    assert.equal(isBanned({ status: 'banned' }), false, 'لا عمود status في profiles');
 });

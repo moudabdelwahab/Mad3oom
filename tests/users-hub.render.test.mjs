@@ -179,7 +179,7 @@ test('قائمة «خيارات»: الإجراءات كلها، والحظر ي
     await page.click('.uh-options-btn[data-user-id="u2"]');
     await page.waitForSelector('#uhMenu:not([hidden])');
     const items = await page.$$eval('#uhMenu .opt-menu-item', els => els.map(e => e.firstChild.textContent.trim()));
-    assert.deepEqual(items, ['عرض الحساب (الدخول كمستخدم)', 'تعديل النقاط', 'عضو', 'Super User', 'Admin', 'نسخ البريد الإلكتروني', 'حظر المستخدم']);
+    assert.deepEqual(items, ['عرض الحساب (الدخول كمستخدم)', 'تعديل النقاط', 'عضو', 'Admin', 'نسخ البريد الإلكتروني', 'حظر المستخدم']);
     assert.equal(await page.getAttribute('#uhMenu .opt-menu-item.is-current', 'aria-current'), 'true');
     assert.equal(await page.getAttribute('.uh-options-btn[data-user-id="u2"]', 'aria-expanded'), 'true');
 
@@ -188,11 +188,13 @@ test('قائمة «خيارات»: الإجراءات كلها، والحظر ي
     assert.equal(await page.locator('#uhMenu').isVisible(), false);
     assert.equal(await page.evaluate(() => document.activeElement?.dataset.userId), 'u2');
 
-    page.on('dialog', d => d.accept());
+    page.on('dialog', d => (d.type() === 'prompt' ? d.accept('إساءة استخدام متكررة') : d.accept()));
     await page.click('.uh-options-btn[data-user-id="u2"]');
     await page.click('#uhMenu .opt-menu-item.is-danger');
     await page.waitForFunction(() => (window.__WRITES__ || []).length > 0);
-    assert.deepEqual(await page.evaluate(() => window.__WRITES__), [{ op: 'update', table: 'profiles', row: { ban_status: 'permanent', ban_until: null } }]);
+    // أعمدة الحظر الحقيقية (is_banned) بسبب مسجَّل — لا عمود status في profiles
+    assert.deepEqual(await page.evaluate(() => window.__WRITES__),
+        [{ op: 'update', table: 'profiles', row: { ban_status: 'permanent', ban_until: null, ban_reason: 'إساءة استخدام متكررة' } }]);
 
     // المحظور: «إلغاء الحظر» بدل «حظر»
     await page.click('.uh-options-btn[data-user-id="u4"]');

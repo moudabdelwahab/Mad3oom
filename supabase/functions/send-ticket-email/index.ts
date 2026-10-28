@@ -16,6 +16,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { emailConfig, sendEmail } from "../_shared/email.js";
 import { ticketEmailData } from "../_shared/ticket-email-data.js";
 import { handleTicketEmail, safeEqual } from "./handler.js";
+import { callerHas } from "../_shared/caller-authority.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,8 +49,8 @@ async function authorize(req: Request, db: Db, supabaseUrl: string, anonKey: str
   const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
   const { data: userData, error } = await userClient.auth.getUser();
   if (error || !userData?.user) return { ok: false, status: 401, error: "Unauthorized" };
-  const { data: profile } = await db.from("profiles").select("role").eq("id", userData.user.id).maybeSingle();
-  if (!profile || !["admin", "support"].includes(profile.role)) {
+  // is_platform_staff() بجلسة المنادي: الأدمن والدعم، أو مالك المنصة في سياق owner/admin (117)
+  if (!(await callerHas("is_platform_staff", authHeader, { supabaseUrl, anonKey }))) {
     return { ok: false, status: 403, error: "هذه الميزة مقصورة على فريق الإدارة/الدعم" };
   }
   return { ok: true };

@@ -1,4 +1,5 @@
 import { supabase } from '../../api-config.js';
+import { platformAuthority } from '/assets/js/platform-authority.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     const apiKeysList = document.getElementById('apiKeysList');
@@ -17,8 +18,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.location.href = '/login.html';
             return;
         }
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-        if (!profile || profile.role !== 'admin') {
+        // is_admin() من القاعدة — نفس سياسات bot_api_keys و memory_firewall_rules (117): الأدمن، أو المالك في سياقه
+        if (!(await platformAuthority()).isAdmin) {
             alert('غير مصرح لك بالدخول لهذه الصفحة');
             window.location.href = '/';
             return;

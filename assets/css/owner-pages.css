@@ -1,0 +1,177 @@
+/* ============================================================================
+   owner-pages.css — صفحات لوحة المالك المستقلة (/owner/*.html).
+
+   نفس مبدأ owner-dashboard.css: نظام التصميم كله من customer-dashboard.css
+   (.panel .kpi .pill .toolbar .form-* .btn .modal .state-block .table-container)،
+   وهوية المستوى من owner-dashboard.css (.owner-banner). هنا ما لا وجود له فقط:
+   رأس الصفحة المختصر، صفوف الأعمدة البيانية، الترقيم، شبكة التفاصيل، وملاحظة
+   القيود (ما يبقى حصريًا للإدارة ولماذا).
+   ========================================================================== */
+
+.owner-page-banner .owner-title { font-size: var(--fs-xl); }
+
+.owner-page-banner .owner-banner-side {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+}
+
+/* عمود واحد لا يتمدد بمحتواه: جدول عريض يتمرّر داخل .table-container بدل أن يدفع الصفحة كلها */
+.owner-page-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-5); }
+
+.owner-page-stack > * { min-width: 0; }
+
+.owner-page-stack > .panel { margin: 0; }
+
+/* ── شريط التصفية: .toolbar نفسه، بحقول تلتف على الجوال ─────────────────── */
+.owner-filters { margin-bottom: var(--sp-4); }
+
+.owner-filters .form-control { width: auto; min-width: 0; }
+
+.owner-filters .owner-filter-search { flex: 1 1 14rem; }
+
+.owner-filters .owner-filter-select { flex: 0 1 11rem; }
+
+@media (max-width: 640px) {
+    .owner-filters .form-control,
+    .owner-filters .btn { flex: 1 1 100%; width: 100%; }
+}
+
+/* ── الترقيم ─────────────────────────────────────────────────────────────── */
+.owner-pager {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    margin-top: var(--sp-4);
+    font-size: var(--fs-sm);
+    color: var(--color-text-secondary);
+}
+
+.owner-pager-buttons { display: flex; gap: var(--sp-2); }
+
+/* ── أعمدة أفقية بسيطة (توزيع الحالات والأنشطة) ─────────────────────────── */
+.owner-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-3); }
+
+.owner-bar {
+    display: grid;
+    grid-template-columns: minmax(6rem, 9rem) 1fr auto;
+    align-items: center;
+    gap: var(--sp-3);
+    font-size: var(--fs-sm);
+}
+
+.owner-bar-label { color: var(--color-text-secondary); overflow-wrap: anywhere; }
+
+.owner-bar-value { font-weight: 700; color: var(--color-text); font-variant-numeric: tabular-nums; }
+
+.owner-bar .meter { height: 8px; }
+
+/* ── شبكة التفاصيل داخل النافذة ─────────────────────────────────────────── */
+.owner-modal .owner-modal--wide { max-width: 52rem; }
+
+body.owner-modal-open { overflow: hidden; }
+
+.owner-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
+    gap: var(--sp-3) var(--sp-5);
+    margin: 0 0 var(--sp-5);
+}
+
+.owner-detail-grid dt { font-size: var(--fs-xs); color: var(--color-text-secondary); margin: 0; }
+
+.owner-detail-grid dd { margin: .15rem 0 0; font-weight: 600; overflow-wrap: anywhere; }
+
+.owner-detail-section + .owner-detail-section { margin-top: var(--sp-5); }
+
+.owner-detail-section h3 {
+    margin: 0 0 var(--sp-3);
+    font-size: var(--fs-base);
+    font-weight: 800;
+}
+
+.owner-text-block {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    background: var(--color-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-md);
+    padding: var(--sp-3) var(--sp-4);
+    font-size: var(--fs-sm);
+    line-height: 1.8;
+    margin: 0;
+}
+
+.owner-thread { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-3); }
+
+.owner-thread li {
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-md);
+    padding: var(--sp-3) var(--sp-4);
+}
+
+.owner-thread li.is-internal { border-style: dashed; border-color: var(--owner-border); background: var(--owner-tint); }
+
+.owner-thread-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    justify-content: space-between;
+    font-size: var(--fs-xs);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--sp-2);
+}
+
+/* ── نماذج الإجراءات داخل النافذة ───────────────────────────────────────── */
+.owner-action-form { display: grid; gap: var(--sp-3); }
+
+.owner-action-form .form-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+.owner-action-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+
+.owner-row-actions { display: flex; flex-wrap: wrap; gap: .35rem; }
+
+/* ── ملاحظة القيود: ما يبقى للإدارة ولماذا ──────────────────────────────── */
+.owner-limits {
+    border: 1px dashed var(--owner-border);
+    border-radius: var(--r-md);
+    padding: var(--sp-3) var(--sp-4);
+    font-size: var(--fs-sm);
+    color: var(--color-text-secondary);
+    background: var(--owner-tint);
+}
+
+.owner-limits summary { cursor: pointer; font-weight: 700; color: var(--color-text); }
+
+.owner-limits ul { margin: var(--sp-2) 0 0; padding-inline-start: 1.2rem; display: grid; gap: .35rem; }
+
+.owner-limits a { color: var(--owner-accent-soft); }
+
+.owner-status-line { margin-top: var(--sp-3); }
+
+.owner-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-xs); direction: ltr; unicode-bidi: isolate; }
+
+.owner-json {
+    max-height: 14rem;
+    overflow: auto;
+    margin: var(--sp-2) 0 0;
+    padding: var(--sp-2) var(--sp-3);
+    border-radius: var(--r-sm);
+    background: var(--color-muted);
+    border: 1px solid var(--color-border);
+    font-size: var(--fs-xs);
+    direction: ltr;
+    text-align: left;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* .meter و.meter-fill داخل span: كتلة حتى يأخذ العرض والارتفاع */
+.owner-bar .meter,
+.owner-bar .meter-fill { display: block; }
+
+/* شبكة الأقسام المتجاورة تتبعها لوحة كاملة العرض: نفس المسافة بين اللوحات */
+#ownerContent > .split-grid { margin-bottom: var(--sp-5); }
