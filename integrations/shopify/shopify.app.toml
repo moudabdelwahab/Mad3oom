@@ -1,0 +1,55 @@
+# ============================================================================
+# Mad3oom — Shopify app configuration (template, NOT deployed)
+#
+# Deployed with the Shopify CLI from this folder after the app is created in the
+# Shopify Dev Dashboard (Partner organization of the product owner):
+#   shopify app config link   →  fills client_id
+#   shopify app deploy        →  publishes scopes, redirect URL and webhook subscriptions
+#
+# Distribution: PUBLIC app (many merchants). Start "unlisted"; App Store listing needs
+# Shopify review. A development-store install does not prove review readiness.
+#
+# Kept in sync with supabase/functions/_shared/integrations/shopify.js by
+# tests/shopify-integration.test.mjs (scopes, topics, compliance topics, API version).
+# Secrets never go in this file: the client secret is an Edge secret (SHOPIFY_CLIENT_SECRET).
+# ============================================================================
+
+client_id = "REPLACE_WITH_CLIENT_ID_FROM_DEV_DASHBOARD"
+name = "Mad3oom Support"
+handle = "mad3oom-support"
+# Non-embedded: merchants use the Mad3oom company dashboard, not the Shopify admin iframe.
+application_url = "https://mad3oom.com/company-dashboard/#shopify"
+embedded = false
+
+[access_scopes]
+# Read-only. Orders older than 60 days would need read_all_orders (not requested).
+scopes = "read_customers,read_orders,read_products"
+# Mad3oom starts OAuth itself (authorization code grant, state bound to the
+# merchant's Mad3oom session). Verify this flag against the CLI version used.
+use_legacy_install_flow = true
+
+[auth]
+redirect_urls = [
+  "https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/integrations-inbound/shopify/callback"
+]
+
+[webhooks]
+api_version = "2026-10"
+
+  # App-specific subscriptions (Shopify's recommendation): not deleted after failures.
+  [[webhooks.subscriptions]]
+  topics = [
+    "orders/create", "orders/updated", "orders/cancelled", "refunds/create",
+    "customers/create", "customers/update", "customers/delete",
+    "products/create", "products/update", "products/delete",
+    "app/uninstalled", "app/scopes_update"
+  ]
+  uri = "https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/integrations-inbound/shopify/webhooks"
+
+  # Mandatory for public apps.
+  [[webhooks.subscriptions]]
+  compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+  uri = "https://srnelrdpqkcntbgudyto.supabase.co/functions/v1/integrations-inbound/shopify/webhooks"
+
+[pos]
+embedded = false

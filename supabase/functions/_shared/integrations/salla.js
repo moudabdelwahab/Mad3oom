@@ -236,6 +236,8 @@ export const salla = defineConnector({
         fetchOrder,
         fetchInvoice: unsupported('Salla invoices are not part of this release'),
         handleWebhook,
+        fetchProduct: unsupported('products are not part of the Salla release'),
+        search: unsupported('order search fields are unverified for Salla; agents link an order by its id'),
         syncRecords: unsupported('by design: only orders linked to a ticket are cached'),
         getHealthStatus: verifyConnection
     }

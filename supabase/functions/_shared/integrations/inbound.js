@@ -6,6 +6,9 @@
 //   POST /salla                         توقيع HMAC بسر تطبيق سلة، ثم الربط من merchant
 //   GET  /salla/callback?code&state     state لمرة واحدة (sha256 مخزّن)
 //   POST /wordpress/v1/ping|intake      طلب موقَّع من الإضافة + nonce لمرة واحدة
+//   GET  /shopify/install?shop&hmac…    hmac بسر التطبيق + طابع حديث ⇒ تحويل للوحة فقط (لا رموز)
+//   GET  /shopify/callback?code&hmac&shop&state   hmac + state لمرة واحدة مربوط بالمتجر ⇒ حجز النتيجة
+//   POST /shopify/webhooks              X-Shopify-Hmac-Sha256 بسر التطبيق، ثم الربط من النطاق
 //
 // قواعد الردود:
 //   • توقيع خاطئ = 401 بلا أي أثر.
@@ -22,9 +25,10 @@ import { ConnectorError, errorCode } from './errors.js';
 import { sha256Hex, encryptJson, oauthPendingAad, randomToken } from './crypto.js';
 import { verifySallaWebhook, exchangeCode, fetchMerchant } from './salla.js';
 import { readSignedHeaders, verifySignedRequest, validateIntake, siteMatches } from './wordpress.js';
+import * as Shopify from './shopify.js';
 import { safeLog } from './redact.js';
 
-export const MAX_INBOUND_BYTES = 256 * 1024;
+export const MAX_INBOUND_BYTES = 1024 * 1024;  // طلب Shopify كبير يُقرأ كله للتحقق من التوقيع
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const json = (status, body) => ({ status, body });
@@ -161,6 +165,107 @@ async function wordpressRequest(deps, action, req) {
     }
 }
 
+/* ── Shopify ───────────────────────────────────────────────────────────── */
+
+// التثبيت من Shopify (رابط التطبيق): لا شيء يُربط هنا. المتجر يصل اللوحة ويبدأ الربط بجلسة مدير
+// المتجر في مدعوم (state مربوط بالتبويب). hmac يمنع رابطًا مزيّفًا يحمل نطاقًا آخر.
+async function shopifyInstall(deps, req) {
+    if (!deps.env.SHOPIFY_CLIENT_SECRET) return dashboardRedirect(deps.env, { ihub_result: 'error', ihub_code: 'not_configured' });
+    const shop = String(req.query.get('shop') || '').toLowerCase();
+    if (!Shopify.SHOP_RE.test(shop) || !Shopify.freshTimestamp(req.query.get('timestamp'), deps.now())
+        || !(await Shopify.verifyQueryHmac(deps.env.SHOPIFY_CLIENT_SECRET, req.query))) {
+        return dashboardRedirect(deps.env, { ihub_result: 'error', ihub_code: 'signature_invalid' });
+    }
+    return dashboardRedirect(deps.env, { ihub_result: 'install', ihub_provider: 'shopify', ihub_shop: shop });
+}
+
+async function shopifyCallback(deps, req) {
+    const env = deps.env;
+    if (!env.SHOPIFY_CLIENT_SECRET || !env.SHOPIFY_CLIENT_ID) return dashboardRedirect(env, { ihub_result: 'error', ihub_code: 'not_configured' });
+    const state = req.query.get('state');
+    const shop = String(req.query.get('shop') || '').toLowerCase();
+    if (!state || !/^[A-Za-z0-9_-]{20,128}$/.test(state)) return dashboardRedirect(env, { ihub_result: 'error', ihub_code: 'state_invalid' });
+    // التوقيع قبل أي كتابة؛ والمتجر مثبّت الطرفين قبل أي نداء له (لا رمز يذهب لمضيف آخر)
+    if (!Shopify.SHOP_RE.test(shop) || !(await Shopify.verifyQueryHmac(env.SHOPIFY_CLIENT_SECRET, req.query))) {
+        return dashboardRedirect(env, { ihub_result: 'error', ihub_code: 'signature_invalid' });
+    }
+    const st = await deps.svcRpc('ihub_svc_consume_shop_oauth_state', { p_state_hash: await sha256Hex(state), p_shop: shop });
+    if (!st || st.mismatch) return dashboardRedirect(env, { ihub_result: 'error', ihub_code: 'state_invalid' });
+    const code = req.query.get('code');
+    if (!code || req.query.get('error')) return dashboardRedirect(env, { ihub_result: 'error', ihub_code: 'denied' });
+    try {
+        const tokens = await Shopify.exchangeCode({ fetch: deps.fetch, env, now: deps.now }, shop, code);
+        const missing = Shopify.missingScopes(Shopify.parseScopes(tokens.scope));
+        if (missing.length) {
+            await deps.svcRpc('ihub_svc_record_health', { p_connection: st.connection_id, p_ok: false, p_error_code: 'forbidden_scope' });
+            return dashboardRedirect(env, { ihub_result: 'error', ihub_code: 'forbidden_scope' });
+        }
+        const info = await Shopify.fetchShop({ fetch: deps.fetch, env, now: deps.now, externalAccountId: shop, credentials: tokens });
+        if (info.domain !== shop) throw new ConnectorError('auth_failed', 'shop_changed');
+        // لا تفعيل هنا (نفس تصميم سلة): النتيجة محجوزة مشفّرة، ورمز إكمال لهذا المتصفح وحده.
+        const cipher = await encryptJson(env.IHUB_ENC_KEY, { tokens, shop: info }, oauthPendingAad(st.connection_id));
+        const completion = randomToken(32);
+        const held = await deps.svcRpc('ihub_svc_hold_oauth_result', {
+            p_state_hash: await sha256Hex(state), p_pending_cipher: cipher, p_completion_hash: await sha256Hex(completion)
+        });
+        if (!held) return dashboardRedirect(env, { ihub_result: 'error', ihub_code: 'state_invalid' });
+        return dashboardRedirect(env, {
+            ihub_result: 'confirm', ihub_provider: 'shopify', ihub_connection: st.connection_id, ihub_completion: completion
+        });
+    } catch (err) {
+        const c = errorCode(err);
+        try {
+            await deps.svcRpc('ihub_svc_record_health', { p_connection: st.connection_id, p_ok: false, p_error_code: c });
+        } catch { /* ignore */ }
+        return dashboardRedirect(env, { ihub_result: 'error', ihub_code: c });
+    }
+}
+
+const REQUIRED_SCOPES_MISSING = (scopes) => Shopify.missingScopes(scopes).length > 0;
+
+async function shopifyWebhook(deps, req) {
+    const envelope = await Shopify.verifyShopifyWebhook({ env: deps.env }, { headers: req.headers, rawBody: req.rawBody });
+    const evt = await invoke(CONNECTORS.shopify, 'handleWebhook', {}, envelope);
+    // الامتثال إلزامي حتى لمتجر غير مربوط أو مزوّد مقفل: يُسجَّل ويُنفَّذ في القاعدة
+    if (evt.compliance) {
+        const c = evt.compliance;
+        const r = await deps.svcRpc('ihub_svc_compliance', {
+            p_topic: c.topic, p_shop: envelope.shop, p_customer_id: c.customerId, p_order_ids: c.orderIds, p_request_ref: c.requestRef
+        });
+        safeLog(deps.logger, 'compliance', { provider: 'shopify', topic: c.topic, status: r?.status || null });
+        return json(200, { ok: true });
+    }
+    const found = await deps.svcRpc('ihub_svc_find_connection', { p_provider: 'shopify', p_external_account_id: envelope.shop });
+    if (!found) return json(200, { ok: true, ignored: 'unknown_shop' });
+    const conn = await loadConnection(deps, found.connection_id);
+    if (evt.revoke) {
+        await deps.svcRpc('ihub_svc_revoked_by_provider', { p_connection: found.connection_id, p_reason: 'app.uninstalled' });
+        return json(200, { ok: true, revoked: true });
+    }
+    if (!conn?.provider_enabled) return json(200, { ok: true, ignored: 'disabled' });
+    if (evt.scopes) {
+        await deps.svcRpc('ihub_svc_set_shop_details', { p_connection: found.connection_id, p_scopes: evt.scopes, p_gid: null });
+        if (REQUIRED_SCOPES_MISSING(evt.scopes)) {
+            await deps.svcRpc('ihub_svc_record_health', { p_connection: found.connection_id, p_ok: false, p_error_code: 'forbidden_scope' });
+        }
+        return json(200, { ok: true });
+    }
+    if (evt.forget) {
+        await deps.svcRpc('ihub_svc_forget_record', {
+            p_connection: found.connection_id, p_record_type: evt.forget.type, p_external_id: evt.forget.id,
+            p_reason: evt.topic.replace(/[^a-z_]/g, '_')
+        });
+        return json(200, { ok: true });
+    }
+    if (evt.ignored) return json(200, { ok: true, ignored: 'topic' });
+    const q = await deps.svcRpc('ihub_svc_enqueue_event', {
+        p_connection: found.connection_id, p_topic: evt.topic, p_dedupe_key: evt.dedupeKey,
+        p_external_type: evt.externalType, p_external_id: evt.externalId, p_source_updated_at: evt.sourceUpdatedAt
+    });
+    safeLog(deps.logger, 'event', { provider: 'shopify', connection_id: found.connection_id, topic: evt.topic, duplicate: !!q?.duplicate });
+    return json(200, { ok: true, queued: !q?.duplicate, duplicate: !!q?.duplicate });
+}
+
 /**
  * req = { method, path: '/woocommerce/<id>' (بعد اسم الدالة), headers, rawBody: Uint8Array, query: URLSearchParams }
  */
@@ -171,9 +276,16 @@ export async function handleInbound(deps, req) {
         if (req.method === 'GET' && parts[0] === 'salla' && parts[1] === 'callback' && parts.length === 2) {
             return await sallaCallback(deps, req);
         }
+        if (req.method === 'GET' && parts[0] === 'shopify' && parts.length === 2 && parts[1] === 'callback') {
+            return await shopifyCallback(deps, req);
+        }
+        if (req.method === 'GET' && parts[0] === 'shopify' && parts.length === 2 && parts[1] === 'install') {
+            return await shopifyInstall(deps, req);
+        }
         if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' });
         if (parts[0] === 'woocommerce' && parts.length === 2) return await woocommerceWebhook(deps, parts[1], req);
         if (parts[0] === 'salla' && parts.length === 1) return await sallaWebhook(deps, req);
+        if (parts[0] === 'shopify' && parts[1] === 'webhooks' && parts.length === 2) return await shopifyWebhook(deps, req);
         if (parts[0] === 'wordpress' && parts[1] === 'v1' && parts.length === 3) return await wordpressRequest(deps, parts[2], req);
         return json(404, { error: 'not_found' });
     } catch (err) {

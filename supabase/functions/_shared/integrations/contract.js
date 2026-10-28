@@ -11,7 +11,8 @@ import { ConnectorError } from './errors.js';
 
 export const OPERATIONS = Object.freeze([
     'connect', 'verifyConnection', 'refreshCredentials', 'disconnect',
-    'fetchCustomer', 'fetchOrder', 'fetchInvoice', 'handleWebhook', 'syncRecords', 'getHealthStatus'
+    'fetchCustomer', 'fetchOrder', 'fetchInvoice', 'fetchProduct', 'search', 'handleWebhook', 'syncRecords',
+    'getHealthStatus'
 ]);
 
 const UNSUPPORTED = Symbol('unsupported');

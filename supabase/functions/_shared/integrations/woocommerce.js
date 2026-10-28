@@ -160,6 +160,8 @@ export const woocommerce = defineConnector({
         fetchOrder,
         fetchInvoice: unsupported('WooCommerce core has no invoice resource'),
         handleWebhook,
+        fetchProduct: unsupported('products are not part of the WooCommerce release'),
+        search: unsupported('agents link an order by its id or number; no store search in this release'),
         syncRecords: unsupported('by design: only orders linked to a ticket are cached; no store-wide sync'),
         getHealthStatus: verifyConnection
     }

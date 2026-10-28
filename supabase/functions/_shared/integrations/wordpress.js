@@ -134,6 +134,8 @@ export const wordpress = defineConnector({
         fetchOrder: unsupported('orders come from the WooCommerce connection'),
         fetchInvoice: unsupported('WordPress has no invoice resource; invoices come from Daftra'),
         handleWebhook: unsupported('the plugin uses signed requests (ping, intake), not webhooks'),
+        fetchProduct: unsupported('Mad3oom never calls WordPress sites; the plugin only sends signed requests'),
+        search: unsupported('Mad3oom never calls WordPress sites; the plugin only sends signed requests'),
         syncRecords: unsupported('nothing is synchronised from the site; the plugin only sends signed requests'),
         getHealthStatus: unsupported('health is the timestamp of the last verified plugin request')
     }
