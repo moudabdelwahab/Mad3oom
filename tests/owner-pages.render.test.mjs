@@ -75,6 +75,24 @@ function fixtures({ context = 'owner', owner = true } = {}) {
             admin_customer_filter_options: { companies: [{ id: 'c1', name: 'شركة أ' }, { id: 'c2', name: 'شركة ب' }] },
             get_public_registration_settings: { mode: 'waitlist', expected_launch_date: '2026-12-01' },
             owner_feature_switches: [{ key: 'company_isolation_enforced', enabled: false }, { key: 'company_documents_enabled', enabled: true }],
+            // 118/119: المتاجر وShopify — بيانات وصفية فقط (لا رموز ولا بيانات عملاء)
+            owner_accounts_overview: { total: 2, counts: { individual: 1, company: 1, ecommerce_store: 1 }, items: [
+                { user_id: CUSTOMER, name: XSS, email: 'shop@x.test', created_at: '2026-10-01T00:00:00Z', account_type: 'ecommerce_store',
+                  company_id: 'c9', company_name: 'متجر الورد', company_status: 'active',
+                  subscription: { plan: 'store', plan_name: 'باقة المتاجر', status: 'active', effective: true },
+                  shopify: { status: 'active', shop: 'ward.myshopify.com', last_sync_status: 'succeeded', last_error_code: null } },
+                { user_id: OWNER, name: 'مالك المنصة', email: 'owner@example.com', created_at: '2026-01-01T00:00:00Z', account_type: 'company',
+                  company_id: 'cw', company_name: 'شركة المالك', company_status: 'active', subscription: null, shopify: null }] },
+            owner_store_integrations: { provider: { enabled: false, release_stage: 'beta' }, required_scopes: ['read_customers', 'read_orders', 'read_products'],
+                compliance_unmatched_30d: 0, connections: [
+                { connection_id: 'cn1', company_id: 'c9', company_name: 'متجر الورد', status: 'error', shop: 'ward.myshopify.com', shop_name: 'الورد',
+                  granted_scopes: ['read_orders'], missing_scopes: ['read_customers', 'read_products'], has_credentials: true,
+                  last_error_code: 'forbidden_scope', last_error_at: '2026-10-27T00:00:00Z', last_sync_at: '2026-10-27T00:00:00Z',
+                  last_sync_status: 'failed', events_7d: { processed: 4, dead: 1 }, sync_failures_7d: 2, compliance_pending: 1, entitled: true }] },
+            owner_entitlement_diagnostics: { store_plan: { key: 'store', is_active: false, price_monthly: null, price_yearly: null, currency: 'EGP',
+                features: ['integrations_hub', 'shopify_integration'], ticket_quota_defined: false },
+                live_connection_without_entitlement: [], stores_without_subscription: 0, store_plan_on_non_store: 0, pending_store_requests: 2 },
+            owner_store_events: { jobs: [], events: [], audit: [] },
             owner_set_passcode: { ok: true },
             owner_set_passcode_active: { ok: true }
         },
@@ -148,6 +166,7 @@ const PAGES = {
     blog: '#blogRows tr',
     activity: '#activityTable table',
     integrations: '#tokensTable table',
+    stores: '#storeIntegrations table',
     passcodes: '#passcodesTable table',
     settings: '#settingsSwitches table'
 };

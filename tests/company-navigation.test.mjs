@@ -649,7 +649,12 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         is_admin(). أُعيدت إلى is_admin()/is_platform_staff() (نفس النطاق + فرع المالك المشروط بسياقه، قاعدة
     //         040 ①)، والمحفظة المركزية إلى can_manage_central_wallet(). لا يمكن أن يكون تغيير واجهة: الرفض في RLS.
     //         مقيسٌ في tests/sql/owner-admin-parity.test.sql (بصمة الإنتاج قبل وبعد التراجع).
-    assert.equal(migrations[migrations.length - 1], '117_owner_admin_parity.sql',
+    //   118 — حسابات المتاجر الإلكترونية بطلب صاحب المنتج (2026-10-28): companies.account_kind يُنسخ من طلب الحساب
+    //         المعتمد (068 بلا تعديل)، وجمهور الباقة، وباقة store غير مفعّلة وبلا سعر (قيد يمنع تفعيلها بلا سعر)،
+    //         ومحفّز يقصر باقة المتاجر على مالك متجر. مقيسٌ في tests/sql/ecommerce-store-accounts.test.sql.
+    //   119 — Shopify في مركز التكاملات (2026-10-28): مزوّد مقفل، مزامنة طلبات 30 يومًا، امتثال، طلبات متابعة المتجر
+    //         (سجل لا عملية في Shopify)، وتشخيص وصفي للمالك. مقيسٌ في tests/sql/shopify-store-integration.test.sql.
+    assert.equal(migrations[migrations.length - 1], '119_shopify_store_integration.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

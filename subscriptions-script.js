@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', async function () {
  */
 async function loadPricesFromDatabase() {
     const plans = await getPlanPrices();
-    if (!plans.length) return; // فشل التحميل: تُترك القيم الظاهرة كما هي
+    if (!plans.length) { applyStorePlanAvailability([]); return; } // فشل التحميل: تُترك القيم الظاهرة كما هي
 
     for (const plan of plans) {
         const card = document.querySelector(`.pricing-card[data-plan="${plan.key}"]`);
@@ -87,7 +87,28 @@ async function loadPricesFromDatabase() {
     }
 
     if (isPiMode()) await applyPiPrices(plans);
+    applyStorePlanAvailability(plans);
     updatePricing(getActiveBillingCycle());
+}
+
+/**
+ * 118: بطاقة باقة المتاجر متاحة فقط حين ترجع القاعدة الباقة مفعّلة بسعرين (القيد
+ * subscription_plans_store_priced يمنع تفعيلها بلا سعر). غير ذلك: «قريبًا» وزر معطّل.
+ */
+function applyStorePlanAvailability(plans) {
+    const card = document.querySelector('.pricing-card[data-plan="store"]');
+    if (!card) return;
+    const plan = (plans || []).find(p => p.key === 'store');
+    const priced = plan && Number(plan.price_monthly) > 0 && Number(plan.price_yearly) > 0 && !card.dataset.piUnavailable;
+    const btn = card.querySelector('[data-plan-btn="store"]');
+    card.dataset.planUnavailable = priced ? '' : '1';
+    if (btn) {
+        btn.disabled = !priced;
+        btn.setAttribute('aria-disabled', priced ? 'false' : 'true');
+        btn.textContent = priced ? 'اشترك كمتجر' : 'قريبًا';
+    }
+    const note = card.querySelector('[data-store-plan-note]');
+    if (note) note.hidden = !!priced;
 }
 
 /**
@@ -215,7 +236,8 @@ function updatePricing(period) {
         const discountEl = card.querySelector('.discount-badge');
         const bonusEl = card.querySelector('.bonus-note');
 
-        if (amountEl && amountEl.dataset[period] !== undefined) {
+        // بلا سعر (باقة المتاجر قبل أن يحدده المالك): تبقى «—» لا «0»
+        if (amountEl && amountEl.dataset[period] !== undefined && amountEl.dataset[period] !== '') {
             amountEl.textContent = Number(amountEl.dataset[period]).toLocaleString('en-US');
         }
         if (periodEl) {
@@ -372,6 +394,8 @@ async function updatePlanButtonsState(activePlan) {
     await Promise.all(buttons.map(async function (btn) {
         const plan = btn.dataset.planBtn;
         const isActivePlan = activePlan && plan === activePlan;
+        // باقة غير متاحة (باقة المتاجر بلا سعر): حالتها من applyStorePlanAvailability وحدها
+        if (btn.closest('.pricing-card')?.dataset.planUnavailable === '1') return;
 
         if (isActivePlan) {
             btn.textContent = 'مشترك بالفعل';
@@ -405,7 +429,7 @@ async function updatePlanButtonsState(activePlan) {
         }
 
         // في وضع Pi الضغط بيبدأ الدفع بالـPi مباشرة، فالزر يقول ده
-        btn.textContent = isPiMode() ? 'اشترك بالـPi' : 'اشترك الآن';
+        btn.textContent = isPiMode() ? 'اشترك بالـPi' : (plan === 'store' ? 'اشترك كمتجر' : 'اشترك الآن');
         btn.disabled = false;
         btn.title = '';
         btn.classList.remove('btn-subscribed');
@@ -689,7 +713,9 @@ async function handleSubscribe(plan, buttonEl) {
 
     // أول سؤال: فرد أم شركة؟ حساب الشركة القائم لا يُسأل. اختيار «شركة» يرسل
     // طلبًا للإدارة ويقف هنا — لا دفع قبل أن يصير الحساب حساب شركة فعلًا.
-    const account = await choosePurchaseAccount({ plan, billingCycle });
+    if (document.querySelector(`.pricing-card[data-plan="${plan}"]`)?.dataset.planUnavailable === '1') return;
+    // 118: باقة المتاجر لا تُعرض إلا لخيار «متجر إلكتروني» (والقاعدة ترفض غير مالك المتجر)
+    const account = await choosePurchaseAccount({ plan, billingCycle, storePlan: plan === 'store' });
     if (!account.proceed) return;
 
     // ترقية أم شراء جديد؟ القاعدة هي التي تقرّر، لا الواجهة.

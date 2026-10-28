@@ -25,7 +25,12 @@ import {
     analyzeSubscriptions, ANOMALY_NOTES, SUBSCRIPTION_STATES
 } from '/assets/js/company/subscription-model.js';
 import { initCompanyActivity, loadCompanyActivity } from '/assets/js/company/company-activity.js';
-import { initCompanyIntegrations, loadCompanyIntegrations } from '/assets/js/company/company-integrations.js';
+import { initCompanyIntegrations, loadCompanyIntegrations, oauthCompletion } from '/assets/js/company/company-integrations.js';
+// 118/119: صفحات المتجر (تظهر لحساب ecommerce_store وحده)
+import {
+    initCompanyStore, loadStoreOverview, loadShopifyPage, loadStoreOrders, loadStoreRequests, loadStoreReports
+} from '/assets/js/company/company-store.js';
+import { fetchAccountType } from '/assets/js/company/store-data.js';
 import {
     escapeHtml, formatDate, renderState, renderSkeletonLines
 } from '/assets/js/customer/portal-ui.js';
@@ -115,6 +120,8 @@ let companyMembers = [];
 let companyCustomerList = [];
 // 102: ملخص صندوق الرسائل كما رجّعته القاعدة — null يعني لا رابط في القائمة
 let inboxSummary = null;
+// 118: نوع الحساب كما رجّعته my_account_type() — عرض فقط؛ القاعدة تقرر كل صفحة متجر
+let accountType = null;
 
 /** آخر قرار قرأناه من القاعدة لإدارة المستخدمين — للعرض فقط، لا للتفويض. */
 let canManageMembersNow = false;
@@ -169,6 +176,7 @@ async function init() {
     initCompanyActivity();
     // قائمة الأعضاء لاختيار العميل عند تحويل طلب دعم وارد من الموقع إلى تذكرة
     initCompanyIntegrations({ members: () => companyMembers });
+    initCompanyStore({ getViewerRole: () => viewerRole, oauthCompletion });
     initCompanySupport({ onCreated: onTicketCreated });
     initCompanyNotifications({
         onNavigate: showSection,
@@ -193,8 +201,11 @@ async function init() {
 async function boot() {
     await load();
     if (!dashboard) return;
-    // صندوق الرسائل (102) يظهر في التنقّل فقط حين ترد القاعدة بصندوق لهذا الحساب
-    inboxSummary = await fetchInboxSummary();
+    // صندوق الرسائل (102) يظهر في التنقّل فقط حين ترد القاعدة بصندوق لهذا الحساب.
+    // نوع الحساب (118) يُظهر مجموعة المتجر لحساب ecommerce_store؛ قبل 118 لا رد = لا مجموعة.
+    const [inbox, kind] = await Promise.all([fetchInboxSummary(), fetchAccountType()]);
+    inboxSummary = inbox;
+    accountType = kind?.ok ? kind.data : null;
     applyViewerRole();
 
     // البحث في الشريط العلوي بيوصل هنا كـ?q= (بيت القشرة هو لوحة الشركة
@@ -241,6 +252,11 @@ const LOADERS = {
     // قسم API يعرض صاحب كل مفتاح من قائمة الأعضاء
     api: () => ensureMembers().then(() => loadCompanyApi({ selfId: currentUserId })),
     integrations: () => loadCompanyIntegrations(),
+    storeOverview: () => loadStoreOverview(),
+    shopify: () => loadShopifyPage(),
+    storeOrders: () => loadStoreOrders(),
+    storeRequests: () => loadStoreRequests(),
+    storeReports: () => loadStoreReports(),
     activity: () => loadCompanyActivity(),
     // التقارير تُبنى من المسارين والأعضاء، فنضمن تحميلها أولًا بدل عرض أصفار كاذبة
     reports: () => loadReports()
@@ -254,7 +270,7 @@ const BASE_TITLE = 'لوحة الشركة - منصة مدعوم';
 let currentSection = 'overview';
 
 function navContext() {
-    return { viewerRole, inbox: inboxSummary !== null };
+    return { viewerRole, inbox: inboxSummary !== null, store: accountType?.organization_kind === 'ecommerce_store' };
 }
 
 function sectionFromHash() {

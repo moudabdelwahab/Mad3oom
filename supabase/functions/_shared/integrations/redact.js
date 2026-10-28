@@ -13,6 +13,7 @@ const ALLOWED_LOG_KEYS = new Set([
 
 const SECRET_PATTERNS = [
     /\b(ck|cs)_[A-Za-z0-9]{8,}\b/g,                 // مفاتيح ووكومرس
+    /\bshp[a-z]{2}_[A-Za-z0-9]{8,}\b/g,              // رموز Shopify (shpat_ / shprt_ / shpss_ …)
     /\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/gi,          // رموز حامل
     /\bBasic\s+[A-Za-z0-9+/=]{8,}/gi,               // Basic auth
     /\bihub1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,     // نص مشفّر

@@ -137,6 +137,8 @@ export const daftra = defineConnector({
         fetchOrder: unsupported('Daftra is an accounting system; orders are out of scope'),
         fetchInvoice,
         handleWebhook: unsupported('no Daftra webhook mechanism was found in the official documentation'),
+        fetchProduct: unsupported('Daftra is an accounting system; products are out of scope'),
+        search: unsupported('records are linked by id; no verified search endpoint'),
         syncRecords: unsupported('no verified incremental-sync filter; records are fetched on demand only'),
         getHealthStatus: verifyConnection
     }

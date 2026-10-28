@@ -12,10 +12,16 @@
  * مسارات نسبية عمدًا (لا مطلقة) حتى تُستورد في node مباشرةً.
  */
 import { sectionAllowed } from './company-model.js';
+import { STORE_PAGES } from './store-model.js';
 
 /** الصفحات: اسمها في التنقّل ووصفها المختصر. المفتاح = الـhash = بادئة الحاوية. */
 export const COMPANY_PAGES = Object.freeze({
     overview:        { label: 'نظرة عامة' },
+    storeOverview:   { label: 'نظرة المتجر' },
+    shopify:         { label: 'Shopify' },
+    storeOrders:     { label: 'العملاء والطلبات' },
+    storeRequests:   { label: 'طلبات المتابعة' },
+    storeReports:    { label: 'تقارير المتجر' },
     tickets:         { label: 'تذاكري مع مدعوم' },
     customerTickets: { label: 'تذاكر العملاء' },
     inbox:           { label: 'صندوق الرسائل' },
@@ -41,6 +47,12 @@ export const COMPANY_PAGES = Object.freeze({
 /** مجالات العمل بترتيب القائمة الجانبية. */
 export const COMPANY_GROUPS = Object.freeze([
     { key: 'home', label: 'الرئيسية', pages: ['overview'] },
+    {
+        // 118/119: لحسابات المتاجر الإلكترونية وحدها (ctx.store)
+        key: 'store', label: 'المتجر',
+        description: 'ربط متجرك في Shopify، وطلبات العملاء وسياقها في الدعم، ومتابعة الإرجاع والاستبدال والإلغاء.',
+        pages: ['storeOverview', 'shopify', 'storeOrders', 'storeRequests', 'storeReports']
+    },
     {
         key: 'support', label: 'الدعم والتذاكر',
         description: 'تذاكرك مع فريق مدعوم، وطلبات عملاء شركتك، وفتح تذكرة جديدة.',
@@ -79,16 +91,19 @@ export const COMPANY_GROUPS = Object.freeze([
 export const COMPANY_ROUTES = Object.freeze(COMPANY_GROUPS.flatMap(g => g.pages));
 
 /** صفحات لمدير الشركة وحده في التنقّل (القاعدة ترفض غيره على أي حال). */
-const ADMIN_PAGES = new Set(['permissions', 'accessLog']);
+const ADMIN_PAGES = new Set(['permissions', 'accessLog', 'shopify']);
 
 /**
  * هل تستحق الصفحة رابطًا لهذا الناظر؟
- * ctx: { viewerRole: 'admin'|'supervisor'|'agent', inbox: boolean }
+ * ctx: { viewerRole: 'admin'|'supervisor'|'agent', inbox: boolean, store: boolean }
  * - inbox: يظهر فقط حين ترد القاعدة بصندوق لهذا الحساب (company_inbox_summary).
+ * - store: صفحات المتجر لحساب ecommerce_store وحده (my_account_type()).
  * - customers: للمدير (الدعوات) والمشرف (القائمة)؛ لا شيء لموظف الدعم فيها.
  */
-export function pageAvailable(page, { viewerRole = 'admin', inbox = false } = {}) {
+export function pageAvailable(page, { viewerRole = 'admin', inbox = false, store = false } = {}) {
     if (!COMPANY_ROUTES.includes(page)) return false;
+    if (STORE_PAGES.includes(page) && store !== true) return false;
+    if (page === 'storeReports' && !['admin', 'supervisor'].includes(viewerRole)) return false;
     if (!sectionAllowed(page, viewerRole)) return false;
     if (ADMIN_PAGES.has(page) && viewerRole !== 'admin') return false;
     if (page === 'inbox' && inbox !== true) return false;

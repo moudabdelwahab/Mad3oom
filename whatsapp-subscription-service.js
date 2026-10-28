@@ -67,7 +67,8 @@ export const PLAN_LABELS = {
     support: CATALOG_LABELS.support,
     ultimate: CATALOG_LABELS.ultimate,
     whatsapp: CATALOG_LABELS.whatsapp,
-    bundle: CATALOG_LABELS.bundle
+    bundle: CATALOG_LABELS.bundle,
+    store: CATALOG_LABELS.store
 };
 
 export const BILLING_LABELS = {

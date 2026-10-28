@@ -11,6 +11,8 @@
  *       شركة ⇒ يملأ بيانات الشركة وتتبعت كطلب (migrations/068). مفيش دفع ولا
  *              شركة دلوقتي: الإدارة تراجع، وعند الموافقة القاعدة تُنشئ الشركة
  *              فيتحوّل الحساب لحساب شركة، ويرجع يكمل الاشتراك كشركة.
+ *       متجر ⇒ نفس طلب الشركة موسومًا ecommerce_store (118). بعد الموافقة يشترك في باقة
+ *              المتاجر، ثم يربط Shopify من لوحة الشركة (صفحة «Shopify»).
  *
  * الملف ده ما بيقررش حالة الحساب: وجود الشركة وحالة الطلب جايين من القاعدة،
  * والقاعدة هي اللي بترفض الطلب المكرر أو حساب الشركة اللي يطلب تاني.
@@ -19,31 +21,42 @@
 import {
     hasCompany,
     submitCompanyAccountRequest,
+    submitStoreAccountRequest,
     fetchMyCompanyAccountRequest,
     linkSubscriptionToCompany
 } from '/assets/js/company/company-data.js';
 import { validateCompanyForm } from '/assets/js/company/company-model.js';
 import { escapeHtml } from '/assets/js/customer/portal-ui.js';
 
-export const PURCHASE_AS = Object.freeze({ individual: 'individual', company: 'company' });
+export const PURCHASE_AS = Object.freeze({ individual: 'individual', company: 'company', store: 'ecommerce_store' });
+
+/** نطاق myshopify اختياري في طلب المتجر — نفس قاعدة submit_store_account_request. */
+export function validStoreDomain(value) {
+    let s = String(value ?? '').trim().toLowerCase().replace(/^https:\/\//, '').replace(/\/+$/, '');
+    if (!s) return { ok: true, value: null };
+    if (!s.includes('.')) s = `${s}.myshopify.com`;
+    return /^[a-z0-9][a-z0-9-]{0,59}\.myshopify\.com$/.test(s) ? { ok: true, value: s } : { ok: false, value: null };
+}
 
 /**
  * بأي صفة يشتري العميل؟
- * @param {{plan: string, billingCycle: string}} purchase الباقة اللي ضغط عليها،
+ * @param {{plan: string, billingCycle: string, storePlan?: boolean}} purchase الباقة اللي ضغط عليها،
  *        بتتسجّل مع طلب الشركة عشان إخطار الموافقة يقوله يكمل اشتراكه فيها.
+ *        storePlan: باقة جمهورها ecommerce_store — الخيار الوحيد المعروض «متجر إلكتروني».
  * @returns {Promise<{proceed: boolean, asCompany: boolean}>}
  *   proceed=true  → كمّل لنافذة الدفع (asCompany=true: اربط الاشتراك بالشركة)
  *   proceed=false → العميل لغى، أو بعت طلب شركة (النافذة عرضت النتيجة بنفسها)
  */
-export async function choosePurchaseAccount({ plan, billingCycle } = {}) {
+export async function choosePurchaseAccount({ plan, billingCycle, storePlan = false } = {}) {
     if (await hasCompany()) return { proceed: true, asCompany: true };
 
     const last = await fetchMyCompanyAccountRequest();
     const lastRequest = last.ok ? last.data : null;
 
-    const choice = await openAccountTypeModal(lastRequest);
+    const choice = await openAccountTypeModal(lastRequest, { storeOnly: storePlan });
     if (choice === PURCHASE_AS.individual) return { proceed: true, asCompany: false };
     if (choice === PURCHASE_AS.company) await openCompanyModal({ plan, billingCycle, lastRequest });
+    if (choice === PURCHASE_AS.store) await openCompanyModal({ plan: storePlan ? plan : null, billingCycle, lastRequest, kind: PURCHASE_AS.store });
     return { proceed: false, asCompany: false };
 }
 
@@ -111,6 +124,7 @@ const SECONDARY_BTN = `flex:1; padding:0.75rem; border:1px solid var(--color-bor
 
 const ICONS = {
     individual: `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+    ecommerce_store: `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg>`,
     company: `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9v.01M9 12v.01M9 15v.01"/></svg>`
 };
 
@@ -120,9 +134,10 @@ const ICONS = {
  * متاح عادي. ولو الطلب السابق اترفض، سبب الرفض بيظهر قبل ما يبعت تاني.
  * @returns {Promise<'individual'|'company'|null>}
  */
-export function openAccountTypeModal(lastRequest = null) {
+export function openAccountTypeModal(lastRequest = null, { storeOnly = false } = {}) {
     return new Promise((resolve) => {
         const pending = lastRequest?.status === 'pending';
+        const pendingStore = pending && lastRequest?.account_kind === 'ecommerce_store';
         const rejected = lastRequest?.status === 'rejected';
 
         const close = (value) => { remove(); resolve(value); };
@@ -151,13 +166,18 @@ export function openAccountTypeModal(lastRequest = null) {
             : 'أرسل بيانات شركتك ليراجعها فريق الإدارة، وعند الموافقة يتحوّل حسابك إلى حساب شركة وتكمل الاشتراك باسمها.';
 
         box.innerHTML = `
-            <h3 style="margin:0 0 0.25rem; font-size:1.15rem; font-weight:800;">هل تشترك كفرد أم كشركة؟</h3>
+            <h3 style="margin:0 0 0.25rem; font-size:1.15rem; font-weight:800;">${storeOnly ? 'باقة المتاجر لحسابات المتاجر الإلكترونية' : 'هل تشترك كفرد أم كشركة أم كمتجر إلكتروني؟'}</h3>
             <p style="margin:0 0 1.25rem; font-size:0.85rem; color:var(--color-text-secondary); line-height:1.7;">
                 اختر نوع الحساب الذي سيُفعَّل عليه الاشتراك.
             </p>
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:0.75rem;">
-                ${option('individual', 'فرد', 'اشترك باسمك الشخصي وأكمل بيانات الدفع الآن.')}
-                ${option('company', 'شركة', companyText, { disabled: pending, badge: pending ? pendingBadge : '' })}
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0.75rem;">
+                ${storeOnly ? '' : option('individual', 'فرد', 'اشترك باسمك الشخصي وأكمل بيانات الدفع الآن.')}
+                ${storeOnly ? '' : option('company', 'شركة', pendingStore ? 'لديك طلب حساب متجر قيد المراجعة.' : companyText,
+                                          { disabled: pending, badge: pending && !pendingStore ? pendingBadge : '' })}
+                ${option('ecommerce_store', 'متجر إلكتروني', pendingStore
+                    ? `طلب حساب المتجر «${escapeHtml(lastRequest.company_name)}» لدى فريق الإدارة الآن، وسنُخطرك فور البت فيه.`
+                    : 'لمتاجر Shopify: لوحة متجر بطلبات عملائك وعملائك ومنتجاتك داخل الدعم. تراجع الإدارة الطلب، ثم تشترك في باقة المتاجر وتربط متجرك.',
+                    { disabled: pending, badge: pendingStore ? pendingBadge : '' })}
             </div>
             ${rejected ? `
             <p data-rejected-note style="margin:1rem 0 0; padding:0.75rem 0.9rem; border-radius:0.6rem; font-size:0.8rem; line-height:1.7;
@@ -184,12 +204,13 @@ export function openAccountTypeModal(lastRequest = null) {
  * نفسها بتقول للعميل إيه اللي هيحصل بعد كده.
  * @returns {Promise<boolean>} true لو الطلب اتبعت
  */
-export function openCompanyModal({ plan = null, billingCycle = null, lastRequest = null } = {}) {
+export function openCompanyModal({ plan = null, billingCycle = null, lastRequest = null, kind = PURCHASE_AS.company } = {}) {
+    const isStore = kind === PURCHASE_AS.store;
     return new Promise((resolve) => {
         let submitted = false;
         let busy = false;
         const close = () => { if (busy) return; remove(); resolve(submitted); };
-        const { box, remove } = createModal({ maxWidth: 480, label: 'بيانات الشركة', onDismiss: close });
+        const { box, remove } = createModal({ maxWidth: 480, label: isStore ? 'بيانات المتجر' : 'بيانات الشركة', onDismiss: close });
 
         const field = (id, label, type, required, hint, value = '') => `
             <label style="display:block; margin-bottom:0.9rem;">
@@ -206,16 +227,19 @@ export function openCompanyModal({ plan = null, billingCycle = null, lastRequest
 
         box.innerHTML = `
             <div data-company-form>
-                <h3 style="margin:0 0 0.25rem; font-size:1.15rem; font-weight:800;">بيانات الشركة</h3>
+                <h3 style="margin:0 0 0.25rem; font-size:1.15rem; font-weight:800;">${isStore ? 'بيانات المتجر' : 'بيانات الشركة'}</h3>
                 <p style="margin:0 0 1.25rem; font-size:0.85rem; color:var(--color-text-secondary); line-height:1.7;">
-                    أدخل البيانات القانونية الأساسية لشركتك. يراجعها فريق الإدارة، وعند الموافقة
-                    يتحوّل حسابك إلى حساب شركة وتظهر لك لوحة الشركة.
+                    ${isStore
+                        ? 'أدخل البيانات القانونية لمتجرك. يراجعها فريق الإدارة، وعند الموافقة يصير حسابك حساب متجر إلكتروني بلوحة متجر. بعدها تشترك في باقة المتاجر وتربط Shopify — لا يُربط أي متجر من هذا النموذج.'
+                        : `أدخل البيانات القانونية الأساسية لشركتك. يراجعها فريق الإدارة، وعند الموافقة
+                    يتحوّل حسابك إلى حساب شركة وتظهر لك لوحة الشركة.`}
                 </p>
-                ${field('cmCompanyName', 'اسم الشركة', 'text', true, '', lastRequest?.company_name || '')}
+                ${field('cmCompanyName', isStore ? 'اسم المتجر' : 'اسم الشركة', 'text', true, '', lastRequest?.company_name || '')}
                 ${field('cmCrNumber', 'رقم السجل التجاري', 'text', true, '')}
                 ${field('cmCrExpiry', 'تاريخ انتهاء السجل التجاري', 'date', true, 'يُحفظ ضمن بيانات الشركة للتحقق مستقبلًا')}
                 ${field('cmCompanyEmail', 'البريد الإلكتروني للشركة', 'email', false, '')}
-                ${field('cmCompanyPhone', 'هاتف الشركة', 'tel', false, '')}
+                ${field('cmCompanyPhone', isStore ? 'هاتف المتجر' : 'هاتف الشركة', 'tel', false, '')}
+                ${isStore ? field('cmStoreDomain', 'نطاق متجرك في Shopify', 'text', false, 'اختياري، مثل my-store.myshopify.com — للمراجعة فقط') : ''}
                 <p id="cmFormError" role="alert" style="display:none; font-size:0.8rem; color:var(--color-danger,#e5484d); margin:0 0 0.9rem; line-height:1.6;"></p>
                 <div style="display:flex; gap:0.6rem; margin-top:1.25rem;">
                     <button type="button" id="cmSubmit" style="${PRIMARY_BTN}">إرسال الطلب للمراجعة</button>
@@ -227,7 +251,7 @@ export function openCompanyModal({ plan = null, billingCycle = null, lastRequest
                             justify-content:center; background:rgba(46,138,58,0.12); color:var(--color-success,#2e8a3a);">
                     <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
                 </div>
-                <h3 style="margin:0 0 0.5rem; font-size:1.15rem; font-weight:800;">تم إرسال طلب حساب الشركة</h3>
+                <h3 style="margin:0 0 0.5rem; font-size:1.15rem; font-weight:800;">${isStore ? 'تم إرسال طلب حساب المتجر' : 'تم إرسال طلب حساب الشركة'}</h3>
                 <p style="margin:0 0 1.25rem; font-size:0.85rem; color:var(--color-text-secondary); line-height:1.8;">
                     يراجع فريق الإدارة بيانات شركتك الآن، وسنُرسل لك إشعارًا فور البت في الطلب.
                     عند الموافقة يتحوّل حسابك إلى حساب شركة، ثم تكمل الاشتراك والدفع باسمها.
@@ -249,7 +273,8 @@ export function openCompanyModal({ plan = null, billingCycle = null, lastRequest
                 crNumber: box.querySelector('#cmCrNumber').value,
                 crExpiry: box.querySelector('#cmCrExpiry').value,
                 companyEmail: box.querySelector('#cmCompanyEmail').value,
-                companyPhone: box.querySelector('#cmCompanyPhone').value
+                companyPhone: box.querySelector('#cmCompanyPhone').value,
+                storeDomain: isStore ? box.querySelector('#cmStoreDomain').value : null
             };
 
             // نفس قواعد submit_company_account_request في القاعدة — الرسالة بالعربي قبل الإرسال
@@ -260,6 +285,13 @@ export function openCompanyModal({ plan = null, billingCycle = null, lastRequest
                 companyEmail: 'cmCompanyEmail'
             };
             const validation = validateCompanyForm(values);
+            const domain = validStoreDomain(values.storeDomain);
+            if (isStore && !domain.ok) {
+                validation.isValid = false;
+                validation.errors = { ...(validation.errors || {}), storeDomain: 'اكتب نطاق myshopify صحيحًا أو اتركه فارغًا' };
+                fieldIds.storeDomain = 'cmStoreDomain';
+            }
+            values.storeDomain = domain.value;
             if (!validation.isValid) {
                 for (const [key, message] of Object.entries(validation.errors)) {
                     const el = box.querySelector(`[data-error-for="${fieldIds[key]}"]`);
@@ -271,7 +303,9 @@ export function openCompanyModal({ plan = null, billingCycle = null, lastRequest
             busy = true;
             submitBtn.disabled = true;
             submitBtn.textContent = 'جاري الإرسال...';
-            const result = await submitCompanyAccountRequest(values, { plan, billingCycle });
+            const result = isStore
+                ? await submitStoreAccountRequest(values, { plan, billingCycle })
+                : await submitCompanyAccountRequest(values, { plan, billingCycle });
             busy = false;
             submitBtn.disabled = false;
             submitBtn.textContent = 'إرسال الطلب للمراجعة';

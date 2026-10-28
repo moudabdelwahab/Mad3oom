@@ -7,6 +7,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const ENV_KEYS = [
   "IHUB_ENC_KEY", "IHUB_KEY_VERSION", "IHUB_PUBLIC_BASE", "IHUB_DASHBOARD_URL", "IHUB_WORKER_SECRET",
   "SALLA_CLIENT_ID", "SALLA_CLIENT_SECRET", "SALLA_REDIRECT_URI", "SALLA_WEBHOOK_SECRET",
+  "SHOPIFY_CLIENT_ID", "SHOPIFY_CLIENT_SECRET", "SHOPIFY_REDIRECT_URI", "SHOPIFY_API_VERSION",
 ];
 
 export function readEnv(): Record<string, string> {

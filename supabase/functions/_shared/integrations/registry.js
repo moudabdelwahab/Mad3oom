@@ -6,12 +6,15 @@ import { woocommerce } from './woocommerce.js';
 import { salla } from './salla.js';
 import { daftra } from './daftra.js';
 import { wordpress } from './wordpress.js';
+import { shopify } from './shopify.js';
 import { decryptJson, encryptJson, credentialAad } from './crypto.js';
 import { ConnectorError } from './errors.js';
 
-export const CONNECTORS = Object.freeze({ woocommerce, salla, daftra, wordpress });
+export const CONNECTORS = Object.freeze({ woocommerce, salla, daftra, wordpress, shopify });
 
-export const FETCH_OPERATION = Object.freeze({ order: 'fetchOrder', invoice: 'fetchInvoice', customer: 'fetchCustomer' });
+export const FETCH_OPERATION = Object.freeze({
+    order: 'fetchOrder', invoice: 'fetchInvoice', customer: 'fetchCustomer', product: 'fetchProduct'
+});
 
 export function connectorFor(provider) {
     const c = CONNECTORS[provider];

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>المتاجر وShopify - لوحة المالك - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-workspace.css">
+    <link rel="stylesheet" href="/assets/css/portal-notifications.css">
+    <link rel="stylesheet" href="/assets/css/owner-pages.css">
+    <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في لوحة المالك — الثيم وحالة الطي قبل أول رسم. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body class="customer-shell owner-shell dash-layout" data-owner-page="stores">
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main" id="ownerMain">
+        <!-- بوابة العرض: سبب المنع بدل صفحة فارغة. القرار الحقيقي في القاعدة (owner_capability('owner_only')). -->
+        <section class="panel" id="ownerGate" hidden>
+            <div class="state-block" id="ownerGateBody"></div>
+        </section>
+
+        <div id="ownerContent" hidden>
+            <header class="owner-banner owner-page-banner">
+                <div class="owner-banner-main">
+                    <span class="owner-level-tag">لوحة المالك · التشغيل</span>
+                    <h1 class="owner-title">المتاجر وShopify</h1>
+                    <p class="owner-meta">أنواع الحسابات الثلاثة، وصحة ربط متاجر Shopify، وتشخيص الإعداد والامتيازات — بيانات وصفية فقط:
+                        لا رموز ولا أسرار ولا بيانات عملاء المتاجر أو طلباتهم.</p>
+                </div>
+                <div class="owner-banner-side">
+                    <button type="button" class="btn btn-outline btn-sm" id="storesRefresh">تحديث</button>
+                </div>
+            </header>
+            <div class="kpi-grid" id="storesKpis" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+
+            <div class="owner-page-stack">
+                <section class="panel" aria-labelledby="accountsHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="accountsHeading">الحسابات حسب النوع</h2>
+                        <p class="panel-subtitle">فرد · شركة · متجر إلكتروني — مع آخر اشتراك وحالته وحالة ربط Shopify.</p>
+                    </div></div>
+                    <form class="toolbar owner-filters" id="accountsFilters" role="search" novalidate>
+                        <label class="visually-hidden" for="accountsType">نوع الحساب</label>
+                        <select class="form-control owner-filter-select" id="accountsType">
+                            <option value="">كل الأنواع</option>
+                            <option value="individual">فرد</option>
+                            <option value="company">شركة</option>
+                            <option value="ecommerce_store">متجر إلكتروني</option>
+                        </select>
+                        <label class="visually-hidden" for="accountsSearch">ابحث بالاسم أو البريد</label>
+                        <input type="search" class="form-control owner-filter-search" id="accountsSearch" placeholder="ابحث بالاسم أو البريد…" autocomplete="off" maxlength="100">
+                    </form>
+                    <div id="accountsTable" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                    <div id="accountsPager"></div>
+                </section>
+
+                <section class="panel" aria-labelledby="storeIntegrationsHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="storeIntegrationsHeading">ربط متاجر Shopify</h2>
+                        <p class="panel-subtitle">الحالة والصلاحيات الناقصة وآخر مزامنة والأحداث الفاشلة وطلبات الخصوصية المعلّقة.</p>
+                    </div></div>
+                    <div id="storeIntegrations" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                </section>
+
+                <section class="panel" aria-labelledby="diagnosticsHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="diagnosticsHeading">التشخيص</h2>
+                        <p class="panel-subtitle">إعداد تطبيق Shopify على الخادم (وجود القيم فقط)، وتعارضات الامتياز، وحالة باقة المتاجر.</p>
+                    </div></div>
+                    <div id="storeDiagnostics" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                </section>
+
+                <section class="panel" aria-labelledby="testStoreHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="testStoreHeading">متجر الاختبار والمعاينة</h2>
+                        <p class="panel-subtitle">الاختبار على شركتك أنت فقط (حساب اختبار صريح). لا منح لأي تاجر حقيقي، ولا انتحال لحساب.</p>
+                    </div></div>
+                    <div id="testStore" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                </section>
+            </div>
+
+            <details class="owner-limits">
+                <summary>ما لا تفعله هذه الصفحة</summary>
+                <ul>
+                    <li>لا تعرض رموز Shopify ولا أسرار التطبيق ولا بيانات عملاء المتاجر أو طلباتهم: الطلبات والعملاء يراها فريق المتجر نفسه في لوحته.</li>
+                    <li>لا تمنح صلاحيات الإدارة: مراجعة طلبات حسابات المتاجر واعتماد الاشتراكات في <a href="/admin/company-requests.html">لوحة الإدارة</a>.</li>
+                    <li>لا تحدد أسعار باقة المتاجر: السعر قرار المالك من إدارة الباقات، والقاعدة ترفض تفعيل باقة متاجر بلا سعر.</li>
+                </ul>
+            </details>
+            <p class="owner-sie-status ows-toast" id="pageStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
+        </div>
+    </main>
+
+    <script type="module" src="/assets/js/owner/pages/stores.js"></script>
+</body>
+</html>

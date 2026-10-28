@@ -198,6 +198,11 @@ class FakeHub {
                 return null;
             case 'ihub_svc_tokens_due':
                 return this.tokensDue || [];
+            // 119: مزامنة Shopify (سلوكها في tests/shopify-integration.test.mjs و tests/sql/shopify-store-integration.test.sql)
+            case 'ihub_svc_schedule_reconciliation':
+                return 0;
+            case 'ihub_svc_claim_sync_jobs':
+                return [];
             case 'ihub_svc_audit':
                 this.audits.push(a);
                 return null;
@@ -338,15 +343,21 @@ test('contract: shortText leaves no tag or angle bracket, even from nested or un
     assert.equal(shortText('متجر <i>الورد</i>'), 'متجر الورد');
 });
 
-test('contract: connector capabilities match the provider catalog seeded by 088 (no misleading UI controls)', () => {
-    const sql = read('migrations/088_integrations_hub.sql');
+test('contract: connector capabilities match the provider catalog seeded by 088 and 119 (no misleading UI controls)', () => {
+    const sql = read('migrations/088_integrations_hub.sql') + read('migrations/119_shopify_store_integration.sql');
     const catalog = {};
-    for (const m of sql.matchAll(/\('(wordpress|woocommerce|salla|daftra)', '[^']+', '[^']+', '[a-z_0-9]+', jsonb_build_object\(([\s\S]*?)\)\)/g)) {
+    for (const m of sql.matchAll(/\('(wordpress|woocommerce|salla|daftra|shopify)', '[^']+', '[^']+', '[a-z_0-9]+', jsonb_build_object\(([\s\S]*?)\)\)/g)) {
         catalog[m[1]] = Object.fromEntries([...m[2].matchAll(/'([a-z_]+)', '([a-z_]+)'/g)].map((x) => [x[1], x[2]]));
     }
-    assert.deepEqual(Object.keys(catalog).sort(), ['daftra', 'salla', 'woocommerce', 'wordpress']);
+    assert.deepEqual(Object.keys(catalog).sort(), ['daftra', 'salla', 'shopify', 'woocommerce', 'wordpress']);
     const MAP = { fetchOrder: 'fetch_order', fetchInvoice: 'fetch_invoice', fetchCustomer: 'fetch_customer', handleWebhook: 'webhooks',
                   syncRecords: 'incremental_sync', refreshCredentials: 'refresh_credentials' };
+    // 119: القدرتان الجديدتان مسجّلتان في كتالوج Shopify وحده (البقية: الموصل يعلنها unsupported)
+    for (const [key, c] of Object.entries(CONNECTORS)) {
+        const live = new Set(['implemented_unverified', 'implemented_verified', 'partial']);
+        assert.equal(supports(c, 'fetchProduct'), live.has(catalog[key].fetch_product), `${key}.fetchProduct`);
+        assert.equal(supports(c, 'search'), live.has(catalog[key].search), `${key}.search`);
+    }
     const live = new Set(['implemented_unverified', 'implemented_verified', 'partial']);
     for (const [key, c] of Object.entries(CONNECTORS)) {
         for (const [op, cap] of Object.entries(MAP)) {
@@ -931,7 +942,7 @@ test('inbound: routing, methods and size limits', async () => {
     const hub = new FakeHub();
     assert.equal((await handleInbound(deps(hub), { method: 'GET', path: '/woocommerce/x', headers: hdrs({}), rawBody: new Uint8Array(), query: new URLSearchParams() })).status, 405);
     assert.equal((await handleInbound(deps(hub), { method: 'POST', path: '/shopify', headers: hdrs({}), rawBody: new Uint8Array(), query: new URLSearchParams() })).status, 404);
-    assert.equal((await handleInbound(deps(hub), { method: 'POST', path: '/salla', headers: hdrs({}), rawBody: new Uint8Array(300 * 1024), query: new URLSearchParams() })).status, 413);
+    assert.equal((await handleInbound(deps(hub), { method: 'POST', path: '/salla', headers: hdrs({}), rawBody: new Uint8Array(1100 * 1024), query: new URLSearchParams() })).status, 413);
     assert.equal((await handleInbound(deps(hub), { method: 'POST', path: '/salla', headers: hdrs({}), rawBody: enc.encode('{}'), query: new URLSearchParams() })).status, 503,
                  'no Salla webhook secret configured: fail closed');
 });

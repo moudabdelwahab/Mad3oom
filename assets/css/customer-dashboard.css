@@ -2716,3 +2716,23 @@ body.customer-shell .article-feedback .btn.is-chosen {
     .help-hero h1 { font-size: var(--fs-xl); }
     body.customer-shell .help-search-input { font-size: var(--fs-base); }
 }
+
+/* 118/119: قوائم صفحات المتجر وصفحة المالك «المتاجر وShopify» — نفس رموز التصميم */
+.company-list {
+    list-style: none;
+    margin: var(--sp-2) 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+.company-list > li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) 0;
+    border-bottom: 1px solid var(--color-border);
+    overflow-wrap: anywhere;
+}
+.company-list > li:last-child { border-bottom: none; }

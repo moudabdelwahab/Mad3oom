@@ -129,14 +129,16 @@ async function clickSubscribe(page, plan = 'support') {
 
 /* ── العميل ─────────────────────────────────────────────────────────────── */
 
-test('«اشترك الآن» يسأل أولًا: فرد أم شركة؟ — والفرد يكمل لنافذة الدفع', { skip: !chromiumPath }, async () => {
+test('«اشترك الآن» يسأل أولًا: فرد أم شركة أم متجر؟ — والفرد يكمل لنافذة الدفع', { skip: !chromiumPath }, async () => {
     const { page, context, errors } = await open(customer(), '/subscriptions.html');
     await clickSubscribe(page);
 
     const modal = page.locator('[role="dialog"][aria-label="نوع الحساب"]');
     await modal.waitFor();
-    assert.match(await modal.innerText(), /هل تشترك كفرد أم كشركة؟/);
-    assert.equal(await modal.locator('[data-account-type]').count(), 2);
+    assert.match(await modal.innerText(), /هل تشترك كفرد أم كشركة أم كمتجر إلكتروني؟/);
+    // 118: ثلاثة أنواع حساب
+    assert.equal(await modal.locator('[data-account-type]').count(), 3);
+    assert.equal(await modal.locator('[data-account-type="ecommerce_store"]').count(), 1);
     // لا شيء اتبعت لمجرد فتح السؤال
     assert.deepEqual(await called(page, 'submit_company_account_request'), []);
 

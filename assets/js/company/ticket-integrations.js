@@ -7,25 +7,56 @@
  *
  * الملخص المعروض قائمة سماح (summaryRows) من نسخة مختصرة مخزّنة؛ المزوّد يبقى
  * المرجع، والرابط الخارجي يُفتح في تبويب جديد بلا مُحيل.
+ *
+ * 119 (حسابات المتاجر): كتلة «دعم المتجر» — تصنيف التذكرة وطلبات المتابعة المرتبطة بها.
+ * تظهر فقط حين ترد store_ticket_meta_get() (متجر + رؤية التذكرة + امتياز store_support).
  */
 
 import { ticketContextView, errorMessage } from '/assets/js/company/integrations-model.js';
 import { fetchTicketIntegrationContext, unlinkTicketRecord, invokeIntegrationsApi } from '/assets/js/company/integrations-data.js';
 import { escapeHtml, formatDateTime } from '/assets/js/customer/portal-ui.js';
 import { ui } from '/ui-service.js';
+import { fetchTicketStoreMeta, fetchCategories, setTicketCategory } from '/assets/js/company/store-data.js';
+import { REQUEST_KINDS, REQUEST_STATUSES, NOT_EXECUTED_NOTE, storeErrorMessage } from '/assets/js/company/store-model.js';
+import { openRequestDialog } from '/assets/js/company/company-store.js';
+
+/** كتلة دعم المتجر داخل التذكرة. null = لا كتلة (ليس متجرًا، أو بلا رؤية/امتياز). */
+async function storeBlock(ticketId, uid) {
+    const [meta, cats] = await Promise.all([fetchTicketStoreMeta(ticketId), fetchCategories()]);
+    if (!meta.ok || !meta.data) return null;
+    const categories = cats.ok && Array.isArray(cats.data) ? cats.data : [];
+    const current = meta.data.category_key || '';
+    const requests = Array.isArray(meta.data.requests) ? meta.data.requests : [];
+    return `<section class="ihub-ticket" aria-labelledby="${uid}-store">
+        <h3 class="panel-title" id="${uid}-store">دعم المتجر</h3>
+        <div class="form-field">
+            <label for="${uid}-cat">تصنيف المشكلة</label>
+            <select id="${uid}-cat" class="form-control" data-store-category>
+                <option value="">بلا تصنيف</option>
+                ${categories.filter((c) => c.is_active || c.key === current).map((c) =>
+                    `<option value="${escapeHtml(c.key)}" ${c.key === current ? 'selected' : ''}>${escapeHtml(c.label_ar)}</option>`).join('')}
+            </select>
+        </div>
+        ${requests.length ? `<ul class="company-list">${requests.map((q) => `<li>${escapeHtml(REQUEST_KINDS[q.kind] || q.kind)}
+            ${q.order_ref ? escapeHtml(q.order_ref) : ''} — <span class="pill ${escapeHtml(REQUEST_STATUSES[q.status]?.pill || 'status-neutral')}">
+            ${escapeHtml(REQUEST_STATUSES[q.status]?.label || q.status)}</span></li>`).join('')}</ul>` : ''}
+        <div class="company-form-actions"><button type="button" class="btn btn-secondary btn-sm" data-store-request>تسجيل طلب متابعة</button></div>
+        <p class="field-hint">${escapeHtml(NOT_EXECUTED_NOTE)}</p>
+    </section>`;
+}
 
 export async function renderTicketIntegrations(container, ticketId) {
     if (!container) return;
-    const r = await fetchTicketIntegrationContext(ticketId);
+    const uid = `ihubT-${String(ticketId).replace(/[^A-Za-z0-9-]/g, '')}`;
+    const [r, store] = await Promise.all([fetchTicketIntegrationContext(ticketId), storeBlock(ticketId, uid)]);
     const view = ticketContextView(r.data);
-    if (!view) {
+    if (!view && !store) {
         container.hidden = true;
         container.innerHTML = '';
         return;
     }
-    const uid = `ihubT-${String(ticketId).replace(/[^A-Za-z0-9-]/g, '')}`;
     container.hidden = false;
-    container.innerHTML = `
+    container.innerHTML = `${store || ''}${view ? `
     <section class="ihub-ticket" aria-labelledby="${uid}-title">
         <h3 class="panel-title" id="${uid}-title">السياق الخارجي</h3>
         ${view.customerRefs.length ? `<p class="panel-subtitle">العميل مربوط بـ: ${view.customerRefs.map((c) =>
@@ -38,6 +69,11 @@ export async function renderTicketIntegrations(container, ticketId) {
             </header>
             <dl class="ihub-facts">${l.rows.map((row) => `<div><dt>${escapeHtml(row.label)}</dt><dd>${escapeHtml(row.value)}</dd></div>`).join('')}</dl>
             ${l.items ? `<p class="panel-subtitle">المنتجات: ${escapeHtml(l.items)}</p>` : ''}
+            ${l.tracking.length ? `<ul class="company-list">${l.tracking.map((t) => `<li>${escapeHtml(t.status || 'شحنة')}
+                ${t.company ? escapeHtml(t.company) : ''} ${t.number ? `<span dir="ltr">${escapeHtml(t.number)}</span>` : ''}
+                ${t.url ? `<a href="${escapeHtml(t.url)}" target="_blank" rel="noopener noreferrer">تتبّع الشحنة</a>` : ''}</li>`).join('')}</ul>` : ''}
+            ${l.deletedInProvider ? '<p class="field-hint">حُذف هذا السجل لدى المزوّد؛ المعروض آخر نسخة محفوظة.</p>' : ''}
+            ${l.restricted ? '<p class="field-hint">بعض بيانات العميل محجوبة: لم يعتمد Shopify وصول التطبيق إليها بعد.</p>' : ''}
             <p class="field-hint">آخر تحديث: ${escapeHtml(formatDateTime(l.fetchedAt))}${l.unverifiedMapping ? ' · عرض تجريبي لحقول هذا المزوّد' : ''}</p>
             <div class="company-form-actions">
                 ${l.url ? `<a class="btn btn-secondary btn-sm" href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer">فتح لدى ${escapeHtml(l.providerName)}</a>` : ''}
@@ -65,7 +101,20 @@ export async function renderTicketIntegrations(container, ticketId) {
                 <button type="submit" class="btn btn-primary btn-sm">ربط بالتذكرة</button>
             </div>
         </form>` : ''}
-    </section>`;
+    </section>` : ''}`;
+
+    container.querySelector('[data-store-category]')?.addEventListener('change', async (e) => {
+        const res = await setTicketCategory(ticketId, e.currentTarget.value || null);
+        ui?.showToast?.(res.ok ? 'تم حفظ التصنيف.' : storeErrorMessage(res.code, res.error), res.ok ? 'success' : 'error');
+    });
+    container.querySelector('[data-store-request]')?.addEventListener('click', () => openRequestDialog({ ticketId }));
+    const rerender = (e) => {
+        if (e.detail?.ticketId !== ticketId) return;
+        document.removeEventListener('store:request-created', rerender);
+        renderTicketIntegrations(container, ticketId);
+    };
+    document.addEventListener('store:request-created', rerender);
+    if (!view) return;
 
     const err = container.querySelector(`#${uid}-err`);
     const fail = (code) => {

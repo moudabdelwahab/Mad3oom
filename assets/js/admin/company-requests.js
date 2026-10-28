@@ -88,7 +88,7 @@ function renderRequests() {
 
     body.innerHTML = filtered.map((req) => `
         <tr data-request-row="${escapeHtml(req.id)}">
-            <td>${escapeHtml(req.company_name)}<div style="font-size: 0.75rem; color: var(--color-text-secondary);">سجل ${escapeHtml(req.commercial_registration_number)}</div></td>
+            <td>${escapeHtml(req.company_name)}${req.account_kind === 'ecommerce_store' ? ' <span class="status-badge status-pending">متجر إلكتروني</span>' : ''}<div style="font-size: 0.75rem; color: var(--color-text-secondary);">سجل ${escapeHtml(req.commercial_registration_number)}</div></td>
             <td>${escapeHtml(req.customer_name || '—')}<div style="font-size: 0.75rem; color: var(--color-text-secondary);">${escapeHtml(req.customer_email || '')}</div></td>
             <td>${escapeHtml(planLabel(req))}</td>
             <td><span class="status-badge ${STATUS_CLASSES[req.status] || 'status-pending'}">${escapeHtml(STATUS_LABELS[req.status] || req.status)}</span></td>
@@ -116,6 +116,11 @@ function openModal(requestId) {
         ? 'تحقّق من البيانات القانونية. الموافقة تُنشئ الشركة باسم العميل ويتحوّل حسابه إلى حساب شركة فورًا.'
         : `هذا الطلب ${STATUS_LABELS[req.status] || req.status}.`);
 
+    // 118: الطلب قد يكون لمتجر إلكتروني — الموافقة تنشئ المنظمة بنوعها (لا يُربط أي متجر هنا)
+    const isStore = req.account_kind === 'ecommerce_store';
+    setText('crAccountKind', isStore ? 'متجر إلكتروني (Shopify)' : 'شركة');
+    document.getElementById('crStoreDomainRow').hidden = !(isStore && req.store_domain_hint);
+    setText('crStoreDomain', req.store_domain_hint);
     setText('crCompanyName', req.company_name);
     setText('crCrNumber', req.commercial_registration_number);
     const expiryEl = document.getElementById('crCrExpiry');

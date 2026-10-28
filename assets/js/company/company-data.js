@@ -121,6 +121,27 @@ export async function submitCompanyAccountRequest(values, { plan = null, billing
 }
 
 /**
+ * 118: طلب حساب متجر إلكتروني — نفس طلب الشركة بكل تحققاته، موسومًا متجرًا (Shopify).
+ * storeDomain اختياري ولا يربط شيئًا: الربط بتفويض Shopify الموقَّع بعد الموافقة والاشتراك.
+ */
+export async function submitStoreAccountRequest(values, { plan = null, billingCycle = null } = {}) {
+    return safe('submitStoreAccountRequest', async () => {
+        const { data, error } = await supabase.rpc('submit_store_account_request', {
+            p_store_name: values.companyName,
+            p_commercial_registration_number: values.crNumber,
+            p_commercial_registration_expiry: values.crExpiry,
+            p_company_email: values.companyEmail || null,
+            p_company_phone: values.companyPhone || null,
+            p_requested_plan: plan || null,
+            p_requested_billing_cycle: billingCycle || null,
+            p_store_domain: values.storeDomain || null
+        });
+        if (error) throw error;
+        return data;
+    });
+}
+
+/**
  * آخر طلب حساب شركة للمستخدم الحالي (الطلب قيد المراجعة أولًا)، أو null.
  * بيرجّع الحالة وسبب الرفض بس — مش بيانات الشركة القانونية كاملة.
  */
