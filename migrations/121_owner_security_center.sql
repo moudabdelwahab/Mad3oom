@@ -1753,9 +1753,13 @@ declare
 begin
   select * into r from public.owner_account_change_requests where id = p_request for update;
   if not found or r.reject_token_hash is null or r.reject_token_hash <> public._token_hash(p_token) then
-    insert into public.security_events (event_type, severity, ip, user_agent, details, source)
-    values ('owner.account_change_bad_token', 'warning', public.request_ip(), public.request_user_agent(),
-            jsonb_build_object('request', p_request, 'decision', 'reject'), 'db');
+    -- نداء بلا جلسة: سطر واحد لكل 20 محاولة خاطئة في 10 دقائق، فلا يُغرَق السجل من الإنترنت
+    if (select count(*) from public.security_events e
+         where e.event_type = 'owner.account_change_bad_token' and e.at > now() - interval '10 minutes') < 20 then
+      insert into public.security_events (event_type, severity, ip, user_agent, details, source)
+      values ('owner.account_change_bad_token', 'warning', public.request_ip(), public.request_user_agent(),
+              jsonb_build_object('request', p_request, 'decision', 'reject'), 'db');
+    end if;
     return jsonb_build_object('ok', false, 'error', 'invalid_token');
   end if;
   if r.status <> 'pending' then return jsonb_build_object('ok', false, 'error', 'already_' || r.status); end if;

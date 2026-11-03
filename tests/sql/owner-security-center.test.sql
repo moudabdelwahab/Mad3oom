@@ -448,7 +448,7 @@ END $$;
 
 -- ══ ⑧ كلمة مرور المالك وبريده ═══════════════════════════════════════════
 DO $$
-DECLARE v_req uuid; r jsonb; cur text := '5e550000-0000-4000-8000-0000000000a1'; v_calls int := t.calls('owner_account_change');
+DECLARE v_req uuid; r jsonb; i int; cur text := '5e550000-0000-4000-8000-0000000000a1'; v_calls int := t.calls('owner_account_change');
 BEGIN
   -- GoTrue (اتصاله بلا JWT) يحدّث كلمة مرور المالك
   INSERT INTO auth.sessions (id, user_id, ip) VALUES ('5e550000-0000-4000-8000-0000000000b1', t.u('OW'), '192.0.2.66');
@@ -508,6 +508,8 @@ BEGIN
   PERFORM t.ok((r ->> 'ok')::boolean and not exists (select 1 from auth.sessions where user_id = t.u('OW')), '⑧ رُفض وخرجت كل الجلسات: ' || r::text);
   PERFORM t.ok((SELECT email FROM auth.users WHERE id = t.u('OW')) = 'ow@tenancy.test', '⑧ البريد كما هو');
   PERFORM t.ok(t.ev('owner.account_change_bad_token') >= 2, '⑧ الرموز الخاطئة مسجّلة');
+  FOR i IN 1..30 LOOP PERFORM public.owner_reject_account_change(v_req, 'spam' || i); END LOOP;
+  PERFORM t.ok(t.ev('owner.account_change_bad_token') <= 20, '⑧ الرموز الخاطئة لا تُغرق السجل');
 
   -- طلب منتهٍ
   UPDATE auth.users SET encrypted_password = '$2a$10$late' WHERE id = t.u('OW');
