@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>مركز الأمان - لوحة المالك - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-workspace.css">
+    <link rel="stylesheet" href="/assets/css/portal-notifications.css">
+    <link rel="stylesheet" href="/assets/css/owner-pages.css">
+    <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
+    <link rel="stylesheet" href="/assets/css/step-up.css">
+    <link rel="stylesheet" href="/assets/css/owner-security.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في لوحة المالك — الثيم وحالة الطي قبل أول رسم. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body class="customer-shell owner-shell dash-layout" data-owner-page="security">
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main" id="ownerMain">
+        <!-- بوابة العرض: سبب المنع بدل صفحة فارغة. القرار الحقيقي في القاعدة؛ هذه رسالة. -->
+        <section class="panel" id="ownerGate" hidden>
+            <div class="state-block" id="ownerGateBody"></div>
+        </section>
+
+        <div id="ownerContent" hidden>
+            <header class="owner-banner owner-page-banner">
+                <div class="owner-banner-main">
+                    <span class="owner-level-tag">لوحة المالك · الأمان</span>
+                    <h1 class="owner-title">مركز الأمان</h1>
+                    <p class="owner-meta">الدخول والأجهزة والعناوين المشتركة، جلسات التحرير وما تم خلالها، سجل التغييرات بتراجع آمن، وسياسة الأمان — كله من القاعدة، وسجله لا يُعدَّل ولا يُحذف.</p>
+                </div>
+                <div class="owner-banner-side">
+                    <a class="btn btn-outline btn-sm" href="/owner/permissions.html">الصلاحيات</a>
+                    <button type="button" class="btn btn-outline btn-sm" id="secRefresh">تحديث</button>
+                </div>
+            </header>
+            <p class="ows-toast" id="pageToast" role="status" aria-live="polite" hidden></p>
+            <div class="owner-sec" id="secWorkspace">
+                <span data-ws-anchor></span>
+                <div class="view-tabs ows-tabs" role="tablist" aria-label="أقسام مركز الأمان">
+                    <button type="button" role="tab" class="view-tab ows-tab" id="secTab-overview" data-ws-tab="overview" aria-controls="secPanel-overview" aria-selected="true">نظرة عامة<span class="view-tab-count" data-ws-count="overview" hidden></span></button>
+                    <button type="button" role="tab" class="view-tab ows-tab" id="secTab-activity" data-ws-tab="activity" aria-controls="secPanel-activity" aria-selected="false" tabindex="-1">الدخول والنشاط<span class="view-tab-count" data-ws-count="activity" hidden></span></button>
+                    <button type="button" role="tab" class="view-tab ows-tab" id="secTab-shared" data-ws-tab="shared" aria-controls="secPanel-shared" aria-selected="false" tabindex="-1">IP المشتركة<span class="view-tab-count" data-ws-count="shared" hidden></span></button>
+                    <button type="button" role="tab" class="view-tab ows-tab" id="secTab-sessions" data-ws-tab="sessions" aria-controls="secPanel-sessions" aria-selected="false" tabindex="-1">الجلسات والأجهزة<span class="view-tab-count" data-ws-count="sessions" hidden></span></button>
+                    <button type="button" role="tab" class="view-tab ows-tab" id="secTab-editing" data-ws-tab="editing" aria-controls="secPanel-editing" aria-selected="false" tabindex="-1">جلسات التحرير<span class="view-tab-count" data-ws-count="editing" hidden></span></button>
+                    <button type="button" role="tab" class="view-tab ows-tab" id="secTab-changes" data-ws-tab="changes" aria-controls="secPanel-changes" aria-selected="false" tabindex="-1">سجل التغييرات<span class="view-tab-count" data-ws-count="changes" hidden></span></button>
+                    <button type="button" role="tab" class="view-tab ows-tab" id="secTab-policy" data-ws-tab="policy" aria-controls="secPanel-policy" aria-selected="false" tabindex="-1">سياسة الأمان<span class="view-tab-count" data-ws-count="policy" hidden></span></button>
+                </div>
+
+                <section role="tabpanel" class="owner-page-stack" id="secPanel-overview" data-ws-panel="overview" aria-labelledby="secTab-overview">
+                    <div class="kpi-grid" id="secKpis"><div class="skeleton skeleton-card"></div></div>
+                    <div class="split-grid">
+                        <section class="panel" aria-labelledby="secAlertsHeading">
+                            <div class="panel-header"><div>
+                                <h2 class="panel-title" id="secAlertsHeading">تنبيهات تحتاج انتباهك</h2>
+                                <p class="panel-subtitle">أحداث بدرجة «تحذير» أو «حرج» في آخر 7 أيام.</p>
+                            </div></div>
+                            <div id="secAlerts"><div class="skeleton skeleton-card"></div></div>
+                        </section>
+                        <section class="panel" aria-labelledby="secChangesReqHeading">
+                            <div class="panel-header"><div>
+                                <h2 class="panel-title" id="secChangesReqHeading">محاولات تغيير كلمة المرور والبريد</h2>
+                                <p class="panel-subtitle">لا تُنفَّذ إلا بموافقتك من رابط البريد بعد التحقق بخطوتين.</p>
+                            </div></div>
+                            <div id="secAccountChanges"><div class="skeleton skeleton-card"></div></div>
+                        </section>
+                    </div>
+                    <section class="panel" aria-labelledby="secIntegrityHeading">
+                        <div class="panel-header"><div>
+                            <h2 class="panel-title" id="secIntegrityHeading">سلامة السجل</h2>
+                            <p class="panel-subtitle">كل سطر يحمل بصمة SHA-256 لسابقه؛ التحقق يعيد حساب السلسلة كاملة في القاعدة.</p>
+                        </div>
+                        <button type="button" class="btn btn-outline btn-sm" id="secVerify">تحقق من السلسلة</button></div>
+                        <div id="secIntegrity"><p class="panel-subtitle">لم يُتحقق بعد في هذه الزيارة.</p></div>
+                    </section>
+                </section>
+
+                <section role="tabpanel" class="owner-page-stack" id="secPanel-activity" data-ws-panel="activity" aria-labelledby="secTab-activity" hidden>
+                    <section class="panel" aria-labelledby="secLogHeading">
+                        <div class="panel-header"><div>
+                            <h2 class="panel-title" id="secLogHeading">سجل الدخول والأحداث الأمنية</h2>
+                            <p class="panel-subtitle">الدخول الناجح من جلسات Supabase Auth مباشرة؛ الفاشل يبلغ عنه المتصفح (مسمّى كذلك). لا كلمات مرور ولا رموز تُحفظ.</p>
+                        </div>
+                        <button type="button" class="btn btn-outline btn-sm" id="secGeo">تحديث المواقع التقريبية</button></div>
+                        <form class="toolbar owner-filters" id="secFilters" role="search">
+                            <label class="visually-hidden" for="secEmail">البريد</label>
+                            <input class="form-control owner-filter-search" id="secEmail" type="search" placeholder="البريد الإلكتروني" autocomplete="off">
+                            <label class="visually-hidden" for="secIp">عنوان IP</label>
+                            <input class="form-control owner-filter-select" id="secIp" placeholder="عنوان IP" dir="ltr" autocomplete="off">
+                            <label class="visually-hidden" for="secType">النوع</label>
+                            <select class="form-control owner-filter-select" id="secType"></select>
+                            <label class="visually-hidden" for="secSeverity">الدرجة</label>
+                            <select class="form-control owner-filter-select" id="secSeverity"></select>
+                            <label class="visually-hidden" for="secFrom">من</label>
+                            <input class="form-control owner-filter-select" id="secFrom" type="date">
+                            <label class="visually-hidden" for="secTo">إلى</label>
+                            <input class="form-control owner-filter-select" id="secTo" type="date">
+                            <button type="submit" class="btn btn-primary btn-sm">بحث</button>
+                            <button type="reset" class="btn btn-outline btn-sm">مسح</button>
+                        </form>
+                        <div id="secLog"><div class="skeleton skeleton-card"></div></div>
+                        <div class="owner-pager" id="secLogPager" hidden></div>
+                    </section>
+                </section>
+
+                <section role="tabpanel" class="owner-page-stack" id="secPanel-shared" data-ws-panel="shared" aria-labelledby="secTab-shared" hidden>
+                    <section class="panel" aria-labelledby="secSharedHeading">
+                        <div class="panel-header"><div>
+                            <h2 class="panel-title" id="secSharedHeading">عناوين IP مشتركة بين أكثر من حساب</h2>
+                            <p class="panel-subtitle">مؤشر للمراجعة لا حكم: شبكات الشركات والـVPN والإنترنت المنزلي وشبكات الجوال تشترك في عنوان واحد كثيرًا.</p>
+                        </div>
+                        <label class="visually-hidden" for="secSharedDays">الفترة</label>
+                        <select class="form-control owner-filter-select" id="secSharedDays">
+                            <option value="7">آخر 7 أيام</option><option value="30" selected>آخر 30 يومًا</option><option value="90">آخر 90 يومًا</option>
+                        </select></div>
+                        <div id="secShared"><div class="skeleton skeleton-card"></div></div>
+                    </section>
+                </section>
+
+                <section role="tabpanel" class="owner-page-stack" id="secPanel-sessions" data-ws-panel="sessions" aria-labelledby="secTab-sessions" hidden>
+                    <section class="panel" aria-labelledby="secMySessionsHeading">
+                        <div class="panel-header"><div>
+                            <h2 class="panel-title" id="secMySessionsHeading">جلسات حسابك</h2>
+                            <p class="panel-subtitle">الجلسة الحالية لا تُلغى من هنا (حماية من الإقفال). الإلغاء يمنع تجديد الجلسة؛ رمز الوصول الحالي يبقى حتى انتهائه (ساعة على الأكثر).</p>
+                        </div>
+                        <button type="button" class="btn btn-outline btn-sm is-danger" id="secLogoutOthers" data-critical>إخراج كل أجهزتي الأخرى</button></div>
+                        <div id="secMySessions"><div class="skeleton skeleton-card"></div></div>
+                    </section>
+                    <section class="panel" aria-labelledby="secStaffSessionsHeading">
+                        <div class="panel-header"><div>
+                            <h2 class="panel-title" id="secStaffSessionsHeading">جلسات فريق المنصة</h2>
+                            <p class="panel-subtitle">أجهزة الإداريين وفريق الدعم. أجهزة العملاء لا تُعرض هنا.</p>
+                        </div>
+                        <label class="visually-hidden" for="secStaffSelect">الحساب</label>
+                        <select class="form-control owner-filter-select" id="secStaffSelect"><option value="">اختر حسابًا</option></select></div>
+                        <div id="secStaffSessions"><p class="panel-subtitle">اختر حسابًا لعرض جلساته.</p></div>
+                    </section>
+                    <section class="panel" aria-labelledby="secGlobalHeading">
+                        <div class="panel-header"><div>
+                            <h2 class="panel-title" id="secGlobalHeading">خروج من كل الأجهزة لأي حساب</h2>
+                            <p class="panel-subtitle">لحساب يُشتبه في اختراقه. يُسجَّل في سجل الأمان.</p>
+                        </div></div>
+                        <form class="toolbar owner-filters" id="secGlobalForm">
+                            <label class="visually-hidden" for="secGlobalEmail">بريد الحساب</label>
+                            <input class="form-control owner-filter-search" id="secGlobalEmail" type="email" placeholder="بريد الحساب" required autocomplete="off">
+                            <button type="submit" class="btn btn-primary btn-sm is-danger" data-critical>خروج من كل الأجهزة</button>
+                        </form>
+                    </section>
+                </section>
+
+                <section role="tabpanel" class="owner-page-stack" id="secPanel-editing" data-ws-panel="editing" aria-labelledby="secTab-editing" hidden>
+                    <section class="panel" aria-labelledby="secEditingHeading">
+                        <div class="panel-header"><div>
+                            <h2 class="panel-title" id="secEditingHeading">جلسات التحرير وما تم خلالها</h2>
+                            <p class="panel-subtitle">كل جلسة تبدأ بعد التحقق بخطوتين وتنتهي بمدة السياسة أو يدويًا. العمليات المسجّلة مربوطة برقم الجلسة.</p>
+                        </div></div>
+                        <div id="secEditingNow"></div>
+                        <div id="secEditing"><div class="skeleton skeleton-card"></div></div>
+                    </section>
+                </section>
+
+                <section role="tabpanel" class="owner-page-stack" id="secPanel-changes" data-ws-panel="changes" aria-labelledby="secTab-changes" hidden>
+                    <section class="panel" aria-labelledby="secChangesHeading">
+                        <div class="panel-header"><div>
+                            <h2 class="panel-title" id="secChangesHeading">سجل تغييرات الإعدادات والصلاحيات</h2>
+                            <p class="panel-subtitle">القيمة القديمة والجديدة والفاعل لكل تغيير. التراجع يعيد القيمة القديمة ويُسجَّل هو أيضًا.</p>
+                        </div>
+                        <label class="visually-hidden" for="secChangesTable">الجدول</label>
+                        <select class="form-control owner-filter-select" id="secChangesTable"></select></div>
+                        <div id="secChanges"><div class="skeleton skeleton-card"></div></div>
+                        <div class="owner-pager" id="secChangesPager" hidden></div>
+                    </section>
+                </section>
+
+                <section role="tabpanel" class="owner-page-stack" id="secPanel-policy" data-ws-panel="policy" aria-labelledby="secTab-policy" hidden>
+                    <section class="panel" aria-labelledby="secPolicyHeading">
+                        <div class="panel-header"><div>
+                            <h2 class="panel-title" id="secPolicyHeading">سياسة الأمان</h2>
+                            <p class="panel-subtitle">تُفرض في القاعدة. تغييرها نفسه عملية محمية ويُسجَّل بالقيمة القديمة والجديدة.</p>
+                        </div></div>
+                        <form class="owner-sec-form" id="secPolicyForm" novalidate>
+                            <fieldset class="owner-sec-field">
+                                <legend>مدة جلسة التحرير بعد التحقق بخطوتين</legend>
+                                <div class="owner-sec-presets" role="radiogroup" aria-label="مدة جلسة التحرير">
+                                    <label><input type="radio" name="minutes" value="5"> 5 دقائق</label>
+                                    <label><input type="radio" name="minutes" value="15"> 15 دقيقة</label>
+                                    <label><input type="radio" name="minutes" value="30"> 30 دقيقة</label>
+                                    <label><input type="radio" name="minutes" value="60"> ساعة</label>
+                                    <label><input type="radio" name="minutes" value="custom"> مدة مخصصة</label>
+                                </div>
+                                <div class="owner-sec-custom" id="secCustomWrap" hidden>
+                                    <label for="secCustomMinutes">بالدقائق (1–240)</label>
+                                    <input class="form-control" id="secCustomMinutes" type="number" min="1" max="240" step="1" inputmode="numeric">
+                                </div>
+                                <p class="panel-subtitle">تقصير المدة يسري على الجلسة المفتوحة فورًا.</p>
+                            </fieldset>
+                            <fieldset class="owner-sec-field">
+                                <legend>حماية حساب المالك</legend>
+                                <label class="owner-sec-toggle"><input type="checkbox" id="secPwLock"> قفل تغيير كلمة المرور (يحتاج موافقتك من البريد)</label>
+                                <label class="owner-sec-toggle"><input type="checkbox" id="secEmailLock"> قفل تغيير البريد الإلكتروني</label>
+                                <label class="owner-sec-toggle"><input type="checkbox" id="secLoginAlerts"> تنبيه بالبريد عند دخول حسابك من عنوان جديد</label>
+                            </fieldset>
+                            <fieldset class="owner-sec-field">
+                                <legend>المراقبة</legend>
+                                <label for="secSharedWindow">نافذة كشف IP المشترك (أيام، 1–365)</label>
+                                <input class="form-control" id="secSharedWindow" type="number" min="1" max="365" inputmode="numeric">
+                                <label for="secFailThreshold">محاولات فاشلة لبريد واحد خلال 15 دقيقة قبل التنبيه الحرج (3–50)</label>
+                                <input class="form-control" id="secFailThreshold" type="number" min="3" max="50" inputmode="numeric">
+                            </fieldset>
+                            <p class="stepup-error" id="secPolicyError" role="alert" hidden></p>
+                            <div class="owner-sec-actions">
+                                <button type="submit" class="btn btn-primary" id="secPolicySave">حفظ السياسة</button>
+                                <span class="panel-subtitle" id="secPolicyMeta"></span>
+                            </div>
+                        </form>
+                    </section>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <script type="module" src="/assets/js/owner/pages/security.js"></script>
+</body>
+</html>

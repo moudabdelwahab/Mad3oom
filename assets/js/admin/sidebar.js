@@ -387,6 +387,17 @@ async function applySidebarPermissions() {
     // access_passcodes ودوال owner_set_passcode، وهذا إخفاء للواجهة فقط.
     if (isPlatformOwner) {
         showLink('passcodesLink');
+        // المالك في قشرة الإدارة: نفس شارة «جلسة التحرير» ونافذة التحقق لحظة الإجراء المحمي (121)
+        const actions = document.querySelector('.admin-nav .nav-actions');
+        if (actions && !document.getElementById('stepUpChipSlot')) {
+            const slot = document.createElement('div');
+            slot.id = 'stepUpChipSlot';
+            slot.className = 'stepup-chip-slot';
+            actions.prepend(slot);
+        }
+        import('/assets/js/security/step-up-modal.js')
+            .then(m => { m.installCriticalGuard(document); m.mountSessionChip(document.getElementById('stepUpChipSlot')); })
+            .catch(err => console.warn('[Sidebar] step-up:', err?.message || err));
     }
 
     // --- الصلاحيات الحالية (بدون أي تغيير في سلوكها) ---

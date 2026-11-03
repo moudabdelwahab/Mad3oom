@@ -13,13 +13,15 @@
 |---|---|---|---|
 | المستخدمون | `/owner-dashboard.html#users` | مركز المستخدمين المشترك (`assets/js/admin/users.js`) داخل اللوحة نفسها | نفس أدوات مركز المستخدمين في الإدارة بحسب ما تسمح به القاعدة |
 | الإحصائيات | `/owner/stats.html` | عدّ على `profiles` و`tickets` و`activity_logs`، `admin_list_subscriptions()`، `admin_customer_filter_options()` | قراءة فقط |
-| التذاكر | `/owner/tickets.html` | `tickets`، `ticket_replies` | التصفية، قراءة المحادثة كاملة، تغيير الحالة والأولوية والمسؤول |
+| التذاكر | `/owner/tickets.html` | `tickets`، `ticket_replies` | التصفية، قراءة المحادثة كاملة، تغيير الحالة والأولوية والمسؤول، **الرد على العميل والملاحظة الداخلية** (121، `addTicketReply`) |
 | الاشتراكات | `/owner/subscriptions.html` | `admin_list_subscriptions()`، `admin_set_subscription_status()`، `admin_subscription_audit()` | التصفية، تغيير الحالة بالانتقالات المسموحة وبسبب مسجَّل، سجل التغييرات |
 | المدوّنة | `/owner/blog.html` | `blog_posts`، `blog_categories` | التحرير الكامل (نفس مساحة التحرير المشتركة `assets/js/blog/blog-workspace.js`) |
 | سجل النشاط | `/owner/activity.html` | `activity_logs` | التصفية بالمستخدم والحدث والرتبة والتاريخ، قراءة فقط |
 | التكاملات | `/owner/integrations.html` | `api_tokens`، `api_token_usage_logs`، `external_integrations` (نطاق platform) | إيقاف مفاتيح API وتفعيلها، تعطيل تكاملات المنصة وتفعيلها، آخر الاستدعاءات |
 | أكواد المرور | `/owner/passcodes.html` | `access_passcodes`، `owner_set_passcode()`، `owner_set_passcode_active()` | الإنشاء والتعطيل (owner-only) |
-| الإعدادات | `/owner/settings.html` | `get_public_registration_settings()`، `owner_security_status()`، `owner_feature_switches()` | الاطلاع على وضع التسجيل والأمان والمفاتيح، وتسمية ما يبقى للإدارة |
+| الإعدادات | `/owner/settings.html` | `advanced_settings.registration_mode`، `owner_security_status()`، `owner_feature_switches()` | **تعديل وضع التسجيل** (بجلسة تحرير، 121)، الاطلاع على الأمان والمفاتيح، وتسمية ما يبقى للإدارة |
+| مركز الأمان | `/owner/security.html` | `owner_security_overview/log/ip_correlation/list_sessions/step_up_history/change_history`… (121) | الدخول والأجهزة والعناوين المشتركة، إلغاء الجلسات والخروج العام، جلسات التحرير، سجل التغييرات بتراجع، سياسة الأمان |
+| الصلاحيات | `/owner/permissions.html` | `owner_permission_matrix()`، `owner_set_role_permission()` (121) | صلاحيات الأدمن وفريق الدعم لكل إجراء، وما يتطلب من المالك جلسة تحرير |
 
 كل صفحة تمرّ ببوابة `bootOwnerPage()` (`assets/js/owner/owner-page.js`): مالك المنصة **وفي سياق «مالك المنصة»**،
 وإلا تُعرض رسالة السبب ولا يُنادى أي مصدر بيانات. البوابة رسالة عرض؛ الرفض الحقيقي في القاعدة عبر
@@ -31,7 +33,7 @@
 |---|---|
 | تعديل الإعدادات التشغيلية (`advanced_settings`، `working_hours`، `ticket_distribution_config`، `rules_engine`، `custom_roles`) | تُدار بواجهتها الكاملة في `/admin/settings.html`؛ منذ 117 سياساتها `is_admin()` فيعدّلها المالك هناك (انظر `docs/OWNER_ADMIN_PARITY_117_AR.md`) |
 | النقاط وتجميد المحافظ (`user_wallets`) | في مركز المستخدمين (متاحة للمالك منذ 117)؛ التجميد عبر المحفظة المركزية من واجهة «مالك المنصة» وحدها |
-| الرد على العملاء والملاحظات الداخلية والمرفقات | عمل الدعم اليومي في مساحة عمل الدعم؛ الرد يُرسَل باسم كاتبه ويبلغ العميل بالبريد |
+| مرفقات الردود والوسوم والقوالب | في مساحة عمل الدعم؛ الرد النصي والملاحظة الداخلية متاحان في `/owner/tickets.html` منذ 121 |
 | الدخول كعضو | أداة دعم تعمل في سياق «الإدارة» |
 | حذف الحسابات والتذاكر | حذف ملف بلا حساب المصادقة يترك حسابًا معلّقًا؛ وحذف التذاكر يكسر سجلها وفوترتها |
 | تعديل الباقة والتواريخ، تأكيد الترقيات، شحن المحفظة | عمليات الفوترة اليومية في صفحة تفاصيل الاشتراك |
@@ -44,6 +46,8 @@
 - حساب مالك المنصة لا يقيّده غيره.
 - انتقالات حالة الاشتراك: `active→expired`، `expired→active`، `pending→active|rejected` فقط، والتفعيل بتاريخ مستقبلي.
 - مع تفعيل عزل الشركات (`company_isolation_enforced`) تختفي تذاكر الشركات عن المالك كما تختفي عن أي إداري.
+
+انظر أيضًا `docs/OWNER_SECURITY_CENTER_121_AR.md` لمركز الأمان والصلاحيات وجلسة التحرير.
 
 ## الاختبارات
 

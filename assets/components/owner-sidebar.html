@@ -48,6 +48,9 @@
                 <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </button>
 
+            <!-- جلسة التحرير (121): مقفلة/مفتوحة بعدّ تنازلي من سياسة الأمان — step-up-modal.js -->
+            <div class="stepup-chip-slot" id="stepUpChipSlot"></div>
+
             <!-- مبدّل السياق: نفس مكوّن القائمة المنسدلة المستخدم للغة والحساب،
                  لا زر بدائي. يُملأ من الخادم في owner-context.js. -->
             <div class="portal-menu-wrap">
@@ -159,6 +162,14 @@
                 <a href="/owner-dashboard.html#authority" class="sidebar-item" data-tab="authority" data-label="السلطة والمنح">
                     <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
                     <span>السلطة والمنح</span>
+                </a>
+                <a href="/owner/permissions.html" class="sidebar-item" data-page="permissions" data-label="الصلاحيات">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path><circle cx="9" cy="6" r="2"></circle><circle cx="15" cy="12" r="2"></circle><circle cx="7" cy="18" r="2"></circle></svg>
+                    <span>الصلاحيات</span>
+                </a>
+                <a href="/owner/security.html" class="sidebar-item" data-page="security" data-label="مركز الأمان">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+                    <span>مركز الأمان</span>
                 </a>
                 <a href="/owner-dashboard.html#governance" class="sidebar-item" data-tab="governance" data-label="حوكمة الشركات">
                     <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"></path><path d="M5 21V10l7-5 7 5v11"></path><path d="M9 21v-6h6v6"></path></svg>

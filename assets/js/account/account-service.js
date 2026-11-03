@@ -149,11 +149,28 @@ export async function changePassword({ email, currentPassword, newPassword }) {
         return fail('تعذّر التحقق من كلمة المرور الحالية');
     }
 
+    // حساب مالك المنصة (121): التغيير يُحجز في القاعدة حتى يوافق المالك من رابط البريد — لا «تم» كاذبة،
+    // ولا إنهاء للجلسات الآن (يحدث عند الموافقة نفسها).
+    const ownerLocked = await ownerPasswordLocked();
+
     const { error } = await updatePassword(newPassword);
     if (error) return fail(error.message || 'تعذّر تحديث كلمة المرور');
+    if (ownerLocked) return ok({ pendingApproval: true });
 
     const others = await signOutOtherSessions();
     return ok({ otherSessionsEnded: others.ok });
+}
+
+/** هل الحساب مالك المنصة وتغيير كلمة مروره مقفل بسياسته؟ أي فشل = لا (السلوك العادي). */
+async function ownerPasswordLocked() {
+    try {
+        const { data: owner } = await supabase.rpc('is_platform_owner');
+        if (owner !== true) return false;
+        const { data } = await supabase.rpc('owner_security_status');
+        return data?.policy?.password_change_locked === true;
+    } catch {
+        return false;
+    }
 }
 
 /**

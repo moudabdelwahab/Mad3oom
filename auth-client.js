@@ -1,5 +1,6 @@
 import { supabase, debugAuthError } from './api-config.js';
 import { logActivity } from './activity-service.js';
+import { reportLoginFailure } from './assets/js/security/login-report.js';
 import { ACCESS, classifyAccess, canImpersonate, isPlatformOwnerIdentity }
     from './assets/js/access-policy.js';
 
@@ -211,6 +212,8 @@ export async function signIn(identifier, password, options = {}) {
 
         if (result.error) {
             debugAuthError(result.error);
+            // سجل الأمان (121): محاولة فاشلة بالبريد والسبب فقط — لا ينتظرها الدخول
+            reportLoginFailure(supabase, email, result.error);
             return result;
         }
         const user = result.data.user;

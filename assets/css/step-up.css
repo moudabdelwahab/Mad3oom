@@ -1,0 +1,140 @@
+/* ============================================================================
+   step-up.css — نافذة التحقق بخطوتين حسب السياق وشارة «جلسة التحرير» (121).
+   تُحمَّل عند الحاجة من step-up-modal.js، فتعمل في قشرة المالك والإدارة معًا.
+   القيم من رموز نظام التصميم (customer-dashboard.css) مع بدائل لصفحات لا تعرّفها.
+   ========================================================================== */
+
+.stepup-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: rgba(2, 8, 20, .62);
+    backdrop-filter: blur(3px);
+    animation: stepup-fade .16s ease-out;
+}
+
+.stepup-dialog {
+    width: min(420px, 100%);
+    max-height: calc(100vh - 32px);
+    overflow: auto;
+    background: var(--color-surface, #0d1622);
+    color: var(--color-text, #e6edf6);
+    border: 1px solid var(--color-border, rgba(148, 163, 184, .25));
+    border-radius: var(--r-lg, 16px);
+    box-shadow: var(--shadow-lg, 0 25px 60px -20px rgba(0, 8, 25, .75));
+    padding: 24px;
+    text-align: center;
+    animation: stepup-rise .2s cubic-bezier(.2, .8, .2, 1);
+}
+
+.stepup-icon {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 12px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--color-primary-variant, #0077cc);
+    background: color-mix(in srgb, var(--color-primary-variant, #0077cc) 14%, transparent);
+}
+
+.stepup-title { margin: 0 0 6px; font-size: var(--fs-lg, 1.15rem); font-weight: 800; }
+
+.stepup-reason {
+    margin: 0 0 8px;
+    padding: 8px 12px;
+    border-radius: var(--r-md, 10px);
+    font-size: var(--fs-sm, .875rem);
+    font-weight: 600;
+    background: color-mix(in srgb, var(--color-warning, #f5b041) 14%, transparent);
+    color: var(--color-text, inherit);
+}
+
+.stepup-desc { margin: 0 0 16px; font-size: var(--fs-sm, .875rem); color: var(--color-text-secondary, #9fb0c6); line-height: 1.7; }
+
+.stepup-form { display: grid; gap: 10px; text-align: start; }
+
+.stepup-label { font-size: var(--fs-sm, .875rem); font-weight: 600; }
+
+.stepup-code {
+    font-size: 1.5rem;
+    letter-spacing: .4em;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    padding-block: 10px;
+}
+
+.stepup-error { margin: 0; color: var(--color-danger, #ff6b6b); font-size: var(--fs-sm, .875rem); }
+
+.stepup-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
+
+.stepup-actions .btn { flex: 1 1 8rem; }
+
+.stepup-switch {
+    justify-self: center;
+    background: none;
+    border: 0;
+    color: var(--color-primary-variant, #4da3ff);
+    font: inherit;
+    font-size: var(--fs-xs, .8rem);
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 4px;
+}
+
+body.stepup-open { overflow: hidden; }
+
+/* ── شارة جلسة التحرير ───────────────────────────────────────────────────── */
+.stepup-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border, rgba(148, 163, 184, .3));
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: var(--fs-xs, .8rem);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color .15s ease, border-color .15s ease;
+}
+
+.stepup-chip:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
+
+.stepup-chip:focus-visible { outline: 2px solid var(--color-primary-variant, #0077cc); outline-offset: 2px; }
+
+.stepup-chip-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-muted, #64748b); }
+
+.stepup-chip[data-state='open'] { border-color: color-mix(in srgb, var(--color-success, #22c58b) 55%, transparent); }
+
+.stepup-chip[data-state='open'] .stepup-chip-dot {
+    background: var(--color-success, #22c58b);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-success, #22c58b) 25%, transparent);
+}
+
+.stepup-chip-time { font-variant-numeric: tabular-nums; opacity: .85; }
+
+/* أزرار العمليات المحمية بلا جلسة: علامة قفل بدل التعطيل — النقرة تفتح نافذة التحقق */
+:root:not([data-critical-ops='open']) [data-critical]:not(:disabled)::before {
+    content: '🔒';
+    font-size: .8em;
+    margin-inline-end: 4px;
+}
+
+@keyframes stepup-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes stepup-rise { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .stepup-overlay, .stepup-dialog { animation: none; }
+}
+
+@media (max-width: 480px) {
+    .stepup-dialog { padding: 18px; }
+    .stepup-chip > span:nth-child(2) { display: none; }
+}

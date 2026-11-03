@@ -657,7 +657,11 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //   120 — إدارة متجر Shopify بطلب صاحب المنتج (2026-10-28): امتياز shopify_management لا تمنحه أي باقة، سبع صلاحيات
     //         للمتجر مطفأة افتراضيًا، كتالوج عمليات على الخادم، تأكيد لمرة واحدة مربوط ببصمة المدخلات، سجل عمليات،
     //         وحدود. إضافي فقط، لا يمس دوال 088/119، ولا عمليات مالية. مقيسٌ في tests/sql/shopify-store-management.test.sql.
-    assert.equal(migrations[migrations.length - 1], '120_shopify_store_management.sql',
+    //   121 — مركز سلطة المالك وأمانه بطلب صاحب المنتج (2026-11-03): مدة جلسة التحرير من سياسة يحددها المالك
+    //         (تُفرض في owner_step_up/step_up_fresh)، سجل أمان append-only بسلسلة SHA-256، مراقبة الدخول من
+    //         auth.sessions (IP مشترك)، الجلسات والأجهزة، حجز تغيير كلمة مرور/بريد المالك بموافقة، مصفوفة صلاحيات
+    //         للأدوار عبر سياسات RESTRICTIVE فقط، وسجل تغييرات بتراجع. مقيسٌ في tests/sql/owner-security-center.test.sql.
+    assert.equal(migrations[migrations.length - 1], '121_owner_security_center.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

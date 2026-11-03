@@ -117,6 +117,12 @@ function initPortalShell(variant, optionsOrCallback) {
                     .then(m => m.mountTicketWallet())
                     .catch(err => console.warn('[Shell] ticket wallet:', err?.message || err));
             }
+            // قشرة المالك: شارة «جلسة التحرير» ونافذة التحقق لحظة الإجراء المحمي (121)
+            if (variant === 'owner') {
+                import('/assets/js/security/step-up-modal.js')
+                    .then(m => { m.installCriticalGuard(document); m.mountSessionChip(document.getElementById('stepUpChipSlot')); })
+                    .catch(err => console.warn('[Shell] step-up:', err?.message || err));
+            }
             if (typeof options.onReady === 'function') options.onReady();
         })
         .catch(err => console.error('Error loading portal sidebar:', err));

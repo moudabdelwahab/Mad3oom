@@ -1254,6 +1254,7 @@
     canSubmitRegistration,
     waitlistSuccessText
   } from '/assets/js/registration-mode.js';
+  import { reportLoginFailure } from '/assets/js/security/login-report.js';
 
   const SUPABASE_URL = 'https://srnelrdpqkcntbgudyto.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W';
@@ -1837,6 +1838,8 @@
       );
 
       if (error) {
+        // سجل الأمان (121): محاولة فاشلة بالبريد والسبب فقط — لا ينتظرها الدخول
+        reportLoginFailure(supabase, email, error);
         const msgs = {
           'Invalid login credentials': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
           'Email not confirmed': 'يرجى تأكيد بريدك الإلكتروني أولاً',

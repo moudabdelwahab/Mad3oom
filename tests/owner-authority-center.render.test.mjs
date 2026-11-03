@@ -132,25 +132,33 @@ test('هوية المالك ظاهرة، وحماياته معروضة، بلا 
     await context.close();
 });
 
-test('بلا 2FA: رابط التفعيل ظاهر وكل عملية حرجة معطّلة', { skip: !chromiumPath }, async () => {
+test('بلا 2FA: رابط التفعيل ظاهر، والعملية الحرجة تفتح نافذة تشرح السبب ولا تُنفَّذ', { skip: !chromiumPath }, async () => {
     const { page, context } = await openOwner(browser, baseUrl, fixtures());
     await page.waitForSelector('#stepUpBox a[href="/admin-security-settings.html"]');
     await authTab(page, 'staff');
     await page.waitForSelector('#staffBody [data-act]');
     const states = await page.$$eval('[data-critical]', els => els.map(e => e.disabled));
     assert.ok(states.length >= 5, 'لم تُعرض أزرار العمليات الحرجة');
-    assert.ok(states.every(Boolean), 'زر عملية حرجة مفعّل بلا تحقق بخطوتين');
+    assert.ok(states.every(d => !d), 'زر معطّل: التحقق يُطلب لحظة النقر (121)');
+    await page.locator('#staffBody [data-act]').first().click();
+    await page.waitForSelector('.stepup-dialog a[href="/admin-security-settings.html"]');
+    assert.match(await page.textContent('.stepup-dialog'), /غير مفعّل/);
+    const acted = await page.evaluate(() => (window.__RPC_ARGS__ || []).some(([n]) => /^owner_set_/.test(n)));
+    assert.equal(acted, false, 'نُفِّذت عملية حرجة بلا تحقق');
     await context.close();
 });
 
-test('التحقق بخطوتين يفتح العمليات الحرجة، والرمز يذهب إلى owner_step_up', { skip: !chromiumPath }, async () => {
-    const fx = fixtures({ security: { mfa_enrolled: true, step_up_fresh: false, step_up_expires_at: null, in_owner_context: true } });
+test('التحقق بخطوتين من نافذة لحظة الطلب، والرمز يذهب إلى owner_step_up', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ security: { mfa_enrolled: true, step_up_fresh: false, step_up_expires_at: null, in_owner_context: true, step_up_minutes: 10 } });
     const { page, context } = await openOwner(browser, baseUrl, fx);
-    await page.waitForSelector('#stepUpForm');
+    await page.waitForSelector('#stepUpOpen');
+    assert.equal(await page.locator('#stepUpCode, #stepUpForm').count(), 0, 'لا نموذج تحقق ثابت');
+    await page.click('#stepUpOpen');
+    await page.waitForSelector('.stepup-dialog');
 
-    await page.fill('#stepUpCode', '12345');
-    await page.click('#stepUpForm button[type=submit]');
-    assert.match(await page.textContent('#stepUpError'), /ستة أرقام/);
+    await page.fill('#stepUpModalCode', '12345');
+    await page.click('#stepUpModalSubmit');
+    assert.match(await page.textContent('#stepUpModalError'), /ستة أرقام/);
 
     // بعد التحقق تُرجع القاعدة نافذة سارية
     await page.evaluate(() => {
@@ -159,13 +167,13 @@ test('التحقق بخطوتين يفتح العمليات الحرجة، وا�
             mfa_enrolled: true, step_up_fresh: true, step_up_expires_at: '2099-01-01T00:10:00Z', in_owner_context: true
         };
     });
-    await page.fill('#stepUpCode', '654321');
-    await page.click('#stepUpForm button[type=submit]');
+    await page.fill('#stepUpModalCode', '654321');
+    await page.click('#stepUpModalSubmit');
     await page.waitForSelector('.owner-stepup-state--ok');
 
     const args = await page.evaluate(() => window.__RPC_ARGS__.filter(([n]) => n === 'owner_step_up'));
     assert.deepEqual(args.at(-1), ['owner_step_up', { p_code: '654321' }]);
-    await page.waitForFunction(() => [...document.querySelectorAll('[data-critical]')].every(b => !b.disabled || b.id === 'sieGrantBtn'));
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.criticalOps), 'open');
     await context.close();
 });
 
@@ -285,7 +293,7 @@ test('hash غير معروف يعود إلى النظرة العامة، وبط�
     assert.equal(new URL(page.url()).hash, '#overview');
 
     const cards = await page.$$eval('.owner-sections a.context-card', els => els.map(a => a.getAttribute('href')));
-    assert.deepEqual(cards, ['#authority', '#governance', '#audit', '#users', '#pi', '/owner/stats.html']);
+    assert.deepEqual(cards, ['#authority', '#governance', '#audit', '#users', '#pi', '/owner/stats.html', '/owner/security.html', '/owner/permissions.html']);
     await page.click('.owner-sections a[href="#audit"]');
     await page.waitForSelector('#auditTabContent.active');
     assert.deepEqual(await visibleSections(page), ['audit']);
@@ -302,7 +310,7 @@ const authBadges = (page) => page.$$eval('#authorityWorkspace [data-ws-count]',
 test('السلطة والمنح: لوحة واحدة ظاهرة، والشارات تعكس الحالة وتتحدّث بعد التحقق', { skip: !chromiumPath }, async () => {
     const fx = fixtures({ security: { mfa_enrolled: true, step_up_fresh: false, step_up_expires_at: null, in_owner_context: true } });
     const { page, context, errors } = await openOwner(browser, baseUrl, fx);
-    await page.waitForSelector('#stepUpForm');
+    await page.waitForSelector('#stepUpLocked');
     await page.waitForSelector('#privAuditBody tr', { state: 'attached' });
     assert.deepEqual(await authPanels(page), ['ownership']);
     assert.deepEqual(await authBadges(page), { ownership: 'مقفل', staff: '4', sie: 'يعمل', privileges: '2' });
@@ -319,8 +327,10 @@ test('السلطة والمنح: لوحة واحدة ظاهرة، والشارا
         window.__FIXTURES__.rpc.owner_step_up = { verified: true, expires_at: '2099-01-01T00:10:00Z' };
         window.__FIXTURES__.rpc.owner_security_status = { mfa_enrolled: true, step_up_fresh: true, step_up_expires_at: '2099-01-01T00:10:00Z', in_owner_context: true };
     });
-    await page.fill('#stepUpCode', '654321');
-    await page.click('#stepUpForm button[type=submit]');
+    await page.click('#stepUpOpen');
+    await page.waitForSelector('.stepup-dialog');
+    await page.fill('#stepUpModalCode', '654321');
+    await page.click('#stepUpModalSubmit');
     await page.waitForSelector('.owner-stepup-state--ok');
     assert.equal((await authBadges(page)).ownership, 'مفتوح');
     assert.equal(await page.evaluate(() => document.documentElement.dataset.criticalOps), 'open');

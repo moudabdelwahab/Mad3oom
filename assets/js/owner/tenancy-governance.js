@@ -373,7 +373,7 @@ export function initTenancyGovernance(ctx) {
         box.innerHTML = `<div class="gov-sw-board">
             <div class="gov-sw-summary">
                 <span class="gov-sw-count"><strong>${onCount}</strong> من ${views.length} مفعّلة</span>
-                <p class="gov-sw-locked" role="note">${ICON.lock}<span>الأزرار مقفلة حتى التحقق بخطوتين من <a href="#authority" data-ws-open="ownership">السلطة والمنح</a>.</span></p>
+                <p class="gov-sw-locked" role="note">${ICON.lock}<span>عمليات محمية: يُطلب رمز التحقق بخطوتين لحظة التنفيذ، وتُفتح جلسة تحرير بمدة <a href="/owner/security.html#policy">سياسة الأمان</a>.</span></p>
             </div>
             ${groupSwitchViews(views).map(g => `
             <section class="gov-sw-group" data-group="${esc(g.id)}" ${g.security ? 'data-security="true"' : ''} aria-labelledby="gov-sw-g-${esc(g.id)}">
