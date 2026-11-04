@@ -50,6 +50,12 @@ Deno.serve(async (req: Request) => {
         const { data, error } = await db.rpc("_account_change_set_tokens", { p_request: id, p_approve_hash: a, p_reject_hash: r });
         return !error && data === true;
       },
+      clearTokens: async (id: string, a: string) => {
+        const { data, error } = await db.from("owner_account_change_requests")
+          .update({ approve_token_hash: null, reject_token_hash: null })
+          .eq("id", id).eq("status", "pending").eq("approve_token_hash", a).select("id");
+        return !error && Array.isArray(data) && data.length === 1;
+      },
       loadEvent: async (id: unknown) => {
         const { data } = await db.from("security_events").select("id, at, event_type, ip, user_agent").eq("id", Number(id)).maybeSingle();
         return data;

@@ -15,6 +15,7 @@
 import { supabase } from '/api-config.js';
 import { updateProfile, updatePassword } from '/auth-client.js';
 import { generateRecoveryCodes, normalizePhone } from '/assets/js/account/account-core.js';
+import { ownerPasswordLocked } from '/assets/js/security/owner-lock.js';
 
 const ok = (data = null) => ({ ok: true, data, error: null });
 const fail = (error) => ({ ok: false, data: null, error: String(error || 'حدث خطأ غير متوقع') });
@@ -151,7 +152,9 @@ export async function changePassword({ email, currentPassword, newPassword }) {
 
     // حساب مالك المنصة (121): التغيير يُحجز في القاعدة حتى يوافق المالك من رابط البريد — لا «تم» كاذبة،
     // ولا إنهاء للجلسات الآن (يحدث عند الموافقة نفسها).
-    const ownerLocked = await ownerPasswordLocked();
+    // تعذّر معرفة الحالة = لا تغيير الآن (لا «تم» وإنهاء جلسات بينما المحفّز أبقى القديمة).
+    const ownerLocked = await ownerPasswordLocked(supabase);
+    if (ownerLocked === null) return fail('تعذّر التحقق من حالة الحساب الآن. أعد المحاولة بعد لحظات.');
 
     const { error } = await updatePassword(newPassword);
     if (error) return fail(error.message || 'تعذّر تحديث كلمة المرور');
@@ -159,18 +162,6 @@ export async function changePassword({ email, currentPassword, newPassword }) {
 
     const others = await signOutOtherSessions();
     return ok({ otherSessionsEnded: others.ok });
-}
-
-/** هل الحساب مالك المنصة وتغيير كلمة مروره مقفل بسياسته؟ أي فشل = لا (السلوك العادي). */
-async function ownerPasswordLocked() {
-    try {
-        const { data: owner } = await supabase.rpc('is_platform_owner');
-        if (owner !== true) return false;
-        const { data } = await supabase.rpc('owner_security_status');
-        return data?.policy?.password_change_locked === true;
-    } catch {
-        return false;
-    }
 }
 
 /**

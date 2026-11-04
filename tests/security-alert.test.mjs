@@ -15,12 +15,13 @@ import { handleSecurityAlert, sha256Hex, generateToken, approvalLinks, buildAler
 const REQ = '6f1d2c3b-4a59-4b6c-8d7e-9f0a1b2c3d4e';
 
 function deps(over = {}) {
-    const calls = { tokens: [], sent: [], log: [] };
+    const calls = { tokens: [], sent: [], log: [], cleared: [] };
     const d = {
         internalSecret: async () => 'internal-secret',
         loadRequest: async (id) => ({ id, kind: 'password', status: 'pending', requested_at: '2026-11-03T10:00:00Z',
                                       expires_at: '2026-11-03T10:30:00Z', ip: '192.0.2.66', user_agent: 'Mozilla/5.0 Chrome', pending_value: null }),
-        setTokens: async (id, a, r) => { calls.tokens.push({ id, a, r }); return calls.tokens.length === 1; },
+        setTokens: async (id, a, r) => { calls.tokens.push({ id, a, r }); return calls.tokens.length - calls.cleared.length === 1; },
+        clearTokens: async (id, a) => { calls.cleared.push({ id, a }); return true; },
         loadEvent: async (id) => ({ id, at: '2026-11-03T10:00:00Z', event_type: 'auth.login', ip: '192.0.2.10', user_agent: 'Firefox/131' }),
         loadStepUp: async (id) => ({ id, method: 'recovery_code', started_at: '2026-11-03T10:00:00Z', ip: '192.0.2.10', user_agent: 'Safari', recovery_codes_left: 3 }),
         ownerEmail: async () => 'owner@mad3oom.com',
@@ -61,7 +62,7 @@ test('② تغيير محجوز: بصمتا رمزين عشوائيين تُحف
     assert.equal(await sha256Hex(decodeURIComponent(reject), webcrypto), r);
     assert.ok(!mail.html.includes(a) && !mail.text.includes(a), 'لا بصمة في الرسالة');
     assert.match(mail.text, /192\.0\.2\.66/); assert.match(mail.text, /Cairo/); assert.match(mail.text, /آخر جلسة نشطة/);
-    assert.equal(mail.idempotencyKey, `owner-account-change-${REQ}`);
+    assert.equal(mail.idempotencyKey, `owner-account-change-${REQ}-${calls.tokens[0].a.slice(0, 16)}`);
     assert.deepEqual(calls.log.map(l => l.type), ['alert.sent']);
 
     // تنبيه ثانٍ لنفس الطلب: لا رموز جديدة ولا بريد ثانٍ
@@ -103,6 +104,35 @@ test('④ فشل الإرسال يُسجَّل ولا يُبلغ نجاحًا', 
     assert.deepEqual(calls.log.map(l => [l.type, l.details.code]), [['alert.failed', 'not_configured']]);
     const { d: d2 } = deps({ ownerEmail: async () => '' });
     assert.equal((await run({ kind: 'owner_new_login', event_id: 7 }, d2)).status, 409);
+});
+
+test('④ فشل إرسال روابط الموافقة يمسح بصمتيها، والمحاولة التالية تصدر روابط جديدة بمفتاح جديد', async () => {
+    let fail = true;
+    const { d, calls } = deps({ send: async (m) => { calls.sent.push(m); return fail ? { ok: false, code: 'provider_error' } : { ok: true }; } });
+    const first = await run({ kind: 'owner_account_change', request: REQ }, d);
+    assert.equal(first.status, 502);
+    assert.deepEqual(calls.cleared, [{ id: REQ, a: calls.tokens[0].a }], 'تُمسح البصمة التي حُفظت نفسها');
+    assert.equal(calls.log[0].details.tokens_cleared, true);
+    fail = false;
+    const second = await run({ kind: 'owner_account_change', request: REQ }, d);
+    assert.equal(second.status, 200, 'لا tokens_already_set بعد فشل');
+    assert.notEqual(calls.tokens[1].a, calls.tokens[0].a);
+    assert.notEqual(calls.sent[1].idempotencyKey, calls.sent[0].idempotencyKey, 'مفتاح ثابت يعيد رسالة الرموز الميتة');
+    assert.equal(calls.cleared.length, 1, 'النجاح لا يمسح');
+    // مسح تعذّر: يُسجَّل ولا يرمي
+    const { d: d3, calls: c3 } = deps({ send: async () => ({ ok: false, code: 'x' }), clearTokens: async () => { throw new Error('db'); } });
+    assert.equal((await run({ kind: 'owner_account_change', request: REQ }, d3)).status, 502);
+    assert.equal(c3.log[0].details.tokens_cleared, false);
+    // إرسال يرمي = فشل: تُمسح أيضًا
+    const { d: d5, calls: c5 } = deps({ send: async () => { throw new Error('network'); } });
+    assert.equal((await run({ kind: 'owner_account_change', request: REQ }, d5)).status, 502);
+    assert.equal(c5.cleared.length, 1);
+    assert.equal(c5.log[0].details.code, 'send_threw');
+    // تنبيهات أخرى لا تلمس الرموز
+    const { d: d4, calls: c4 } = deps({ send: async () => ({ ok: false, code: 'x' }) });
+    await run({ kind: 'owner_new_login', event_id: 7 }, d4);
+    assert.equal(c4.cleared.length, 0);
+    assert.equal('tokens_cleared' in c4.log[0].details, false);
 });
 
 test('الرمز والروابط', () => {

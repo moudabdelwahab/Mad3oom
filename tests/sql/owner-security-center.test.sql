@@ -73,6 +73,8 @@ INSERT INTO t.fp SELECT p.proname, md5(pg_get_functiondef(p.oid)) FROM pg_proc p
 
 \i migrations/121_owner_security_center.sql
 \i migrations/121_owner_security_center.sql
+\i migrations/122_security_log_chain_order.sql
+\i migrations/122_security_log_chain_order.sql
 SET search_path = public, extensions;
 
 -- ── أدوات: هوية بجلسة دخول محددة (session_id = معرّف صف auth.sessions) ──
@@ -226,12 +228,13 @@ BEGIN
   PERFORM t.ok(t.err(t.u('AD'), 'public.owner_verify_security_log()') = '42501', '③ التحقق للمالك');
 
   -- عبث بصلاحية superuser (تعطيل المحفّز) ⇒ يُكشف. داخل معاملة فرعية تُلغى
+  -- (السطر الثاني بالترتيب لا min(id)+1: منذ 122 في الأرقام فجوات)
   BEGIN
     ALTER TABLE public.security_events DISABLE TRIGGER trg_security_events_chain;
-    UPDATE public.security_events SET details = '{"tampered":true}' WHERE id = (SELECT min(id) + 1 FROM public.security_events);
+    UPDATE public.security_events SET details = '{"tampered":true}' WHERE id = (SELECT id FROM public.security_events ORDER BY id OFFSET 1 LIMIT 1);
     ALTER TABLE public.security_events ENABLE TRIGGER trg_security_events_chain;
     r := t.call(t.u('OW'), 'public.owner_verify_security_log()');
-    PERFORM t.ok(NOT (r ->> 'ok')::boolean AND (r ->> 'broken_at')::bigint = (SELECT min(id) + 1 FROM public.security_events), '③ العبث مكشوف: ' || r::text);
+    PERFORM t.ok(NOT (r ->> 'ok')::boolean AND (r ->> 'broken_at')::bigint = (SELECT id FROM public.security_events ORDER BY id OFFSET 1 LIMIT 1), '③ العبث مكشوف: ' || r::text);
     RAISE EXCEPTION 'rollback-tamper';
   EXCEPTION WHEN raise_exception THEN
     IF SQLERRM <> 'rollback-tamper' THEN RAISE; END IF;
@@ -528,6 +531,60 @@ BEGIN
   RAISE NOTICE 'PASS ⑧ كلمة المرور والبريد: محجوزان، تنبيه بلا أسرار، موافقة بتحقق ورمز، رفض يُخرج الجلسات، والحسابات الأخرى كما هي';
 END $$;
 
+-- ══ ⑩ 122: سلسلة السجل تحت إضافات متزامنة (جلستان حقيقيتان عبر dblink) ══════════════
+-- B يأخذ رقمه الافتراضي أولًا ثم يتأخر قبل قفل السلسلة (قفل تأخير يمسكه هذا الاختبار)، وC يأخذ رقمًا
+-- أحدث ويصل إلى القفل قبله. في 121 يُربط B (الأقدم رقمًا) بـC فتتفرع السلسلة؛ في 122 الرقم يُؤخذ تحت القفل.
+CREATE EXTENSION IF NOT EXISTS dblink SCHEMA t;
+CREATE FUNCTION t.race_delay() RETURNS trigger LANGUAGE plpgsql AS $$
+begin
+  if new.event_type = 'test.race_b' then perform pg_advisory_xact_lock(424242); end if;
+  return new;
+end $$;
+-- اسم يسبق trg_security_events_chain: المحفّزات بترتيب الاسم، والرقم الافتراضي قبلها كلها
+CREATE TRIGGER trg_a_race_delay BEFORE INSERT ON public.security_events FOR EACH ROW EXECUTE FUNCTION t.race_delay();
+SELECT pg_advisory_lock(424242);
+SELECT t.dblink_connect('race_b', format('dbname=%s port=%s host=%s user=postgres', current_database(),
+         current_setting('port'), split_part(current_setting('unix_socket_directories'), ',', 1)));
+SELECT t.dblink_connect('race_c', format('dbname=%s port=%s host=%s user=postgres', current_database(),
+         current_setting('port'), split_part(current_setting('unix_socket_directories'), ',', 1)));
+CREATE TABLE t.race (k text PRIMARY KEY, v bigint);
+INSERT INTO t.race VALUES ('seq_before', (SELECT last_value FROM public.security_events_id_seq));
+SELECT t.dblink_send_query('race_b', $q$insert into public.security_events (event_type, hash) values ('test.race_b', 'x')$q$);
+SELECT pg_sleep(0.3);
+SELECT * FROM t.dblink('race_c', $q$insert into public.security_events (event_type, hash) values ('test.race_c', 'x') returning id$q$) AS x(id bigint);
+SELECT pg_advisory_unlock(424242);
+SELECT * FROM t.dblink_get_result('race_b') AS x(r text);
+SELECT t.dblink_disconnect('race_b');
+SELECT t.dblink_disconnect('race_c');
+DROP TRIGGER trg_a_race_delay ON public.security_events;
+DO $$
+DECLARE
+  b public.security_events; c public.security_events; r jsonb;
+BEGIN
+  SELECT * INTO b FROM public.security_events WHERE event_type = 'test.race_b';
+  SELECT * INTO c FROM public.security_events WHERE event_type = 'test.race_c';
+  PERFORM t.ok(b.id IS NOT NULL AND c.id IS NOT NULL, '⑩ الإضافتان ثُبِّتتا');
+  -- B أخذ رقمه الافتراضي قبل C (الحالة التي تفرّع فيها 121)، لكن رقمه الفعلي بعد C
+  PERFORM t.ok(b.id > c.id, '⑩ رقم B يُؤخذ تحت القفل بعد C: ' || b.id || ' > ' || c.id);
+  PERFORM t.ok(b.prev_hash = c.hash, '⑩ B مربوط بـC (ترتيب القفل)');
+  PERFORM t.ok(b.id - (SELECT v FROM t.race WHERE k = 'seq_before') = 4, '⑩ الرقم الافتراضي مُهمل (فجوتان) لا مُكرَّر');
+  r := t.call(t.u('OW'), 'public.owner_verify_security_log()');
+  PERFORM t.ok((r ->> 'ok')::boolean, '⑩ السلسلة سليمة بعد إضافتين متزامنتين: ' || r::text);
+  RAISE NOTICE 'PASS ⑩ 122: سلسلة سجل الأمان بترتيب القفل تحت إضافات متزامنة';
+END $$;
+
+-- التراجع عن 122 يعيد نص 121 حرفيًا، ثم 122 من جديد
+CREATE TABLE t.fp122 (md5 text);
+\i migrations/_rollback/122_security_log_chain_order.down.sql
+INSERT INTO t.fp122 SELECT md5(pg_get_functiondef('public.guard_security_events()'::regprocedure));
+\i migrations/122_security_log_chain_order.sql
+DO $$
+BEGIN
+  PERFORM t.ok(pg_get_functiondef('public.guard_security_events()'::regprocedure) LIKE '%nextval(pg_get_serial_sequence%', '⑩ 122 مُطبَّق من جديد');
+  PERFORM t.ok((SELECT md5 FROM t.fp122) IS DISTINCT FROM md5(pg_get_functiondef('public.guard_security_events()'::regprocedure)), '⑩ التراجع غيّر الدالة');
+  RAISE NOTICE 'PASS ⑩ تراجع 122';
+END $$;
+
 -- ══ ⑨ التراجع ═══════════════════════════════════════════════════════════
 -- بلا إذن صريح: يرفض (داخل معاملة تُلغى، فلا يسري شيء بعد الرفض)
 \set ON_ERROR_STOP off
@@ -560,5 +617,6 @@ SET search_path = public, extensions;
 DO $$
 BEGIN
   PERFORM t.ok(to_regclass('public.security_events') IS NOT NULL AND (SELECT step_up_minutes FROM public.owner_security_policy) = 10, '⑨ إعادة 121');
+  PERFORM t.ok((SELECT md5 FROM t.fp122) = md5(pg_get_functiondef('public.guard_security_events()'::regprocedure)), '⑩ تراجع 122 = نص 121 حرفيًا');
   RAISE NOTICE 'ALL owner-security-center tests passed';
 END $$;

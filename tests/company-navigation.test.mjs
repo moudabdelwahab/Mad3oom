@@ -661,7 +661,9 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         (تُفرض في owner_step_up/step_up_fresh)، سجل أمان append-only بسلسلة SHA-256، مراقبة الدخول من
     //         auth.sessions (IP مشترك)، الجلسات والأجهزة، حجز تغيير كلمة مرور/بريد المالك بموافقة، مصفوفة صلاحيات
     //         للأدوار عبر سياسات RESTRICTIVE فقط، وسجل تغييرات بتراجع. مقيسٌ في tests/sql/owner-security-center.test.sql.
-    assert.equal(migrations[migrations.length - 1], '121_owner_security_center.sql',
+    //   122 — إصلاح 121 من مراجعة PR 165: رقم صف سجل الأمان يُؤخذ تحت قفل السلسلة، فإضافتان متزامنتان لا تفرّعانها.
+    //         دالة المحفّز وحدها، بلا تغيير في الجدول أو البصمة. مقيسٌ في tests/sql/owner-security-center.test.sql ⑩ (dblink).
+    assert.equal(migrations[migrations.length - 1], '122_security_log_chain_order.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

@@ -70,7 +70,7 @@ async function overview() {
         <td>${r.kind === 'email' ? `تغيير البريد${r.requested_email ? ` إلى <span dir="ltr">${esc(r.requested_email)}</span>` : ''}` : 'تغيير كلمة المرور'}</td>
         <td>${esc(when(r.requested_at))}</td><td dir="ltr">${esc(r.ip || '—')}</td><td>${device(r.user_agent)}</td>
         <td><span class="pill ${STATUS[r.status]?.[1] || 'status-neutral'}">${esc(STATUS[r.status]?.[0] || r.status)}</span>
-            ${r.status === 'pending' ? `<span class="owner-cell-muted">${r.alert_sent ? 'أُرسل الرابط لبريدك' : 'جارٍ إرسال التنبيه'}</span>` : ''}</td></tr>`,
+            ${r.status === 'pending' ? `<span class="owner-cell-muted">${r.alert_sent ? 'أُرسل الرابط لبريدك' : 'لم يُرسل الرابط بعد — إن لم يصلك خلال دقائق فأعد طلب التغيير'}</span>` : ''}</td></tr>`,
         { empty: 'لا محاولات. تغيير كلمة مرور حسابك أو بريده محجوز حتى توافق.' });
 }
 

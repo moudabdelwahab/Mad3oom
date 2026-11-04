@@ -131,6 +131,7 @@ export function buildAlertEmail(kind, data, { origin } = {}) {
  *   internalSecret()               السر المحفوظ في internal_service_secrets
  *   loadRequest(id)                صف owner_account_change_requests (بلا pending_value لكلمة المرور)
  *   setTokens(id, aHash, rHash)    _account_change_set_tokens ⇒ true مرة واحدة
+ *   clearTokens(id, aHash)         يمسح البصمتين إن كانتا هاتين (فشل الإرسال: لا روابط ضائعة تبدو «أُرسلت»)
  *   loadEvent(id)                  صف security_events
  *   loadStepUp(id)                 صف owner_step_up_sessions
  *   ownerEmail()                   بريد المالك الأساسي (auth.users)
@@ -150,19 +151,22 @@ export async function handleSecurityAlert({ headerSecret, body, origin, deps, cr
 
     let data;
     let idempotencyKey;
+    let tokenHash = null;
     if (kind === 'owner_account_change') {
         if (!UUID_RE.test(String(body.request || ''))) return { status: 400, body: { error: 'invalid_request' } };
         const req = await deps.loadRequest(body.request);
         if (!req || req.status !== 'pending') return { status: 409, body: { error: 'not_pending' } };
         const approveToken = generateToken(cryptoImpl);
         const rejectToken = generateToken(cryptoImpl);
-        const stored = await deps.setTokens(req.id, await sha256Hex(approveToken, cryptoImpl), await sha256Hex(rejectToken, cryptoImpl));
+        tokenHash = await sha256Hex(approveToken, cryptoImpl);
+        const stored = await deps.setTokens(req.id, tokenHash, await sha256Hex(rejectToken, cryptoImpl));
         // تنبيه سابق لنفس الطلب وُلِّدت رموزه: لا رموز ثانية (الأولى في البريد الأول)
         if (!stored) return { status: 409, body: { error: 'tokens_already_set' } };
         data = { request_id: req.id, kind: req.kind, requested_at: req.requested_at, expires_at: req.expires_at,
                  ip: req.ip, user_agent: req.user_agent, requested_email: req.kind === 'email' ? req.pending_value : null,
                  geo: req.ip ? await deps.geo(req.ip) : null, approve_token: approveToken, reject_token: rejectToken };
-        idempotencyKey = `owner-account-change-${req.id}`;
+        // الرموز تتغير مع كل محاولة بعد فشل، فالمفتاح يتبعها (مفتاح ثابت يعيد رسالة المحاولة الأولى)
+        idempotencyKey = `owner-account-change-${req.id}-${tokenHash.slice(0, 16)}`;
     } else if (kind === 'owner_new_login') {
         const ev = await deps.loadEvent(body.event_id);
         if (!ev || ev.event_type !== 'auth.login') return { status: 409, body: { error: 'no_event' } };
@@ -176,8 +180,16 @@ export async function handleSecurityAlert({ headerSecret, body, origin, deps, cr
     }
 
     const mail = buildAlertEmail(kind, data, { origin });
-    const result = await deps.send({ to, ...mail, idempotencyKey });
+    let result;
+    try { result = await deps.send({ to, ...mail, idempotencyKey }); } catch { result = { ok: false, code: 'send_threw' }; }
+    // لم يصل البريد: النص الوحيد للرمزين ضاع، فبصمتاهما بلا فائدة وتجعل الطلب يبدو «أُرسل».
+    // مسحهما يعيد الطلب إلى «لم يُرسل» ويسمح لمحاولة تالية بروابط جديدة.
+    let cleared;
+    if (!result.ok && tokenHash) {
+        try { cleared = (await deps.clearTokens(body.request, tokenHash)) === true; } catch { cleared = false; }
+    }
     await deps.log(result.ok ? 'alert.sent' : 'alert.failed', result.ok ? 'info' : 'warning',
-        { kind, reference: body.request || body.event_id || body.step_up_session || null, ...(result.ok ? {} : { code: result.code }) });
+        { kind, reference: body.request || body.event_id || body.step_up_session || null,
+          ...(result.ok ? {} : { code: result.code }), ...(cleared === undefined ? {} : { tokens_cleared: cleared }) });
     return result.ok ? { status: 200, body: { ok: true } } : { status: 502, body: { error: 'send_failed', code: result.code } };
 }
