@@ -1,0 +1,149 @@
+/* ============================================================================
+   owner-security.css — مركز الأمان، مصفوفة الصلاحيات، وصفحة الموافقة (121).
+   نظام التصميم نفسه (customer-dashboard.css + owner-pages.css): هنا ما لا وجود له فقط.
+   ========================================================================== */
+
+/* ── التنبيهات ───────────────────────────────────────────────────────────── */
+.owner-sec-alerts { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+
+.owner-sec-alert {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'pill title time' 'pill detail time';
+    gap: 2px var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3);
+    border: 1px solid var(--color-border);
+    border-inline-start-width: 3px;
+    border-radius: var(--r-md);
+}
+
+.owner-sec-alert[data-severity='critical'] { border-inline-start-color: var(--color-danger); }
+.owner-sec-alert[data-severity='warning'] { border-inline-start-color: var(--color-warning, #f5b041); }
+.owner-sec-alert > .pill { grid-area: pill; }
+.owner-sec-alert-title { grid-area: title; font-weight: 700; }
+.owner-sec-alert-detail { grid-area: detail; min-width: 0; overflow-wrap: anywhere; }
+.owner-sec-alert > time { grid-area: time; font-size: var(--fs-xs); }
+
+/* ── IP المشتركة ─────────────────────────────────────────────────────────── */
+.owner-sec-ip {
+    padding: var(--sp-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-md);
+    display: grid;
+    gap: var(--sp-2);
+}
+
+.owner-sec-ip + .owner-sec-ip { margin-top: var(--sp-3); }
+.owner-sec-ip-head { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); align-items: center; }
+.owner-sec-accounts { margin: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.owner-sec-accounts .pill { overflow-wrap: anywhere; }
+.owner-sec-ip details > summary { cursor: pointer; font-size: var(--fs-sm); color: var(--color-text-secondary); }
+
+/* ── جداول السجل ─────────────────────────────────────────────────────────── */
+.owner-sec-diff, .owner-sec-ops { margin: 0; padding-inline-start: 1rem; font-size: var(--fs-sm); }
+.owner-sec-diff del { color: var(--color-danger); text-decoration: line-through; }
+.owner-sec-diff ins { color: var(--color-success); text-decoration: none; }
+.owner-sec-diff li, .owner-sec-ops li { overflow-wrap: anywhere; }
+
+/* ── نموذج السياسة ───────────────────────────────────────────────────────── */
+.owner-sec-form { display: grid; gap: var(--sp-4); max-width: 44rem; }
+
+.owner-sec-field {
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-md);
+    padding: var(--sp-4);
+    margin: 0;
+    display: grid;
+    gap: var(--sp-2);
+}
+
+.owner-sec-field legend { padding-inline: var(--sp-2); font-weight: 700; }
+.owner-sec-presets { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+.owner-sec-presets label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.owner-sec-presets label:has(input:checked) {
+    border-color: var(--color-primary-variant, #0077cc);
+    background: color-mix(in srgb, var(--color-primary-variant, #0077cc) 12%, transparent);
+    font-weight: 700;
+}
+
+.owner-sec-custom { display: grid; gap: 4px; max-width: 14rem; }
+.owner-sec-toggle { display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; }
+.owner-sec-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); margin: 0; }
+.owner-sec-rules li + li { margin-top: var(--sp-2); }
+
+/* ── مصفوفة الصلاحيات ────────────────────────────────────────────────────── */
+.owner-perm-group + .owner-perm-group { margin-top: var(--sp-5); }
+.owner-perm-group-title { margin: 0 0 var(--sp-2); font-size: var(--fs-base); }
+.owner-perm-table th[scope='row'] { display: grid; gap: 2px; text-align: start; font-weight: 400; min-width: 14rem; }
+.owner-perm-label { font-weight: 700; }
+.owner-perm-table td { white-space: nowrap; }
+
+.owner-perm-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    cursor: pointer;
+    min-height: 32px;
+}
+
+.owner-perm-toggle input {
+    position: absolute;
+    inset-inline-start: 0;
+    width: 40px;
+    height: 24px;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.owner-perm-switch {
+    width: 40px;
+    height: 24px;
+    flex: none;
+    border-radius: 999px;
+    background: var(--color-border, #64748b);
+    position: relative;
+    transition: background-color .15s ease;
+    pointer-events: none;
+}
+
+.owner-perm-switch::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    inset-inline-start: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform .15s ease;
+}
+
+.owner-perm-toggle input:checked + .owner-perm-switch { background: var(--color-success, #22c58b); }
+.owner-perm-toggle input:checked + .owner-perm-switch::after { transform: translateX(16px); }
+[dir='rtl'] .owner-perm-toggle input:checked + .owner-perm-switch::after { transform: translateX(-16px); }
+.owner-perm-toggle input:focus-visible + .owner-perm-switch { outline: 2px solid var(--color-primary-variant, #0077cc); outline-offset: 2px; }
+.owner-perm-toggle input:disabled + .owner-perm-switch { opacity: .5; }
+.owner-perm-state { font-size: var(--fs-sm); color: var(--color-text-secondary); pointer-events: none; }
+
+/* ── صفحة الموافقة ───────────────────────────────────────────────────────── */
+.owner-approval-page { min-height: 100vh; display: grid; place-items: center; padding: 16px; background: var(--color-bg, #070d16); }
+.owner-approval { width: min(520px, 100%); }
+.owner-approval-card { display: grid; gap: var(--sp-3); }
+.owner-approval-brand { font-weight: 800; color: var(--color-primary-variant, #4da3ff); }
+
+@media (prefers-reduced-motion: reduce) {
+    .owner-perm-switch, .owner-perm-switch::after { transition: none; }
+}

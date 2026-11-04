@@ -30,7 +30,8 @@
 .owner-shell .gov-sw-locked svg { flex: none; }
 .owner-shell .gov-sw-locked a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 /* يظهر ما دام زر مفتاح معطّلًا (applyCriticalState قبل التحقق بخطوتين) */
-.owner-shell .gov-sw-board:has(.gov-sw-action:disabled) .gov-sw-locked { display: inline-flex; }
+/* 121: الأزرار لا تُعطَّل قبل التحقق؛ الملاحظة تتبع حالة جلسة التحرير */
+:root:not([data-critical-ops='open']) .owner-shell .gov-sw-board .gov-sw-locked { display: inline-flex; }
 
 /* ── المجموعات ─────────────────────────────────────────────────────────── */
 .owner-shell .gov-sw-group { display: grid; gap: var(--sp-3); }

@@ -3,14 +3,24 @@ import {
   validateSupabaseConfig,
   debugSupabaseAuthError
 } from './supabase-config.js';
+import { createStepUpFetch } from './assets/js/security/step-up-fetch.js';
 
 // validate config
 const supabaseConfig = validateSupabaseConfig();
 
+// التحقق بخطوتين حسب السياق (121): إجراء محمي بلا جلسة تحرير ⇒ نافذة التحقق، ثم يُعاد الطلب نفسه.
+// القرار في القاعدة؛ هذا اللف يفتح النافذة لحظة الحاجة فقط (assets/js/security/step-up-fetch.js).
+const stepUpFetch = createStepUpFetch({
+  baseFetch: (input, init) => fetch(input, init),
+  prompt: ({ message }) => import('./assets/js/security/step-up-modal.js')
+    .then((m) => m.requestStepUp({ reason: message }))
+});
+
 // create client
 export const supabase = createClient(
   supabaseConfig.url,
-  supabaseConfig.anonKey
+  supabaseConfig.anonKey,
+  { global: { fetch: stepUpFetch } }
 );
 
 // keep session cached

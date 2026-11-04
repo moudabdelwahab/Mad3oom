@@ -6,7 +6,10 @@
  *   المنصة نطاق mad3oom_support وحده، فتذاكر الشركات تختفي عن المالك هنا كما تختفي عن أي إداري.
  * الكتابة: «Admin can update tickets» ← is_admin()، وحارسا التذكرة يسمحان للإدارة بكل عمود. الصفحة ترسل
  *   الحالة والأولوية والمسؤول وحدها، ومعها last_updated_by — فيسجّلها log_ticket_changes في ticket_activity.
- * الرد على العميل والحذف خارج هذه الصفحة عمدًا (انظر ملاحظة القيود في الصفحة).
+ * الرد (121): نفس addTicketReply في tickets-service.js الذي تستعمله مساحة عمل الدعم — لا مسار رد موازٍ.
+ *   القاعدة تقبله للمالك في سياقه (has_elevated_authority في "Users can add replies to their tickets")،
+ *   ومصفوفة الصلاحيات (tickets.reply) تقرر إن كان يتطلب جلسة تحرير. البريد للعميل من محفّز on_ticket_reply_created.
+ * الحذف خارج هذه الصفحة عمدًا (انظر ملاحظة القيود في الصفحة).
  */
 import {
     supabase, bootOwnerPage, announce, esc, when, num, table, kpis, errorBlock, loadingBlock,
@@ -180,7 +183,7 @@ async function openTicket(id) {
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary btn-sm">حفظ التغييرات</button>
-                    <a class="btn btn-outline btn-sm" href="/admin/tickets.html?ticket_id=${esc(t.id)}">الرد من مساحة عمل الدعم</a>
+                    <a class="btn btn-outline btn-sm" href="/admin/tickets.html?ticket_id=${esc(t.id)}">فتح في مساحة عمل الدعم (المرفقات والقوالب)</a>
                 </div>
                 <p class="owner-sie-status" id="ticketStatus" role="status" aria-live="polite" hidden></p>
             </form>
@@ -203,7 +206,50 @@ async function openTicket(id) {
                         <p class="owner-text-block">${esc(r.message)}</p>
                     </li>`).join('')}</ol>`
                 : '<p class="panel-subtitle">لا ردود بعد.</p>'}
+        </section>
+
+        <section class="owner-detail-section">
+            <h3>الرد</h3>
+            <form class="owner-action-form owner-reply-form" id="replyForm" novalidate>
+                <div class="form-field">
+                    <label for="replyText">نص الرد</label>
+                    <textarea class="form-control" id="replyText" rows="4" maxlength="5000" required
+                              placeholder="اكتب ردك للعميل…"></textarea>
+                </div>
+                <div class="owner-reply-kind" role="radiogroup" aria-label="نوع الرد">
+                    <label><input type="radio" name="replyKind" value="public" checked> رد للعميل (يصله بالبريد)</label>
+                    <label><input type="radio" name="replyKind" value="internal"> ملاحظة داخلية (لفريق المنصة وحده)</label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary btn-sm">إرسال الرد</button>
+                    <span class="panel-subtitle">يُرسَل باسمك ويظهر في سجل التذكرة.</span>
+                </div>
+                <p class="owner-sie-status" id="replyStatus" role="status" aria-live="polite" hidden></p>
+            </form>
         </section>`;
+
+    const replyForm = modal.body.querySelector('#replyForm');
+    replyForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const text = replyForm.querySelector('#replyText').value.trim();
+        const replyStatus = (msg, tone) => announce(replyForm.querySelector('#replyStatus'), msg, tone);
+        if (text.length < 2) { replyStatus('اكتب نص الرد.', 'error'); replyForm.querySelector('#replyText').focus(); return; }
+        const internal = replyForm.querySelector('input[name="replyKind"]:checked')?.value === 'internal';
+        const submit = replyForm.querySelector('button[type="submit"]');
+        submit.disabled = true;
+        replyStatus('جارٍ الإرسال…');
+        try {
+            const { addTicketReply } = await import('/tickets-service.js');
+            await addTicketReply(t.id, text, internal);
+        } catch (err) {
+            submit.disabled = false;
+            replyStatus(friendlyError(err), 'error');
+            return;
+        }
+        say(internal ? 'أُضيفت الملاحظة الداخلية.' : `أُرسل الرد على التذكرة #${t.ticket_number ?? ''}.`, 'success');
+        openTicket(t.id);
+        loadTickets();
+    });
 
     const form = modal.body.querySelector('#ticketForm');
     const status = (text, tone) => announce(form.querySelector('#ticketStatus'), text, tone);

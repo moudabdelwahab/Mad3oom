@@ -197,7 +197,9 @@ test('PS-14: رقم واتساب مختلف عن الهاتف يبقى كما ه
 });
 
 test('PS-06: تغيير كلمة المرور يتطلب الحالية، ثم يُنهي الجلسات الأخرى', { skip: !chromiumPath }, async () => {
-    const { page, context } = await mount(browser, baseUrl, { mountOpts: { section: 'security', email: 'me@example.com' } });
+    // حساب عادي: is_platform_owner = false كما ترد القاعدة دائمًا (121: تعذّر معرفته يرفض، انظر PS-06b)
+    const { page, context } = await mount(browser, baseUrl, { mountOpts: { section: 'security', email: 'me@example.com' },
+                                                              rpc: { is_platform_owner: false } });
 
     await page.fill('#newPassword', 'NewPass1word');
     await page.fill('#confirmPassword', 'NewPass1word');
@@ -223,6 +225,20 @@ test('PS-06: تغيير كلمة المرور يتطلب الحالية، ثم �
     const log = await calls(page);
     assert.ok(log.some(c => c[0] === 'updatePassword'));
     assert.deepEqual(log.find(c => c[0] === 'signOut'), ['signOut', 'others']);
+    await context.close();
+});
+
+test('PS-06b: تعذّر معرفة قفل كلمة مرور المالك ⇒ لا تغيير ولا «تم» ولا إنهاء جلسات', { skip: !chromiumPath }, async () => {
+    const { page, context } = await mount(browser, baseUrl, { mountOpts: { section: 'security', email: 'me@example.com' } });
+    await page.evaluate(() => { window.__FIXTURES__.rpcErrors = { is_platform_owner: 'network' }; });
+    await page.fill('#acctCurrentPassword', 'Current1pass');
+    await page.fill('#newPassword', 'NewPass1word');
+    await page.fill('#confirmPassword', 'NewPass1word');
+    await page.click('#passwordSaveBtn');
+    await page.waitForFunction(() => /تعذّر التحقق من حالة الحساب/.test(document.getElementById('acctPasswordStatus')?.textContent || ''));
+    const log = await calls(page);
+    assert.equal(log.filter(c => c[0] === 'updatePassword').length, 0, 'password sent while lock state unknown');
+    assert.equal(log.filter(c => c[0] === 'signOut').length, 0);
     await context.close();
 });
 

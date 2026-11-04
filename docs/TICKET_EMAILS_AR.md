@@ -25,7 +25,7 @@
 
 ## القالب
 
-`supabase/functions/_shared/ticket-email.js` — قالب واحد لكل الأحداث: جداول وCSS مضمّن (Gmail وOutlook)، `@media` للشاشات الصغيرة، بلا JavaScript، عربي RTL افتراضيًا وإنجليزي LTR عند تمرير `locale: "en"` (لا تُخزَّن لغة المستخدم في القاعدة حاليًا، فالمحفّزات ترسل بالعربية). كل نص من خارج القالب مهرَّب، والبديل النصي يُرسل مع HTML.
+`supabase/functions/_shared/ticket-email.js` (يستورد `esc` و`siteOriginFrom` و`DEFAULT_SITE_ORIGIN` من `_shared/html.js` منذ 121 — **يُرفق الملف مع send-ticket-email وwf-executor عند نشرهما**) — قالب واحد لكل الأحداث: جداول وCSS مضمّن (Gmail وOutlook)، `@media` للشاشات الصغيرة، بلا JavaScript، عربي RTL افتراضيًا وإنجليزي LTR عند تمرير `locale: "en"` (لا تُخزَّن لغة المستخدم في القاعدة حاليًا، فالمحفّزات ترسل بالعربية). كل نص من خارج القالب مهرَّب، والبديل النصي يُرسل مع HTML.
 
 - الحالات وألوانها = قيد `tickets_status_check`، بأسماء لوحة العميل.
 - الشعار: `/assets/images/email/mad3oom-logo.png` على `PUBLIC_SITE_ORIGIN` (نسخة 17KB من `logo.png`).

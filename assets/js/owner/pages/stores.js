@@ -146,10 +146,7 @@ async function loadTestStore() {
     box.innerHTML = `
         ${own ? `<p class="panel-subtitle">شركتك: <strong>${esc(own.company_name)}</strong> — نوعها الآن <strong>${esc(TYPE_LABELS[own.account_type])}</strong></p>`
               : stateBlock({ text: 'لا شركة باسم حسابك. متجر الاختبار يُبنى على شركة المالك نفسه.' })}
-        ${fresh ? '' : `<form class="toolbar owner-filters" id="storeStepUp" novalidate>
-            <label for="storeStepUpCode">رمز التحقق بخطوتين (للعمليات أدناه)</label>
-            <input id="storeStepUpCode" class="form-control" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" dir="ltr" placeholder="000000">
-            <button type="submit" class="btn btn-primary btn-sm">تحقق</button></form>`}
+        ${fresh ? '' : '<p class="panel-subtitle">العمليات أدناه محمية: يُطلب رمز التحقق بخطوتين لحظة تنفيذها.</p>'}
         ${own ? `<div class="toolbar">
             ${own.account_type !== 'ecommerce_store'
                 ? '<button type="button" class="btn btn-outline btn-sm" data-kind="ecommerce_store" data-critical>تحويل شركتي إلى متجر اختبار</button>'
@@ -166,15 +163,8 @@ async function loadTestStore() {
             <li><strong>قراءة فقط:</strong> واجهة «معاينة عضو» تعرض اللوحة كعضو؛ الكتابة وبيانات Shopify الحية مرفوضة في القاعدة أثناء المعاينة.</li>
             <li>لا توجد معاينة لمتجر تاجر آخر: العزل بين الشركات مفروض في القاعدة، ولوحة المالك ترى بياناته الوصفية فقط (أعلاه).</li>
         </ul>`;
-    box.querySelectorAll('[data-critical]').forEach((b) => { b.disabled = !fresh; if (!fresh) b.title = 'يتطلب تحققًا حديثًا'; });
-    $('storeStepUp')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const code = $('storeStepUpCode').value.replace(/\s/g, '');
-        if (!/^\d{6}$/.test(code)) { say('الرمز ستة أرقام.', 'error'); return; }
-        const { data, error } = await rpc('owner_step_up', { p_code: code });
-        if (error || !data?.verified) { say(error?.message || 'تعذّر التحقق.', 'error'); return; }
-        loadTestStore();
-    });
+    // بلا جلسة تحرير: النقرة تفتح نافذة التحقق ثم تُكمل الإجراء (installCriticalGuard — 121)
+    box.querySelectorAll('[data-critical]').forEach((b) => { if (!fresh) b.title = 'عملية محمية: يُطلب رمز التحقق عند التنفيذ'; });
     box.querySelectorAll('[data-kind]').forEach((b) => b.addEventListener('click', async () => {
         const reason = window.prompt('سبب التغيير (10 أحرف على الأقل، يُسجَّل في تدقيق المالك):', 'اختبار تجربة المتجر على شركة المالك');
         if (!reason) return;

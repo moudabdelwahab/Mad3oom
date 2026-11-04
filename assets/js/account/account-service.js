@@ -15,6 +15,7 @@
 import { supabase } from '/api-config.js';
 import { updateProfile, updatePassword } from '/auth-client.js';
 import { generateRecoveryCodes, normalizePhone } from '/assets/js/account/account-core.js';
+import { ownerPasswordLocked } from '/assets/js/security/owner-lock.js';
 
 const ok = (data = null) => ({ ok: true, data, error: null });
 const fail = (error) => ({ ok: false, data: null, error: String(error || 'حدث خطأ غير متوقع') });
@@ -149,8 +150,15 @@ export async function changePassword({ email, currentPassword, newPassword }) {
         return fail('تعذّر التحقق من كلمة المرور الحالية');
     }
 
+    // حساب مالك المنصة (121): التغيير يُحجز في القاعدة حتى يوافق المالك من رابط البريد — لا «تم» كاذبة،
+    // ولا إنهاء للجلسات الآن (يحدث عند الموافقة نفسها).
+    // تعذّر معرفة الحالة = لا تغيير الآن (لا «تم» وإنهاء جلسات بينما المحفّز أبقى القديمة).
+    const ownerLocked = await ownerPasswordLocked(supabase);
+    if (ownerLocked === null) return fail('تعذّر التحقق من حالة الحساب الآن. أعد المحاولة بعد لحظات.');
+
     const { error } = await updatePassword(newPassword);
     if (error) return fail(error.message || 'تعذّر تحديث كلمة المرور');
+    if (ownerLocked) return ok({ pendingApproval: true });
 
     const others = await signOutOtherSessions();
     return ok({ otherSessionsEnded: others.ok });

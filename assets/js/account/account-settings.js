@@ -582,6 +582,12 @@ function wireSecurity(root, ctx) {
                 return;
             }
             $(root, 'acctPasswordForm').reset();
+            if (res.data.pendingApproval) {
+                setStatus(root, 'acctPasswordStatus',
+                    'لم تتغير كلمة المرور بعد: تغيير كلمة مرور مالك المنصة يحتاج موافقتك. أُرسل إلى بريدك الأساسي رابط للموافقة (بعد رمز التحقق بخطوتين) أو الرفض، صالح 30 دقيقة.', 'ok');
+                ctx.notify?.('أُرسل طلب الموافقة إلى بريدك', 'success');
+                return;
+            }
             setStatus(root, 'acctPasswordStatus', res.data.otherSessionsEnded
                 ? 'تم تحديث كلمة المرور، وأُنهيت جلساتك على الأجهزة الأخرى.'
                 : 'تم تحديث كلمة المرور. تعذّر إنهاء الجلسات الأخرى تلقائيًا — استخدم زر «تسجيل الخروج من كل الأجهزة الأخرى».');

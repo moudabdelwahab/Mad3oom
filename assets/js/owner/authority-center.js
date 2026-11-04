@@ -3,10 +3,12 @@
  *
  * لا قرار تفويض واحد هنا. كل زر نداء RPC ترفضه القاعدة لغير المالك
  * (migrations/053): owner_step_up · owner_set_staff_role ·
- * owner_set_platform_admin · owner_set_capability. تعطيل الأزرار قبل التحقق
- * بخطوتين مجاملة للمستخدم؛ الرفض الحقيقي في owner_critical_ok().
+ * owner_set_platform_admin · owner_set_capability. الأزرار لا تُعطَّل قبل التحقق
+ * بخطوتين: النقر على عملية محمية بلا جلسة تحرير يفتح نافذة التحقق لحظتها
+ * (assets/js/security/step-up-modal.js — 121)؛ الرفض الحقيقي في owner_critical_ok().
  */
 import { announce } from '/assets/js/owner/owner-workspace.js';
+import { requestStepUp, installCriticalGuard, STEP_UP_EVENT } from '/assets/js/security/step-up-modal.js';
 
 const TIER_LABEL = {
     owner: 'مالك المنصة',
@@ -44,25 +46,23 @@ const ACTION_LABEL = {
     'sie.setting.update': 'تغيير إعداد SIE',
     'sie.setting.delete': 'حذف إعداد SIE',
     'step_up.verified': 'تحقق بخطوتين',
-    'step_up.failed': 'محاولة تحقق فاشلة'
-};
-
-const STEP_UP_ERRORS = {
-    invalid_code: 'الرمز غير صحيح أو مستعمل من قبل. أدخل الرمز الحالي من تطبيق المصادقة.',
-    mfa_not_enrolled: 'التحقق بخطوتين غير مفعّل على حسابك بعد.',
-    too_many_attempts: 'محاولات كثيرة متتالية. انتظر قليلًا ثم حاول مجددًا.'
+    'step_up.failed': 'محاولة تحقق فاشلة',
+    'security_policy.set': 'تغيير سياسة الأمان',
+    'permission.set': 'تغيير صلاحيات دور'
 };
 
 let stepUpFresh = false;
 
-/** يطبّق حالة التحقق على كل زر عملية حرجة في الصفحة (data-critical). */
-export function applyCriticalState(root = document) {
+/**
+ * حالة جلسة التحرير على أزرار العمليات الحرجة (data-critical): علامة قفل لا تعطيل. النقرة بلا جلسة
+ * يعترضها installCriticalGuard فيفتح نافذة التحقق ثم يُكمل الإجراء نفسه.
+ */
+export function applyCriticalState() {
     // للعرض وحده: ملاحظة «الحوكمة» تتبدّل بين «مقفلة» و«مفعّلة» (owner-workspace.css)
     document.documentElement.dataset.criticalOps = stepUpFresh ? 'open' : 'locked';
-    root.querySelectorAll('[data-critical]').forEach(el => {
-        el.disabled = !stepUpFresh;
+    document.querySelectorAll('[data-critical]').forEach(el => {
         if (stepUpFresh) el.removeAttribute('title');
-        else el.title = 'يتطلب التحقق بخطوتين أولًا';
+        else el.title = 'عملية محمية: يُطلب رمز التحقق عند التنفيذ';
     });
 }
 
@@ -71,6 +71,10 @@ export function initAuthorityCenter(ctx) {
     let expiryTimer = null;
 
     const say = announce;
+
+    // كل [data-critical] في اللوحة: بلا جلسة تحرير ⇒ نافذة التحقق ثم الإجراء نفسه
+    installCriticalGuard(document);
+    document.addEventListener(STEP_UP_EVENT, () => { renderStepUp(); renderAudit(); });
 
     /* ── A. الملكية والتحقق بخطوتين ─────────────────────────────────────── */
     async function renderStepUp() {
@@ -97,43 +101,22 @@ export function initAuthorityCenter(ctx) {
                 <div class="owner-stepup-state owner-stepup-state--ok">
                     <p class="owner-stepup-title">وضع العمليات الحساسة مفعّل</p>
                     <p class="owner-stepup-text">حتى ${esc(until.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }))}
-                        في هذه الجلسة فقط. بعدها يلزم رمز جديد.</p>
+                        في هذه الجلسة فقط${data.step_up_method === 'recovery_code' ? ' (فُتحت برمز استرداد)' : ''}. بعدها يلزم رمز جديد.</p>
                 </div>`;
             expiryTimer = setTimeout(renderStepUp, Math.max(1000, until - Date.now() + 500));
         } else {
             box.innerHTML = `
-                <form class="owner-stepup-state" id="stepUpForm" novalidate>
-                    <p class="owner-stepup-title">تحقق بخطوتين للعمليات الحساسة</p>
-                    <p class="owner-stepup-text">أدخل الرمز الحالي من تطبيق المصادقة. يفتح نافذة 10 دقائق لهذه الجلسة وحدها.</p>
+                <div class="owner-stepup-state" id="stepUpLocked">
+                    <p class="owner-stepup-title">جلسة التحرير مقفلة</p>
+                    <p class="owner-stepup-text">العمليات الحساسة تطلب رمز Google Authenticator لحظة تنفيذها، وتفتح جلسة تحرير
+                        لمدة ${esc(String(data?.step_up_minutes || 10))} دقيقة لهذه الجلسة وحدها (من سياسة الأمان).</p>
                     <div class="owner-stepup-row">
-                        <input class="form-control owner-stepup-code" id="stepUpCode" inputmode="numeric"
-                               autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" dir="ltr"
-                               aria-label="رمز التحقق" placeholder="000000" required>
-                        <button type="submit" class="btn btn-primary">تحقق</button>
+                        <button type="button" class="btn btn-primary" id="stepUpOpen">فتح جلسة تحرير الآن</button>
+                        <a class="btn btn-outline btn-sm" href="/owner/security.html">سياسة الأمان والسجل</a>
                     </div>
-                    <p class="owner-stepup-error" id="stepUpError" role="alert" hidden></p>
-                </form>`;
-            $('stepUpForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const code = $('stepUpCode').value.replace(/\s/g, '');
-                const errEl = $('stepUpError');
-                if (!/^\d{6}$/.test(code)) {
-                    errEl.textContent = 'الرمز ستة أرقام.';
-                    errEl.hidden = false;
-                    return;
-                }
-                const btn = e.submitter || e.currentTarget.querySelector('button');
-                btn.disabled = true;
-                const { data: res, error: rpcErr } = await supabase.rpc('owner_step_up', { p_code: code });
-                btn.disabled = false;
-                if (rpcErr || !res?.verified) {
-                    errEl.textContent = rpcErr?.message || STEP_UP_ERRORS[res?.error] || 'تعذّر التحقق.';
-                    errEl.hidden = false;
-                    $('stepUpCode').select();
-                    return;
-                }
-                renderStepUp();
-                renderAudit();
+                </div>`;
+            $('stepUpOpen').addEventListener('click', async () => {
+                if (await requestStepUp({ reason: 'فتح جلسة تحرير للعمليات الحساسة.' })) { renderStepUp(); renderAudit(); }
             });
         }
         applyCriticalState();

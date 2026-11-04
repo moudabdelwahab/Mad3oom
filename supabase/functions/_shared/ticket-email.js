@@ -18,6 +18,9 @@
  * الرابط لا يحمل إلا معرّف التذكرة؛ فتحها يمر بتسجيل الدخول وسياسات RLS كأي زيارة للوحة.
  */
 
+import { DEFAULT_SITE_ORIGIN, esc, siteOriginFrom } from './html.js';
+export { DEFAULT_SITE_ORIGIN, esc, siteOriginFrom };
+
 export const BRAND = Object.freeze({
     nameAr: 'مدعوم',
     nameEn: 'Mad3oom',
@@ -27,7 +30,6 @@ export const BRAND = Object.freeze({
     linkedin: 'https://www.linkedin.com/company/mad3oom/'
 });
 
-export const DEFAULT_SITE_ORIGIN = 'https://mad3oom.com';
 export const LOGO_PATH = '/assets/images/email/mad3oom-logo.png';
 export const TICKET_PATH = '/customer-dashboard.html';
 export const DEFAULT_TIME_ZONE = 'Africa/Cairo';
@@ -146,8 +148,6 @@ export const EMAIL_EVENTS = Object.freeze(Object.keys(COPY.ar.events));
 
 export const normalizeLocale = (locale) => (String(locale || '').toLowerCase().startsWith('en') ? 'en' : 'ar');
 
-/** تهريب HTML لكل نص من خارج القالب. */
-export const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /** نص سطر واحد: بلا محارف تحكم (لا سطر جديد في الموضوع)، مقصوص. */
 export function oneLine(value, max = 120) {
@@ -162,13 +162,6 @@ export function textToHtml(value, max = 5000) {
     return esc(cut).replace(/\n/g, '<br>');
 }
 
-/** أصل الموقع: https وبلا مسار، وإلا الافتراضي. */
-export function siteOriginFrom(value) {
-    try {
-        const u = new URL(String(value || ''));
-        return u.protocol === 'https:' ? u.origin : DEFAULT_SITE_ORIGIN;
-    } catch { return DEFAULT_SITE_ORIGIN; }
-}
 
 /**
  * رابط التذكرة في لوحة العميل — نفس رابط الإشعارات داخل المنصة (customer-dashboard.html?ticket=<uuid>).

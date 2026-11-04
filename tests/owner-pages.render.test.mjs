@@ -94,7 +94,17 @@ function fixtures({ context = 'owner', owner = true } = {}) {
                 live_connection_without_entitlement: [], stores_without_subscription: 0, store_plan_on_non_store: 0, pending_store_requests: 2 },
             owner_store_events: { jobs: [], events: [], audit: [] },
             owner_set_passcode: { ok: true },
-            owner_set_passcode_active: { ok: true }
+            owner_set_passcode_active: { ok: true },
+            // 121: مركز الأمان والصلاحيات
+            owner_security_overview: { days: 7, logins: 12, failed_logins: 2, unique_ips: 5, shared_ips: 1, denied: 0, warnings: 1,
+                pending_account_changes: 0, active_sessions: 9, owner_sessions: 2,
+                recent_alerts: [{ id: 1, at: '2026-10-27T00:00:00Z', event_type: 'auth.failed_burst', severity: 'critical', target_email: XSS, details: { failures: 5 } }] },
+            owner_account_change_list: [],
+            owner_permission_matrix: { ok: true, permissions: [
+                { key: 'settings.manage', category: 'platform', label: 'تعديل إعدادات التشغيل', description: XSS, enforced_on: 'RLS: advanced_settings',
+                  owner_step_up: true, admin: true, support: true },
+                { key: 'tickets.reply', category: 'support', label: 'الرد على التذاكر', description: 'رد', enforced_on: 'RLS: ticket_replies',
+                  owner_step_up: false, admin: true, support: false }] }
         },
         tables: {
             profiles: [
@@ -161,6 +171,8 @@ const noHorizontalScroll = (page) => page.evaluate(() => document.documentElemen
 
 const PAGES = {
     stats: '#statsKpis .kpi',
+    permissions: '#permMatrix table',
+    security: '#secKpis .kpi',
     tickets: '#ticketsTable table',
     subscriptions: '#subsTable table',
     blog: '#blogRows tr',

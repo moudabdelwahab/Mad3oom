@@ -185,13 +185,20 @@ test('الأجزاء الخالصة: السبب، الشجرة، صف المرا
     assert.match(exceptionalTransferError({ ...ok, reason: 'قصير جدًا' }), /20 حرفًا/);
 });
 
-test('قبل التحقق بخطوتين: كل أزرار الحوكمة معطّلة، والأقسام معروضة بلا أخطاء', { skip: !chromiumPath }, async () => {
+test('قبل التحقق بخطوتين: أزرار الحوكمة تطلب التحقق لحظة النقر (لا تعطيل)، والأقسام معروضة بلا أخطاء', { skip: !chromiumPath }, async () => {
     const { page, context, errors } = await openOwner(browser, baseUrl, fixtures());
     await govTab(page, 'reviews');
     await page.waitForSelector('#govReviews table');
     const states = await page.$$eval('#governanceTabContent [data-critical]', els => els.map(e => e.disabled));
     assert.ok(states.length >= 6, 'أزرار حرجة قليلة: ' + states.length);
-    assert.ok(states.every(Boolean), 'زر حوكمة مفعّل قبل التحقق');
+    assert.ok(states.every(d => !d), 'زر حوكمة معطّل بدل أن يطلب التحقق');
+    // النقرة بلا جلسة تحرير: نافذة التحقق، ولا نداء للعملية نفسها
+    const before = await page.evaluate(() => (window.__RPC_ARGS__ || []).length);
+    await page.locator('#governanceTabContent button[data-critical]:visible').first().click();
+    await page.waitForSelector('.stepup-dialog');
+    const called = await page.evaluate((n) => (window.__RPC_ARGS__ || []).slice(n).map(([x]) => x), before);
+    assert.ok(called.every(n => n === 'owner_security_status'), 'نُفِّذ شيء قبل التحقق: ' + called);
+    await page.keyboard.press('Escape');
     assert.match(await page.textContent('#govReviews'), /غير مفعّل/);
     assert.match(await page.textContent('#govUsage'), /3 من 3/);
     assert.deepEqual(errors, []);
@@ -591,7 +598,8 @@ for (const [w, h] of [[1440, 900], [1351, 544], [768, 1000], [390, 844]]) {
             assert.equal(x.detailsHidden, true, 'التفاصيل مفتوحة افتراضيًا');
             assert.equal(x.title, SWITCH_REGISTRY[x.key].label);
             assert.equal(x.code, x.key, 'المفتاح التقني في التفاصيل');
-            assert.equal(x.disabled, true, 'زر مفعّل قبل التحقق');
+            // 121: لا تعطيل قبل التحقق — النقرة تفتح نافذة التحقق لحظتها (installCriticalGuard)
+            assert.equal(x.disabled, false, 'الزر معطّل بدل أن يطلب التحقق عند النقر');
             const on = x.key === 'company_permissions_enabled';
             assert.equal(x.text, on ? 'إيقاف' : 'تفعيل');
             assert.equal(x.name, `${on ? 'إيقاف' : 'تفعيل'} «${SWITCH_REGISTRY[x.key].label}»`);
