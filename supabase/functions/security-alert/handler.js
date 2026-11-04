@@ -11,7 +11,7 @@
  *
  * لا كلمة مرور ولا بصمتها ولا رمز تحقق في أي رسالة.
  */
-import { esc, siteOriginFrom } from '../_shared/ticket-email.js';
+import { esc, siteOriginFrom } from '../_shared/html.js';
 
 export const ALERT_KINDS = Object.freeze(['owner_account_change', 'owner_new_login', 'recovery_code_used']);
 export const APPROVAL_PATH = '/owner/security-approval.html';
