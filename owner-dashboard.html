@@ -746,6 +746,8 @@ function gate(title, text) {
     }
 
     $('ownerContent').hidden = false;
+    // 123: ودجت التواصل — ما يرفعه فريق المنصة إلى المالك
+    import('/assets/js/comm/mount.js').then(m => m.mountComm('owner')).catch(() => {});
     // تبويبات «السلطة والمنح» و«الحوكمة» الداخلية: عرض فقط، والشارات تُحدَّث من كل عرض للبيانات
     const authorityTabs = createWorkspaceTabs({ root: $('authorityWorkspace'), id: 'authority', fallback: 'ownership' });
     const governanceTabs = createWorkspaceTabs({ root: $('governanceWorkspace'), id: 'governance', fallback: 'switches' });

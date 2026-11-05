@@ -156,6 +156,12 @@ test('منظور العضو لمالك المنصة: شريط القراءة ف�
     const { page, context } = await openPortal(browser, baseUrl, fx);
     assert.equal(await page.locator('#portalPreviewStrip').isHidden(), false);
     assert.equal(await page.locator('#portalTicketSubmit').isDisabled(), true);
+    // 123: المنظور قراءة لبيانات الشركة — لا إشعارات المالك ولا حسابه ولا ودجت تواصل
+    await page.locator('#portalSectionNav').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#portalNotifications').isHidden(), true);
+    assert.equal(await page.locator('#portalAccount').isHidden(), true);
+    assert.equal(await page.locator('#portalSectionNav a[data-section="portalAccount"]').isHidden(), true);
+    assert.equal(await page.locator('#commWidget').count(), 0);
     await context.close();
 });
 
@@ -400,5 +406,69 @@ test('102: بعد مغادرة الشركة: المحادثة للقراءة ف�
     await page.locator('#portalThread').waitFor({ state: 'visible' });
     assert.equal(await page.locator('#portalReplyForm').isHidden(), true);
     assert.equal(await page.locator('#portalThreadReadOnly').isHidden(), false);
+    await context.close();
+});
+
+/* ── 123: محرّك التواصل مضمَّنًا في «رسائلي» ─────────────────────────────────── */
+
+test('123: المحرّك مثبَّت: «رسائلي» تعرضه مضمَّنًا بلا زر عائم ولا واجهة 102 مكررة', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ portal: ONE_COMPANY });
+    fx.rpc.my_company_invitations = [];
+    fx.rpc.comm_overview = { scopes: { customer_company: { side: 'requester', can_start: true, open: 1, unread: 1 } }, attachments: true };
+    fx.rpc.comm_threads_list = { side: 'requester', can_start: true, permissions: {}, assignees: [], threads: [
+        { id: 'cv1', scope: 'customer_company', subject: 'طلبي لم يصل', status: 'open', side: 'requester', unread: true,
+          last_message_at: '2026-10-14T10:00:00Z', ticket: null }] };
+    const { page, context, errors } = await openPortal(browser, baseUrl, fx);
+    await page.locator('#messages').waitFor({ state: 'visible' });
+    await page.locator('#portalCommHost .mcw-item').waitFor();
+    assert.equal(await page.locator('#portalCommHost .mcw[data-embedded="true"]').count(), 1);
+    assert.equal(await page.locator('#commLauncher').count(), 0, 'لا زر عائم في البوابة');
+    assert.equal(await page.locator('#portalLegacyMessages').isHidden(), true);
+    assert.match(await page.locator('#portalCommHost .mcw-item').textContent(), /طلبي لم يصل/);
+    assert.equal(await page.locator('#portalCommHost #commNewBtn').count(), 1);
+    // واجهة 102 لم تُحمَّل أصلًا
+    const calls = await page.evaluate(() => window.__RPC_CALLS__ || []);
+    assert.equal(calls.includes('my_company_conversations'), false);
+    assert.equal(errors.length, 0, errors.join(' | '));
+    await context.close();
+});
+
+test('123: المحرّك مثبَّت والميزة مطفأة: لا قسم رسائل ولا رجوع لواجهة 102', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ portal: ONE_COMPANY });
+    fx.rpc.my_company_invitations = [];
+    fx.rpc.comm_overview = { scopes: {}, attachments: false };
+    const { page, context } = await openPortal(browser, baseUrl, fx);
+    await page.waitForFunction(() => (window.__RPC_CALLS__ || []).includes('comm_overview'));
+    await page.waitForTimeout(150);
+    assert.equal(await page.locator('#messages').isHidden(), true);
+    const calls = await page.evaluate(() => window.__RPC_CALLS__ || []);
+    assert.equal(calls.includes('my_company_conversations'), false);
+    await context.close();
+});
+
+test('123: البوابة تجربة مستقلة: تنقّل بين الأقسام، والإشعارات، وحسابي — ولا شيء منها في منظور المالك', { skip: !chromiumPath }, async () => {
+    const fx = fixtures({ portal: ONE_COMPANY });
+    fx.rpc.my_company_invitations = [];
+    fx.tables.notifications = [
+        { id: 'n1', user_id: USER_ID, title: 'ردّت الشركة على رسالتك', message: '<b>لديك رد جديد</b>', is_read: false,
+          link: '/portal/#messages', created_at: new Date().toISOString() },
+        { id: 'n2', user_id: USER_ID, title: 'تذكرة', message: 'تم إغلاق تذكرتك', is_read: true,
+          link: '/customer-dashboard.html?ticket=11111111-1111-4111-8111-111111111111', created_at: '2026-10-01T10:00:00Z' }];
+    const { page, context, errors } = await openPortal(browser, baseUrl, fx);
+    await page.locator('#portalNotifications').waitFor({ state: 'visible' });
+    await page.locator('.portal-notif-item').first().waitFor();
+    // روابط الأقسام الظاهرة فقط (الرسائل مطفأة هنا)
+    const links = await page.locator('#portalSectionNav a:not([hidden])').evaluateAll(els => els.map(a => a.dataset.section));
+    assert.deepEqual(links, ['portalTicketsSection', 'portalNotifications', 'portalAccount']);
+    assert.equal(await page.locator('#portalNotifBadge').textContent(), '1');
+    // نص الإشعار نص لا HTML
+    assert.equal(await page.locator('.portal-notif-item b').count(), 0);
+    assert.match(await page.locator('.portal-notif-item').first().textContent(), /<b>لديك رد جديد<\/b>/);
+    // رابط تذكرة في لوحة أخرى يبقى داخل البوابة (قسم التذاكر)، لا خروج
+    assert.equal(await page.locator('[data-notification="n2"]').getAttribute('data-target'), '#portalTicketsSection');
+    // «حسابي» داخل البوابة بدل صفحة إعدادات منفصلة
+    assert.equal(await page.locator('#portalAccountLink').getAttribute('href'), '#portalAccount');
+    assert.equal(await page.locator('a[href="/customer-security-settings.html"]').count(), 0);
+    assert.equal(errors.length, 0, errors.join(' | '));
     await context.close();
 });

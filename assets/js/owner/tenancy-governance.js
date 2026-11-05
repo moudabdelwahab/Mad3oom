@@ -44,6 +44,19 @@ export const SWITCH_REGISTRY = Object.freeze({
         requires: [{ key: ISO, enforced: true }, { key: PERMS, enforced: true }],
         warning: `إضافة عميل له شركة أساسية تحتاج أيضًا «عضوية المستخدم في عدة شركات». ${ONE_WAY}`
     },
+    // 123: محرّك التواصل الموحّد
+    comm_admin_owner_enabled: {
+        label: 'تواصل فريق المنصة مع المالك',
+        description: 'فريق المنصة (admin/support) يرفع تقارير وطلبات موافقة وقرارات وحوادث إلى المالك. داخلي: لا يصل الشركات ولا عملاءها، والزميل لا يرى محادثة زميله.'
+    },
+    comm_attachments_enabled: {
+        label: 'مرفقات التواصل',
+        description: 'إرفاق ملفات (حتى 10MB، أنواع محددة) في نطاقات التواصل الثلاثة. القراءة بحدود الرسالة: مرفق الملاحظة الداخلية داخلي.'
+    },
+    comm_company_platform_enabled: {
+        label: 'تواصل الشركات مع إدارة مدعوم',
+        description: 'مدير الشركة يراسل فريق المنصة (دعم فني، فواتير، اشتراك) من لوحة شركته. كل شركة ترى محادثاتها وحدها.'
+    },
     company_documents_enabled: {
         label: 'مستندات الشركات',
         description: 'رفع مستندات الشركات ومراجعتها وتنزيلها. لا اعتماد ولا تنزيل قبل فحص أمني نظيف.'
@@ -143,7 +156,10 @@ export const SWITCH_GROUPS = Object.freeze([
     { id: 'moves', title: 'نقل العملاء والتذاكر', hint: 'لا تعمل قبل العزل والصلاحيات، وأول استعمال يجعلهما بلا رجعة.',
       keys: ['customer_transfers_enabled', 'ticket_carry_enabled', 'account_request_execution_enabled'] },
     { id: 'features', title: 'مزايا الشركات', hint: 'مزايا مستقلة لا تغيّر من يرى البيانات.',
-      keys: ['company_inbox_enabled', 'company_documents_enabled'] }
+      keys: ['company_inbox_enabled', 'company_documents_enabled'] },
+    // 123: لكل نطاق مفتاحه؛ customer_company يتبع company_inbox_enabled أعلاه
+    { id: 'communication', title: 'التواصل الموحّد', hint: 'قنوات جديدة بين الشركات وفريق المنصة والمالك. لا تغيّر من يرى بيانات الشركات.',
+      keys: ['comm_company_platform_enabled', 'comm_admin_owner_enabled', 'comm_attachments_enabled'] }
 ]);
 
 /** توزيع صفوف العرض على المجموعات بترتيبها، والمجهول في «أخرى». خالصة. */

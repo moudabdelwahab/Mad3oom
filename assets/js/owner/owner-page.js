@@ -10,6 +10,7 @@
  * إلا جداول فارغة ونداءات مرفوضة.
  */
 import { supabase } from '/api-config.js';
+import { mountComm } from '/assets/js/comm/mount.js';
 import { initOwnerShell } from '/assets/js/customer-sidebar.js';
 import { contextStatus, mountContextBar, CONTEXT_PRESENTATION } from '/assets/js/owner/owner-context.js';
 import { ownerDestinationFor, OWNER_HOME, OWNER_SECTIONS } from '/assets/js/owner/owner-notifications.js';
@@ -189,6 +190,8 @@ export async function bootOwnerPage() {
     }
 
     $('ownerContent').hidden = false;
+    // 123: ودجت التواصل — ما يرفعه فريق المنصة إلى المالك
+    mountComm('owner');
     return { session, status };
 }
 

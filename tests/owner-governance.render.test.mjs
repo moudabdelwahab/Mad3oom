@@ -489,7 +489,8 @@ const LONG = 'وصف طويل بطول أوصاف الإنتاج يشرح الم
 const allSwitches = (on = []) => REGISTERED_SWITCHES.map(key => ({ key, enabled: on.includes(key), description: LONG }));
 
 test('سجل المفاتيح يغطي كل مفتاح مسجَّل باسم ووصف عربيين، ولا يخترع مفاتيح', () => {
-    assert.equal(REGISTERED_SWITCHES.length, 12, REGISTERED_SWITCHES.join(','));
+    // 15 = 12 + ثلاثة مفاتيح محرّك التواصل (123): comm_company_platform_enabled، comm_admin_owner_enabled، comm_attachments_enabled
+    assert.equal(REGISTERED_SWITCHES.length, 15, REGISTERED_SWITCHES.join(','));
     assert.deepEqual(Object.keys(SWITCH_REGISTRY).sort(), REGISTERED_SWITCHES);
     for (const [key, m] of Object.entries(SWITCH_REGISTRY)) {
         assert.match(m.label, /[؀-ۿ]/, key);
@@ -535,7 +536,7 @@ test('المجموعات: كل مفتاح مسجَّل في مجموعة واح�
     const all = [...allSwitches(), { key: 'future_flag', enabled: false, description: 'وصف' }];
     const views = all.map(s => switchView(s, all));
     const groups = groupSwitchViews(views);
-    assert.deepEqual(groups.map(g => g.id), ['core', 'security', 'moves', 'features', 'other']);
+    assert.deepEqual(groups.map(g => g.id), ['core', 'security', 'moves', 'features', 'communication', 'other']);
     assert.deepEqual(groups.at(-1).views.map(v => v.key), ['future_flag']);
     const v = (k, on = []) => { const a = allSwitches(on); return switchView(a.find(x => x.key === k), a); };
     assert.equal(switchNotice(v('company_isolation_enforced')).tone, 'blocked', 'العزل قبل الصلاحيات لا يبدو آمنًا');
@@ -607,7 +608,7 @@ for (const [w, h] of [[1440, 900], [1351, 544], [768, 1000], [390, 844]]) {
         }
         // قبل التحقق: سبب التعطيل ظاهر مرة واحدة أعلى المفاتيح
         assert.equal(await page.locator('#govSwitches .gov-sw-locked').isVisible(), true);
-        assert.match(await page.textContent('#govSwitches .gov-sw-count'), /1\s*من 12 مفعّلة/);
+        assert.match(await page.textContent('#govSwitches .gov-sw-count'), /1\s*من 15 مفعّلة/);
         assert.deepEqual(errors, []);
         await context.close();
     });

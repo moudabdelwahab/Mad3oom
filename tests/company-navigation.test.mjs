@@ -663,7 +663,10 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         للأدوار عبر سياسات RESTRICTIVE فقط، وسجل تغييرات بتراجع. مقيسٌ في tests/sql/owner-security-center.test.sql.
     //   122 — إصلاح 121 من مراجعة PR 165: رقم صف سجل الأمان يُؤخذ تحت قفل السلسلة، فإضافتان متزامنتان لا تفرّعانها.
     //         دالة المحفّز وحدها، بلا تغيير في الجدول أو البصمة. مقيسٌ في tests/sql/owner-security-center.test.sql ⑩ (dblink).
-    assert.equal(migrations[migrations.length - 1], '122_security_log_chain_order.sql',
+    //   123 — محرّك تواصل موحّد بطلب صاحب المنتج (2026-11-05): نطاقات customer_company (فوق دوال 102 كما هي
+    //         حرفيًا) وcompany_platform وadmin_owner، مرفقات بمستودع خاص وسياسة تعيد فحص الرسالة، تحويل إلى تذكرة،
+    //         وثلاثة مفاتيح مطفأة. لا يغيّر دالة أو سياسة قائمة. مقيسٌ في tests/sql/communication-engine.test.sql.
+    assert.equal(migrations[migrations.length - 1], '123_communication_engine.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

@@ -12,6 +12,7 @@
  * تابع لشركة، وبتظهر بوابة توضّح الخطوة الجاية.
  */
 
+import { mountComm } from '/assets/js/comm/mount.js';
 import { guardPage } from '/assets/js/page-guard.js';
 import { initCompanyShell, setActiveSidebarTab } from '/assets/js/customer-sidebar.js';
 import { createTicketStream } from '/assets/js/company/company-tickets.js';
@@ -145,6 +146,8 @@ async function init() {
     if (!user) return;
 
     currentUserId = user.id;
+    // 123: ودجت التواصل — دعم مدعوم (مدير الشركة) ورسائل العملاء (لمن يملك صلاحيتها)
+    mountComm('company');
 
     // قشرة الشركة: قائمتها الخاصة، وكل عناصرها صفحات في هذه اللوحة.
     // onTabChange بيخلي عناصر القائمة تبدّل الصفحة بدل ما تنقل لأي مكان آخر.

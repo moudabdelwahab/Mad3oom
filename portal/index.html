@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
     <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/account-settings.css">
     <link rel="stylesheet" href="/assets/css/company-dashboard.css">
     <script>
         /* نفس سكربت صفحات البوابة: الثيم قبل أول رسم، بلا وميض. */
@@ -52,6 +53,24 @@
         .portal-conversation-open { all: unset; cursor: pointer; display: grid; gap: 4px; width: 100%; }
         .portal-conversation.is-unread .company-sub-plan { font-weight: 800; }
         .portal-messages { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
+        .portal-sections { position: sticky; top: 0; z-index: 5; display: flex; gap: 6px; overflow-x: auto; padding: 8px;
+                           margin: 0 0 12px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; }
+        .portal-sections a { white-space: nowrap; padding: 6px 12px; border-radius: 999px; font-weight: 700; text-decoration: none;
+                             color: var(--color-text); display: inline-flex; align-items: center; gap: 6px; }
+        .portal-sections a:hover, .portal-sections a:focus-visible { background: color-mix(in srgb, #2563eb 12%, transparent); color: #2563eb; }
+        .portal-nav-badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #dc2626; color: #fff;
+                            font-size: 11px; display: inline-flex; align-items: center; justify-content: center; }
+        #portalTicketsSection, #messages, #portalNotifications, #portalAccount { scroll-margin-top: 72px; }
+        .portal-notif-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+        .portal-notif-item { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 2px; width: 100%; padding: 10px 12px;
+                             border-radius: 10px; border: 1px solid var(--color-border); }
+        .portal-notif-item[data-unread="true"] { border-color: #2563eb; background: color-mix(in srgb, #2563eb 7%, transparent); }
+        .portal-notif-item[data-unread="true"] .portal-notif-title { font-weight: 800; }
+        .portal-notif-item:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+        .portal-notif-text { color: var(--color-text-secondary); font-size: .9rem; }
+        .portal-notif-time { color: var(--color-text-secondary); font-size: .8rem; }
+        .portal-account-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+        .portal-account-tabs [aria-pressed="true"] { border-color: #2563eb; color: #2563eb; }
         .portal-message { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--color-border); max-width: 85%; }
         .portal-message.is-mine { justify-self: start; }
         .portal-message.is-company { justify-self: end; background: var(--color-surface); }
@@ -68,15 +87,23 @@
             <div class="company-banner-main">
                 <span class="company-level-tag portal-level-tag">بوابة العملاء</span>
                 <h1 class="company-name" id="portalCompanyName">—</h1>
-                <p class="company-meta">تواصلك مع فريق الشركة: تذاكرك وردودها في مكان واحد.</p>
+                <p class="company-meta">تواصلك مع فريق الشركة: تذاكرك ورسائلك وإشعاراتك وحسابك في مكان واحد.</p>
             </div>
             <div class="portal-topbar-actions">
                 <!-- السؤال 10: الاشتراك الشخصي من بوابة مدعوم الرسمية وحدها، منفصل عن الشركة -->
                 <a class="btn btn-secondary" href="/customer-dashboard.html" id="portalPersonalAccount">حسابي الشخصي في مدعوم</a>
-                <a class="btn btn-secondary" href="/customer-security-settings.html">إعدادات الحساب</a>
+                <a class="btn btn-secondary" href="#portalAccount" id="portalAccountLink">حسابي</a>
                 <a class="btn btn-secondary" href="#" id="portalSignOut">تسجيل الخروج</a>
             </div>
         </header>
+
+        <!-- 123: تنقّل داخل البوابة — روابط إلى أقسام الصفحة نفسها، لا إخفاء ولا صفحات أخرى -->
+        <nav class="portal-sections" id="portalSectionNav" aria-label="أقسام البوابة" hidden>
+            <a href="#messages" data-section="messages">رسائلي</a>
+            <a href="#portalTicketsSection" data-section="portalTicketsSection">تذاكري</a>
+            <a href="#portalNotifications" data-section="portalNotifications">الإشعارات <span class="portal-nav-badge" id="portalNotifBadge" hidden>0</span></a>
+            <a href="#portalAccount" data-section="portalAccount">حسابي</a>
+        </nav>
 
         <p class="preview-strip company-notice" id="portalPreviewStrip" hidden>
             أنت في منظور عضو الشركة — العرض للقراءة فقط.
@@ -154,6 +181,10 @@
                     </div>
                     <button type="button" class="btn btn-primary" id="portalNewConversationBtn" hidden>رسالة جديدة</button>
                 </div>
+                <!-- 123: محرّك التواصل الموحّد مضمَّنًا (portal.js → initPortalCommunication) -->
+                <div id="portalCommHost"></div>
+                <!-- واجهة 102 — بديل حين لا يكون المحرّك مثبَّتًا في القاعدة بعد -->
+                <div id="portalLegacyMessages">
                 <form id="portalNewConversation" class="company-form" novalidate hidden>
                     <div class="form-field is-full">
                         <label for="portalConversationSubject">الموضوع</label>
@@ -187,6 +218,7 @@
                     <p class="company-sub-dates" id="portalThreadReadOnly" hidden>لم تعد عميلًا لهذه الشركة — المحادثة للقراءة فقط.</p>
                 </div>
                 <p class="field-error" id="portalMessagesError" role="alert" hidden></p>
+                </div>
             </section>
 
             <section class="panel" id="portalNewTicket" hidden aria-labelledby="portalNewTicketHeading">
@@ -213,11 +245,40 @@
                 </form>
             </section>
 
-            <div class="company-form-actions">
-                <button type="button" class="btn btn-primary" id="portalNewTicketBtn">فتح تذكرة جديدة</button>
+            <!-- قسم التذاكر: الشريط له رأسه وزر «فتح تذكرة جديدة» (createTicketStream) — بلا رأس مكرر هنا -->
+            <div id="portalTicketsSection">
+                <div class="company-form-actions">
+                    <button type="button" class="btn btn-primary" id="portalNewTicketBtn">فتح تذكرة جديدة</button>
+                </div>
+                <div id="portalTickets"></div>
             </div>
 
-            <div id="portalTickets"></div>
+            <!-- 123: إشعاراتك أنت (RLS: user_id = auth.uid())؛ تُخفى في منظور المالك -->
+            <section class="panel" id="portalNotifications" hidden aria-labelledby="portalNotificationsHeading">
+                <div class="panel-header">
+                    <div>
+                        <h2 class="panel-title" id="portalNotificationsHeading">الإشعارات</h2>
+                        <p class="panel-subtitle">ردود الشركة على تذاكرك ورسائلك، وتنبيهات حسابك.</p>
+                    </div>
+                    <button type="button" class="btn btn-secondary" id="portalNotifMarkAll" hidden>تحديد الكل كمقروء</button>
+                </div>
+                <ul class="portal-notif-list" id="portalNotifList"></ul>
+            </section>
+
+            <!-- 123: الملف الشخصي والأمان — المكوّن الموحّد نفسه في لوحة الشركة والإدارة -->
+            <section class="panel" id="portalAccount" hidden aria-labelledby="portalAccountHeading">
+                <div class="panel-header">
+                    <div>
+                        <h2 class="panel-title" id="portalAccountHeading">حسابي</h2>
+                        <p class="panel-subtitle">بياناتك الشخصية، وكلمة المرور، والتحقق بخطوتين، والأجهزة الموثوقة.</p>
+                    </div>
+                    <div class="portal-account-tabs" role="group" aria-label="أقسام الحساب">
+                        <button type="button" class="btn btn-secondary" data-account-tab="profile" aria-pressed="false">الملف الشخصي</button>
+                        <button type="button" class="btn btn-secondary" data-account-tab="security" aria-pressed="false">الأمان</button>
+                    </div>
+                </div>
+                <div id="portalAccountBody" hidden></div>
+            </section>
         </div>
     </main>
 

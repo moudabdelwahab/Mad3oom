@@ -48,7 +48,11 @@ test('البوابة لا تحمل شراء باقات ولا أقسام الش�
     const html = readFileSync(new URL('../portal/index.html', import.meta.url), 'utf8');
     const js = readFileSync(new URL('../assets/js/portal/portal.js', import.meta.url), 'utf8')
         + readFileSync(new URL('../assets/js/portal/portal-moves.js', import.meta.url), 'utf8')
-        + readFileSync(new URL('../assets/js/portal/portal-messages.js', import.meta.url), 'utf8');
+        + readFileSync(new URL('../assets/js/portal/portal-messages.js', import.meta.url), 'utf8')
+        // 123: الودجت المضمَّن جزء من البوابة — نفس القيود
+        + readFileSync(new URL('../assets/js/comm/comm-widget.js', import.meta.url), 'utf8')
+        + readFileSync(new URL('../assets/js/comm/comm-model.js', import.meta.url), 'utf8')
+        + readFileSync(new URL('../assets/js/comm/comm-data.js', import.meta.url), 'utf8');
     for (const forbidden of ['subscriptions.html', 'payment.html', 'chat-widget', '/company-dashboard/',
                              'get_my_company_dashboard', 'company_members', 'api-token', 'integrations']) {
         assert.ok(!html.includes(forbidden) && !js.includes(forbidden), `البوابة تشير إلى ${forbidden}`);

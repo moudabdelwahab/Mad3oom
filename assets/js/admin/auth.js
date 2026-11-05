@@ -1,5 +1,6 @@
 import { logout } from '/auth-client.js';
 import { guardPage } from '/assets/js/page-guard.js';
+import { mountComm } from '/assets/js/comm/mount.js';
 
 /**
  * حارس صفحات لوحة الإدارة.
@@ -10,7 +11,10 @@ import { guardPage } from '/assets/js/page-guard.js';
  * إدارية. دلوقتي: مفيش جلسة → صفحة الدخول؛ جلسة بلا صلاحية → رسالة صريحة.
  */
 export async function checkAdminAuth() {
-    return guardPage('admin');
+    const user = await guardPage('admin');
+    // 123: ودجت التواصل — مراسلات الشركات (للإجابة) والتواصل الداخلي مع المالك (للطاقم)
+    if (user) mountComm('admin');
+    return user;
 }
 
 export async function handleLogout() {
