@@ -95,7 +95,6 @@ autoRedirect().catch((err) => console.error('autoRedirect error:', err));
   --accent-soft:#8FC7FF;
   --success:#22C58B;
   --danger:#FF6B6B;
-  --whatsapp:#25D366;
   --mcp-color:#B45FE0;
   --mcp-soft:#D9B3F5;
   --text-1:#F3F6FB;
@@ -634,6 +633,143 @@ footer{border-top:1px solid var(--glass-border);padding:4rem 0 2rem;background:v
   --dot-color:rgba(16,27,46,.05);
 }
 body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1px);}
+/* ============ Redesign 2026-11: hero mockup + platform sections ============ */
+/* All new work reuses the existing tokens above. No new font, no new CDN. */
+
+/* --- Hero: replace the orbit visual with a real product mockup --- */
+.hero-grid{grid-template-columns:1.08fr .92fr;gap:2.5rem;}
+.hero-mock{position:relative;min-height:0;}
+.hero-mock .product-frame{transform:rotate(.35deg);}
+.hero-mock .frame-body{padding:.85rem;}
+.hero-mock-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.55rem;}
+.hero-mock-head h5{font-size:.78rem;color:var(--ui-ink);}
+.hero-mock-head span{font-size:.6rem;color:var(--ui-ink-2);}
+.hero-live{display:inline-flex;align-items:center;gap:.35rem;font-size:.6rem;font-weight:700;color:#16A34A;background:var(--pill-green-bg);padding:.2rem .55rem;border-radius:99px;}
+.hero-live i{width:6px;height:6px;border-radius:50%;background:#22C58B;animation:pulseDot 1.6s infinite;}
+.hero-float{position:absolute;z-index:4;display:flex;align-items:center;gap:.6rem;background:var(--bg-elevated);border:1px solid var(--glass-border);border-radius:.9rem;padding:.6rem .85rem;box-shadow:var(--shadow-lg);animation:chipFloat 5s ease-in-out infinite;}
+.hero-float .hf-ava{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--primary-deep));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;flex-shrink:0;}
+.hero-float strong{display:block;font-size:.78rem;color:var(--text-1);line-height:1.3;}
+.hero-float small{display:block;font-size:.64rem;color:var(--text-2);line-height:1.4;}
+.hero-float-1{top:-16px;inset-inline-start:-14px;animation-delay:.4s;}
+.hero-float-2{bottom:-14px;inset-inline-end:-8px;animation-delay:1.4s;}
+.hero-float-2 .hf-num{font-family:var(--font-data);font-size:1.05rem;font-weight:700;color:var(--text-1);line-height:1;}
+.hero-float-2 .hf-num small{font-size:.6rem;color:var(--text-2);}
+.hero-float-2 .up{color:var(--success);font-size:.62rem;font-weight:700;}
+@media (max-width:900px){
+  .hero-grid{grid-template-columns:1fr;}
+  .hero-mock{order:-1;}
+  .hero-float-1{inset-inline-start:0;}
+  .hero-float-2{inset-inline-end:0;}
+}
+@media (max-width:560px){.hero-float{padding:.5rem .65rem;}.hero-float-1{top:-12px;}.hero-float small{display:none;}}
+
+/* --- Platform band: the four new features, mid-page, not an appendix --- */
+.platform-band{position:relative;}
+.platform-band::before{content:"";position:absolute;inset-inline:0;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(77,163,255,.35),transparent);}
+.platform-lede{max-width:720px;margin:0 auto 3.5rem;text-align:center;}
+.platform-lede h2{font-size:clamp(1.75rem,3.6vw,2.6rem);margin-bottom:1rem;}
+.platform-lede p{color:var(--text-2);font-size:1.05rem;}
+.platform-block{margin-bottom:clamp(4rem,8vw,6.5rem);}
+.platform-block:last-child{margin-bottom:0;}
+.platform-row{display:grid;grid-template-columns:1fr 1.25fr;gap:3rem;align-items:center;}
+.platform-row.flip .platform-copy{order:2;}
+.platform-copy .num{font-family:var(--font-data);color:var(--accent-soft);font-weight:700;font-size:.85rem;margin-bottom:.6rem;display:block;}
+.platform-copy h3{font-size:clamp(1.4rem,2.6vw,1.9rem);margin-bottom:1rem;}
+.platform-copy p{color:var(--text-2);font-size:1rem;margin-bottom:.9rem;}
+.platform-copy p strong{color:var(--text-1);}
+.platform-list{display:flex;flex-direction:column;gap:.55rem;margin-top:1.1rem;}
+.platform-list li{display:flex;gap:.55rem;align-items:flex-start;font-size:.92rem;color:var(--text-2);}
+.platform-list li svg{width:17px;height:17px;color:var(--success);flex-shrink:0;margin-top:.2rem;}
+.platform-list li strong{color:var(--text-1);}
+.platform-cta{margin-top:1.4rem;}
+.platform-note{text-align:center;color:var(--text-3);font-size:.82rem;margin-top:1rem;}
+@media (max-width:900px){.platform-row,.platform-row.flip{grid-template-columns:1fr;}.platform-row.flip .platform-copy{order:0;}}
+
+/* --- Workspace mockup --- */
+.ws-tabs{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.6rem;}
+.ws-tab{font-family:inherit;font-size:.64rem;font-weight:700;color:var(--ui-ink-2);background:var(--ui-card);border:1px solid var(--ui-border);border-radius:99px;padding:.32rem .7rem;cursor:pointer;transition:all var(--dur-fast) ease;}
+.ws-tab:hover{color:var(--ui-ink);border-color:var(--accent-soft);}
+.ws-tab.active{background:var(--pill-blue-bg);color:var(--pill-blue-text);border-color:transparent;}
+.ws-grid{display:grid;grid-template-columns:1.35fr .85fr;gap:.6rem;}
+.ws-tasks{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.7rem;padding:.7rem;}
+.ws-tasks h6{font-size:.68rem;font-weight:700;margin-bottom:.55rem;color:var(--ui-ink);}
+.ws-task{display:flex;gap:.5rem;align-items:flex-start;padding:.45rem 0;border-top:1px solid var(--ui-border);font-size:.62rem;color:var(--ui-ink-2);line-height:1.5;}
+.ws-task:first-of-type{border-top:none;}
+.ws-task .ws-ava{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.55rem;font-weight:800;color:#fff;flex-shrink:0;}
+.ws-task strong{color:var(--ui-ink);}
+.ws-search{display:flex;align-items:center;gap:.4rem;background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.6rem;padding:.45rem .65rem;font-size:.64rem;color:var(--ui-ink-2);margin-bottom:.6rem;}
+.ws-search svg{width:13px;height:13px;flex-shrink:0;}
+.ws-search kbd{margin-inline-start:auto;font-family:var(--font-data);font-size:.55rem;background:var(--ui-bg);border:1px solid var(--ui-border);border-radius:.3rem;padding:.1rem .35rem;}
+@media (max-width:640px){.ws-grid{grid-template-columns:1fr;}}
+
+/* --- Customer history mockup --- */
+.ch-mini{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.7rem;padding:.8rem;}
+.ch-mini-head{display:flex;gap:.65rem;align-items:center;margin-bottom:.7rem;}
+.ch-mini-ava{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--primary-deep));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.95rem;flex-shrink:0;}
+.ch-mini-head strong{display:block;font-size:.8rem;color:var(--ui-ink);}
+.ch-mini-head small{display:block;font-size:.62rem;color:var(--ui-ink-2);}
+.ch-mini-plan{margin-inline-start:auto;font-size:.58rem;font-weight:700;color:var(--pill-blue-text);background:var(--pill-blue-bg);padding:.25rem .6rem;border-radius:99px;white-space:nowrap;}
+.ch-mini-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem;margin-bottom:.7rem;}
+.ch-mini-stat{background:var(--ui-bg);border:1px solid var(--ui-border);border-radius:.5rem;padding:.45rem .3rem;text-align:center;}
+.ch-mini-stat b{display:block;font-family:var(--font-data);font-size:.85rem;color:var(--ui-ink);}
+.ch-mini-stat span{font-size:.52rem;color:var(--ui-ink-2);}
+.ch-mini-summary{background:linear-gradient(135deg,rgba(0,119,204,.07),rgba(77,163,255,.05));border:1px solid var(--ui-border);border-radius:.6rem;padding:.6rem .7rem;font-size:.64rem;color:var(--ui-ink-2);line-height:1.7;margin-bottom:.7rem;}
+.ch-mini-summary strong{display:block;color:var(--ui-ink);font-size:.68rem;margin-bottom:.15rem;}
+.ch-tabs-mini{display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.6rem;}
+.ch-tab-mini{font-family:inherit;font-size:.62rem;font-weight:700;color:var(--ui-ink-2);background:transparent;border:1px solid var(--ui-border);border-radius:99px;padding:.32rem .65rem;cursor:pointer;transition:all var(--dur-fast) ease;}
+.ch-tab-mini:hover{color:var(--ui-ink);border-color:var(--accent-soft);}
+.ch-tab-mini.active{background:var(--pill-blue-bg);color:var(--pill-blue-text);border-color:transparent;}
+.ch-panel-mini{display:none;}
+.ch-panel-mini.active{display:block;animation:slideFadeIn .35s var(--ease-snap);}
+.ch-panel-mini .ticket-row{font-size:.64rem;}
+.ch-panel-mini .ch-note{font-size:.64rem;color:var(--ui-ink-2);background:var(--ui-bg);border:1px dashed var(--ui-border);border-radius:.5rem;padding:.55rem .65rem;line-height:1.7;}
+.ch-panel-mini .ch-note strong{color:var(--ui-ink);}
+@media (max-width:480px){.ch-mini-stats{grid-template-columns:repeat(2,1fr);}}
+
+/* --- Continuity journey --- */
+.ct-steps{display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem;counter-reset:ct;}
+.ct-step{position:relative;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-md);padding:1.1rem .9rem 1rem;transition:transform var(--dur-med) var(--ease-snap), border-color var(--dur-fast) ease;}
+.ct-step:hover{transform:translateY(-5px);border-color:rgba(77,163,255,.4);}
+.ct-step::before{content:"";position:absolute;top:26px;inset-inline-start:100%;width:.6rem;height:2px;background:var(--accent);opacity:.5;}
+.ct-step:last-child::before{display:none;}
+.ct-num{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--primary-deep));color:#fff;font-family:var(--font-data);font-size:.8rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:.7rem;box-shadow:0 6px 16px -6px rgba(0,119,204,.6);}
+.ct-step.done .ct-num{background:linear-gradient(135deg,#22C58B,#15803D);}
+.ct-step h4{font-size:.88rem;margin-bottom:.3rem;}
+.ct-step p{font-size:.76rem;color:var(--text-2);line-height:1.65;}
+.ct-step .ct-pill{display:inline-block;margin-top:.6rem;font-size:.6rem;font-weight:700;padding:.18rem .55rem;border-radius:99px;}
+.ct-pill.blue{background:var(--pill-blue-bg);color:var(--pill-blue-text);}
+.ct-pill.amber{background:var(--pill-amber-bg);color:var(--pill-amber-text);}
+.ct-pill.green{background:var(--pill-green-bg);color:var(--pill-green-text);}
+.ct-pill.purple{background:var(--pill-purple-bg);color:var(--pill-purple-text);}
+.ct-pill.gray{background:var(--pill-gray-bg);color:var(--pill-gray-text);}
+.ct-quote{max-width:760px;margin:2rem auto 0;background:var(--glass);border:1px solid var(--glass-border);border-inline-start:3px solid var(--accent);border-radius:.9rem;padding:1rem 1.3rem;font-size:.92rem;color:var(--text-2);line-height:1.8;}
+.ct-quote strong{color:var(--text-1);}
+.ct-filters{display:flex;gap:.4rem;justify-content:center;flex-wrap:wrap;margin-top:1.6rem;}
+.ct-filter{font-size:.72rem;font-weight:700;color:var(--text-2);background:var(--glass);border:1px solid var(--glass-border);border-radius:99px;padding:.4rem .9rem;}
+.ct-filter.active{background:rgba(0,119,204,.14);color:var(--accent-soft);border-color:rgba(77,163,255,.4);}
+@media (max-width:900px){.ct-steps{grid-template-columns:1fr;}.ct-step::before{display:none;}}
+
+/* --- Team performance mockup --- */
+.tp-live{display:inline-flex;align-items:center;gap:.4rem;font-size:.68rem;font-weight:700;color:#16A34A;background:var(--pill-green-bg);padding:.3rem .7rem;border-radius:99px;}
+.tp-live i{width:6px;height:6px;border-radius:50%;background:#22C58B;animation:pulseDot 1.6s infinite;}
+.tp-table-wrap{background:var(--ui-card);border:1px solid var(--ui-border);border-radius:.7rem;overflow:hidden;}
+.tp-table{width:100%;border-collapse:collapse;min-width:640px;}
+.tp-table th{font-size:.62rem;font-weight:700;color:var(--ui-ink-2);text-align:right;padding:.7rem .8rem;border-bottom:1px solid var(--ui-border);white-space:nowrap;}
+.tp-table td{padding:.7rem .8rem;border-bottom:1px solid var(--ui-border);font-size:.7rem;color:var(--ui-ink);white-space:nowrap;}
+.tp-table tbody tr:last-child td{border-bottom:none;}
+.tp-table tbody tr{transition:background var(--dur-fast) ease;}
+.tp-table tbody tr:hover{background:rgba(0,119,204,.04);}
+.tp-agent{display:flex;align-items:center;gap:.55rem;}
+.tp-agent .tp-ava{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--primary-deep));color:#fff;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:800;flex-shrink:0;}
+.tp-agent small{display:block;font-size:.58rem;color:var(--ui-ink-2);}
+.tp-num{font-family:var(--font-data);font-weight:700;}
+.tp-sla{display:flex;align-items:center;gap:.5rem;min-width:130px;}
+.tp-track{flex:1;height:7px;background:var(--ui-bg);border:1px solid var(--ui-border);border-radius:99px;overflow:hidden;min-width:64px;}
+.tp-fill{display:block;height:100%;background:linear-gradient(90deg,#4DA3FF,#0077CC);border-radius:99px;}
+.tp-scroll{overflow-x:auto;}
+.tp-scroll::-webkit-scrollbar{height:6px;}
+.tp-scroll::-webkit-scrollbar-thumb{background:var(--glass-border);border-radius:99px;}
+
 </style>
   <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
   <link rel="stylesheet" href="/assets/responsive-global.css">
@@ -667,8 +803,10 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
     <div class="nav-links">
       <a href="#journey">الرحلة</a>
       <a href="#showcase">المنتج</a>
+      <a href="#workspace">مساحة العمل</a>
       <a href="https://sie.mad3oom.com/portfolio.html">أجزاء المنصة</a>
       <a href="#mcp">دعم MCP</a>
+      <a href="#team-performance">أداء الفريق</a>
       <a href="#compare">الفرق</a>
       <a href="#pricing">الأسعار</a>
       <a href="#faq">الأسئلة الشائعة</a>
@@ -693,8 +831,10 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
   </div>
   <a href="#journey">الرحلة</a>
   <a href="#showcase">المنتج</a>
+      <a href="#workspace">مساحة العمل</a>
   <a href="https://sie.mad3oom.com/portfolio.html">أجزاء المنصة</a>
   <a href="#mcp">دعم MCP</a>
+  <a href="#team-performance">أداء الفريق</a>
   <a href="#compare">الفرق</a>
   <a href="#pricing">الأسعار</a>
   <a href="#faq">الأسئلة الشائعة</a>
@@ -717,7 +857,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
       <ul class="problem-lines">
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> هل يقضي فريق الدعم ساعات كل يوم في الرد على نفس الأسئلة؟</li>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> هل يضيع الموظف وقتاً في جمع بيانات المشكلة قبل أن يبدأ الحل؟</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> هل تضيع المحادثات بين واتساب والبريد والتذاكر؟</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg> هل تضيع المحادثات بين الموقع والبريد والتذاكر؟</li>
       </ul>
       <h1>مدعوم <span class="gradient-text">يحل هذه المشكلة</span></h1>
       <p class="solution-line" style="font-family:var(--font-body);font-weight:400;color:var(--text-2);font-size:1.05rem;">نظام عربي واحد يستقبل عملاءك، يفهم مشاكلهم، وينظّم عمل فريقك تلقائياً — قبل أن تصل المشكلة لموظف الدعم أصلاً.</p>
@@ -727,15 +867,44 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
       </div>
     </div>
 
-    <div class="hero-robot-wrap reveal">
-      <div class="robot-halo"></div>
-      <div class="robot-ring"></div>
-      <div class="robot-ring r2"></div>
-      <div class="robot-core"><img src="/logo.png" alt="مدعوم"></div>
-      <div class="orbit-chip chip-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> محادثة</div>
-      <div class="orbit-chip chip-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> تذكرة</div>
-      <div class="orbit-chip chip-3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 00-8.5 15.2L2 22l4.9-1.5A10 10 0 1012 2z"/></svg> واتساب</div>
-      <div class="orbit-chip chip-4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg> بريد</div>
+    <div class="hero-mock reveal">
+      <div class="hero-float hero-float-1">
+        <span class="hf-ava">ع</span>
+        <span><strong>عميل 04</strong><small>سجل كامل قبل أول رد — تذاكر، محادثات، ملاحظات</small></span>
+      </div>
+      <div class="frame-wrap">
+        <div class="product-frame">
+          <div class="frame-topbar">
+            <div class="frame-icons">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="12" y1="12" x2="21" y2="12"/></svg></span>
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></span>
+              <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
+            </div>
+            <div class="frame-brand"><span>مساحة العمل</span><span class="frame-brand-mark"><img src="assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
+          </div>
+          <div class="frame-body">
+            <div class="hero-mock-head"><h5>تذاكر اليوم</h5><span class="hero-live"><i></i> نشاط حي الآن</span></div>
+            <div class="ui-tstats">
+              <div class="ui-stat-chip"><b>15</b><span>مفتوحة</span></div>
+              <div class="ui-stat-chip"><b>29</b><span>الإجمالي</span></div>
+            </div>
+            <div class="ticket-list-mini">
+              <div class="ticket-row active"><span class="status open">مفتوحة</span><div><strong>طلب اشتراك — باقة الدعم الفني</strong></div></div>
+              <div class="ticket-row"><span class="status progress">قيد المعالجة</span><div>مشكلة في الوصول للوحة التحكم</div></div>
+              <div class="ticket-row"><span class="status closed">مغلقة</span><div>تم حل مشكلة تسجيل الدخول</div></div>
+            </div>
+            <div class="activity-card" style="margin-top:.6rem;">
+              <div class="a-title"><span class="live-dot"></span> آخر نشاط</div>
+              <div class="activity-row"><span class="ic" style="background:#8B5CF6;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></span> تم إنشاء <strong>تذكرة #0032</strong> تلقائياً</div>
+              <div class="activity-row"><span class="ic" style="background:#2563EB;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span> <strong>أحمد</strong> استلم التذكرة وبدأ العمل</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="hero-float hero-float-2">
+        <span><span class="hf-num">1.4 <small>ساعة</small></span><small>متوسط أول رد</small></span>
+        <span class="up">↑ 18%</span>
+      </div>
     </div>
   </div>
 </header>
@@ -743,7 +912,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
 <!-- ============ Philosophy ============ -->
 <section class="mission">
   <div class="container mission-inner reveal">
-    <div class="not-line">مدعوم لا يبيع تذاكر، أو محادثات، أو واتساب، أو بوت محادثة</div>
+    <div class="not-line">مدعوم لا يبيع تذاكر، أو محادثات، أو بوت محادثة</div>
     <p>مدعوم يبيع <span class="gradient-text">راحة فريق الدعم</span> — الوقت الذي يستعيده كل موظف عندما تصله المشكلة جاهزة، لا صفحة فارغة.</p>
   </div>
 </section>
@@ -765,7 +934,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
       <div class="journey-step">
         <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0116 0v1"/></svg></div>
         <h4>العميل</h4>
-        <p>يبدأ محادثة من الموقع أو واتساب، في أي وقت.</p>
+        <p>يبدأ محادثة من الموقع، في أي وقت.</p>
       </div>
       <div class="journey-step">
         <div class="journey-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M12 11V7a2 2 0 114 0"/></svg></div>
@@ -882,12 +1051,12 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
             </div>
             <div class="ui-tickets">
               <div class="ticket-list-mini">
-                <div class="ticket-row active"><span class="status open">مفتوحة</span><div><strong>طلب اشتراك — دعم + واتساب</strong></div></div>
+                <div class="ticket-row active"><span class="status open">مفتوحة</span><div><strong>طلب اشتراك — باقة الدعم الفني</strong></div></div>
                 <div class="ticket-row"><span class="status progress">قيد المعالجة</span><div>مشكلة في الوصول للوحة التحكم</div></div>
                 <div class="ticket-row"><span class="status closed">مغلقة</span><div>تم حل مشكلة تسجيل الدخول</div></div>
               </div>
               <div class="ticket-detail">
-                <div class="msg-bubble">أريد الاشتراك في باقة الدعم الفني + واتساب الشهرية، ما الخطوات؟</div>
+                <div class="msg-bubble">أريد الاشتراك في باقة الدعم الفني الشهرية، ما الخطوات؟</div>
                 <div class="morph-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></div>
                 <div class="msg-bubble" style="background:var(--pill-blue-bg);color:var(--pill-blue-text);font-weight:700;">تذكرة #0001 — القسم: المبيعات — الأولوية: متوسطة</div>
               </div>
@@ -1033,7 +1202,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
         <div class="mcp-tags">
           <span class="mcp-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> إنشاء وتحديث التذاكر</span>
           <span class="mcp-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> جلب بيانات العملاء</span>
-          <span class="mcp-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 00-8.5 15.2L2 22l4.9-1.5A10 10 0 1012 2z"/></svg> إرسال رسائل واتساب</span>
+          <span class="mcp-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 00-8.5 15.2L2 22l4.9-1.5A10 10 0 1012 2z"/></svg> إغلاق التذاكر وحلها</span>
           <span class="mcp-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg> إحصائيات فورية</span>
         </div>
       </div>
@@ -1056,7 +1225,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
                   <li><strong>update_ticket</strong> — تعديل تذكرة موجودة</li>
                   <li><strong>get_ticket</strong> — جلب تفاصيل تذكرة</li>
                   <li><strong>get_dashboard_stats</strong> — إحصائيات لوحة التحكم</li>
-                  <li><strong>send_whatsapp</strong> — إرسال رسالة واتساب</li>
+                  <li><strong>list_tickets</strong> — عرض قائمة التذاكر</li>
                 </ol>
               </div>
             </div>
@@ -1078,6 +1247,277 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
     </div>
   </div>
 </section>
+
+<!-- ============ Platform: workspace / customer history / continuity / team performance ============ -->
+<section class="section platform-band" id="platform">
+  <div class="container">
+    <div class="platform-lede reveal">
+      <div class="eyebrow"><span class="dot"></span> أعمق من لوحة تحكم</div>
+      <h2>نظام عمل متكامل، <span class="gradient-text">وليس مجرد أدوات متفرقة</span></h2>
+      <p>بعد أن تصل المشكلة جاهزة إلى فريقك، تبدأ مدعوم العمل الحقيقي: مساحة عمل واحدة، وسجل كامل لكل عميل، ومتابعة لا تتوقف حتى الحل، وأداء يُقاس لحظة بلحظة.</p>
+    </div>
+
+    <!-- Workspace -->
+    <div class="platform-block" id="workspace">
+      <div class="platform-row reveal">
+        <div class="platform-copy">
+          <span class="num">07 — مساحة العمل</span>
+          <h3>مساحة عمل واحدة، يدير منها فريقك كل شيء</h3>
+          <p>لا مزيد من التنقل بين النوافذ والجداول. <strong>مساحة العمل</strong> تجمع التذاكر والمحادثات ولوحة المتابعة في واجهة واحدة، بتبويبات متعددة وبحث فوري.</p>
+          <ul class="platform-list">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span><strong>إدارة الطلبات والتذاكر</strong> — المفتوحة وقيد المعالجة والمغلقة في مكان واحد.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span><strong>تنظيم مهام الموظفين</strong> — توزيع العمل ومتابعة من يعمل على ماذا الآن.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span><strong>الوصول لتفاصيل أي طلب</strong> — بضغطة واحدة، ومن أي تبويب، دون فقدان السياق.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span><strong>بحث فوري</strong> — ابحث أو افتح أي شيء من لوحة المفاتيح.</span></li>
+          </ul>
+          <div class="platform-cta"><a href="admin/workspace.html" class="btn btn-outline btn-sm">شاهد مساحة العمل ←</a></div>
+        </div>
+        <div class="frame-wrap">
+          <div class="callout" style="top:-6%;right:4%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> تبويبات متعددة — بلا فقدان للسياق</div>
+          <div class="product-frame">
+            <div class="frame-topbar">
+              <div class="frame-icons">
+                <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="12" y1="12" x2="21" y2="12"/></svg></span>
+                <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></span>
+                <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
+              </div>
+              <div class="frame-brand"><span>مساحة العمل</span><span class="frame-brand-mark"><img src="assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
+            </div>
+            <div class="frame-body">
+              <div class="ws-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> ابحث أو افتح… <kbd>Ctrl K</kbd></div>
+              <div class="ws-tabs">
+                <button type="button" class="ws-tab active">التذاكر</button>
+                <button type="button" class="ws-tab">المحادثات</button>
+                <button type="button" class="ws-tab">لوحة المتابعة</button>
+              </div>
+              <div class="ws-grid">
+                <div>
+                  <div class="ui-tstats">
+                    <div class="ui-stat-chip"><b>15</b><span>مفتوحة</span></div>
+                    <div class="ui-stat-chip"><b>29</b><span>الإجمالي</span></div>
+                  </div>
+                  <div class="ticket-list-mini">
+                    <div class="ticket-row active"><span class="status open">مفتوحة</span><div><strong>طلب اشتراك — باقة الدعم الفني</strong></div></div>
+                    <div class="ticket-row"><span class="status progress">قيد المعالجة</span><div>مشكلة في الوصول للوحة التحكم</div></div>
+                    <div class="ticket-row"><span class="status closed">مغلقة</span><div>تم حل مشكلة تسجيل الدخول</div></div>
+                  </div>
+                </div>
+                <div class="ws-tasks">
+                  <h6>مهام الفريق الآن</h6>
+                  <div class="ws-task"><span class="ws-ava" style="background:#0077CC;">أ</span><div><strong>أحمد</strong> استلم التذكرة وبدأ العمل</div></div>
+                  <div class="ws-task"><span class="ws-ava" style="background:#8B5CF6;">ع</span><div><strong>عميل 04</strong> — رسالة جديدة بانتظار الرد</div></div>
+                  <div class="ws-task"><span class="ws-ava" style="background:#F97316;">!</span><div>إشعار أُرسل لفريق الدعم — <strong>تذكرة #0032</strong></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Customer history -->
+    <div class="platform-block" id="customer-history">
+      <div class="platform-row flip reveal">
+        <div class="platform-copy">
+          <span class="num">08 — سجل العميل</span>
+          <h3>قبل أن يرد موظفك، يعرف كل شيء عن العميل</h3>
+          <p>كل موظف يفتح <strong>سجل العميل</strong> فيجد نظرة شاملة 360°: التذاكر، الاشتراك، المحادثات، النشاط، والملاحظات الداخلية — فيفهم تاريخ العميل وسياق مشكلته قبل بدء التعامل معه.</p>
+          <ul class="platform-list">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span><strong>بيانات العميل كاملة</strong> — البريد، الهاتف، تاريخ الانضمام، والاشتراك الحالي.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span><strong>الطلبات والتذاكر السابقة</strong> — وحالة الطلبات الحالية والسابقة.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span><strong>ملخص ذكي للعميل</strong> — يلخّص تاريخه قبل أول رد.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span><strong>ملاحظات داخلية</strong> — يكتبها الفريق ولا يراها العميل أبداً.</span></li>
+          </ul>
+          <div class="platform-cta"><a href="customer-history.html" class="btn btn-outline btn-sm">شاهد سجل العميل ←</a></div>
+        </div>
+        <div class="frame-wrap">
+          <div class="callout" style="top:-6%;left:2%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> لا عميل يكرر قصته مرتين</div>
+          <div class="product-frame">
+            <div class="frame-topbar">
+              <div class="frame-icons">
+                <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0116 0v1"/></svg></span>
+                <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+                <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
+              </div>
+              <div class="frame-brand"><span>سجل العميل</span><span class="frame-brand-mark"><img src="assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
+            </div>
+            <div class="frame-body">
+              <div class="ch-mini">
+                <div class="ch-mini-head">
+                  <span class="ch-mini-ava">ع</span>
+                  <div><strong>عميل 04</strong><small>customer@example.com — الخطة المتقدمة</small></div>
+                  <span class="ch-mini-plan">مشترك</span>
+                </div>
+                <div class="ch-mini-stats">
+                  <div class="ch-mini-stat"><b>12</b><span>التذاكر</span></div>
+                  <div class="ch-mini-stat"><b>3</b><span>تذاكر مفتوحة</span></div>
+                  <div class="ch-mini-stat"><b>8</b><span>المحادثات</span></div>
+                  <div class="ch-mini-stat"><b>120</b><span>النقاط</span></div>
+                </div>
+                <div class="ch-mini-summary"><strong>ملخص ذكي للعميل</strong> نظرة شاملة 360° على بيانات العميل: التذاكر، الاشتراك، المحادثات، النشاط، والملاحظات الداخلية.</div>
+                <div class="ch-tabs-mini" id="chTabsMini">
+                  <button type="button" class="ch-tab-mini active" data-ch-tab="tickets">التذاكر</button>
+                  <button type="button" class="ch-tab-mini" data-ch-tab="subscription">الاشتراك</button>
+                  <button type="button" class="ch-tab-mini" data-ch-tab="chats">محادثات الموقع</button>
+                  <button type="button" class="ch-tab-mini" data-ch-tab="activity">سجل النشاط</button>
+                  <button type="button" class="ch-tab-mini" data-ch-tab="notes">ملاحظات</button>
+                </div>
+                <div class="ch-panel-mini active" data-ch-panel="tickets">
+                  <div class="ticket-list-mini">
+                    <div class="ticket-row active"><span class="status open">مفتوحة</span><div><strong>طلب اشتراك — باقة الدعم الفني</strong></div></div>
+                    <div class="ticket-row"><span class="status closed">مغلقة</span><div>تم حل مشكلة تسجيل الدخول</div></div>
+                  </div>
+                </div>
+                <div class="ch-panel-mini" data-ch-panel="subscription">
+                  <div class="ch-note"><strong>الخطة المتقدمة</strong> — 300 تذكرة دعم شهريًا، نطاق فرعي مجاني، ومدير واحد مع إمكانية إضافة حتى 25 عضوًا.</div>
+                </div>
+                <div class="ch-panel-mini" data-ch-panel="chats">
+                  <div class="ch-note"><strong>محادثة أخيرة:</strong> «هل يمكنكم مساعدتي في تفعيل الخدمة؟» — رد البوت فوراً، ثم تحويل لموظف مع كامل السياق.</div>
+                </div>
+                <div class="ch-panel-mini" data-ch-panel="activity">
+                  <div class="ch-note"><strong>آخر نشاط:</strong> رسالة جديدة من عميل 04، ثم بدأ البوت بجمع تفاصيل المشكلة، ثم تم إنشاء تذكرة #0032 تلقائياً.</div>
+                </div>
+                <div class="ch-panel-mini" data-ch-panel="notes">
+                  <div class="ch-note">أضف ملاحظة داخلية عن هذا العميل... (لن يراها العميل) — لا توجد ملاحظات بعد.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="platform-note">عرض توضيحي — الأرقام الحية لكل عميل تظهر في سجله داخل حسابك.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Continuity -->
+    <div class="platform-block" id="continuity">
+      <div class="platform-lede reveal" style="margin-bottom:2.5rem;">
+        <span class="num" style="font-family:var(--font-data);color:var(--accent-soft);font-weight:700;font-size:.85rem;display:block;margin-bottom:.6rem;">09 — الاستمرارية</span>
+        <h2>لا طلب يُترك دون متابعة، <span class="gradient-text">حتى الحل</span></h2>
+        <p>مدعوم يتابع الطلب منذ استلامه وحتى إغلاقه. سجلات المتابعة والمشاكل المفتوحة تُنشأ من المحادثات نفسها، وتبقى حية حتى تُغلق — مع تسليم واضح للمسؤولية عند الحاجة.</p>
+      </div>
+      <div class="ct-steps reveal">
+        <div class="ct-step">
+          <div class="ct-num">1</div>
+          <h4>محادثة تصل</h4>
+          <p>رسالة العميل تصل، ويُفتح لها سجل متابعة من المحادثة نفسها.</p>
+          <span class="ct-pill blue">سجل جديد</span>
+        </div>
+        <div class="ct-step">
+          <div class="ct-num">2</div>
+          <h4>متابعة نشطة</h4>
+          <p>السجل يبقى نشطاً، وتُوثق فيه كل الإجراءات والتحديثات أولاً بأول.</p>
+          <span class="ct-pill amber">قيد المتابعة</span>
+        </div>
+        <div class="ct-step">
+          <div class="ct-num">3</div>
+          <h4>تسليم لموظف</h4>
+          <p>عند الحاجة، يُسلَّم السجل لموظف آخر مع كامل سياق المشكلة.</p>
+          <span class="ct-pill purple">تسليم</span>
+        </div>
+        <div class="ct-step">
+          <div class="ct-num">4</div>
+          <h4>مشاركة وتصعيد</h4>
+          <p>يُشارك السجل مع زميل للاطلاع، ويُصعَّد عند الحاجة دون ضياع.</p>
+          <span class="ct-pill gray">مشاركة</span>
+        </div>
+        <div class="ct-step done">
+          <div class="ct-num">✓</div>
+          <h4>إغلاق وتوثيق</h4>
+          <p>يُغلق السجل بعد الحل، ويبقى توثيقاً كاملاً يمكن الرجوع إليه.</p>
+          <span class="ct-pill green">مغلق</span>
+        </div>
+      </div>
+      <div class="ct-quote reveal">«لو قبلت، السجل يبقى باسمك. لحد ما تقبل، مالكه الحالي هو المسؤول.» — قاعدة التسليم في مدعوم، فلا يبقى أي طلب بلا مالك واضح.</div>
+      <div class="ct-filters reveal">
+        <span class="ct-filter active">النشطة</span>
+        <span class="ct-filter">المقفولة</span>
+        <span class="ct-filter">الكل</span>
+        <span class="ct-filter">سجلاتي</span>
+        <span class="ct-filter">بدون مالك</span>
+      </div>
+      <div style="text-align:center;margin-top:1.6rem;" class="reveal"><a href="admin/continuity.html" class="btn btn-outline btn-sm">شاهد سجلات الاستمرارية ←</a></div>
+    </div>
+
+    <!-- Team performance -->
+    <div class="platform-block" id="team-performance">
+      <div class="platform-row reveal">
+        <div class="platform-copy">
+          <span class="num">10 — أداء الفريق</span>
+          <h3>مدير الدعم يرى أداء كل موظف، لحظة بلحظة</h3>
+          <p>من أول رد لحد حل المشكلة — <strong>أداء الفريق</strong> يقيس ما يهم فعلاً: متوسط أول رد، متوسط زمن الحل، والالتزام بالـ SLA، وعدد الطلبات المعالجة، وتقييم العملاء.</p>
+          <ul class="platform-list">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span><strong>متوسط أول رد وزمن الحل</strong> — لكل موظف وللفريق ككل.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span><strong>الالتزام بالـ SLA</strong> — نسبة التذاكر المحلولة قبل موعدها.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span><strong>الحِمل الحالي والمحلولة</strong> — من يعمل على ماذا، ومن أنجز ماذا.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span><strong>تقييم العملاء</strong> — جودة الردود كما يراها العميل نفسه.</span></li>
+          </ul>
+          <p>هذه الأرقام <strong>حقيقية من لوحة تحكم عميل فعلي</strong> — لا تقديرات تسويقية.</p>
+          <div class="platform-cta"><a href="admin/team-performance.html" class="btn btn-outline btn-sm">شاهد لوحة الأداء ←</a></div>
+        </div>
+        <div class="frame-wrap">
+          <div class="callout" style="top:-6%;right:4%;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> تحسّن 18% في وقت الاستجابة</div>
+          <div class="product-frame">
+            <div class="frame-topbar">
+              <div class="frame-icons">
+                <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg></span>
+                <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="badge">3</span></span>
+                <span class="frame-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>مركز الدعم</span>
+              </div>
+              <div class="frame-brand"><span>أداء الفريق</span><span class="frame-brand-mark"><img src="assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
+            </div>
+            <div class="frame-body">
+              <div class="hero-mock-head"><h5>أداء الفريق — آخر 7 أيام</h5><span class="tp-live"><i></i> مباشر</span></div>
+              <div class="ui-analytics">
+                <div class="an-chip"><b>1.4<small style="font-size:.5rem;">ساعة</small></b><span>متوسط أول رد</span><div class="up">↑ 18%</div></div>
+                <div class="an-chip"><b>5.2<small style="font-size:.5rem;">ساعة</small></b><span>متوسط زمن الحل</span><div class="up">↑ 12%</div></div>
+                <div class="an-chip"><b>29</b><span>إجمالي التذاكر</span></div>
+                <div class="an-chip"><b>8</b><span>تم حلها</span></div>
+              </div>
+              <div class="ui-charts">
+                <div class="bar-card">
+                  <h6>حالة التذاكر (آخر 7 أيام)</h6>
+                  <div class="bars">
+                    <div class="bar" style="height:60%;background:#8B5CF6;"><span>15</span></div>
+                    <div class="bar" style="height:32%;background:#10B981;"><span>8</span></div>
+                    <div class="bar" style="height:48%;background:#3B82F6;"><span>12</span></div>
+                  </div>
+                </div>
+                <div class="donut-card">
+                  <h6>توزيع الفريق</h6>
+                  <div class="donut"></div>
+                  <div class="donut-legend">
+                    <span><i style="background:#0077CC;"></i>60%</span>
+                    <span><i style="background:#22C58B;"></i>32%</span>
+                    <span><i style="background:#8FC7FF;"></i>8%</span>
+                  </div>
+                </div>
+              </div>
+              <div class="tp-scroll" style="margin-top:.6rem;">
+                <div class="tp-table-wrap">
+                  <table class="tp-table">
+                    <thead><tr><th>الموظف</th><th>الحِمل الحالي</th><th>المحلولة</th><th>متوسط أول رد</th><th>متوسط زمن الحل</th><th>الالتزام بالـ SLA</th></tr></thead>
+                    <tbody>
+                      <tr>
+                        <td><span class="tp-agent"><span class="tp-ava" style="background:#8B5CF6;">ف</span><span>فريق الدعم<small>الإجمالي — آخر 7 أيام</small></span></span></td>
+                        <td><span class="tp-num">15</span> <span class="status open">مفتوحة</span></td>
+                        <td><span class="tp-num">8</span></td>
+                        <td><span class="tp-num">1.4 ساعة</span></td>
+                        <td><span class="tp-num">5.2 ساعة</span></td>
+                        <td><span class="status closed">ملتزم بالـ SLA</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="platform-note">الأرقام أعلاه من لوحة تحكم عميل فعلي؛ تفاصيل كل موظف تظهر لحظيًا في حسابك.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 
 <!-- ============ MCP dedicated section ============ -->
 <section class="section" id="mcp">
@@ -1159,7 +1599,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
       <div class="compare-col without reveal">
         <h3>يوم عمل بدون مدعوم</h3>
         <p class="total">إجمالي وقت الحل: <strong>15+ دقيقة</strong> لمجرد فتح تذكرة</p>
-        <div class="tl-item"><div class="tl-time">9:00</div><div class="tl-desc">رسالة تصل من العميل عبر الواتساب</div></div>
+        <div class="tl-item"><div class="tl-time">9:00</div><div class="tl-desc">رسالة تصل من العميل عبر الموقع</div></div>
         <div class="tl-item"><div class="tl-time">9:03</div><div class="tl-desc">الموظف يرى الرسالة، يسأل عن رقم الطلب</div></div>
         <div class="tl-item"><div class="tl-time">9:07</div><div class="tl-desc">يجمع البيانات يدوياً من عدة أماكن</div></div>
         <div class="tl-item"><div class="tl-time">9:12</div><div class="tl-desc">ينشئ Ticket يدوياً في جدول منفصل</div></div>
@@ -1168,7 +1608,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
       <div class="compare-col with reveal">
         <h3>يوم عمل مع مدعوم</h3>
         <p class="total">إجمالي وقت الحل: <strong>أقل من دقيقتين</strong> حتى بدء العمل الفعلي</p>
-        <div class="tl-item"><div class="tl-time">9:00:00</div><div class="tl-desc">رسالة تصل من العميل عبر البوت او الواتساب</div></div>
+        <div class="tl-item"><div class="tl-time">9:00:00</div><div class="tl-desc">رسالة تصل من العميل عبر البوت</div></div>
         <div class="tl-item"><div class="tl-time">9:00:04</div><div class="tl-desc">Chatbot يرد فوراً ويبدأ جمع البيانات</div></div>
         <div class="tl-item"><div class="tl-time">9:00:40</div><div class="tl-desc">يتم إنشاء Ticket تلقائياً بكل التفاصيل</div></div>
         <div class="tl-item"><div class="tl-time">9:01:00</div><div class="tl-desc">إشعار وEmail يُرسلان تلقائياً للطرفين</div></div>
@@ -1284,7 +1724,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
     <div class="faq-list reveal">
       <details class="faq-item" open>
         <summary>هل مدعوم مجرد بوت رد آلي؟<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></summary>
-        <div class="faq-body"><div class="faq-body-inner">لا. البوت هو نقطة البداية فقط. مدعوم نظام كامل يدير التذاكر والمحادثات وواتساب والتقارير، ويعرف متى يحوّل المحادثة لإنسان.</div></div>
+        <div class="faq-body"><div class="faq-body-inner">لا. البوت هو نقطة البداية فقط. مدعوم نظام كامل يدير التذاكر والمحادثات والتقارير، ويعرف متى يحوّل المحادثة لإنسان.</div></div>
       </details>
       <details class="faq-item">
         <summary>كيف تتحول المحادثة إلى تذكرة فعلياً؟<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></summary>
@@ -1300,7 +1740,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
       </details>
       <details class="faq-item">
         <summary>هل أحتاج خبرة تقنية لإعداد المنصة؟<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span></summary>
-        <div class="faq-body"><div class="faq-body-inner">لا، الإعداد مصمم ليأخذ دقائق معدودة، وفريق الدعم لدينا يرافقك في ربط واتساب وإعداد البوت خطوة بخطوة.</div></div>
+        <div class="faq-body"><div class="faq-body-inner">لا، الإعداد مصمم ليأخذ دقائق معدودة، وفريق الدعم لدينا يرافقك في إعداد البوت خطوة بخطوة.</div></div>
       </details>
     </div>
   </div>
@@ -1328,7 +1768,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
         <a href="#" class="brand"><span class="brand-mark"><img src="/logo.png" alt="مدعوم"></span><span class="brand-text"><strong>مدعوم</strong></span></a>
         <p>نظام عربي متكامل يقلل ضغط فريق الدعم، ويؤتمت رحلة العميل من أول رسالة حتى الحل.</p>
       </div>
-      <div class="footer-col"><h5>المنتج</h5><a href="#showcase">لوحة التحكم</a><a href="#showcase">إدارة التذاكر</a><a href="#mcp">دعم MCP</a><a href="https://sie.mad3oom.com/portfolio.html">أجزاء المنصة</a><a href="#pricing">الأسعار</a></div>
+      <div class="footer-col"><h5>المنتج</h5><a href="#showcase">لوحة التحكم</a><a href="#showcase">إدارة التذاكر</a><a href="#workspace">مساحة العمل</a><a href="#customer-history">سجل العميل</a><a href="#team-performance">أداء الفريق</a><a href="#mcp">دعم MCP</a><a href="https://sie.mad3oom.com/portfolio.html">أجزاء المنصة</a><a href="#pricing">الأسعار</a></div>
       <div class="footer-col"><h5>الشركة</h5><a href="#">حول مدعوم</a><a href="#">تواصل معنا</a></div>
       <div class="footer-col"><h5>الدعم</h5><a href="#">مركز المساعدة</a><a href="#faq">الأسئلة الشائعة</a></div>
       <div class="footer-col"><h5>قانوني</h5><a href="terms.html">شروط الاستخدام</a><a href="privacy.html">سياسة الخصوصية</a></div>
@@ -1357,7 +1797,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
       <div class="robot-tour-slide" data-slide="1">
         <div class="rt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
         <h5>أستقبل عملاءك أول ما يكتبوا</h5>
-        <p>من الموقع أو واتساب، في أي وقت، من غير ما ينتظروا حد يرد عليهم.</p>
+        <p>من الموقع، في أي وقت، من غير ما ينتظروا حد يرد عليهم.</p>
       </div>
       <div class="robot-tour-slide" data-slide="2">
         <div class="rt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>
@@ -1627,6 +2067,27 @@ updateJourney();
   }
   buttons.forEach(b => b.addEventListener('click', () => setPeriod(b.dataset.period)));
 })();
+
+// ============ Platform mockups: customer history + workspace tabs ============
+(function(){
+  var chTabs = document.querySelectorAll('#chTabsMini .ch-tab-mini');
+  chTabs.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      chTabs.forEach(function(b){ b.classList.toggle('active', b === btn); });
+      document.querySelectorAll('[data-ch-panel]').forEach(function(p){
+        p.classList.toggle('active', p.dataset.chPanel === btn.dataset.chTab);
+      });
+    });
+  });
+  document.querySelectorAll('.ws-tabs').forEach(function(group){
+    group.querySelectorAll('.ws-tab').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        group.querySelectorAll('.ws-tab').forEach(function(b){ b.classList.toggle('active', b === btn); });
+      });
+    });
+  });
+})();
+
 </script>
 </body>
 </html>
