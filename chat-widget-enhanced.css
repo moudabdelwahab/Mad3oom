@@ -50,3 +50,14 @@
     0%, 60%, 100% { opacity: 0.4; transform: translateY(0); }
     30% { opacity: 1; transform: translateY(-6px); }
 }
+
+/* أفاتار مدعوم (assets/images/mad3oom-avatar-3d.webp) — تفاصيل وصول فقط؛
+   الأنماط الأساسية والحالات في chat-widget.css. الصورة زخرفية ولا تُسحب. */
+.chat-widget-avatar-img {
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chat-widget-avatar-img { animation: none !important; }
+}

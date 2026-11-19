@@ -59,6 +59,7 @@
                     <p class="owner-meta">المدوّنة سطح عامّ: ما يُنشر هنا يظهر على <a href="/blog/" target="_blank" rel="noopener">mad3oom.com/blog</a> فورًا. التحرير الكامل للمقالات والتصنيفات متاح للمالك — سياسات blog_posts تشترط is_platform_staff() وهي تشمل المالك في سياقه.</p>
                 </div>
                 <div class="owner-banner-side">
+                    <a class="btn btn-outline btn-sm owner-crumb" href="/owner-dashboard.html#overview">لوحة المالك</a>
                     <button type="button" class="btn btn-outline btn-sm" id="manageCategoriesBtn">التصنيفات</button>
                     <button type="button" class="btn btn-primary btn-sm" id="newPostBtn">مقال جديد</button>
                 </div>
@@ -183,7 +184,7 @@
                             <span class="hint">
                                 تنسيق مبسّط: <code>## عنوان</code> · <code>- عنصر</code> · <code>1. عنصر</code> ·
                                 <code>&gt; اقتباس</code> · <code>**غامق**</code> · <code>[نص](رابط)</code> ·
-                                <code>![وصف](صورة)</code>. أي وسم HTML يُعرض كنصّ لا يُنفَّذ.
+                                <code>![وصف](صورة)</code>. أي وسم يُعرض كنصّ لا يُنفَّذ.
                             </span>
                             <span class="error" data-error-for="content" hidden></span>
                         </div>
@@ -252,14 +253,14 @@
                         </div>
 
                         <details class="blog-field">
-                            <summary style="cursor:pointer; font-weight:600; margin-bottom:0.6rem;">تحسين محرّكات البحث (SEO)</summary>
+                            <summary style="cursor:pointer; font-weight:600; margin-bottom:0.6rem;">تحسين محرّكات البحث</summary>
                             <div class="blog-field">
-                                <label for="fSeoTitle">عنوان SEO</label>
+                                <label for="fSeoTitle">عنوان البحث</label>
                                 <input type="text" id="fSeoTitle" maxlength="70" autocomplete="off">
                                 <span class="hint">اتركه فارغًا ليُستخدم عنوان المقال.</span>
                             </div>
                             <div class="blog-field" style="margin-bottom:0;">
-                                <label for="fSeoDescription">وصف SEO</label>
+                                <label for="fSeoDescription">وصف البحث</label>
                                 <textarea id="fSeoDescription" rows="2" maxlength="180" style="min-height:auto;"></textarea>
                                 <span class="hint">‎150–160 حرفًا هي ما يعرضه محرّك البحث.</span>
                             </div>

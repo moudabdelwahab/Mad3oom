@@ -39,12 +39,12 @@ const ACTION_LABEL = {
     'platform_capability_grants.insert': 'منح تفويض',
     'platform_capability_grants.update': 'تحديث تفويض',
     'platform_capability_grants.delete': 'سحب تفويض',
-    'sie_admin_grants.insert': 'منح إدارة SIE',
-    'sie_admin_grants.update': 'تحديث إدارة SIE',
-    'sie_admin_grants.delete': 'سحب إدارة SIE',
-    'sie.setting.insert': 'إعداد SIE جديد',
-    'sie.setting.update': 'تغيير إعداد SIE',
-    'sie.setting.delete': 'حذف إعداد SIE',
+    'sie_admin_grants.insert': 'منح إدارة محرك الدعم الذكي',
+    'sie_admin_grants.update': 'تحديث إدارة محرك الدعم الذكي',
+    'sie_admin_grants.delete': 'سحب إدارة محرك الدعم الذكي',
+    'sie.setting.insert': 'إعداد جديد لمحرك الدعم الذكي',
+    'sie.setting.update': 'تغيير إعداد محرك الدعم الذكي',
+    'sie.setting.delete': 'حذف إعداد محرك الدعم الذكي',
     'step_up.verified': 'تحقق بخطوتين',
     'step_up.failed': 'محاولة تحقق فاشلة',
     'security_policy.set': 'تغيير سياسة الأمان',
@@ -84,14 +84,14 @@ export function initAuthorityCenter(ctx) {
 
         stepUpFresh = !!data?.step_up_fresh;
         clearTimeout(expiryTimer);
-        badge('ownership', !data?.mfa_enrolled ? '2FA غير مفعّل' : stepUpFresh ? 'مفتوح' : 'مقفل',
+        badge('ownership', !data?.mfa_enrolled ? 'التحقق بخطوتين غير مفعّل' : stepUpFresh ? 'مفتوح' : 'مقفل',
               !data?.mfa_enrolled ? 'danger' : stepUpFresh ? 'success' : 'attention');
 
         if (!data?.mfa_enrolled) {
             box.innerHTML = `
                 <div class="owner-stepup-state owner-stepup-state--warn">
                     <p class="owner-stepup-title">التحقق بخطوتين غير مفعّل</p>
-                    <p class="owner-stepup-text">العمليات الحرجة — إدارة الإداريين، التفويض، مديرو SIE — ترفضها القاعدة
+                    <p class="owner-stepup-text">العمليات الحرجة — إدارة الإداريين، التفويض، مديرو محرك الدعم الذكي — ترفضها القاعدة
                         لحسابك حتى تفعّله. هذا مقصود: حساب المالك أعلى حدود الثقة في المنصة.</p>
                     <a class="btn btn-primary btn-sm" href="/admin-security-settings.html">تفعيل التحقق بخطوتين</a>
                 </div>`;
@@ -149,7 +149,7 @@ export function initAuthorityCenter(ctx) {
             .sort((a, b) => order[a.tier] - order[b.tier]);
         badge('staff', staff.length);
 
-        body.innerHTML = table(['الحساب', 'الطبقة', '2FA', 'التفويض', ''], staff, p => {
+        body.innerHTML = table(['الحساب', 'الطبقة', 'التحقق بخطوتين', 'التفويض', ''], staff, p => {
             const caps = capsOf.get(p.id) || [];
             let actions = '';
             if (p.tier === 'owner') {
@@ -278,7 +278,7 @@ export function initAuthorityCenter(ctx) {
             ${td(`<span class="pill ${r.action === 'step_up.failed' ? 'status-rejected' : 'status-neutral'}">${esc(ACTION_LABEL[r.action] || r.action)}</span>`)}
             ${td(esc(r.target_user_id ? name(r.target_user_id) : '—'))}
             ${td(diff(r.old_value, r.new_value))}
-            ${td(r.step_up ? '<span class="pill status-resolved" title="بعد تحقق بخطوتين">2FA</span>' : '')}
+            ${td(r.step_up ? '<span class="pill status-resolved" title="بعد تحقق بخطوتين">تحقق بخطوتين</span>' : '')}
         </tr>`);
     }
 

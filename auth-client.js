@@ -3,6 +3,12 @@ import { logActivity } from './activity-service.js';
 import { reportLoginFailure } from './assets/js/security/login-report.js';
 import { ACCESS, classifyAccess, canImpersonate, isPlatformOwnerIdentity }
     from './assets/js/access-policy.js';
+import {
+    getRememberMeChoice,
+    setRememberMeChoice,
+    restoreRememberMeChoice,
+    purgeSessionFromInactiveStorage
+} from './assets/js/auth-storage.js';
 
 // يُعاد تصديرها من هنا عشان صفحات الحراسة تستورد مصدرًا واحدًا.
 export { ACCESS };
@@ -145,7 +151,12 @@ export async function signIn(identifier, password, options = {}) {
     console.log('signIn function started');
     const normalizedIdentifier = (identifier || '').trim();
     const normalizedPassword = password || '';
-    const { turnstileToken } = options;
+    const { turnstileToken, remember } = options;
+    // «تذكرني» (options.remember: true/false): إن لم تُمرَّر يُحافَظ على
+    // العلامة الحالية ولا يتغير مكان حفظ الجلسة.
+    const rememberChoiceGiven = typeof remember === 'boolean';
+    let previousRememberChoice;
+    let rememberApplied = false;
 
     if (!normalizedIdentifier || !normalizedPassword) {
         return {
@@ -204,6 +215,15 @@ export async function signIn(identifier, password, options = {}) {
             email = normalizedIdentifier.trim().toLowerCase();
         }
 
+        // «تذكرني»: تُضبط العلامة *قبل* إنشاء الجلسة حتى يكتب Supabase
+        // التوكن في التخزين الصحيح (localStorage عند اختياره، وsessionStorage
+        // عند عدمه)، وتُستعاد عند الفشل حتى لا تُفقِد محاولة فاشلة جلسة
+        // قديمة صالحة.
+        if (rememberChoiceGiven) {
+            previousRememberChoice = getRememberMeChoice();
+            setRememberMeChoice(remember);
+        }
+
         const result = await withTimeout(
             supabase.auth.signInWithPassword({ email, password: normalizedPassword }),
             10000,
@@ -211,11 +231,17 @@ export async function signIn(identifier, password, options = {}) {
         );
 
         if (result.error) {
+            if (rememberChoiceGiven) restoreRememberMeChoice(previousRememberChoice);
             debugAuthError(result.error);
             // سجل الأمان (121): محاولة فاشلة بالبريد والسبب فقط — لا ينتظرها الدخول
             reportLoginFailure(supabase, email, result.error);
             return result;
         }
+        // نجح الدخول: الجلسة الجديدة في التخزين المختار — امسح أي جلسة
+        // قديمة من التخزين الآخر (مثال: جلسة دائمة قديمة + دخول دون «تذكرني»).
+        rememberApplied = true;
+        if (rememberChoiceGiven) purgeSessionFromInactiveStorage();
+
         const user = result.data.user;
 
         if (!user.email_confirmed_at) {
@@ -328,6 +354,11 @@ export async function signIn(identifier, password, options = {}) {
     } catch (err) {
         // ✅ أي timeout أو خطأ غير متوقع بيوصل هنا بدل ما يعلّق الواجهة للأبد
         console.error('signIn unexpected error:', err);
+        // فشل الدخول قبل اكتماله: أعد علامة «تذكرني» لقيمتها السابقة حتى
+        // لا تُفقِد المحاولة جلسة قديمة صالحة.
+        if (rememberChoiceGiven && !rememberApplied && previousRememberChoice !== undefined) {
+            restoreRememberMeChoice(previousRememberChoice);
+        }
         return {
             data: null,
             error: {

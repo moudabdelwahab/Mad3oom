@@ -4,6 +4,7 @@ import {
   debugSupabaseAuthError
 } from './supabase-config.js';
 import { createStepUpFetch } from './assets/js/security/step-up-fetch.js';
+import { createAuthStorage } from './assets/js/auth-storage.js';
 
 // validate config
 const supabaseConfig = validateSupabaseConfig();
@@ -17,10 +18,13 @@ const stepUpFetch = createStepUpFetch({
 });
 
 // create client
+// auth.storage محوّل ديناميكي حسب اختيار «تذكرني» (assets/js/auth-storage.js):
+// localStorage عند اختياره، وsessionStorage عند عدمه. بدونه كان Supabase
+// يستخدم localStorage دائمًا فتبقى كل الجلسات بعد إغلاق المتصفح.
 export const supabase = createClient(
   supabaseConfig.url,
   supabaseConfig.anonKey,
-  { global: { fetch: stepUpFetch } }
+  { global: { fetch: stepUpFetch }, auth: { storage: createAuthStorage() } }
 );
 
 // keep session cached

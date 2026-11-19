@@ -1,11 +1,11 @@
 /* ============================================================================
-   قسم «Pi Network» في لوحة المالك.
+   قسم «شبكة باي» في لوحة المالك.
 
    يعرض ويحرّر، ولا يقرّر: كل كتابة محكومة بـRLS على is_platform_owner()
-   (migrations/115). ومفتاحا Pi API سرّان في Edge Functions لا يمرّان بهذه
+   (migrations/115). ومفتاحا واجهة باي البرمجية سرّان في الدوال الطرفية لا يمرّان بهذه
    الصفحة أبدًا — القسم يسأل pi-payments هل هما مضبوطان فقط:
-     PI_API_KEY          تطبيق Testnet (mad3oom.com)
-     PI_API_KEY_MAINNET  تطبيق Mainnet (mainnet.mad3oom.com)
+     PI_API_KEY          تطبيق الشبكة التجريبية (mad3oom.com)
+     PI_API_KEY_MAINNET  تطبيق الشبكة الرئيسية (mainnet.mad3oom.com)
 ============================================================================ */
 import { announce } from '/assets/js/owner/owner-workspace.js';
 
@@ -60,11 +60,11 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
 
         $('piKpis').innerHTML = [
             ['حسابات مربوطة بـPi', linked, ''],
-            ['Testnet · mad3oom.com', tLabel, tTone],
-            ['Mainnet · mainnet.mad3oom.com', mLabel, mTone],
+            ['الشبكة التجريبية · mad3oom.com', tLabel, tTone],
+            ['الشبكة الرئيسية · mainnet.mad3oom.com', mLabel, mTone],
             ['مدفوعات مكتملة', done.length, ''],
-            ['المحصَّل — Mainnet', fmtPi(sum('mainnet')), sum('mainnet') ? 'kpi--success' : ''],
-            ['المحصَّل — Testnet (تجريبي)', fmtPi(sum('testnet')), '']
+            ['المحصَّل — الشبكة الرئيسية', fmtPi(sum('mainnet')), sum('mainnet') ? 'kpi--success' : ''],
+            ['المحصَّل — الشبكة التجريبية', fmtPi(sum('testnet')), '']
         ].map(([label, value, tone]) => `
             <div class="kpi ${tone}">
                 <p class="kpi-label">${esc(label)}</p>
@@ -88,7 +88,7 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
         const testnet_enabled = $('piTestnetEnabled').checked;
         const mainnet_enabled = $('piMainnetEnabled').checked;
         if (mainnet_enabled && !lastSettings?.mainnet_enabled && !window.confirm(
-            'تفعيل الدفع على Mainnet: أي دفعة جديدة على mainnet.mad3oom.com ستكون بعملة Pi حقيقية. متابعة؟')) return;
+            'تفعيل الدفع على الشبكة الرئيسية: أي دفعة جديدة على mainnet.mad3oom.com ستكون بعملة باي حقيقية. متابعة؟')) return;
         const btn = $('piSettingsSave');
         btn.disabled = true;
         say('جارٍ الحفظ…');
@@ -162,7 +162,7 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
                     ${td(account(p.user_id))}
                     ${td(esc(`${planNames.get(p.plan_id) || '—'}${p.billing_cycle ? ` · ${p.billing_cycle === 'yearly' ? 'سنوي' : 'شهري'}` : ''}`))}
                     ${td(`<span dir="ltr">${esc(fmtPi(p.amount))}</span>`)}
-                    ${td(esc(p.network === 'mainnet' ? 'Mainnet' : 'Testnet'))}
+                    ${td(esc(p.network === 'mainnet' ? 'الشبكة الرئيسية' : 'الشبكة التجريبية'))}
                     ${td(`<span class="pill ${cls}">${esc(label)}</span>${p.error ? `<span class="owner-cell-muted" dir="ltr"> ${esc(p.error)}</span>` : ''}`)}
                     ${td(when(p.created_at))}
                     ${td(p.txid ? `<code class="owner-cell-muted" dir="ltr" title="${esc(p.txid)}">${esc(p.txid.slice(0, 10))}…</code>` : '—')}

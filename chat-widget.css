@@ -99,8 +99,8 @@
 .chat-bubble-btn:active { transform: translateY(0) scale(.97); }
 .chat-bubble-btn:focus-visible { outline: none; box-shadow: var(--cw-launcher-shadow), var(--cw-focus); }
 
-.chat-bubble-icon { width: 26px; height: 26px; display: flex; }
-.chat-bubble-icon svg { width: 100%; height: 100%; }
+.chat-bubble-icon { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.chat-bubble-icon svg { width: 26px; height: 26px; }
 
 /* عدّاد الرسائل غير المقروءة — يظهر فقط حين تكون النافذة مغلقة/مصغّرة */
 .chat-bubble-badge {
@@ -120,6 +120,77 @@
     border: 2px solid var(--cw-surface);
     font-variant-numeric: tabular-nums;
 }
+
+/* ==================== أفاتار مدعوم ==================== */
+/* صورة واحدة (assets/images/mad3oom-avatar-3d.webp) في كل المواضع؛ الـ SVG
+   المرسوم خلفها في كل غلاف هو البديل إن فشلت الصورة (تُخفى بـ .is-broken).
+   كل الحركات transform/opacity فقط، ولا تُقلب الصورة في RTL. */
+.chat-widget-avatar-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    pointer-events: none;
+}
+.chat-widget-avatar-img.is-broken { display: none; }
+
+/* زر الإطلاق: الصورة دائرة كاملة فوق الـ SVG الاحتياطي */
+.chat-bubble-btn .chat-widget-avatar-img {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    animation: cwAvatarIdle 4.5s ease-in-out infinite;
+    transition: transform .2s ease;
+    will-change: transform;
+}
+.chat-bubble-btn:hover .chat-widget-avatar-img { animation: none; transform: scale(1.06); }
+
+/* رأس النافذة وبطاقة الترحيب: الصورة تملأ الغلاف المربّع المستدير */
+.chat-widget-header-icon .chat-widget-avatar-img,
+.chat-widget-intro-mark .chat-widget-avatar-img {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+}
+/* رسائل المساعد: الصورة دائرة 28px فوق أيقونة الروبوت الاحتياطية */
+.chat-widget-msg-avatar .chat-widget-avatar-img {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: 50%;
+}
+
+/* حالات الأفاتار (data-avatar-state على الجذر، يضبطها chat-widget.js):
+   تطبَّق على زر الإطلاق ورأس النافذة فقط — فقاعات الرسائل تبقى ثابتة. */
+.floating-chat-widget[data-avatar-state='thinking'] .chat-bubble-btn .chat-widget-avatar-img,
+.floating-chat-widget[data-avatar-state='thinking'] .chat-widget-header-icon .chat-widget-avatar-img,
+.floating-chat-widget[data-avatar-state='listening'] .chat-bubble-btn .chat-widget-avatar-img,
+.floating-chat-widget[data-avatar-state='listening'] .chat-widget-header-icon .chat-widget-avatar-img {
+    animation: cwAvatarThinking 1s ease-in-out infinite;
+}
+.floating-chat-widget[data-avatar-state='speaking'] .chat-bubble-btn .chat-widget-avatar-img,
+.floating-chat-widget[data-avatar-state='speaking'] .chat-widget-header-icon .chat-widget-avatar-img {
+    animation: cwAvatarSpeaking .55s ease-in-out infinite;
+}
+.floating-chat-widget[data-avatar-state='attention'] .chat-bubble-btn .chat-widget-avatar-img,
+.floating-chat-widget[data-avatar-state='attention'] .chat-widget-header-icon .chat-widget-avatar-img {
+    animation: cwAvatarAttention 2.4s ease-in-out infinite;
+}
+.floating-chat-widget[data-avatar-state='error'] .chat-bubble-btn .chat-widget-avatar-img,
+.floating-chat-widget[data-avatar-state='error'] .chat-widget-header-icon .chat-widget-avatar-img,
+.floating-chat-widget[data-avatar-state='offline'] .chat-bubble-btn .chat-widget-avatar-img,
+.floating-chat-widget[data-avatar-state='offline'] .chat-widget-header-icon .chat-widget-avatar-img {
+    animation: none;
+    filter: grayscale(.75);
+    opacity: .7;
+}
+
+@keyframes cwAvatarIdle { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+@keyframes cwAvatarThinking { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07) translateY(-1px); } }
+@keyframes cwAvatarSpeaking { 0%, 100% { transform: translateY(0) rotate(0deg); } 25% { transform: translateY(-2px) rotate(-1.5deg); } 75% { transform: translateY(1px) rotate(1.5deg); } }
+@keyframes cwAvatarAttention { 0%, 72%, 100% { transform: translateY(0); } 80% { transform: translateY(-4px); } 88% { transform: translateY(0); } 96% { transform: translateY(-2px); } }
 
 /* ==================== النافذة ==================== */
 
@@ -209,6 +280,7 @@
 /* نقطة الحالة على أيقونة الرأس — تتبع نص #headerStatus عبر data-state */
 .chat-widget-presence {
     position: absolute;
+    z-index: 2;
     bottom: -2px;
     inset-inline-start: -2px;
     width: 12px;
@@ -401,6 +473,7 @@
 }
 
 .chat-widget-intro-mark {
+    position: relative;
     width: 44px;
     height: 44px;
     border-radius: 14px;
@@ -450,6 +523,7 @@
 .chat-widget-message.user { justify-content: flex-start; flex-direction: row-reverse; }
 
 .chat-widget-msg-avatar {
+    position: relative;
     width: 28px;
     height: 28px;
     flex-shrink: 0;
@@ -902,6 +976,7 @@
     .chat-widget-panel,
     .chat-widget-message,
     .chat-bubble-btn,
+    .chat-widget-avatar-img,
     .chat-settings-panel,
     .chat-widget-typing-dot,
     .chat-widget-skeleton span,

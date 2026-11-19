@@ -72,7 +72,7 @@ function renderTokens() {
                 ? `<button type="button" class="btn btn-outline btn-sm" data-token="${esc(t.id)}" data-active="false">إيقاف</button>`
                 : `<button type="button" class="btn btn-primary btn-sm" data-token="${esc(t.id)}" data-active="true">تفعيل</button>`}</td>
         </tr>`;
-    }, { empty: tokens.length ? 'لا مفاتيح مطابقة.' : 'لا مفاتيح API على المنصة.' });
+    }, { empty: tokens.length ? 'لا مفاتيح مطابقة.' : 'لا مفاتيح واجهة برمجية على المنصة.' });
 
     box.querySelectorAll('[data-token]').forEach(b => b.addEventListener('click', () =>
         setToken(tokens.find(t => t.id === b.dataset.token), b.dataset.active === 'true', b)));
@@ -138,7 +138,7 @@ async function loadUsage() {
     if (error) { $('usageTable').innerHTML = errorBlock(friendlyError(error)); return; }
     const rows = data || [];
     await loadPeople(rows.map(r => r.user_id));
-    $('usageTable').innerHTML = table(['الطلب', 'النتيجة', 'الحساب', 'IP', 'الوقت'], rows, r => {
+    $('usageTable').innerHTML = table(['الطلب', 'النتيجة', 'الحساب', 'العنوان', 'الوقت'], rows, r => {
         const p = people.get(r.user_id);
         const ok = Number(r.status_code) < 400;
         return `<tr>
@@ -156,7 +156,7 @@ function renderKpis() {
     const usedWeek = tokens.filter(t => t.last_used_at && new Date(t.last_used_at) > new Date(Date.now() - 7 * 864e5)).length;
     const failing = platform.filter(i => i.is_active && i.last_test_status && !['success', 'ok'].includes(i.last_test_status)).length;
     $('integrationsKpis').innerHTML = kpis([
-        ['مفاتيح API فعّالة', num(live), 'kpi--success'],
+        ['مفاتيح الواجهة البرمجية الفعّالة', num(live), 'kpi--success'],
         ['موقوفة أو منتهية', num(tokens.length - live), ''],
         ['استُخدمت خلال 7 أيام', num(usedWeek), 'kpi--info'],
         ['تكاملات المنصة المفعّلة', num(platform.filter(i => i.is_active).length), ''],

@@ -46,7 +46,7 @@ async function overview() {
     $('secKpis').innerHTML = kpis([
         ['تسجيلات دخول (7 أيام)', num(data.logins)],
         ['محاولات فاشلة', num(data.failed_logins), data.failed_logins > 0 ? 'kpi--warning' : ''],
-        ['عناوين IP مختلفة', num(data.unique_ips)],
+        ['عناوين شبكة مختلفة', num(data.unique_ips)],
         ['عناوين مشتركة', num(data.shared_ips), data.shared_ips > 0 ? 'kpi--info' : '', 'بين أكثر من حساب'],
         ['محاولات وصول مرفوضة', num(data.denied), data.denied > 0 ? 'kpi--warning' : ''],
         ['تحذيرات وأحداث حرجة', num(data.warnings), data.warnings > 0 ? 'kpi--warning' : 'kpi--success'],
@@ -66,7 +66,7 @@ async function overview() {
     const reqs = changes.data || [];
     const STATUS = { pending: ['بانتظار قرارك', 'status-pending'], approved: ['وافقت عليه', 'status-resolved'],
                      rejected: ['رُفض', 'status-rejected'], expired: ['انتهت مهلته', 'status-neutral'], superseded: ['استُبدل بأحدث', 'status-neutral'] };
-    $('secAccountChanges').innerHTML = table(['المحاولة', 'الوقت', 'IP (آخر جلسة)', 'الجهاز', 'الحالة'], reqs, r => `<tr>
+    $('secAccountChanges').innerHTML = table(['المحاولة', 'الوقت', 'العنوان (آخر جلسة)', 'الجهاز', 'الحالة'], reqs, r => `<tr>
         <td>${r.kind === 'email' ? `تغيير البريد${r.requested_email ? ` إلى <span dir="ltr">${esc(r.requested_email)}</span>` : ''}` : 'تغيير كلمة المرور'}</td>
         <td>${esc(when(r.requested_at))}</td><td dir="ltr">${esc(r.ip || '—')}</td><td>${device(r.user_agent)}</td>
         <td><span class="pill ${STATUS[r.status]?.[1] || 'status-neutral'}">${esc(STATUS[r.status]?.[0] || r.status)}</span>
@@ -95,8 +95,8 @@ async function activity() {
         p_severity: $('secSeverity').value || null, p_limit: PAGE, p_offset: logPage * PAGE
     });
     if (error) { box.innerHTML = errorBlock(friendlyError(error)); return; }
-    if (data?.error === 'invalid_ip') { box.innerHTML = errorBlock('عنوان IP غير صالح.'); return; }
-    box.innerHTML = table(['الوقت', 'الحدث', 'الحساب', 'IP', 'الموقع التقريبي', 'الجهاز', 'المصدر'], data.items || [], r => `<tr>
+    if (data?.error === 'invalid_ip') { box.innerHTML = errorBlock('عنوان الشبكة غير صالح.'); return; }
+    box.innerHTML = table(['الوقت', 'الحدث', 'الحساب', 'العنوان', 'الموقع التقريبي', 'الجهاز', 'المصدر'], data.items || [], r => `<tr>
         <td>${esc(when(r.at))}</td>
         <td>${sevPill(r.severity)} ${esc(eventLabel(r.event_type))}<div class="owner-cell-muted">${esc(eventSummary(r))}</div></td>
         <td dir="ltr">${esc(r.target_email || r.actor_email || '—')}</td>
@@ -132,7 +132,7 @@ async function shared() {
                 ${table(['الوقت', 'الحساب', 'الجهاز'], r.timeline || [], t => `<tr><td>${esc(when(t.at))}</td><td dir="ltr">${esc(t.email || '—')}</td><td>${device(t.user_agent)}</td></tr>`)}
             </details>
         </article>`).join('')
-        : stateBlock({ text: 'لا عنوان IP استُخدم لأكثر من حساب في هذه الفترة.' });
+        : stateBlock({ text: 'لا عنوان شبكة استُخدم لأكثر من حساب في هذه الفترة.' });
     box.querySelectorAll('[data-filter-ip]').forEach(b => b.addEventListener('click', () => {
         $('secIp').value = b.dataset.filterIp; logPage = 0; tabs.select('activity'); activity();
     }));
@@ -140,7 +140,7 @@ async function shared() {
 
 /* ── الجلسات والأجهزة ─────────────────────────────────────────────────── */
 function sessionsTable(items, { mine }) {
-    return table(['الجهاز', 'IP', 'الموقع', 'بدأت', 'آخر نشاط', ''], items, s => `<tr>
+    return table(['الجهاز', 'العنوان', 'الموقع', 'بدأت', 'آخر نشاط', ''], items, s => `<tr>
         <td>${device(s.user_agent)}${s.current ? ' <span class="pill status-resolved">هذه الجلسة</span>' : ''}</td>
         <td dir="ltr">${esc(s.ip || '—')}</td><td>${esc(place(s) || '—')}</td>
         <td>${esc(when(s.created_at))}</td><td>${esc(when(s.refreshed_at || s.created_at))}</td>
@@ -192,7 +192,7 @@ async function editing() {
     });
     if (hist.error) { $('secEditing').innerHTML = errorBlock(friendlyError(hist.error)); return; }
     const END = { manual: 'أُنهيت يدويًا', replaced: 'استُبدلت بجلسة أحدث', expired: 'انتهت مدتها', policy_changed: 'قصّرتها السياسة' };
-    $('secEditing').innerHTML = table(['بدأت', 'الطريقة', 'المدة/النهاية', 'IP والجهاز', 'العمليات خلالها'], hist.data || [], r => {
+    $('secEditing').innerHTML = table(['بدأت', 'الطريقة', 'المدة/النهاية', 'العنوان والجهاز', 'العمليات خلالها'], hist.data || [], r => {
         const ops = [...(r.audit_actions || []), ...(r.security_actions || [])];
         return `<tr>
             <td>${esc(when(r.started_at))}${r.active ? ' <span class="pill status-resolved">سارية</span>' : ''}</td>
@@ -330,7 +330,7 @@ function bindActions() {
         const { data, error } = await supabase.functions.invoke('security-event', { body: { action: 'enrich_geo' } });
         e.currentTarget.disabled = false;
         if (error || !data?.ok) { toast('تعذّر تحديث المواقع (المزوّد غير مضبوط أو غير متاح).', 'error'); return; }
-        toast(data.resolved ? `حُدِّث موقع ${num(data.resolved)} عنوانًا.` : 'لا عناوين جديدة أو مزوّد المواقع غير مضبوط (IP_GEO_URL).', data.resolved ? 'success' : 'info');
+        toast(data.resolved ? `حُدِّث موقع ${num(data.resolved)} عنوانًا.` : 'لا عناوين جديدة أو مزوّد المواقع غير مضبوط.', data.resolved ? 'success' : 'info');
         activity();
     });
     $('secRefresh').addEventListener('click', () => { loaded.clear(); load(tabs.current); overview(); });

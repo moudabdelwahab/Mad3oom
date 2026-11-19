@@ -175,3 +175,26 @@ body.owner-modal-open { overflow: hidden; }
 
 /* شبكة الأقسام المتجاورة تتبعها لوحة كاملة العرض: نفس المسافة بين اللوحات */
 #ownerContent > .split-grid { margin-bottom: var(--sp-5); }
+
+/* ── رأس الصفحة الموحّد: عودة للوحة + تسلسل أوضح ───────────────────────── */
+/* رابط «لوحة المالك» أول عنصر في رأس كل صفحة مستقلة: تنقّل متسق بين الصفحات
+   بدل الاعتماد على القائمة الجانبية وحدها. */
+.owner-crumb { text-decoration: none; flex-shrink: 0; }
+
+/* رأس الصفحة المختصر: مساحة أكبر قليلًا وعنوان أكبر من عناوين الأقسام داخله،
+   فيتضح التسلسل: عنوان الصفحة ← عنوان القسم ← المحتوى. */
+.owner-page-banner { padding: var(--sp-5) var(--sp-6); }
+
+.owner-page-banner .owner-title { font-size: calc(var(--fs-xl) + .1rem); }
+
+/* عناوين أقسام الصفحة أكبر قليلًا من الافتراضي، ورؤوس الجداول بلون ثانوي
+   بدل الثالث — تباين أعلى للقراءة، بلا لون جديد. */
+.owner-shell .owner-page-stack .panel-title,
+.owner-shell #ownerContent > .panel .panel-title { font-size: var(--fs-lg); }
+
+.owner-shell .admin-table th { color: var(--color-text-secondary); }
+
+/* بطاقات المؤشرات في الصفحات المستقلة: نفس الحدّ الجانبي للوحة الرئيسية. */
+.owner-shell .kpi-grid .kpi { border-inline-start: 3px solid var(--owner-border); }
+
+.owner-shell .kpi-grid .kpi:hover { border-color: var(--owner-border); }

@@ -1,5 +1,5 @@
 /**
- * owner/stores.html — حسابات المتاجر وربط Shopify تحت إشراف المالك (118/119).
+ * owner/stores.html — حسابات المتاجر وربط شوبيفاي تحت إشراف المالك (118/119).
  *
  *   • owner_accounts_overview / owner_store_integrations / owner_store_events / owner_entitlement_diagnostics:
  *     owner_capability('owner_only') في القاعدة — بيانات وصفية فقط (حالات، رموز أخطاء، أوقات، عدّادات).
@@ -40,7 +40,7 @@ async function loadAccounts(page = 0) {
     });
     if (error) { $('accountsTable').innerHTML = errorBlock(friendlyError(error)); return; }
     accounts = { page, total: data?.total || 0, items: data?.items || [], counts: data?.counts || {} };
-    $('accountsTable').innerHTML = table(['الحساب', 'النوع', 'الاشتراك', 'Shopify', 'أُنشئ'], accounts.items, (a) => `<tr>
+    $('accountsTable').innerHTML = table(['الحساب', 'النوع', 'الاشتراك', 'شوبيفاي', 'أُنشئ'], accounts.items, (a) => `<tr>
         <td><div class="owner-account"><span class="owner-account-name">${esc(a.company_name || a.name || '—')}</span>
             <span class="owner-account-email">${esc(a.company_name ? a.name : a.email || '')}</span></div></td>
         <td><span class="pill ${a.account_type === 'ecommerce_store' ? 'status-tone-accent' : 'status-neutral'}">${esc(TYPE_LABELS[a.account_type] || a.account_type)}</span>
@@ -63,7 +63,7 @@ async function loadIntegrations() {
     const rows = data?.connections || [];
     const provider = data?.provider || {};
     $('storeIntegrations').innerHTML = `
-        <p class="panel-subtitle">مزوّد Shopify على المنصة: <strong>${provider.enabled ? 'مفعّل' : 'مقفل'}</strong> (${esc(provider.release_stage || 'beta')}) ·
+        <p class="panel-subtitle">مزوّد شوبيفاي على المنصة: <strong>${provider.enabled ? 'مفعّل' : 'مقفل'}</strong> (${esc({ beta: 'تجريبي', alpha: 'أولي', stable: 'مستقر' }[provider.release_stage] || provider.release_stage || 'تجريبي')}) ·
             الصلاحيات المطلوبة: <span dir="ltr">${esc((data?.required_scopes || []).join(', '))}</span>
             ${data?.compliance_unmatched_30d ? ` · طلبات خصوصية لمتاجر غير مربوطة (30 يومًا): ${esc(num(data.compliance_unmatched_30d))}` : ''}</p>
         ${table(['المتجر', 'الحالة', 'الصلاحيات', 'المزامنة', 'الأحداث (7 أيام)', 'الامتياز', ''], rows, (c) => `<tr>
@@ -78,7 +78,7 @@ async function loadIntegrations() {
                 ${c.compliance_pending ? `<br><span class="pill status-neutral">خصوصية معلّقة: ${esc(num(c.compliance_pending))}</span>` : ''}</td>
             <td>${c.entitled ? '<span class="pill status-resolved">مستحق</span>' : '<span class="pill status-rejected">بلا امتياز</span>'}</td>
             <td><button type="button" class="btn btn-outline btn-sm" data-events="${esc(c.connection_id)}">السجل</button></td></tr>`,
-            { empty: 'لا متاجر مربوطة بـ Shopify بعد.' })}`;
+            { empty: 'لا متاجر مربوطة بشوبيفاي بعد.' })}`;
     $('storeIntegrations').querySelectorAll('[data-events]').forEach((b) => b.addEventListener('click', () => openEvents(b.getAttribute('data-events'))));
     renderKpis();
 }
@@ -111,10 +111,10 @@ async function loadDiagnostics() {
     const conf = cfg?.data;
     const mismatch = data?.live_connection_without_entitlement || [];
     $('storeDiagnostics').innerHTML = `
-        <h3 class="panel-title">إعداد تطبيق Shopify على الخادم</h3>
+        <h3 class="panel-title">إعداد تطبيق شوبيفاي على الخادم</h3>
         ${conf ? `${table(['القيمة', 'موجودة'], Object.entries(conf.configured || {}), ([k, v]) => `<tr><td dir="ltr">${esc(k)}</td>
             <td>${v ? '<span class="pill status-resolved">نعم</span>' : '<span class="pill status-rejected">لا</span>'}</td></tr>`)}
-            <p class="panel-subtitle">إصدار API: <span dir="ltr">${esc(conf.api_version)}</span> ·
+            <p class="panel-subtitle">إصدار الواجهة البرمجية: <span dir="ltr">${esc(conf.api_version)}</span> ·
                 رابط الرجوع يطابق المتوقع: ${conf.redirect_matches_callback ? 'نعم' : '<strong>لا — صحّح SHOPIFY_REDIRECT_URI</strong>'}</p>
             ${conf.urls ? `<p class="panel-subtitle owner-mono" dir="ltr">${esc(conf.urls.callback)}<br>${esc(conf.urls.webhooks)}</p>` : ''}`
             : stateBlock({ title: 'تعذّر فحص إعداد الخادم', text: 'الدالة الطرفية ihub-api غير منشورة بهذا الإصدار بعد، أو رفضت الطلب.' })}
@@ -126,7 +126,7 @@ async function loadDiagnostics() {
             : stateBlock({ text: 'الباقة غير موجودة (118 غير مطبّق).' })}
         <h3 class="panel-title">تعارضات الامتياز</h3>
         <ul class="company-list">
-            <li>متاجر لها ربط حي بلا امتياز Shopify: <strong>${esc(num(mismatch.length))}</strong>${mismatch.length ? ` — ${mismatch.map((m) => esc(m.company_name)).join('، ')}` : ''}</li>
+            <li>متاجر لها ربط حي بلا امتياز شوبيفاي: <strong>${esc(num(mismatch.length))}</strong>${mismatch.length ? ` — ${mismatch.map((m) => esc(m.company_name)).join('، ')}` : ''}</li>
             <li>متاجر بلا اشتراك فعّال: <strong>${esc(num(data?.stores_without_subscription))}</strong></li>
             <li>اشتراكات باقة المتاجر على حساب ليس متجرًا: <strong>${esc(num(data?.store_plan_on_non_store))}</strong></li>
             <li>طلبات حسابات متاجر قيد المراجعة: <strong>${esc(num(data?.pending_store_requests))}</strong> — <a href="/admin/company-requests.html">المراجعة في لوحة الإدارة</a></li>
@@ -160,7 +160,7 @@ async function loadTestStore() {
         <h3 class="panel-title">معاينة لوحة المتجر</h3>
         <ul class="company-list">
             <li><strong>تشغيل:</strong> بدّل واجهتك من شريط السياق إلى «مدير شركتي»، ثم افتح <a href="/company-dashboard/#storeOverview">لوحة المتجر</a> — ترى متجر اختبارك أنت كما يراه مديره.</li>
-            <li><strong>قراءة فقط:</strong> واجهة «معاينة عضو» تعرض اللوحة كعضو؛ الكتابة وبيانات Shopify الحية مرفوضة في القاعدة أثناء المعاينة.</li>
+            <li><strong>قراءة فقط:</strong> واجهة «معاينة عضو» تعرض اللوحة كعضو؛ الكتابة وبيانات شوبيفاي الحية مرفوضة في القاعدة أثناء المعاينة.</li>
             <li>لا توجد معاينة لمتجر تاجر آخر: العزل بين الشركات مفروض في القاعدة، ولوحة المالك ترى بياناته الوصفية فقط (أعلاه).</li>
         </ul>`;
     // بلا جلسة تحرير: النقرة تفتح نافذة التحقق ثم تُكمل الإجراء (installCriticalGuard — 121)
@@ -196,7 +196,7 @@ function renderKpis() {
         ['حسابات فردية', num(c.individual || 0), ''],
         ['شركات', num(c.company || 0), ''],
         ['متاجر إلكترونية', num(c.ecommerce_store || 0), 'kpi--accent'],
-        ['متاجر مربوطة بـ Shopify', num(conns.filter((x) => x.status === 'active').length), 'kpi--success'],
+        ['متاجر مربوطة بشوبيفاي', num(conns.filter((x) => x.status === 'active').length), 'kpi--success'],
         ['روابط تحتاج انتباهًا', num(problems), problems ? 'kpi--warning' : ''],
         ['طلبات متاجر قيد المراجعة', num(diagnostics?.pending_store_requests ?? 0), diagnostics?.pending_store_requests ? 'kpi--info' : '']
     ]);

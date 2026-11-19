@@ -60,6 +60,7 @@
                     <p class="owner-meta">الدخول والأجهزة والعناوين المشتركة، جلسات التحرير وما تم خلالها، سجل التغييرات بتراجع آمن، وسياسة الأمان — كله من القاعدة، وسجله لا يُعدَّل ولا يُحذف.</p>
                 </div>
                 <div class="owner-banner-side">
+                    <a class="btn btn-outline btn-sm owner-crumb" href="/owner-dashboard.html#overview">لوحة المالك</a>
                     <a class="btn btn-outline btn-sm" href="/owner/permissions.html">الصلاحيات</a>
                     <button type="button" class="btn btn-outline btn-sm" id="secRefresh">تحديث</button>
                 </div>
@@ -70,7 +71,7 @@
                 <div class="view-tabs ows-tabs" role="tablist" aria-label="أقسام مركز الأمان">
                     <button type="button" role="tab" class="view-tab ows-tab" id="secTab-overview" data-ws-tab="overview" aria-controls="secPanel-overview" aria-selected="true">نظرة عامة<span class="view-tab-count" data-ws-count="overview" hidden></span></button>
                     <button type="button" role="tab" class="view-tab ows-tab" id="secTab-activity" data-ws-tab="activity" aria-controls="secPanel-activity" aria-selected="false" tabindex="-1">الدخول والنشاط<span class="view-tab-count" data-ws-count="activity" hidden></span></button>
-                    <button type="button" role="tab" class="view-tab ows-tab" id="secTab-shared" data-ws-tab="shared" aria-controls="secPanel-shared" aria-selected="false" tabindex="-1">IP المشتركة<span class="view-tab-count" data-ws-count="shared" hidden></span></button>
+                    <button type="button" role="tab" class="view-tab ows-tab" id="secTab-shared" data-ws-tab="shared" aria-controls="secPanel-shared" aria-selected="false" tabindex="-1">العناوين المشتركة<span class="view-tab-count" data-ws-count="shared" hidden></span></button>
                     <button type="button" role="tab" class="view-tab ows-tab" id="secTab-sessions" data-ws-tab="sessions" aria-controls="secPanel-sessions" aria-selected="false" tabindex="-1">الجلسات والأجهزة<span class="view-tab-count" data-ws-count="sessions" hidden></span></button>
                     <button type="button" role="tab" class="view-tab ows-tab" id="secTab-editing" data-ws-tab="editing" aria-controls="secPanel-editing" aria-selected="false" tabindex="-1">جلسات التحرير<span class="view-tab-count" data-ws-count="editing" hidden></span></button>
                     <button type="button" role="tab" class="view-tab ows-tab" id="secTab-changes" data-ws-tab="changes" aria-controls="secPanel-changes" aria-selected="false" tabindex="-1">سجل التغييرات<span class="view-tab-count" data-ws-count="changes" hidden></span></button>
@@ -109,14 +110,14 @@
                     <section class="panel" aria-labelledby="secLogHeading">
                         <div class="panel-header"><div>
                             <h2 class="panel-title" id="secLogHeading">سجل الدخول والأحداث الأمنية</h2>
-                            <p class="panel-subtitle">الدخول الناجح من جلسات Supabase Auth مباشرة؛ الفاشل يبلغ عنه المتصفح (مسمّى كذلك). لا كلمات مرور ولا رموز تُحفظ.</p>
+                            <p class="panel-subtitle">الدخول الناجح من جلسات المصادقة مباشرة؛ الفاشل يبلغ عنه المتصفح (مسمّى كذلك). لا كلمات مرور ولا رموز تُحفظ.</p>
                         </div>
                         <button type="button" class="btn btn-outline btn-sm" id="secGeo">تحديث المواقع التقريبية</button></div>
                         <form class="toolbar owner-filters" id="secFilters" role="search">
                             <label class="visually-hidden" for="secEmail">البريد</label>
                             <input class="form-control owner-filter-search" id="secEmail" type="search" placeholder="البريد الإلكتروني" autocomplete="off">
-                            <label class="visually-hidden" for="secIp">عنوان IP</label>
-                            <input class="form-control owner-filter-select" id="secIp" placeholder="عنوان IP" dir="ltr" autocomplete="off">
+                            <label class="visually-hidden" for="secIp">عنوان الشبكة</label>
+                            <input class="form-control owner-filter-select" id="secIp" placeholder="عنوان الشبكة" dir="ltr" autocomplete="off">
                             <label class="visually-hidden" for="secType">النوع</label>
                             <select class="form-control owner-filter-select" id="secType"></select>
                             <label class="visually-hidden" for="secSeverity">الدرجة</label>
@@ -136,8 +137,8 @@
                 <section role="tabpanel" class="owner-page-stack" id="secPanel-shared" data-ws-panel="shared" aria-labelledby="secTab-shared" hidden>
                     <section class="panel" aria-labelledby="secSharedHeading">
                         <div class="panel-header"><div>
-                            <h2 class="panel-title" id="secSharedHeading">عناوين IP مشتركة بين أكثر من حساب</h2>
-                            <p class="panel-subtitle">مؤشر للمراجعة لا حكم: شبكات الشركات والـVPN والإنترنت المنزلي وشبكات الجوال تشترك في عنوان واحد كثيرًا.</p>
+                            <h2 class="panel-title" id="secSharedHeading">عناوين الشبكة المشتركة بين أكثر من حساب</h2>
+                            <p class="panel-subtitle">مؤشر للمراجعة لا حكم: شبكات الشركات والشبكات الافتراضية الخاصة والإنترنت المنزلي وشبكات الجوال تشترك في عنوان واحد كثيرًا.</p>
                         </div>
                         <label class="visually-hidden" for="secSharedDays">الفترة</label>
                         <select class="form-control owner-filter-select" id="secSharedDays">
@@ -232,7 +233,7 @@
                             </fieldset>
                             <fieldset class="owner-sec-field">
                                 <legend>المراقبة</legend>
-                                <label for="secSharedWindow">نافذة كشف IP المشترك (أيام، 1–365)</label>
+                                <label for="secSharedWindow">نافذة كشف العناوين المشتركة (أيام، 1–365)</label>
                                 <input class="form-control" id="secSharedWindow" type="number" min="1" max="365" inputmode="numeric">
                                 <label for="secFailThreshold">محاولات فاشلة لبريد واحد خلال 15 دقيقة قبل التنبيه الحرج (3–50)</label>
                                 <input class="form-control" id="secFailThreshold" type="number" min="3" max="50" inputmode="numeric">

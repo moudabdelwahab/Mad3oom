@@ -50,6 +50,19 @@ const ICONS = {
 };
 
 /**
+ * أفاتار مدعوم (النسخة ثلاثية الأبعاد المعتمدة) — صورة واحدة تُستخدم في
+ * كل مواضع الويدجت (زر الإطلاق، رأس النافذة، بطاقة الترحيب، رسائل المساعد)
+ * بنفس الـ URL فيعيد المتصفح استخدامها من الكاش بطلب واحد فقط.
+ * WebP مدعوم مباشرة في <img> ولا يحتاج تحويلًا لـ PNG.
+ * الصورة زخرفية (alt فارغ) لأن أغلفتها aria-hidden والزر نفسه له aria-label.
+ */
+const MAD3OOM_AVATAR_SRC = '/assets/images/mad3oom-avatar-3d.webp';
+
+function avatarImgHtml() {
+    return `<img class="chat-widget-avatar-img" src="${MAD3OOM_AVATAR_SRC}" alt="" draggable="false">`;
+}
+
+/**
  * تنقية أي نص قبل حقنه في innerHTML لمنع XSS - نفس المنطق المستخدم في chat-logic.js
  */
 function escapeHtml(value) {
@@ -137,13 +150,14 @@ class ChatWidget {
         }
 
         const widgetHTML = `
-      <div class="floating-chat-widget" id="floatingChatWidget" dir="rtl">
+      <div class="floating-chat-widget" id="floatingChatWidget" dir="rtl" data-avatar-state="idle">
         <button type="button" class="chat-bubble-btn" id="chatBubbleBtn" aria-label="فتح الدعم المباشر" aria-controls="chatWidgetPanel" aria-expanded="false">
           <span class="chat-bubble-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
               <path d="M8 9h8M8 13h5"></path>
             </svg>
+            ${avatarImgHtml()}
           </span>
           <span class="chat-bubble-badge" id="chatBubbleBadge" hidden></span>
         </button>
@@ -157,6 +171,7 @@ class ChatWidget {
                   <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
                   <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
                 </svg>
+                ${avatarImgHtml()}
                 <span class="chat-widget-presence"></span>
               </div>
               <div>
@@ -254,6 +269,14 @@ class ChatWidget {
             console.error('[ChatWidget] Failed to find chat elements');
             return;
         }
+
+        // صورة الأفاتار مكسورة/مفقودة: إخفاؤها يُظهر الـ SVG الاحتياطي
+        // المرسوم خلفها في نفس الغلاف (لا إنترنت مطلوب ولا كود إضافي).
+        document.addEventListener('error', (e) => {
+            if (e.target instanceof HTMLImageElement && e.target.classList.contains('chat-widget-avatar-img')) {
+                e.target.classList.add('is-broken');
+            }
+        }, true);
 
         bubbleBtn.addEventListener('click', () => {
             const panel = document.getElementById('chatWidgetPanel');
@@ -696,6 +719,7 @@ class ChatWidget {
         if (this.recorder?.state === 'recording' || this.recorder?.state === 'requesting') this.recorder.cancel();
         this.closeImageViewer();
         this.syncOpenState();
+        this.setAvatarState('idle');
         // ملاحظة: إغلاق النافذة مايقفلش المحادثة نفسها - الجلسة تفضل شغالة
         // ولو العميل فتح الويدجت تاني هيكمل من نفس مكانه.
     }
@@ -777,11 +801,13 @@ class ChatWidget {
         if (visible || !this.notificationsEnabled) return;
         this.unreadCount = (this.unreadCount || 0) + 1;
         this.renderUnread();
+        this.setAvatarState('attention');
     }
 
     clearUnread() {
         this.unreadCount = 0;
         this.renderUnread();
+        if (this.avatarState === 'attention') this.setAvatarState('idle');
     }
 
     renderUnread() {
@@ -799,6 +825,36 @@ class ChatWidget {
         if (headerStatus) headerStatus.textContent = text;
         const panel = document.getElementById('chatWidgetPanel');
         if (panel && state) panel.dataset.state = state;
+        // الأفاتار يتبع حالة الاتصال فقط للخطأ/عدم الاتصال؛ الحالات اللحظية
+        // (thinking/speaking/listening/attention) يملكها أصحابها ولا تُكسر هنا.
+        if (state === 'error') this.setAvatarState('error');
+        else if (state === 'offline') this.setAvatarState('offline');
+        else if (this.avatarState === 'error' || this.avatarState === 'offline') this.setAvatarState('idle');
+    }
+
+    /* ==================== حالة الأفاتار ==================== */
+
+    /**
+     * حالة الأفاتار المرئية (data-avatar-state على الجذر، والـ CSS يحرّكها):
+     * idle = انتظار هادئ (تنفّس خفيف على زر الإطلاق)، thinking = أثناء انتظار
+     * رد SIE، speaking = نبضة قصيرة عند وصول رد المساعد، listening = أثناء
+     * التسجيل الصوتي، attention = رسالة جديدة والنافذة مغلقة/مصغّرة،
+     * error/offline = رمادي بلا حركة. كل الحركات transform فقط.
+     */
+    setAvatarState(state) {
+        const root = document.getElementById('floatingChatWidget');
+        if (!root) return;
+        clearTimeout(this.avatarStateTimer);
+        this.avatarState = state;
+        root.dataset.avatarState = state;
+    }
+
+    /** رد مساعد وصل للتو: الأفاتار «يتكلم» ثانيتين ثم يعود للانتظار. */
+    speakBriefly() {
+        this.setAvatarState('speaking');
+        this.avatarStateTimer = setTimeout(() => {
+            if (this.avatarState === 'speaking') this.setAvatarState('idle');
+        }, 2000);
     }
 
     /* ==================== تحميل نص المحادثة ==================== */
@@ -1030,6 +1086,7 @@ class ChatWidget {
         intro.innerHTML = `
       <span class="chat-widget-intro-mark" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+        ${avatarImgHtml()}
       </span>
       <p class="chat-widget-intro-title">دعم مدعوم</p>
       <p class="chat-widget-intro-text">المساعد الآلي يرد فورًا، وفريق الدعم ينضم للمحادثة عند الحاجة.</p>
@@ -1079,7 +1136,7 @@ class ChatWidget {
         div.className = `chat-widget-message ${sender.isOwn ? 'user' : 'bot'}${sender.isAgent ? ' is-agent' : ''}${continued ? ' is-continued' : ''}`;
         const avatar = sender.isOwn ? '' : `<span class="chat-widget-msg-avatar" aria-hidden="true">${sender.isAgent
             ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>'
-            : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="3"></rect><path d="M12 8V4M9 14h.01M15 14h.01"></path></svg>'}</span>`;
+            : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="3"></rect><path d="M12 8V4M9 14h.01M15 14h.01"></path></svg>' + avatarImgHtml()}</span>`;
         div.innerHTML = `
       ${avatar}
       <div class="chat-widget-message-content">
@@ -1180,6 +1237,7 @@ class ChatWidget {
         const quick = document.getElementById('botQuickOptions');
         if (quick && body) body.appendChild(quick);
         if (body) body.scrollTop = body.scrollHeight;
+        if (!(this.currentUser && msg.sender_id === this.currentUser.id) && !msg.is_admin_reply) this.speakBriefly();
         if (!(this.currentUser && msg.sender_id === this.currentUser.id)) this.noteIncoming();
     }
 
@@ -1347,6 +1405,7 @@ class ChatWidget {
         try {
             if (typingText) typingText.textContent = 'جاري اتخاذ القرار...';
             if (typingIndicator) typingIndicator.style.display = 'flex';
+            this.setAvatarState('thinking');
 
             if (this.currentSession?.is_manual_mode) return;
 
@@ -1403,6 +1462,7 @@ class ChatWidget {
             await this.postNotice('error');
         } finally {
             if (typingIndicator) typingIndicator.style.display = 'none';
+            if (this.avatarState === 'thinking') this.setAvatarState('idle');
             this.isSending = false;
             this.setComposerBusy(false);
             // الاستخدام تغيّر: تحديث صامت لمربع الاستخدام
@@ -1761,6 +1821,8 @@ class ChatWidget {
         const composer = document.querySelector('#chatWidgetFooter .cw-composer');
         if (!composer) return;
         composer.dataset.mode = mode;
+        if (mode === 'recording') this.setAvatarState('listening');
+        else if (this.avatarState === 'listening') this.setAvatarState('idle');
         const rec = document.getElementById('cwRecorder');
         const row = composer.querySelector('.chat-widget-input-row');
         if (mode === 'text') {

@@ -770,6 +770,91 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
 .tp-scroll::-webkit-scrollbar{height:6px;}
 .tp-scroll::-webkit-scrollbar-thumb{background:var(--glass-border);border-radius:99px;}
 
+
+/* ============ Redesign 2026-11-20 — dashboard console language ============ */
+/* Visual language borrowed from the real consoles: owner kpi-grid, team-performance
+   stats-grid + segmented + live-badge + perf table, customer-history ch-stat,
+   continuity filters, board tabs, workspace toolbar (Ctrl K). Same navy/blue
+   tokens, same fonts, no new CDN. All numbers below reuse existing ones. */
+[id]{scroll-margin-top:88px;}
+
+/* --- Console status bar (status strip under the hero) --- */
+.console-bar-wrap{padding:0 0 clamp(2.5rem,5vw,4rem);}
+.console-bar{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;background:var(--glass);border:1px solid var(--glass-border);border-radius:1rem;padding:.7rem 1rem;}
+.console-live{display:inline-flex;align-items:center;gap:.45rem;font-size:.75rem;font-weight:700;color:var(--pill-green-text);background:var(--pill-green-bg);border:1px solid rgba(34,197,139,.3);padding:.35rem .8rem;border-radius:99px;white-space:nowrap;}
+.console-live i{width:7px;height:7px;border-radius:50%;background:#22C58B;animation:pulseDot 1.6s infinite;}
+.console-meta{font-size:.8rem;color:var(--text-2);white-space:nowrap;}
+.console-meta strong{font-family:var(--font-data);color:var(--text-1);}
+.console-tabs{display:flex;gap:.25rem;flex-wrap:wrap;margin-inline-start:auto;}
+.console-tabs a{font-size:.8rem;font-weight:700;color:var(--text-2);padding:.45rem .9rem;border-radius:.6rem;transition:background var(--dur-fast) ease,color var(--dur-fast) ease;}
+.console-tabs a:hover{color:var(--text-1);background:rgba(77,163,255,.1);}
+@media (max-width:640px){.console-bar{gap:.6rem;}.console-tabs{margin-inline-start:0;width:100%;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;}.console-tabs a{white-space:nowrap;}}
+
+/* --- Hero console: sidebar rail + main column (admin sidebar language) --- */
+.frame-body.console-body{padding:0;display:flex;align-items:stretch;}
+.console-rail{width:46px;flex-shrink:0;background:#0A1B3D;display:flex;flex-direction:column;align-items:center;gap:.45rem;padding:.75rem .3rem;border-inline-end:1px solid var(--ui-border);}
+.console-rail span{width:30px;height:30px;border-radius:.55rem;display:flex;align-items:center;justify-content:center;color:#8FA8C8;}
+.console-rail span svg{width:15px;height:15px;}
+.console-rail span.active{background:rgba(77,163,255,.22);color:#fff;box-shadow:inset 0 0 0 1px rgba(77,163,255,.4);}
+.console-main{flex:1;min-width:0;padding:.85rem;}
+.console-tabs{margin-bottom:.6rem;}
+.hero-mock .ui-tstats{grid-template-columns:repeat(4,1fr);}
+@media (max-width:560px){.console-rail{width:38px;}.console-rail span{width:26px;height:26px;}.hero-mock .ui-tstats{grid-template-columns:repeat(2,1fr);}}
+
+/* --- KPI strip (owner kpi-grid / team-performance stat-card) --- */
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin:0 0 clamp(3rem,6vw,4.5rem);}
+.kpi-card{display:flex;align-items:center;gap:.9rem;background:var(--glass);border:1px solid var(--glass-border);border-radius:1rem;padding:1.05rem 1.15rem;transition:transform var(--dur-med) var(--ease-snap), border-color var(--dur-fast) ease;}
+.kpi-card:hover{transform:translateY(-4px);border-color:rgba(77,163,255,.4);}
+.kpi-ic{width:44px;height:44px;min-width:44px;border-radius:.85rem;display:flex;align-items:center;justify-content:center;background:rgba(0,119,204,.15);color:#8FC7FF;}
+.kpi-ic.ok{background:rgba(34,197,139,.15);color:#22C58B;}
+.kpi-ic svg{width:22px;height:22px;}
+.kpi-info{display:flex;flex-direction:column;min-width:0;}
+.kpi-label{font-size:.78rem;color:var(--text-2);font-weight:600;}
+.kpi-value{font-size:1.5rem;font-weight:800;color:var(--text-1);font-family:var(--font-data);line-height:1.3;}
+.kpi-value small{font-size:.75rem;color:var(--text-2);}
+.kpi-sub{font-size:.7rem;color:var(--text-3);}
+@media (max-width:900px){.kpi-strip{grid-template-columns:repeat(2,1fr);}}
+@media (max-width:520px){.kpi-strip{grid-template-columns:1fr;}}
+
+/* --- Showcase + platform blocks become dashboard panels --- */
+.showcase-row{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-lg);padding:clamp(1.25rem,3vw,2.25rem);}
+.showcase-copy .num,.platform-copy .num{display:inline-flex;align-items:center;background:rgba(0,119,204,.12);border:1px solid rgba(77,163,255,.25);padding:.3rem .85rem;border-radius:99px;font-size:.78rem;}
+.showcase-copy .num.mcp{background:rgba(180,95,224,.12);border-color:rgba(180,95,224,.3);}
+.platform-block{background:var(--glass);border:1px solid var(--glass-border);border-top:2px solid rgba(77,163,255,.45);border-radius:var(--radius-lg);padding:clamp(1.5rem,3.5vw,2.5rem);}
+.platform-block .platform-lede{margin-bottom:2.5rem;}
+/* segmented tabs for the platform band (mirrors team-performance .segmented) */
+.platform-tabs{display:flex;justify-content:center;gap:.25rem;flex-wrap:wrap;width:fit-content;max-width:100%;margin:0 auto clamp(3rem,6vw,4.5rem);padding:.3rem;border-radius:.9rem;border:1px solid var(--glass-border);background:var(--glass);}
+.platform-tabs a{font-size:.85rem;font-weight:700;color:var(--text-2);padding:.5rem 1.1rem;border-radius:.65rem;white-space:nowrap;transition:background var(--dur-fast) ease,color var(--dur-fast) ease;}
+.platform-tabs a:hover{color:var(--text-1);}
+.platform-tabs a:active{background:linear-gradient(135deg,var(--accent),var(--primary));color:#fff;}
+
+/* --- Mission as a status panel --- */
+.mission-inner{background:var(--glass);border:1px solid var(--glass-border);border-inline-start:3px solid var(--accent);border-radius:1rem;padding:clamp(1.5rem,4vw,2.5rem);}
+
+/* --- Continuity filters as a segmented control (real page uses selects) --- */
+.ct-filters{width:fit-content;max-width:100%;margin-inline:auto;background:var(--glass);border:1px solid var(--glass-border);border-radius:.8rem;padding:.3rem;}
+.ct-filter{border:none;background:transparent;cursor:default;}
+.ct-filter.active{background:rgba(77,163,255,.16);color:#8FC7FF;box-shadow:inset 0 0 0 1px rgba(77,163,255,.35);}
+[data-theme="light"] .ct-filter.active{color:var(--primary);}
+
+/* --- Team-performance table header like the real perf table --- */
+.tp-table thead th{background:#F8FAFD;}
+.tp-table tbody tr{cursor:default;}
+.tp-table td .status{font-size:.58rem;}
+
+/* --- Comparison panels carry a status top-border --- */
+.compare-col.without{border-top:3px solid var(--danger);}
+.compare-col.with{border-top:3px solid var(--success);}
+
+/* --- Pricing cards: dashboard panel header strip --- */
+.plan-card{overflow:hidden;}
+.plan-card::before{content:"";position:absolute;top:0;inset-inline:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--primary));opacity:.85;}
+.plan-card.featured::before{opacity:1;}
+
+/* --- FAQ rows: open row gets the accent edge --- */
+.faq-item{border-inline-start:3px solid transparent;}
+.faq-item[open]{border-inline-start-color:var(--accent);}
+
 </style>
   <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
   <link rel="stylesheet" href="/assets/responsive-global.css">
@@ -882,11 +967,25 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
             </div>
             <div class="frame-brand"><span>مساحة العمل</span><span class="frame-brand-mark"><img src="assets/images/mad3oom-robot.png" alt="بوت مدعوم"></span></div>
           </div>
-          <div class="frame-body">
+          <div class="frame-body console-body">
+            <div class="console-rail" aria-hidden="true">
+              <span class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M12 11V7a2 2 0 114 0"/></svg></span>
+              <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></span>
+              <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
+              <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg></span>
+            </div>
+            <div class="console-main">
             <div class="hero-mock-head"><h5>تذاكر اليوم</h5><span class="hero-live"><i></i> نشاط حي الآن</span></div>
+            <div class="ws-tabs console-tabs">
+              <button type="button" class="ws-tab active">التذاكر</button>
+              <button type="button" class="ws-tab">المحادثات</button>
+              <button type="button" class="ws-tab">التقارير</button>
+            </div>
             <div class="ui-tstats">
               <div class="ui-stat-chip"><b>15</b><span>مفتوحة</span></div>
               <div class="ui-stat-chip"><b>29</b><span>الإجمالي</span></div>
+              <div class="ui-stat-chip"><b>1.4<small style="font-size:.5rem;">ساعة</small></b><span>متوسط أول رد</span></div>
+              <div class="ui-stat-chip"><b>8</b><span>تم حلها</span></div>
             </div>
             <div class="ticket-list-mini">
               <div class="ticket-row active"><span class="status open">مفتوحة</span><div><strong>طلب اشتراك — باقة الدعم الفني</strong></div></div>
@@ -898,6 +997,7 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
               <div class="activity-row"><span class="ic" style="background:#8B5CF6;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></span> تم إنشاء <strong>تذكرة #0032</strong> تلقائياً</div>
               <div class="activity-row"><span class="ic" style="background:#2563EB;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span> <strong>أحمد</strong> استلم التذكرة وبدأ العمل</div>
             </div>
+            </div>
           </div>
         </div>
       </div>
@@ -908,6 +1008,22 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
     </div>
   </div>
 </header>
+
+<!-- ============ Console status bar: live status + dashboard tabs ============ -->
+<div class="console-bar-wrap">
+  <div class="container">
+    <div class="console-bar reveal">
+      <span class="console-live"><i></i> نشاط حي الآن</span>
+      <span class="console-meta">آخر تذكرة: <strong>#0032</strong></span>
+      <nav class="console-tabs" aria-label="أقسام المنصة">
+        <a href="#workspace">مساحة العمل</a>
+        <a href="#customer-history">سجل العميل</a>
+        <a href="#continuity">الاستمرارية</a>
+        <a href="#team-performance">أداء الفريق</a>
+      </nav>
+    </div>
+  </div>
+</div>
 
 <!-- ============ Philosophy ============ -->
 <section class="mission">
@@ -981,6 +1097,25 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
     <div class="section-head reveal">
       <div class="eyebrow"><span class="dot"></span> هذا هو المنتج الحقيقي</div>
       <h2><span class="gradient-text">هذا ما سيستخدمه فريقك فعلاً</span></h2>
+    </div>
+
+    <div class="kpi-strip reveal" role="group" aria-label="مؤشرات لوحة التحكم">
+      <div class="kpi-card">
+        <span class="kpi-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M12 11V7a2 2 0 114 0"/></svg></span>
+        <div class="kpi-info"><span class="kpi-label">تذاكر مفتوحة</span><span class="kpi-value">15</span><span class="kpi-sub">من إجمالي 29 تذكرة</span></div>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
+        <div class="kpi-info"><span class="kpi-label">إجمالي التذاكر</span><span class="kpi-value">29</span><span class="kpi-sub">آخر 7 أيام</span></div>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-ic ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+        <div class="kpi-info"><span class="kpi-label">متوسط أول رد</span><span class="kpi-value">1.4 <small>ساعة</small></span><span class="kpi-sub">تحسّن 18% في وقت الاستجابة</span></div>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-ic ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></span>
+        <div class="kpi-info"><span class="kpi-label">المحلولة</span><span class="kpi-value">8</span><span class="kpi-sub">متوسط زمن الحل 5.2 ساعة</span></div>
+      </div>
     </div>
 
     <!-- Section 1: Dashboard -->
@@ -1255,6 +1390,13 @@ body::after{background-image:radial-gradient(var(--dot-color) 1px, transparent 1
       <div class="eyebrow"><span class="dot"></span> أعمق من لوحة تحكم</div>
       <h2>نظام عمل متكامل، <span class="gradient-text">وليس مجرد أدوات متفرقة</span></h2>
       <p>بعد أن تصل المشكلة جاهزة إلى فريقك، تبدأ مدعوم العمل الحقيقي: مساحة عمل واحدة، وسجل كامل لكل عميل، ومتابعة لا تتوقف حتى الحل، وأداء يُقاس لحظة بلحظة.</p>
+    </div>
+
+    <div class="platform-tabs reveal" role="navigation" aria-label="أقسام نظام العمل">
+      <a href="#workspace">مساحة العمل</a>
+      <a href="#customer-history">سجل العميل</a>
+      <a href="#continuity">الاستمرارية</a>
+      <a href="#team-performance">أداء الفريق</a>
     </div>
 
     <!-- Workspace -->

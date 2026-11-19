@@ -8,7 +8,7 @@ export const EVENT_LABELS = Object.freeze({
     'auth.login_failed': 'محاولة دخول فاشلة',
     'auth.failed_burst': 'تكرار محاولات فاشلة',
     'auth.session_ended': 'خروج / انتهاء جلسة',
-    'ip.shared': 'IP مشترك بين حسابات',
+    'ip.shared': 'عنوان مشترك بين حسابات',
     'step_up.verified': 'فتح جلسة تحرير',
     'step_up.failed': 'رمز تحقق خاطئ',
     'step_up.ended': 'إنهاء جلسة تحرير',
@@ -86,7 +86,7 @@ export function policyPayload({ minutes, passwordLocked, emailLocked, loginAlert
     const m = int(minutes);
     if (!Number.isInteger(m) || m < 1 || m > 240) return { ok: false, message: 'مدة جلسة التحرير بين 1 و240 دقيقة.' };
     const w = int(sharedWindow);
-    if (!Number.isInteger(w) || w < 1 || w > 365) return { ok: false, message: 'نافذة IP المشترك بين 1 و365 يومًا.' };
+    if (!Number.isInteger(w) || w < 1 || w > 365) return { ok: false, message: 'نافذة العناوين المشتركة بين 1 و365 يومًا.' };
     const f = int(failThreshold);
     if (!Number.isInteger(f) || f < 3 || f > 50) return { ok: false, message: 'حد المحاولات الفاشلة بين 3 و50.' };
     return { ok: true, payload: { step_up_minutes: m, password_change_locked: !!passwordLocked, email_change_locked: !!emailLocked,

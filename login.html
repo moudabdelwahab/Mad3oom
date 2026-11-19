@@ -1255,10 +1255,35 @@
     waitlistSuccessText
   } from '/assets/js/registration-mode.js';
   import { reportLoginFailure } from '/assets/js/security/login-report.js';
+  import {
+    createAuthStorage,
+    getRememberMeChoice,
+    setRememberMeChoice,
+    restoreRememberMeChoice,
+    purgeSessionFromInactiveStorage
+  } from '/assets/js/auth-storage.js';
 
   const SUPABASE_URL = 'https://srnelrdpqkcntbgudyto.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_0pvB8_xD0txjdJBkYqXMyg__jKMw71W';
-  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+  // auth.storage محوّل ديناميكي حسب «تذكرني» (assets/js/auth-storage.js):
+  // localStorage عند اختياره، وsessionStorage عند عدمه. بدونه كان Supabase
+  // يستخدم localStorage دائمًا، وcheckbox «تذكرني» لم يكن يُقرأ أصلًا،
+  // فكانت كل الجلسات دائمة سواء اختاره المستخدم أم لا.
+  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: createAuthStorage() } });
+
+  // ══════════════════════════════════════════════════════════════
+  // «تذكرني» — قراءة الاختيار وعكسه في الـcheckbox.
+  // في وضع Pi النموذج مخفي فلا اختيار فعلي — يُحافَظ على السلوك السابق
+  // (جلسة دائمة) بدل تحويل مستخدمي Pi لجلسة مؤقتة دون أن يختاروا.
+  // ══════════════════════════════════════════════════════════════
+  function readRememberMeChoice() {
+    if (document.documentElement.hasAttribute('data-pi-mode')) return true;
+    return document.getElementById('remember')?.checked === true;
+  }
+  if (getRememberMeChoice() === true) {
+    const rememberEl = document.getElementById('remember');
+    if (rememberEl) rememberEl.checked = true;
+  }
 
   let _handlingAuthManually = false;
   let _pendingLoginData = null;
@@ -1522,6 +1547,11 @@
 
     sessionStorage.removeItem('just_logged_out');
 
+    // دخول عبر OAuth (Google/GitHub) بعد العودة من المزوّد: العلامة ضُبطت
+    // قبل المغادرة، والجلسة الجديدة في التخزين المختار — امسح أي جلسة
+    // قديمة من التخزين الآخر.
+    purgeSessionFromInactiveStorage();
+
     const { data: existing } = await supabase
       .from('profiles')
       .select('id, role')
@@ -1769,6 +1799,11 @@
     setLoading(btn, true, 'تسجيل الدخول');
     _handlingAuthManually = true;
 
+    // «تذكرني»: تُضبط العلامة قبل signInWithPassword فقط، وتُستعاد عند
+    // الفشل؛ ويُمسح التخزين الآخر بعد النجاح (انظر أسفل).
+    let previousRememberChoice;
+    let rememberApplied = false;
+
     try {
       // ── تحديد نوع المُدخل (إيميل / رقم هاتف / اسم مستخدم) وتحويله
       // لإيميل فعلي قبل تسجيل الدخول، عن طريق دوال RPC آمنة (نتيجة
@@ -1831,6 +1866,13 @@
         }
       }
 
+      // تُضبط علامة «تذكرني» *قبل* إنشاء الجلسة حتى يكتب Supabase
+      // التوكن في التخزين الصحيح (localStorage عند اختياره، وsessionStorage
+      // عند عدمه).
+      const rememberMe = readRememberMeChoice();
+      previousRememberChoice = getRememberMeChoice();
+      setRememberMeChoice(rememberMe);
+
       const { data, error } = await withTimeout(
         supabase.auth.signInWithPassword({ email, password: pw }),
         10000,
@@ -1838,6 +1880,9 @@
       );
 
       if (error) {
+        // فشل الدخول: أعد العلامة لقيمتها السابقة حتى لا تُفقِد المحاولة
+        // جلسة قديمة صالحة.
+        restoreRememberMeChoice(previousRememberChoice);
         // سجل الأمان (121): محاولة فاشلة بالبريد والسبب فقط — لا ينتظرها الدخول
         reportLoginFailure(supabase, email, error);
         const msgs = {
@@ -1848,6 +1893,11 @@
         showToast(msgs[error.message] || error.message);
         return;
       }
+
+      // نجح الدخول: الجلسة الجديدة في التخزين المختار — امسح أي جلسة
+      // قديمة من التخزين الآخر (مثال: جلسة دائمة قديمة + دخول دون «تذكرني»).
+      rememberApplied = true;
+      purgeSessionFromInactiveStorage();
 
       const { data: profile, error: profileError } = await withTimeout(
         supabase
@@ -1908,6 +1958,11 @@
 
     } catch (err) {
       console.error('Login flow error:', err);
+      // فشل الدخول قبل اكتماله: أعد علامة «تذكرني» لقيمتها السابقة حتى
+      // لا تُفقِد المحاولة جلسة قديمة صالحة.
+      if (!rememberApplied && previousRememberChoice !== undefined) {
+        restoreRememberMeChoice(previousRememberChoice);
+      }
       showToast(err.message || 'حدث خطأ غير متوقع، حاول مرة أخرى');
     } finally {
       _handlingAuthManually = false;
@@ -2215,6 +2270,12 @@
   // GOOGLE LOGIN
   // ══════════════════════════════════════════════════════════════
   async function googleSignIn() {
+    // تُضبط علامة «تذكرني» قبل المغادرة إلى المزوّد؛ فعند العودة يقرأ
+    // العميل العلامة نفسها فيحفظ الجلسة في التخزين المختار، ويُمسح
+    // التخزين الآخر في معالج SIGNED_IN.
+    const rememberMe = readRememberMeChoice();
+    const previousRememberChoice = getRememberMeChoice();
+    setRememberMeChoice(rememberMe);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -2222,7 +2283,10 @@
         queryParams: { access_type: 'offline', prompt: 'consent' }
       }
     });
-    if (error) showToast('حدث خطأ أثناء تسجيل الدخول بـ Google: ' + error.message);
+    if (error) {
+      restoreRememberMeChoice(previousRememberChoice);
+      showToast('حدث خطأ أثناء تسجيل الدخول بـ Google: ' + error.message);
+    }
   }
 
   document.querySelectorAll('.btn-google').forEach(btn => {
@@ -2233,13 +2297,20 @@
   // GITHUB LOGIN
   // ══════════════════════════════════════════════════════════════
   async function githubSignIn() {
+    // «تذكرني»: كـ Google أعلاه — العلامة قبل المغادرة، والمسح عند العودة.
+    const rememberMe = readRememberMeChoice();
+    const previousRememberChoice = getRememberMeChoice();
+    setRememberMeChoice(rememberMe);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'github',
       options: {
         redirectTo: window.location.origin + window.location.pathname
       }
     });
-    if (error) showToast('حدث خطأ أثناء تسجيل الدخول بـ GitHub: ' + error.message);
+    if (error) {
+      restoreRememberMeChoice(previousRememberChoice);
+      showToast('حدث خطأ أثناء تسجيل الدخول بـ GitHub: ' + error.message);
+    }
   }
 
   document.querySelectorAll('.btn-github').forEach(btn => {
@@ -2414,6 +2485,9 @@
       throw new Error('فشل إنشاء الجلسة: ' + (setErr?.message || 'لا جلسة'));
     }
 
+    // نجح إنشاء الجلسة في التخزين المختار — امسح أي جلسة قديمة من الآخر.
+    purgeSessionFromInactiveStorage();
+
     if (currentSubdomain) {
       const check = await checkSubdomainOwnership(otp.session.access_token);
       if (!check.ok) {
@@ -2441,10 +2515,16 @@
 
   async function triggerPiAuth(panel) {
     setPiLoading(panel, true);
+    // «تذكرني»: تُضبط العلامة قبل إنشاء الجلسة عبر verifyOtp، وتُستعاد
+    // عند الفشل؛ ويُمسح التخزين الآخر بعد نجاح verifyOtp.
+    const rememberMe = readRememberMeChoice();
+    const previousRememberChoice = getRememberMeChoice();
+    setRememberMeChoice(rememberMe);
     try {
       const piResult = await piService.authenticate();
       await handlePiAuthResult(piResult);
     } catch (err) {
+      restoreRememberMeChoice(previousRememberChoice);
       setPiLoading(panel, false);
       const msg = err?.message || '';
       if (msg.toLowerCase().includes('cancel') || msg.toLowerCase().includes('user closed')) {

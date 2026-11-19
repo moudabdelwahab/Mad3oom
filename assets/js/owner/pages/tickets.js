@@ -77,7 +77,7 @@ async function loadKpis() {
         ['قيد المعالجة', v(progress), ''],
         ['غير مسندة', v(unassigned), unassigned.count ? 'kpi--warning' : ''],
         ['أولوية عالية', v(high), high.count ? 'kpi--warning' : ''],
-        ['متأخرة عن SLA', v(overdue), overdue.count ? 'kpi--danger' : '']
+        ['متأخرة عن موعد الحل', v(overdue), overdue.count ? 'kpi--danger' : '']
     ]);
 }
 
@@ -156,7 +156,7 @@ async function openTicket(id) {
             <div><dt>التصنيف</dt><dd>${esc(t.category || '—')}</dd></div>
             <div><dt>أُنشئت</dt><dd>${esc(when(t.created_at))}</dd></div>
             <div><dt>أول رد</dt><dd>${esc(when(t.first_response_at))}</dd></div>
-            <div><dt>موعد الحل (SLA)</dt><dd>${esc(when(t.sla_resolution_due_at))}${overdue(t) ? ' <span class="pill status-rejected">متأخرة</span>' : ''}</dd></div>
+            <div><dt>موعد الحل المتفق عليه</dt><dd>${esc(when(t.sla_resolution_due_at))}${overdue(t) ? ' <span class="pill status-rejected">متأخرة</span>' : ''}</dd></div>
             <div><dt>مرات إعادة الفتح</dt><dd>${esc(num(t.reopen_count || 0))}</dd></div>
         </dl>
 

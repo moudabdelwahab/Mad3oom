@@ -105,7 +105,7 @@ async function render() {
         ['عليها قيد حظر', acc.value ? num(acc.value.restricted) : '—', acc.value?.restricted ? 'kpi--warning' : ''],
         ['الشركات', comp.value === null || comp.value === undefined ? '—' : num(comp.value), ''],
         ['تذاكر مفتوحة', tix.value ? num(tix.value.open) : '—', 'kpi--info'],
-        ['متأخرة عن SLA', tix.value ? num(tix.value.overdue) : '—', tix.value?.overdue ? 'kpi--danger' : ''],
+        ['متأخرة عن موعد الحل', tix.value ? num(tix.value.overdue) : '—', tix.value?.overdue ? 'kpi--danger' : ''],
         ['اشتراكات فعّالة', subs.value ? num(subs.value.active) : '—', 'kpi--success'],
         ['تنتهي خلال 7 أيام', subs.value ? num(subs.value.expiring) : '—', subs.value?.expiring ? 'kpi--warning' : '']
     ]);
