@@ -9,6 +9,9 @@
  *   • أقصى مدة 3 دقائق ثم يتوقف تلقائيًا.
  *   • الإيقاف/الإلغاء يطفئ الميكروفون دائمًا (tracks.stop) — لا مؤشر
  *     تسجيل عالق في المتصفح.
+ *   • الإيقاف أثناء انتظار الإذن = إلغاء (لا تسجيل بعد ليُوقف).
+ *   • الإيقاف له حارس زمني (1.2ث): لو onstop لم يُطلق أبدًا يُنهى الإيقاف
+ *     بدل التعليق في حالة 'recording' للأبد.
  *   • المتصفح بلا دعم: isVoiceRecordingSupported() = false والواجهة تخفي الزر.
  *   • maxBytes (اختياري، الافتراضي بلا حد): لو تجاوز ما سُجّل الحد يتوقف التسجيل ويُرفض
  *     كله بحالة error (reason: 'too_large') — لا يُقص أبدًا. onSize يبلّغ الحجم الحالي.
@@ -71,6 +74,9 @@ export class VoiceRecorder {
         this.chunks = [];
         this.startedAt = 0;
         this.timer = null;
+        this.stopGuard = null;
+        this.stopPromise = null; // إيقاف جارٍ: ضغطة ثانية تعيد الوعد نفسه
+        this._stopSettle = null;
         this.result = null;
     }
 
@@ -127,25 +133,45 @@ export class VoiceRecorder {
         return true;
     }
 
-    /** يوقف ويُرجع {blob, mime, durationMs} للمعاينة. */
+    /** يوقف ويُرجع {blob, mime, durationMs} للمعاينة.
+     *  أثناء انتظار الإذن ('requesting') الإيقاف = إلغاء: لا يوجد تسجيل
+     *  بعد ليُوقف، وstop() القديمة كانت لا تفعل شيئًا هنا فيُعلق المستخدم
+     *  بلا زر يلغي الانتظار. ولو onstop لم يُطلق أبدًا (سلوك بعض المتصفحات/
+     *  WebView) حارس زمني يُنهي الإيقاف بدل التعليق في 'recording' للأبد. */
     stop() {
+        if (this.state === 'requesting') { this.cancel(); return Promise.resolve(null); }
         if (this.state !== 'recording' || !this.recorder) return Promise.resolve(null);
+        if (this.stopPromise) return this.stopPromise; // إيقاف جارٍ بالفعل
         const durationMs = Math.min(this.maxMs, Date.now() - this.startedAt);
         clearInterval(this.timer);
-        return new Promise((resolve) => {
+        this.timer = null;
+        this.stopPromise = new Promise((resolve) => {
+            let done = false;
+            const settle = (value) => {
+                if (done) return;
+                done = true;
+                if (this.stopGuard) { clearTimeout(this.stopGuard); this.stopGuard = null; }
+                this.stopPromise = null;
+                this._stopSettle = null;
+                resolve(value);
+            };
+            this._stopSettle = settle;
             const finish = () => {
                 const mime = (this.recorder?.mimeType || this.chunks[0]?.type || 'audio/webm');
                 const blob = new Blob(this.chunks, { type: mime });
                 this.releaseStream();
-                if (blob.size > this.maxBytes) { this.rejectTooLarge(); resolve(null); return; }
+                if (blob.size > this.maxBytes) { this.rejectTooLarge(); settle(null); return; }
                 this.result = { blob, mime, durationMs };
-                if (!blob.size) { this.setState('error', { message: 'التسجيل فاضي — جرّب تاني.' }); resolve(null); return; }
+                if (!blob.size) { this.setState('error', { message: 'التسجيل فاضي — جرّب تاني.' }); settle(null); return; }
                 this.setState('stopped', this.result);
-                resolve(this.result);
+                settle(this.result);
             };
             this.recorder.onstop = finish;
+            // حارس: onstop لم يُطلق خلال 1.2ث → أنهِ الإيقاف بالقوة بدل التعليق.
+            this.stopGuard = setTimeout(finish, 1200);
             try { this.recorder.stop(); } catch { finish(); }
         });
+        return this.stopPromise;
     }
 
     /** تجاوز الحد: يوقف ويحذف كل ما سُجّل (لا قص)، ويحرر الميكروفون. */
@@ -153,6 +179,9 @@ export class VoiceRecorder {
         if (this.rejected) return;
         this.rejected = true;
         clearInterval(this.timer);
+        this.timer = null;
+        if (this.stopGuard) { clearTimeout(this.stopGuard); this.stopGuard = null; }
+        if (this._stopSettle) { const settle = this._stopSettle; this._stopSettle = null; this.stopPromise = null; settle(null); }
         if (this.recorder && this.recorder.state !== 'inactive') {
             this.recorder.onstop = null;
             try { this.recorder.stop(); } catch { /* already stopped */ }
@@ -166,6 +195,10 @@ export class VoiceRecorder {
     /** يلغي في أي مرحلة ويحذف ما سُجّل. */
     cancel() {
         clearInterval(this.timer);
+        this.timer = null;
+        if (this.stopGuard) { clearTimeout(this.stopGuard); this.stopGuard = null; }
+        // إيقاف معلّق (onstop لم يُطلق): سوِّ وعده بـ null بدل تركه معلقًا للأبد.
+        if (this._stopSettle) { const settle = this._stopSettle; this._stopSettle = null; this.stopPromise = null; settle(null); }
         if (this.recorder && this.recorder.state !== 'inactive') {
             this.recorder.onstop = null;
             try { this.recorder.stop(); } catch { /* already stopped */ }

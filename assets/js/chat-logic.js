@@ -65,6 +65,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // التسجيل الصوتي (voice-recorder.js — نفس وحدة الويدجت).
     let voiceRecorder = null;
     let voiceRecording = null; // {blob, mime, ext, durationMs, url} بعد الإيقاف وقبل الإرسال
+    // حارس واجهة للإيقاف: لو بقيت حالة 'recording' بعد طلب الإيقاف يُلغى
+    // التسجيل وتظهر رسالة (الحارس الأول داخل VoiceRecorder.stop نفسه).
+    let recordingStopWatchdog = null;
+    // آخر رسالة فشل إرسالها (لزر إعادة المحاولة — النص لا يضيع أبدًا).
+    let lastFailedSend = null; // { text, fields } | null
+    let isSending = false; // يمنع الإرسال المزدوج أثناء حفظ رسالة واحدة
 
     // ===== حالة الأفاتار — نفس نظام الويدجت حرفيا (chat-widget.js: setAvatarState
     // و speakBriefly)، مع إعادة توجيه الجذر إلى .chat-wrapper في هذه الصفحة. =====
@@ -111,6 +117,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             error: 'حدث خطأ — جرّب تاني',
             offline: 'غير متصل'
         }[state] || 'متصل الآن';
+        // اللوحة الجانبية تعرض الحالة نفسها («متصل» + نقطة خضراء).
+        const panelText = document.getElementById('panelStatusText');
+        if (panelText) {
+            panelText.textContent = {
+                idle: 'متصل',
+                thinking: 'يكتب الآن…',
+                speaking: 'يرد عليك الآن',
+                listening: 'يستمع إليك…',
+                attention: 'رسالة جديدة',
+                error: 'حدث خطأ',
+                offline: 'غير متصل'
+            }[state] || 'متصل';
+        }
+        const panelDot = document.getElementById('panelStatusDot');
+        if (panelDot) {
+            panelDot.className = 'panel-status-dot' + (
+                state === 'error' || state === 'offline' ? ' is-error'
+                : state === 'thinking' || state === 'listening' || state === 'attention' ? ' is-busy'
+                : state === 'speaking' ? ' is-speaking' : '');
+        }
     }
 
     // ===== INITIALIZATION =====
@@ -133,6 +159,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadBotSettings(); // رسالة الترحيب من bot_settings
         await loadCustomerChat();
         setupCustomerChatEventListeners();
+        setupAssistantPanel();
         renderImpersonationBanner();
         renderSidebarProfile();
         setupSidebar();
@@ -212,6 +239,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // الاشتراك في الرسائل الجديدة
         subscribeToSession(session.id);
         markActiveSessionInList();
+        if (assistantPanelOpen) loadAssistantPanelData();
     }
 
     function subscribeToSession(sessionId) {
@@ -474,6 +502,171 @@ document.addEventListener('DOMContentLoaded', async () => {
                     window.location.replace('/login.html');
                 }
             };
+        }
+    }
+
+    // ===== اللوحة الجانبية للمساعد (أفاتار قطني حي + أقسام ببيانات حقيقية) =====
+    // تفتح من رأس المحادثة (زر assistantPanelBtn) وتنزلق من الطرف المقابل
+    // للشريط الجانبي. كل محتواها من الجلسة الحالية والتذاكر — بلا أي بيانات
+    // وهمية: فراغ حقيقي يُعرض كنص «لا توجد…» لا برقم مختلق.
+    let assistantPanelOpen = false;
+    let assistantPanelLoading = false;
+
+    const PANEL_TICKET_STATUS = { open: 'مفتوحة', 'in-progress': 'قيد المعالجة', resolved: 'تم حلها', closed: 'مغلقة' };
+    const PANEL_TICKET_PRIORITY = { high: 'عالية', medium: 'متوسطة', low: 'منخفضة' };
+
+    function setupAssistantPanel() {
+        const openBtn = document.getElementById('assistantPanelBtn');
+        const closeBtn = document.getElementById('assistantPanelClose');
+        const backdrop = document.getElementById('assistantPanelBackdrop');
+        if (openBtn) openBtn.onclick = () => {
+            if (assistantPanelOpen) closeAssistantPanel();
+            else openAssistantPanel();
+        };
+        if (closeBtn) closeBtn.onclick = closeAssistantPanel;
+        if (backdrop) backdrop.onclick = closeAssistantPanel;
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && assistantPanelOpen) closeAssistantPanel();
+        });
+        document.querySelectorAll('#assistantPanel .panel-tab').forEach(btn => {
+            btn.onclick = () => switchAssistantPanelTab(btn.dataset.tab);
+        });
+        const newChatBtn = document.getElementById('panelNewChatBtn');
+        if (newChatBtn) newChatBtn.onclick = () => { closeAssistantPanel(); startNewCustomerChat(); };
+    }
+
+    function openAssistantPanel() {
+        const panel = document.getElementById('assistantPanel');
+        const backdrop = document.getElementById('assistantPanelBackdrop');
+        const openBtn = document.getElementById('assistantPanelBtn');
+        if (!panel) return;
+        assistantPanelOpen = true;
+        panel.classList.add('open');
+        panel.setAttribute('aria-hidden', 'false');
+        if (backdrop) backdrop.classList.add('open');
+        openBtn?.setAttribute('aria-expanded', 'true');
+        document.getElementById('assistantPanelClose')?.focus({ preventScroll: true });
+        loadAssistantPanelData();
+    }
+
+    function closeAssistantPanel() {
+        const panel = document.getElementById('assistantPanel');
+        const backdrop = document.getElementById('assistantPanelBackdrop');
+        const openBtn = document.getElementById('assistantPanelBtn');
+        if (!panel) return;
+        assistantPanelOpen = false;
+        panel.classList.remove('open');
+        panel.setAttribute('aria-hidden', 'true');
+        if (backdrop) backdrop.classList.remove('open');
+        openBtn?.setAttribute('aria-expanded', 'false');
+        openBtn?.focus({ preventScroll: true });
+    }
+
+    function switchAssistantPanelTab(tab) {
+        document.querySelectorAll('#assistantPanel .panel-tab').forEach(btn => {
+            const active = btn.dataset.tab === tab;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        document.querySelectorAll('#assistantPanel .panel-section').forEach(sec => {
+            sec.hidden = sec.dataset.section !== tab;
+        });
+    }
+
+    function setPanelLoading(loading) {
+        assistantPanelLoading = loading;
+        ['panelTasksList', 'panelSessionInfo', 'panelOverview'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && loading) el.innerHTML = '<p class="panel-empty">جاري التحميل…</p>';
+        });
+    }
+
+    /** بيانات حقيقية فقط: الجلسة الحالية (الحالة + عدد الرسائل + آخر رسالة)
+     *  وتذاكر العميل المفتوحة/قيد المعالجة (نفس أعمدة inbox-data.js). */
+    async function loadAssistantPanelData() {
+        if (!currentUser || assistantPanelLoading) return;
+        setPanelLoading(true);
+        try {
+            const sessionId = currentSessionId;
+            const [countRes, lastRes, ticketsRes] = await Promise.all([
+                sessionId
+                    ? supabase.from('chat_messages').select('id', { count: 'exact', head: true }).eq('session_id', sessionId)
+                    : Promise.resolve({ count: 0, error: null }),
+                sessionId
+                    ? supabase.from('chat_messages').select('message_text, created_at').eq('session_id', sessionId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+                    : Promise.resolve({ data: null, error: null }),
+                supabase.from('tickets')
+                    .select('id, ticket_number, title, status, priority, created_at, sla_resolution_due_at')
+                    .eq('user_id', currentUser.id)
+                    .in('status', ['open', 'in-progress'])
+                    .order('created_at', { ascending: false })
+                    .limit(10)
+            ]);
+            const messageCount = countRes.error ? null : (countRes.count ?? 0);
+            const lastMessage = lastRes.error ? null : lastRes.data;
+            const tickets = ticketsRes.error ? null : (ticketsRes.data || []);
+            renderAssistantPanel({ messageCount, lastMessage, tickets, ticketsError: !!ticketsRes.error });
+        } finally {
+            setPanelLoading(false);
+        }
+    }
+
+    function renderAssistantPanel({ messageCount, lastMessage, tickets, ticketsError }) {
+        const fmtDate = (iso) => {
+            const d = new Date(iso);
+            return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' });
+        };
+        const fmtTime = (iso) => {
+            const d = new Date(iso);
+            return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+        };
+        const sessionStatus = currentSession?.status === 'active' ? 'نشطة' : (currentSession ? 'مغلقة' : 'لا توجد جلسة');
+        const sessionStarted = currentSession ? fmtDate(currentSession.created_at) : '—';
+        const countText = messageCount === null ? '—' : String(messageCount);
+        const lastText = lastMessage?.message_text
+            ? `${escapeHtml(lastMessage.message_text)} · ${escapeHtml(fmtTime(lastMessage.created_at))}`
+            : 'لا توجد رسائل بعد';
+
+        const overviewEl = document.getElementById('panelOverview');
+        if (overviewEl) {
+            overviewEl.innerHTML = `
+                <div class="panel-fact"><span>حالة المحادثة</span><strong>${escapeHtml(sessionStatus)}</strong></div>
+                <div class="panel-fact"><span>بدأت في</span><strong>${escapeHtml(sessionStarted)}</strong></div>
+                <div class="panel-fact"><span>عدد الرسائل</span><strong>${escapeHtml(countText)}</strong></div>
+                <div class="panel-fact"><span>تذاكر مفتوحة</span><strong>${tickets === null ? '—' : String(tickets.length)}</strong></div>
+                <p class="panel-last">آخر رسالة: ${lastText}</p>`;
+        }
+
+        const tasksEl = document.getElementById('panelTasksList');
+        if (tasksEl) {
+            if (tickets === null) {
+                tasksEl.innerHTML = `<p class="panel-empty">${ticketsError ? 'تعذّر تحميل التذاكر. جرّب تاني.' : 'لا توجد تذاكر مفتوحة.'}</p>`;
+            } else if (!tickets.length) {
+                tasksEl.innerHTML = '<p class="panel-empty">لا توجد تذاكر مفتوحة — كل مهامك منجزة.</p>';
+            } else {
+                tasksEl.innerHTML = tickets.map(t => `
+                    <a class="panel-task" href="/customer-dashboard.html#tickets">
+                        <span class="panel-task-top">
+                            <span class="panel-task-title">${escapeHtml(t.title || 'تذكرة')}</span>
+                            <span class="panel-task-num">#${escapeHtml(String(t.ticket_number ?? ''))}</span>
+                        </span>
+                        <span class="panel-task-meta">
+                            <span class="panel-pill">${escapeHtml(PANEL_TICKET_STATUS[t.status] || t.status)}</span>
+                            ${t.priority ? `<span class="panel-pill">أولوية ${escapeHtml(PANEL_TICKET_PRIORITY[t.priority] || t.priority)}</span>` : ''}
+                            ${t.sla_resolution_due_at ? `<span>يُحل بحلول ${escapeHtml(fmtDate(t.sla_resolution_due_at))}</span>` : ''}
+                        </span>
+                    </a>`).join('');
+            }
+        }
+
+        const sessionEl = document.getElementById('panelSessionInfo');
+        if (sessionEl) {
+            sessionEl.innerHTML = `
+                <div class="panel-fact"><span>الحالة</span><strong>${escapeHtml(sessionStatus)}</strong></div>
+                <div class="panel-fact"><span>بدأت في</span><strong>${escapeHtml(sessionStarted)}</strong></div>
+                <div class="panel-fact"><span>عدد الرسائل</span><strong>${escapeHtml(countText)}</strong></div>
+                <div class="panel-fact"><span>رقم الجلسة</span><strong dir="ltr">${escapeHtml(String(currentSessionId || '—').slice(0, 8))}</strong></div>
+                <p class="panel-last">آخر رسالة: ${lastText}</p>`;
         }
     }
 
@@ -746,6 +939,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ===== التسجيل الصوتي — نفس وحدة الويدجت (voice-recorder.js، حد 3 دقائق) =====
     // التسجيل يُرسل كمرفق صوتي عادي عبر نفس خط أنابيب المرفقات
     // (validateFile/uploadAttachment/messageFieldsFor)، بلا مسار منفصل.
+    //
+    // قواعد الربط (بعد إصلاح الشريط العالق):
+    //  • زر X (recCancelBtn) ظاهر أثناء انتظار الإذن والتسجيل، ويلغي في أي حالة.
+    //  • زر الإيقاف أثناء انتظار الإذن = إلغاء (stop() كانت لا تفعل شيئًا
+    //    في حالة 'requesting' فيُعلق المستخدم بلا مخرج).
+    //  • الشريط لا يظهر ولا يعمل المؤقت إلا بعد بدء تسجيل حقيقي؛ حالة
+    //    'requesting' لها وضعها الخاص في الشريط (تسمية الانتظار + زر X فقط).
+    //  • نص «بانتظار إذن الميكروفون…» يعيش داخل الشريط نفسه، لا في حالة
+    //    المُنشئ — كان يبقى ظاهرًا فوق الشريط حتى أثناء التسجيل.
     function setupVoiceRecording() {
         const micBtn = document.getElementById('chatMicBtn');
         if (!micBtn) return;
@@ -755,8 +957,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         micBtn.onclick = () => {
             if (!currentSessionId || !currentUser || micBtn.disabled) return;
-            if (voiceRecorder && (voiceRecorder.state === 'recording' || voiceRecorder.state === 'requesting')) {
-                voiceRecorder.stop();
+            if (voiceRecorder?.state === 'recording') {
+                stopVoiceRecording();
+            } else if (voiceRecorder?.state === 'requesting') {
+                cancelVoiceRecording();
             } else {
                 startVoiceRecording();
             }
@@ -766,13 +970,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         const stopBtn = document.getElementById('recStopBtn');
         const discardBtn = document.getElementById('recDiscardBtn');
         const sendBtn = document.getElementById('recSendBtn');
-        if (cancelBtn) cancelBtn.onclick = () => voiceRecorder?.cancel();
-        if (stopBtn) stopBtn.onclick = () => voiceRecorder?.stop();
+        if (cancelBtn) cancelBtn.onclick = cancelVoiceRecording;
+        if (stopBtn) stopBtn.onclick = stopVoiceRecording;
         if (discardBtn) discardBtn.onclick = discardVoiceRecording;
         if (sendBtn) sendBtn.onclick = sendVoiceRecording;
     }
 
     async function startVoiceRecording() {
+        // دفاعي: لا تسجيلين متوازيين — ألغِ أي تسجيل/انتظار سابق أولًا.
+        if (voiceRecorder && (voiceRecorder.state === 'recording' || voiceRecorder.state === 'requesting')) {
+            voiceRecorder.cancel();
+        }
         discardVoiceRecording();
         if (!voiceRecorder) {
             voiceRecorder = new VoiceRecorder({
@@ -787,20 +995,59 @@ document.addEventListener('DOMContentLoaded', async () => {
         await voiceRecorder.start();
     }
 
+    /** زر X (أو زر الميكروفون أثناء الانتظار): يلغي التسجيل/الانتظار
+     *  ويخفي الشريط فورًا في أي حالة — تسجيل جارٍ، انتظار إذن، أو معاينة. */
+    function cancelVoiceRecording() {
+        clearRecordingStopWatchdog();
+        if (voiceRecorder && (voiceRecorder.state === 'recording' || voiceRecorder.state === 'requesting')) {
+            voiceRecorder.cancel(); // onRecorderState('idle') يخفي الشريط
+            return;
+        }
+        discardVoiceRecording(); // معاينة فقط: احذفها وأخفِ الشريط
+    }
+
+    /** زر الإيقاف الأحمر: أثناء انتظار الإذن = إلغاء؛ أثناء التسجيل =
+     *  إيقاف للمعاينة، مع حارس يلغي التسجيل لو علق الإيقاف. */
+    function stopVoiceRecording() {
+        if (!voiceRecorder) return;
+        if (voiceRecorder.state === 'requesting') { cancelVoiceRecording(); return; }
+        if (voiceRecorder.state !== 'recording') return;
+        clearRecordingStopWatchdog();
+        voiceRecorder.stop();
+        recordingStopWatchdog = setTimeout(() => {
+            recordingStopWatchdog = null;
+            if (voiceRecorder?.state === 'recording') {
+                voiceRecorder.cancel();
+                setComposerStatus('تعذّر إيقاف التسجيل، وتم إلغاؤه. جرّب تاني.', 'error');
+            }
+        }, 2500);
+    }
+
+    function clearRecordingStopWatchdog() {
+        if (recordingStopWatchdog) { clearTimeout(recordingStopWatchdog); recordingStopWatchdog = null; }
+    }
+
     function onRecorderState(state, detail) {
         const micBtn = document.getElementById('chatMicBtn');
         if (state === 'error') {
+            clearRecordingStopWatchdog();
             showRecorderBar(null);
             setComposerStatus(detail?.message || 'تعذّر التسجيل.', 'error');
             if (micBtn) micBtn.classList.remove('is-recording');
             setAvatarState('idle');
         } else if (state === 'recording') {
             showRecorderBar('recording');
+            setComposerStatus(''); // امسح «بانتظار إذن الميكروفون…» — الإذن مُنح بالفعل
             if (micBtn) micBtn.classList.add('is-recording');
             setAvatarState('listening');
         } else if (state === 'requesting') {
-            setComposerStatus('بانتظار إذن الميكروفون…');
+            // الشريط يظهر الآن أثناء انتظار الإذن — بزر X يعمل — بدل بقاء
+            // نص الانتظار وحده بلا أي زر يلغي.
+            showRecorderBar('requesting');
+            if (micBtn) micBtn.classList.add('is-recording');
+            setAvatarState('listening');
         } else if (state === 'stopped' && detail) {
+            clearRecordingStopWatchdog();
             const check = validateFile({ name: '', type: detail.mime, size: detail.blob.size }, 'audio');
             if (!check.ok) {
                 showRecorderBar(null);
@@ -814,17 +1061,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (micBtn) micBtn.classList.remove('is-recording');
             setAvatarState('idle');
         } else if (state === 'idle') {
+            clearRecordingStopWatchdog();
             showRecorderBar(null);
             if (micBtn) micBtn.classList.remove('is-recording');
             if (avatarState === 'listening') setAvatarState('idle');
         }
     }
 
-    /** شريط التسجيل: 'recording' (مؤقت + إيقاف) أو 'preview' (معاينة + إرسال) أو null (مخفي). */
+    /** شريط التسجيل: 'requesting' (انتظار إذن + زر X) أو 'recording'
+     *  (مؤقت + إيقاف) أو 'preview' (معاينة + إرسال) أو null (مخفي).
+     *  الإخفاء يوقف صوت المعاينة ويمسح مصدره حتى لا يبقى يشتغل خفية. */
     function showRecorderBar(mode) {
         const bar = document.getElementById('chatRecorderBar');
         if (!bar) return;
         const isPreview = mode === 'preview';
+        const isRequesting = mode === 'requesting';
         bar.hidden = !mode;
         bar.classList.toggle('is-preview', isPreview);
         const setHidden = (id, hidden) => {
@@ -833,26 +1084,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
         setHidden('recCancelBtn', isPreview);
         setHidden('recStatusWrap', isPreview);
-        setHidden('recStopBtn', isPreview);
+        setHidden('recStopBtn', isPreview || isRequesting);
         setHidden('recPreviewAudio', !isPreview);
         setHidden('recDuration', !isPreview);
         setHidden('recDiscardBtn', !isPreview);
         setHidden('recSendBtn', !isPreview);
+        const label = document.getElementById('recLabel');
+        if (label) label.textContent = isRequesting ? 'بانتظار إذن الميكروفون…' : 'جاري التسجيل';
         if (isPreview && voiceRecording) {
             const audio = document.getElementById('recPreviewAudio');
             const duration = document.getElementById('recDuration');
             if (audio) audio.src = voiceRecording.url;
             if (duration) duration.textContent = formatDuration(voiceRecording.durationMs);
         }
-        if (mode === 'recording') {
+        if (mode === 'recording' || isRequesting) {
             const timer = document.getElementById('recTimer');
             if (timer) timer.textContent = '0:00';
+        }
+        if (!mode) {
+            const audio = document.getElementById('recPreviewAudio');
+            if (audio) { audio.pause(); audio.removeAttribute('src'); audio.load(); }
         }
     }
 
     function discardVoiceRecording() {
+        // ألغِ رابط المعاينة أولًا دائمًا حتى لا يتسرب، ثم ألغِ أي
+        // تسجيل/انتظار نشط (كان الحذف يخفي الشريط فقط ويترك المسجّل يعمل).
         if (voiceRecording?.url) URL.revokeObjectURL(voiceRecording.url);
         voiceRecording = null;
+        if (voiceRecorder && (voiceRecorder.state === 'recording' || voiceRecorder.state === 'requesting')) {
+            voiceRecorder.cancel();
+            return; // onRecorderState('idle') يخفي الشريط
+        }
         showRecorderBar(null);
     }
 
@@ -875,6 +1138,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (sendBtn) {
             sendBtn.onclick = () => sendCustomerMessage();
+        }
+
+        // شريط خطأ الإرسال: إعادة المحاولة تعيد إرسال الرسالة المحفوظة،
+        // والإغلاق يخفي الشريط فقط (الرسالة تبقى في صندوق الإدخال).
+        const sendRetryBtn = document.getElementById('chatSendRetryBtn');
+        if (sendRetryBtn) sendRetryBtn.onclick = retryFailedSend;
+        const sendDismissBtn = document.getElementById('chatSendDismissBtn');
+        if (sendDismissBtn) {
+            sendDismissBtn.onclick = () => {
+                lastFailedSend = null;
+                hideSendError();
+            };
         }
 
         if (chatInput) {
@@ -1016,6 +1291,113 @@ document.addEventListener('DOMContentLoaded', async () => {
         await postNotice('sie_unavailable');
     }
 
+    // ===== SEND FAILURE UI: خطأ واضح + زر إعادة محاولة + المسودة لا تضيع =====
+    // قبل الإصلاح كان فشل الإرسال يظهر سطرًا عابرًا بلا زر إعادة، ويبقى
+    // الأفاتار في حالة 'error' للأبد، ورسالة الرد السريع (presetText) تضيع
+    // تمامًا؛ ولو لم توجد جلسة أصلًا كان الإرسال يفشل بصمت بلا أي رسالة.
+    function showSendError(text) {
+        const bar = document.getElementById('chatSendError');
+        const label = document.getElementById('chatSendErrorText');
+        if (label) label.textContent = text;
+        if (bar) bar.hidden = false;
+    }
+
+    function hideSendError() {
+        const bar = document.getElementById('chatSendError');
+        if (bar) bar.hidden = true;
+        if (avatarState === 'error') setAvatarState('idle');
+    }
+
+    /** رسالة خطأ مفهومة حسب السبب الفعلي (بدل «فشل الإرسال. جرّب تاني.» لكل شيء). */
+    function friendlySendErrorText(err, opts = {}) {
+        if (opts.noSession) {
+            return isImpersonated
+                ? 'تعذّر فتح محادثة باسم هذا العضو أثناء «الدخول كعضو» — صلاحيات قاعدة البيانات تمنع إنشاء الجلسة. افتح المحادثة من حساب العضو نفسه.'
+                : 'تعذّر فتح المحادثة. اضغط «إعادة المحاولة» وستُعاد المحاولة تلقائيًا.';
+        }
+        if (opts.closedSession) return 'هذه المحادثة مغلقة. ابدأ محادثة جديدة للمتابعة.';
+        const code = String(err?.code || '');
+        const msg = String(err?.message || '');
+        if (code === '42501' || /row-level security/i.test(msg)) {
+            return isImpersonated
+                ? 'تعذّر الإرسال أثناء «الدخول كعضو»: صلاحيات قاعدة البيانات تمنع الكتابة باسم عضو آخر. افتح المحادثة من حساب العضو نفسه.'
+                : 'تعذّر الإرسال بسبب صلاحيات الحساب. تأكد من تفعيل حسابك ثم اضغط «إعادة المحاولة».';
+        }
+        if (err instanceof TypeError || /Failed to fetch|NetworkError|network|timeout/i.test(msg)) {
+            return 'تعذّر الاتصال بالخادم. تحقق من الإنترنت واضغط «إعادة المحاولة» — رسالتك محفوظة.';
+        }
+        return 'فشل إرسال الرسالة. رسالتك محفوظة — اضغط «إعادة المحاولة».';
+    }
+
+    /** يعيد فتح/إنشاء الجلسة النشطة بعد فشل تحميلها (يُستخدم عند إعادة
+     *  المحاولة بلا جلسة). يرجع true لو أصبحت هناك جلسة مفتوحة. */
+    async function recoverCustomerSession() {
+        if (!currentUser) return false;
+        const { data: session } = await supabase
+            .from('chat_sessions')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .eq('status', 'active')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+        if (session) {
+            await openSession(session);
+            await loadCustomerSessions();
+            return true;
+        }
+        const { data: created, error } = await supabase
+            .from('chat_sessions')
+            .insert({ user_id: currentUser.id, status: 'active' })
+            .select()
+            .single();
+        if (error || !created) {
+            console.error('خطأ في استعادة جلسة دردشة:', error);
+            return false;
+        }
+        await openSession(created);
+        await loadCustomerSessions();
+        return true;
+    }
+
+    /** زر «إعادة المحاولة»: يعيد إرسال آخر رسالة فاشلة كما هي (نصًا أو
+     *  مرفقًا)، ويستعيد الجلسة أولًا لو كانت مفقودة. */
+    async function retryFailedSend() {
+        const failed = lastFailedSend;
+        if (!failed) { hideSendError(); return; }
+        lastFailedSend = null;
+        hideSendError();
+        setAvatarState('idle');
+        if (!currentSessionId) {
+            const recovered = await recoverCustomerSession();
+            if (!recovered) {
+                lastFailedSend = failed;
+                setAvatarState('error');
+                showSendError(friendlySendErrorText(null, { noSession: true }));
+                return;
+            }
+        }
+        const chatInput = document.getElementById('chatInput');
+        // مرّر النص كما هو حتى لو كان '' (مرفق بلا نص): تمرير undefined
+        // كان سيجعل الإرسال يقرأ صندوق الإدخال بدل المرفق المحفوظ.
+        let ok = false;
+        try {
+            ok = await sendCustomerMessage(
+                failed.text,
+                failed.fields ? { fields: failed.fields } : {}
+            );
+        } catch (err) {
+            // استثناء غير متوقع أثناء إعادة المحاولة: الرسالة تبقى محفوظة
+            // وقابلة لإعادة المحاولة بدل أن تضيع بصمت.
+            console.error('خطأ في إعادة إرسال الرسالة:', err);
+            lastFailedSend = failed;
+            setAvatarState('error');
+            showSendError(friendlySendErrorText(err));
+        }
+        // نجح وكانت المسودة المستعادة ما زالت في الصندوق → امسحها.
+        if (ok && chatInput && failed.text && chatInput.value === failed.text) chatInput.value = '';
+    }
+
     // ===== SEND CUSTOMER MESSAGE =====
     // presetText: لو موجودة (جاية من ضغطة على زرار اختيار)، بتتبعت بدل قراءة قيمة الإنبوت.
     // extra.fields: حقول مرفق مرفوع (attachment + image_url/audio_url) من messageFieldsFor.
@@ -1024,7 +1406,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         const { fields } = extra;
         const chatInput = document.getElementById('chatInput');
         const text = (presetText !== undefined ? presetText : chatInput?.value || '').trim();
-        if ((!text && !fields) || !currentSessionId || !currentUser) return false;
+        if (!text && !fields) return false;
+        // بلا جلسة مفتوحة كان الإرسال يفشل بصمت (return بلا رسالة)؛ الآن
+        // خطأ واضح مع زر إعادة محاولة يستعيد الجلسة أولًا، والمسودة تبقى.
+        if (!currentUser) return false;
+        if (!currentSessionId) {
+            lastFailedSend = { text, fields: fields || null };
+            if (chatInput && text && !chatInput.value) chatInput.value = text;
+            setAvatarState('error');
+            showSendError(friendlySendErrorText(null, { noSession: true }));
+            return false;
+        }
+        if (currentSession && currentSession.status !== 'active') {
+            lastFailedSend = { text, fields: fields || null };
+            if (chatInput && text && !chatInput.value) chatInput.value = text;
+            showSendError(friendlySendErrorText(null, { closedSession: true }));
+            return false;
+        }
+        if (isSending) return false;
 
         // يُفرَّغ فورًا (Enter مرتين لا يرسل مرتين) ويُعاد لو فشل الحفظ
         if (presetText === undefined && chatInput) chatInput.value = '';
@@ -1040,16 +1439,37 @@ document.addEventListener('DOMContentLoaded', async () => {
             ...(fields || {})
         };
 
-        const { error: sendError } = await supabase.from('chat_messages').insert(userMessagePayload);
+        // .select() لعرض رسالتك فورًا حتى لو فشل Realtime في إيصالها:
+        // من قبل كان ظهور رسالتك معتمدًا كليًا على اشتراك Realtime، فلو
+        // تعطل الاشتراك تُحفظ الرسالة في قاعدة البيانات ولا تظهر أبدًا
+        // فيبدو الإرسال فاشلًا. appendCustomerMessage يتجاهل التكرار لو
+        // وصلت الرسالة نفسها عبر الاشتراك بعد ذلك.
+        let savedMessage = null;
+        let sendError = null;
+        isSending = true;
+        try {
+            const res = await supabase.from('chat_messages').insert(userMessagePayload).select().single();
+            savedMessage = res.data;
+            sendError = res.error;
+        } catch (err) {
+            sendError = err;
+        }
+        isSending = false;
 
         if (sendError) {
             console.error('خطأ في إرسال الرسالة:', sendError);
-            setComposerStatus('فشل إرسال الرسالة. جرّب تاني.', 'error');
+            lastFailedSend = { text, fields: fields || null };
             setAvatarState('error');
-            if (presetText === undefined && chatInput && text && !chatInput.value) chatInput.value = text;
+            showSendError(friendlySendErrorText(sendError));
+            // المسودة تُستعاد — حتى رسالة الرد السريع (presetText) التي
+            // كانت تضيع تمامًا قبل الإصلاح.
+            if (chatInput && text && !chatInput.value) chatInput.value = text;
             return false;
         }
+        hideSendError();
+        lastFailedSend = null;
         setComposerStatus('');
+        if (savedMessage) appendCustomerMessage(savedMessage);
 
         // مرفق بلا نص: يصل لفريق الدعم ويظهر في المحادثة، ولا يُرسل لـ SIE
         // (لا نص يفهمه، ولا نستهلك من حد الرسائل بلا داعٍ).

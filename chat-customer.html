@@ -733,6 +733,178 @@
             padding: 0.55rem 1.2rem; font-family: inherit; font-weight: 700; cursor: pointer; flex-shrink: 0;
         }
 
+        /* شريط خطأ الإرسال: رسالة واضحة + زر إعادة محاولة (لا يضيع النص) */
+        .send-error-bar {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.55rem 1.25rem; background: #fdf0ef;
+            border-top: 1px solid rgba(180, 35, 24, 0.25);
+            color: #8a1f16; font-size: 0.85rem; font-weight: 600; flex-shrink: 0;
+        }
+        .send-error-bar[hidden] { display: none; }
+        .send-error-bar span { flex: 1; min-width: 0; }
+        .send-error-retry {
+            background: #b42318; color: #fff; border: none; border-radius: 999px;
+            padding: 0.4rem 0.95rem; font-family: inherit; font-weight: 700; font-size: 0.85rem;
+            cursor: pointer; white-space: nowrap; flex-shrink: 0;
+        }
+        .send-error-retry:hover { background: #8f1b12; }
+        .send-error-dismiss {
+            background: transparent; border: none; color: #8a1f16; font-size: 1rem;
+            cursor: pointer; padding: 0.2rem 0.45rem; line-height: 1; flex-shrink: 0;
+        }
+
+        /* زر فتح لوحة المساعد في رأس المحادثة */
+        .assistant-panel-btn {
+            width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+            border: 1.5px solid var(--line); background: #fff; color: var(--primary-blue);
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .assistant-panel-btn:hover { background: #f0f4f8; }
+        .assistant-panel-btn:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+
+        /* ==================== لوحة المساعد الجانبية (أفاتار قطني حي) ==================== */
+        .assistant-panel-backdrop {
+            position: absolute; inset: 0; z-index: 55;
+            background: rgba(0, 28, 58, 0.35); display: none;
+        }
+        .assistant-panel-backdrop.open { display: block; }
+        @media (min-width: 901px) { .assistant-panel-backdrop.open { display: none; } }
+
+        .assistant-panel {
+            position: absolute; top: 0; bottom: 0; inset-inline-end: 0;
+            width: 320px; max-width: 88%; z-index: 60;
+            background: #fff; border-inline-start: 1px solid var(--line);
+            box-shadow: -8px 0 30px rgba(0, 28, 58, 0.12);
+            display: flex; flex-direction: column; overflow-y: auto;
+            transform: translateX(-105%); visibility: hidden;
+            transition: transform 0.25s ease, visibility 0s linear 0.25s;
+        }
+        .assistant-panel.open {
+            transform: none; visibility: visible;
+            transition: transform 0.25s ease;
+        }
+        .panel-close {
+            position: absolute; top: 0.75rem; inset-inline-end: 0.75rem;
+            width: 34px; height: 34px; border: none; border-radius: 50%;
+            background: #f0f2f5; color: var(--ink-2); font-size: 1.05rem;
+            cursor: pointer; line-height: 1; z-index: 2;
+        }
+        .panel-close:hover { background: #e5e9ee; }
+        .panel-hero {
+            display: flex; flex-direction: column; align-items: center; text-align: center;
+            padding: 2.25rem 1.25rem 1rem; flex-shrink: 0;
+        }
+        /* الأفاتار الحي: الغلاف يطفو ويتوهج، الصورة تتنفس وترمش، والحالات
+           (تفكير 1ث / تكلّم 0.55ث / تنبيه 2.4ث / انتظار 4.5ث) نفس الويدجت حرفيًا. */
+        .panel-avatar-wrap {
+            position: relative; width: 112px; height: 112px; border-radius: 50%;
+            box-shadow: 0 0 0 4px #fff, 0 0 18px rgba(0, 119, 204, 0.25);
+            animation: panelFloat 6s ease-in-out infinite, panelGlow 4.5s ease-in-out infinite;
+        }
+        .panel-avatar-wrap:hover .panel-avatar-breathe { filter: brightness(1.05) saturate(1.1); }
+        .panel-avatar-breathe {
+            width: 100%; height: 100%; border-radius: 50%;
+            animation: cwAvatarIdle 4.5s ease-in-out infinite;
+        }
+        .panel-avatar-img {
+            position: absolute; inset: 0; z-index: 1;
+            width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+            pointer-events: none;
+            transform-origin: 50% 38%;
+            animation: panelBlink 5.2s ease-in-out infinite;
+        }
+        .panel-avatar-img.is-broken { display: none; }
+        .panel-avatar-badge {
+            position: absolute; bottom: 2px; inset-inline-end: 2px; z-index: 2;
+            width: 26px; height: 26px; border-radius: 50%;
+            background: #16a34a; border: 3px solid #fff;
+            animation: panelBadgePulse 2.4s ease-in-out infinite;
+        }
+        @keyframes panelFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        @keyframes panelGlow {
+            0%, 100% { box-shadow: 0 0 0 4px #fff, 0 0 18px rgba(0, 119, 204, 0.25); }
+            50% { box-shadow: 0 0 0 4px #fff, 0 0 30px rgba(0, 119, 204, 0.45); }
+        }
+        @keyframes panelBlink { 0%, 91%, 100% { transform: scaleY(1); } 93.5% { transform: scaleY(0.88); } 96% { transform: scaleY(1); } }
+        @keyframes panelBadgePulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.35); }
+            50% { box-shadow: 0 0 0 5px rgba(22, 163, 74, 0); }
+        }
+        .chat-wrapper[data-avatar-state='thinking'] .panel-avatar-breathe,
+        .chat-wrapper[data-avatar-state='listening'] .panel-avatar-breathe {
+            animation: cwAvatarThinking 1s ease-in-out infinite;
+        }
+        .chat-wrapper[data-avatar-state='speaking'] .panel-avatar-breathe {
+            animation: cwAvatarSpeaking 0.55s ease-in-out infinite;
+        }
+        .chat-wrapper[data-avatar-state='attention'] .panel-avatar-breathe {
+            animation: cwAvatarAttention 2.4s ease-in-out infinite;
+        }
+        .chat-wrapper[data-avatar-state='error'] .panel-avatar-breathe,
+        .chat-wrapper[data-avatar-state='offline'] .panel-avatar-breathe { animation: none; }
+        .chat-wrapper[data-avatar-state='error'] .panel-avatar-img,
+        .chat-wrapper[data-avatar-state='offline'] .panel-avatar-img {
+            animation: none; filter: grayscale(0.75); opacity: 0.7;
+        }
+        .chat-wrapper[data-avatar-state='error'] .panel-avatar-badge,
+        .chat-wrapper[data-avatar-state='offline'] .panel-avatar-badge {
+            background: #d93a3a; animation: none;
+        }
+        .panel-name { margin: 0.9rem 0 0.25rem; font-size: 1.15rem; font-weight: 800; color: var(--primary-blue); }
+        .panel-status { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--ink-2); }
+        .panel-status-dot { width: 9px; height: 9px; border-radius: 50%; background: #16a34a; flex-shrink: 0; }
+        .panel-status-dot.is-busy { background: #d97706; }
+        .panel-status-dot.is-speaking { background: var(--accent-blue); }
+        .panel-status-dot.is-error { background: #d93a3a; }
+        .panel-segmented {
+            display: flex; gap: 0; background: #f0f2f5; border-radius: 999px;
+            padding: 4px; margin: 1rem 1.25rem; flex-shrink: 0;
+        }
+        .panel-tab {
+            flex: 1; border: none; background: transparent; padding: 0.5rem 0.25rem;
+            border-radius: 999px; font-family: inherit; font-weight: 700; font-size: 0.85rem;
+            color: var(--ink-2); cursor: pointer; white-space: nowrap;
+        }
+        .panel-tab.active { background: #fff; color: var(--primary-blue); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); }
+        .panel-tab:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+        .panel-section { padding: 0 1.25rem 1.25rem; display: flex; flex-direction: column; gap: 0.6rem; }
+        .panel-section[hidden] { display: none; }
+        .panel-section-title { font-size: 0.8rem; font-weight: 700; color: var(--ink-3); margin: 0; }
+        .panel-fact {
+            display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;
+            background: #f8fafc; border: 1px solid var(--line); border-radius: 10px;
+            padding: 0.6rem 0.8rem; font-size: 0.88rem;
+        }
+        .panel-fact span { color: var(--ink-2); }
+        .panel-fact strong { color: var(--ink); }
+        .panel-last {
+            margin: 0; font-size: 0.85rem; color: var(--ink-2); background: #f8fafc;
+            border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem 0.8rem;
+            overflow-wrap: anywhere;
+        }
+        .panel-tasks { display: flex; flex-direction: column; gap: 0.6rem; }
+        .panel-task {
+            display: flex; flex-direction: column; gap: 0.3rem;
+            padding: 0.65rem 0.8rem; border: 1px solid var(--line); border-radius: 12px;
+            text-decoration: none; color: var(--ink); background: #fff;
+        }
+        .panel-task:hover { background: #f8fafc; }
+        .panel-task-top { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+        .panel-task-title { font-size: 0.9rem; font-weight: 700; overflow-wrap: anywhere; }
+        .panel-task-num { font-size: 0.78rem; color: var(--ink-3); direction: ltr; flex-shrink: 0; }
+        .panel-task-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; font-size: 0.78rem; color: var(--ink-2); }
+        .panel-pill {
+            background: #e8f2fc; color: var(--primary-blue); border-radius: 999px;
+            padding: 0.1rem 0.55rem; font-weight: 700; font-size: 0.75rem;
+        }
+        .panel-empty { color: var(--ink-3); font-size: 0.88rem; text-align: center; padding: 1rem 0.5rem; margin: 0; }
+        .panel-new-chat {
+            border: none; border-radius: 999px; background: var(--primary-blue); color: #fff;
+            font-family: inherit; font-size: 0.92rem; font-weight: 700; cursor: pointer;
+            padding: 0.65rem 1rem;
+        }
+        .panel-new-chat:hover { background: var(--accent-blue-2); }
+
         /* Responsive */
         @media (max-width: 900px) {
             #sidebarToggle { display: flex; }
@@ -774,7 +946,12 @@
             .typing-dots span,
             .rec-dot,
             .mic-btn.is-recording,
-            .chat-sidebar {
+            .chat-sidebar,
+            .panel-avatar-wrap,
+            .panel-avatar-breathe,
+            .panel-avatar-img,
+            .panel-avatar-badge,
+            .assistant-panel {
                 animation: none !important;
                 transition: none !important;
             }
@@ -884,6 +1061,9 @@
                             </div>
                         </div>
                         <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <button type="button" class="assistant-panel-btn" id="assistantPanelBtn" aria-label="عرض لوحة المساعد" aria-expanded="false" aria-controls="assistantPanel" title="لوحة المساعد">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="15" y1="4" x2="15" y2="20"></line></svg>
+                            </button>
                             <button id="endChatBtn" class="end-chat-btn">إنهاء المحادثة</button>
                         </div>
                     </div>
@@ -896,6 +1076,12 @@
                     <div id="typingIndicator" class="typing-indicator"><span class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></span><span>جاري الرد...</span></div>
 
                     <p class="composer-status" id="chatComposerStatus" role="status" aria-live="polite" hidden></p>
+
+                    <div class="send-error-bar" id="chatSendError" role="alert" hidden>
+                        <span id="chatSendErrorText"></span>
+                        <button type="button" class="send-error-retry" id="chatSendRetryBtn">إعادة المحاولة</button>
+                        <button type="button" class="send-error-dismiss" id="chatSendDismissBtn" aria-label="إغلاق التنبيه">✕</button>
+                    </div>
 
                     <div class="recorder-bar" id="chatRecorderBar" hidden>
                         <button type="button" class="rec-btn" id="recCancelBtn" aria-label="إلغاء التسجيل">
@@ -931,7 +1117,41 @@
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transform: rotate(180deg);"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"></path></svg>
                         </button>
                     </div>
-                </div>
+
+                <!-- لوحة المساعد الجانبية: أفاتار قطني حي + نظرة عامة/مهامي/الجلسة -->
+                <div class="assistant-panel-backdrop" id="assistantPanelBackdrop"></div>
+                <aside class="assistant-panel" id="assistantPanel" role="complementary" aria-label="لوحة المساعد" aria-hidden="true">
+                    <button type="button" class="panel-close" id="assistantPanelClose" aria-label="إغلاق لوحة المساعد">✕</button>
+                    <div class="panel-hero">
+                        <div class="panel-avatar-wrap">
+                            <div class="panel-avatar-breathe cc-avatar-wrap">
+                                <svg class="cc-avatar-fallback" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="14" y="20" width="36" height="30" rx="9"></rect><line x1="32" y1="20" x2="32" y2="10"></line><circle cx="32" cy="7" r="2.5" fill="currentColor" stroke="none"></circle><circle cx="24" cy="34" r="2" fill="currentColor" stroke="none"></circle><circle cx="40" cy="34" r="2" fill="currentColor" stroke="none"></circle><path d="M25 43h14"></path></svg>
+                                <img src="/assets/images/mad3oom-avatar-fluffy.webp" alt="مساعد مدعوم" class="panel-avatar-img" id="panelAvatarImg" draggable="false" onerror="this.classList.add('is-broken')">
+                            </div>
+                            <span class="panel-avatar-badge" aria-hidden="true"></span>
+                        </div>
+                        <h3 class="panel-name">بوت مدعوم الذكي</h3>
+                        <span class="panel-status"><span class="panel-status-dot" id="panelStatusDot" aria-hidden="true"></span><span id="panelStatusText">متصل</span></span>
+                    </div>
+                    <div class="panel-segmented" role="tablist" aria-label="أقسام لوحة المساعد">
+                        <button type="button" class="panel-tab active" data-tab="overview" role="tab" aria-selected="true">نظرة عامة</button>
+                        <button type="button" class="panel-tab" data-tab="tasks" role="tab" aria-selected="false">مهامي</button>
+                        <button type="button" class="panel-tab" data-tab="session" role="tab" aria-selected="false">الجلسة</button>
+                    </div>
+                    <div class="panel-section" data-section="overview">
+                        <h4 class="panel-section-title">نظرة عامة</h4>
+                        <div id="panelOverview" style="display:flex; flex-direction:column; gap:0.6rem;"></div>
+                    </div>
+                    <div class="panel-section" data-section="tasks" hidden>
+                        <h4 class="panel-section-title">مهام / تذكيرات — تذاكرك المفتوحة</h4>
+                        <div id="panelTasksList" class="panel-tasks"></div>
+                    </div>
+                    <div class="panel-section" data-section="session" hidden>
+                        <h4 class="panel-section-title">معلومات الجلسة الحالية</h4>
+                        <div id="panelSessionInfo" style="display:flex; flex-direction:column; gap:0.6rem;"></div>
+                        <button type="button" class="panel-new-chat" id="panelNewChatBtn">بدء محادثة جديدة</button>
+                    </div>
+                </aside>
             </div>
         </main>
     </div>
