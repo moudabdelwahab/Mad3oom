@@ -6,10 +6,11 @@ import { getSieReply } from '/assets/js/sie-client.js';
 import { iconize } from '/assets/js/chat-icons.js';
 import { signedUrls, SIGNED_URL_TTL, SIGNED_URL_TTL_DOWNLOAD } from '/storage-urls.js';
 import { DELETED_MESSAGE_TEXT, EDITED_LABEL, isDeletedMessage, isEditedMessage } from '/assets/js/chat-message-state.js';
+import { VoiceRecorder, isVoiceRecordingSupported } from '/assets/js/voice-recorder.js';
 import {
     CHAT_ATTACHMENTS_BUCKET, FILE_PICKER_ACCEPT, validateFile, buildObjectPath, messageFieldsFor,
     attachmentFromMessage, renderAttachmentHtml, hydrateAttachments, downscaleImage, uploadAttachment,
-    uploadErrorText, autoLabelFor
+    uploadErrorText, autoLabelFor, formatDuration
 } from '/assets/js/chat-attachments.js';
 
 // ردود البداية لمحادثة فاضية — نفس ويدجت الشات (chat-widget.js)، وSIE يفهمهما.
@@ -57,6 +58,60 @@ document.addEventListener('DOMContentLoaded', async () => {
     // هل الجلسة الحالية "دخول كعضو" (impersonation) من أدمن/super_user؟
     // بيتحدد بس على صفحة العميل (window.isCustomerChat)، زي ما هو موضّح فوق.
     let isImpersonated = false;
+    // جلسات العميل لقائمة الشريط الجانبي + آخر رسالة في كل جلسة (للمعاينة).
+    let customerSessions = [];
+    let sessionPreviews = {};
+    let sessionSearchQuery = '';
+    // التسجيل الصوتي (voice-recorder.js — نفس وحدة الويدجت).
+    let voiceRecorder = null;
+    let voiceRecording = null; // {blob, mime, ext, durationMs, url} بعد الإيقاف وقبل الإرسال
+
+    // ===== حالة الأفاتار — نفس نظام الويدجت حرفيا (chat-widget.js: setAvatarState
+    // و speakBriefly)، مع إعادة توجيه الجذر إلى .chat-wrapper في هذه الصفحة. =====
+    const MAD3OOM_AVATAR_SRC = '/assets/images/mad3oom-avatar-3d.webp';
+    const AVATAR_FALLBACK_SVG = '<svg class="cc-avatar-fallback" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="14" y="20" width="36" height="30" rx="9"></rect><line x1="32" y1="20" x2="32" y2="10"></line><circle cx="32" cy="7" r="2.5" fill="currentColor" stroke="none"></circle><circle cx="24" cy="34" r="2" fill="currentColor" stroke="none"></circle><circle cx="40" cy="34" r="2" fill="currentColor" stroke="none"></circle><path d="M25 43h14"></path></svg>';
+    let avatarState = 'idle';
+    let avatarStateTimer = null;
+
+    function avatarImgHtml() {
+        return `<img class="cc-avatar-img" src="${MAD3OOM_AVATAR_SRC}" alt="" draggable="false" onerror="this.classList.add('is-broken')">`;
+    }
+
+    /** حالة الأفاتار المرئية (data-avatar-state على .chat-wrapper، والـ CSS يحرّكها):
+     * idle = انتظار هادئ، thinking = أثناء انتظار رد SIE، speaking = نبضة قصيرة
+     * عند وصول رد المساعد، listening = أثناء التسجيل الصوتي، attention = رسالة
+     * جديدة والتبويب غير مرئي، error/offline = رمادي بلا حركة. */
+    function setAvatarState(state) {
+        const root = document.querySelector('.chat-wrapper');
+        if (!root) return;
+        clearTimeout(avatarStateTimer);
+        avatarState = state;
+        root.dataset.avatarState = state;
+        syncHeaderStatus(state);
+    }
+
+    /** رد مساعد وصل للتو: الأفاتار «يتكلم» ثانيتين ثم يعود للانتظار. */
+    function speakBriefly() {
+        setAvatarState('speaking');
+        avatarStateTimer = setTimeout(() => {
+            if (avatarState === 'speaking') setAvatarState('idle');
+        }, 2000);
+    }
+
+    /** نص الحالة في الرأس يتبع حالة الأفاتار (idle = متصل الآن). */
+    function syncHeaderStatus(state) {
+        const el = document.getElementById('chatHeaderStatus');
+        if (!el) return;
+        el.textContent = {
+            idle: 'متصل الآن',
+            thinking: 'يكتب الآن…',
+            speaking: 'يرد عليك الآن',
+            listening: 'يستمع إليك…',
+            attention: 'رسالة جديدة',
+            error: 'حدث خطأ — جرّب تاني',
+            offline: 'غير متصل'
+        }[state] || 'متصل الآن';
+    }
 
     // ===== INITIALIZATION =====
     async function init() {
@@ -79,6 +134,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadCustomerChat();
         setupCustomerChatEventListeners();
         renderImpersonationBanner();
+        renderSidebarProfile();
+        setupSidebar();
+        await loadCustomerSessions();
+        // رسالة وصلت والتبويب مخفي (attention): رجوع التبويب للواجهة يلغي التنبيه.
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && avatarState === 'attention') setAvatarState('idle');
+        });
     }
 
     // ===== LOAD CUSTOMER CHAT =====
@@ -129,26 +191,46 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentSessionId = session.id;
         currentSession = session;
 
+        await openSession(session);
+    }
+
+    /** يفتح جلسة (حالية أو مختارة من الشريط الجانبي): يحمّل رسائلها ويشترك
+     * في تحديثاتها الفورية، ويعلّمها نشطة في القائمة. */
+    async function openSession(session) {
+        currentSessionId = session.id;
+        currentSession = session;
+        setComposerEnabled(session.status === 'active');
+        if (session.status !== 'active') {
+            setComposerStatus('هذه المحادثة مغلقة — ابدأ محادثة جديدة للمتابعة.');
+        } else {
+            setComposerStatus('');
+        }
+
         // تحميل الرسائل
         await loadCustomerMessages(session.id);
 
         // الاشتراك في الرسائل الجديدة
+        subscribeToSession(session.id);
+        markActiveSessionInList();
+    }
+
+    function subscribeToSession(sessionId) {
         if (messageChannel) supabase.removeChannel(messageChannel);
-        messageChannel = supabase.channel(`chat:${session.id}`)
+        messageChannel = supabase.channel(`chat:${sessionId}`)
             .on('postgres_changes', {
                 event: 'INSERT',
                 schema: 'public',
                 table: 'chat_messages',
-                filter: `session_id=eq.${session.id}`
+                filter: `session_id=eq.${sessionId}`
             }, payload => {
-                appendCustomerMessage(payload.new);
+                appendCustomerMessage(payload.new, { live: true });
             })
             // فريق الدعم عدّل رده أو حذفه من صندوق الرسائل (056)
             .on('postgres_changes', {
                 event: 'UPDATE',
                 schema: 'public',
                 table: 'chat_messages',
-                filter: `session_id=eq.${session.id}`
+                filter: `session_id=eq.${sessionId}`
             }, payload => {
                 updateCustomerMessage(payload.new);
             })
@@ -179,6 +261,219 @@ document.addEventListener('DOMContentLoaded', async () => {
             if ((messages || []).length === 0) {
                 await sendInitialGreeting();
             }
+        }
+    }
+
+    // ===== قائمة جلسات العميل في الشريط الجانبي (بيانات حقيقية فقط) =====
+    // العنوان مشتق من تاريخ إنشاء الجلسة (لا عمود عنوان في chat_sessions)،
+    // والمعاينة هي نص أحدث رسالة في الجلسة.
+    async function loadCustomerSessions() {
+        if (!currentUser) return;
+        const { data, error } = await supabase
+            .from('chat_sessions')
+            .select('id, status, created_at, updated_at')
+            .eq('user_id', currentUser.id)
+            .order('updated_at', { ascending: false })
+            .limit(30);
+        if (error) {
+            console.error('خطأ في جلب جلسات العميل:', error);
+            return;
+        }
+        customerSessions = data || [];
+        sessionPreviews = {};
+        const ids = customerSessions.map(s => s.id);
+        if (ids.length) {
+            const { data: msgs } = await supabase
+                .from('chat_messages')
+                .select('session_id, message_text, created_at')
+                .in('session_id', ids)
+                .order('created_at', { ascending: false })
+                .limit(200);
+            (msgs || []).forEach(m => {
+                if (!sessionPreviews[m.session_id]) sessionPreviews[m.session_id] = m;
+            });
+        }
+        renderSessionList();
+    }
+
+    function sessionTitle(session) {
+        const d = new Date(session.created_at);
+        const date = Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('ar-EG', { day: 'numeric', month: 'long' });
+        return date ? `محادثة ${date}` : 'محادثة';
+    }
+
+    function renderSessionList() {
+        const listEl = document.getElementById('sessionList');
+        const emptyEl = document.getElementById('sessionListEmpty');
+        if (!listEl) return;
+        const q = sessionSearchQuery.trim();
+        const visible = customerSessions.filter(s => {
+            if (!q) return true;
+            const hay = `${sessionTitle(s)} ${(sessionPreviews[s.id]?.message_text || '')}`;
+            return hay.includes(q);
+        });
+        listEl.innerHTML = '';
+        if (emptyEl) emptyEl.hidden = visible.length !== 0;
+        visible.forEach(s => {
+            const preview = sessionPreviews[s.id];
+            const li = document.createElement('li');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'session-item';
+            btn.dataset.sessionId = String(s.id);
+            if (s.id === currentSessionId) btn.classList.add('active');
+            const time = new Date(s.updated_at || s.created_at)
+                .toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+            btn.innerHTML = `
+                <span class="session-item-top">
+                    <span class="session-item-title">${escapeHtml(sessionTitle(s))}</span>
+                    <span class="session-item-time">${escapeHtml(time)}</span>
+                </span>
+                <span class="session-item-preview">
+                    <span class="session-status-dot ${s.status === 'active' ? 'is-active' : ''}" aria-hidden="true"></span>
+                    <span>${escapeHtml(preview?.message_text || (s.status === 'active' ? 'محادثة جديدة' : 'محادثة مغلقة'))}</span>
+                </span>
+            `;
+            btn.onclick = () => switchCustomerSession(s.id);
+            li.appendChild(btn);
+            listEl.appendChild(li);
+        });
+    }
+
+    function markActiveSessionInList() {
+        document.querySelectorAll('#sessionList .session-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.sessionId === String(currentSessionId));
+        });
+    }
+
+    async function switchCustomerSession(sessionId) {
+        if (!currentUser) return;
+        if (sessionId === currentSessionId) { closeSidebarMobile(); return; }
+        const { data: session, error } = await supabase
+            .from('chat_sessions')
+            .select('*')
+            .eq('id', sessionId)
+            .eq('user_id', currentUser.id)
+            .single();
+        if (error || !session) {
+            console.error('خطأ في فتح الجلسة:', error);
+            setComposerStatus('تعذّر فتح هذه المحادثة.', 'error');
+            return;
+        }
+        await openSession(session);
+        closeSidebarMobile();
+        document.getElementById('chatInput')?.focus({ preventScroll: true });
+    }
+
+    /** «محادثة جديدة»: تُغلق الجلسة النشطة الحالية (إن كان فيها رسائل) ثم
+     * تُنشأ جلسة نشطة جديدة وتُفتح — بلا نافذة تقييم (التقييم يظهر فقط
+     * من زر «إنهاء المحادثة»). الجلسة الفارغة الحالية تُعاد استخدامها. */
+    async function startNewCustomerChat() {
+        if (!currentUser) return;
+        const hasMessages = !!document.querySelector('#chatMessages [data-msg-id]');
+        if (currentSessionId && currentSession?.status === 'active' && !hasMessages) {
+            closeSidebarMobile();
+            document.getElementById('chatInput')?.focus({ preventScroll: true });
+            return;
+        }
+        if (currentSessionId && currentSession?.status === 'active') {
+            await supabase.from('chat_sessions')
+                .update({ status: 'closed' })
+                .eq('id', currentSessionId);
+        }
+        const { data: newSession, error } = await supabase
+            .from('chat_sessions')
+            .insert({ user_id: currentUser.id, status: 'active' })
+            .select()
+            .single();
+        if (error || !newSession) {
+            console.error('خطأ في إنشاء جلسة جديدة:', error);
+            setComposerStatus('تعذّر بدء محادثة جديدة. جرّب تاني.', 'error');
+            return;
+        }
+        await openSession(newSession);
+        await loadCustomerSessions();
+        closeSidebarMobile();
+        document.getElementById('chatInput')?.focus({ preventScroll: true });
+    }
+
+    /** تفعيل/تعطيل مربع الكتابة (الجلسة المغلقة للقراءة فقط). */
+    function setComposerEnabled(enabled) {
+        ['chatInput', 'sendBtn', 'chatAttachBtn', 'chatMicBtn'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.disabled = !enabled;
+        });
+    }
+
+    // ===== الشريط الجانبي: الملف والتنقل والطي =====
+    function renderSidebarProfile() {
+        const name = currentUser?.profile?.full_name || currentUser?.profile?.email || 'حسابي';
+        const email = currentUser?.profile?.email || '';
+        const nameEl = document.getElementById('sidebarUserName');
+        const emailEl = document.getElementById('sidebarUserEmail');
+        const avatarEl = document.getElementById('sidebarUserAvatar');
+        if (nameEl) nameEl.textContent = name;
+        if (emailEl) emailEl.textContent = email;
+        if (avatarEl) avatarEl.textContent = String(name).trim().charAt(0) || 'م';
+    }
+
+    function openSidebarMobile() {
+        const sidebar = document.getElementById('chatSidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const toggle = document.getElementById('sidebarToggle');
+        sidebar?.classList.add('open');
+        if (overlay) overlay.hidden = false;
+        toggle?.setAttribute('aria-expanded', 'true');
+    }
+
+    function closeSidebarMobile() {
+        const sidebar = document.getElementById('chatSidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const toggle = document.getElementById('sidebarToggle');
+        sidebar?.classList.remove('open');
+        if (overlay) overlay.hidden = true;
+        toggle?.setAttribute('aria-expanded', 'false');
+    }
+
+    function setupSidebar() {
+        const toggle = document.getElementById('sidebarToggle');
+        const overlay = document.getElementById('sidebarOverlay');
+        const newChatBtn = document.getElementById('newChatBtn');
+        const searchInput = document.getElementById('sessionSearchInput');
+        const signOutBtn = document.getElementById('sidebarSignOut');
+
+        if (toggle) {
+            toggle.onclick = () => {
+                const sidebar = document.getElementById('chatSidebar');
+                if (sidebar?.classList.contains('open')) closeSidebarMobile();
+                else openSidebarMobile();
+            };
+        }
+        if (overlay) overlay.onclick = closeSidebarMobile;
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeSidebarMobile();
+        });
+        if (newChatBtn) newChatBtn.onclick = startNewCustomerChat;
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                sessionSearchQuery = searchInput.value || '';
+                renderSessionList();
+            });
+        }
+        // تسجيل الخروج — نفس مسار القشرة المشتركة (auth-client.js).
+        if (signOutBtn) {
+            signOutBtn.onclick = async (e) => {
+                e.preventDefault();
+                try {
+                    const { logout } = await import('/auth-client.js');
+                    await logout();
+                    window.location.replace('/login.html');
+                } catch (err) {
+                    console.error('Logout failed:', err);
+                    localStorage.removeItem('mad3oom-guest-session');
+                    window.location.replace('/login.html');
+                }
+            };
         }
     }
 
@@ -268,14 +563,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         el.hidden = !text;
     }
 
-    async function handleFilesSelected(files) {
+    async function handleFilesSelected(files, opts = {}) {
         const file = files && files[0];
         if (!file || !currentUser || !currentSessionId) return;
         const first = validateFile(file);
         if (!first.ok) { setComposerStatus(first.error, 'error'); return; }
 
         const attachBtn = document.getElementById('chatAttachBtn');
+        const micBtn = document.getElementById('chatMicBtn');
         if (attachBtn) attachBtn.disabled = true;
+        if (micBtn) micBtn.disabled = true;
         let path = null;
         try {
             const body = first.kind === 'image' ? await downscaleImage(file) : file;
@@ -287,7 +584,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 supabase, path, file: body, contentType: check.mime,
                 onProgress: (p) => setComposerStatus(`جاري رفع المرفق… ${Math.round(p * 100)}%`)
             });
-            const fields = messageFieldsFor({ kind: check.kind, path, name: body.name || file.name, mime: check.mime, size: body.size });
+            const fields = messageFieldsFor({ kind: check.kind, path, name: body.name || file.name, mime: check.mime, size: body.size, durationMs: opts.durationMs });
             setComposerStatus('');
             const sent = await sendCustomerMessage(undefined, { fields });
             if (!sent) await cleanupUpload(path);
@@ -297,6 +594,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (path) await cleanupUpload(path);
         } finally {
             if (attachBtn) attachBtn.disabled = false;
+            if (micBtn) micBtn.disabled = false;
         }
     }
 
@@ -387,7 +685,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ===== APPEND CUSTOMER MESSAGE =====
-    function appendCustomerMessage(msg) {
+    // live = وصلت للتو عبر Realtime (وليست من تحميل السجل): رد البوت يحرّك
+    // الأفاتار (speaking ثانيتين)، ولو التبويب مخفي يتحول لـ attention.
+    function appendCustomerMessage(msg, opts = {}) {
         const chatMessages = document.getElementById('chatMessages');
         if (!chatMessages) return;
 
@@ -401,14 +701,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         // الاشتراك الفوري قد يعيد رسالة رُسمت للتو
         if (msg.id && chatMessages.querySelector(`[data-msg-id="${CSS.escape(String(msg.id))}"]`)) return;
 
-        const messageEl = document.createElement('div');
-        messageEl.className = `msg ${isOwn ? 'sent' : 'received'}`;
-        if (msg.id) messageEl.dataset.msgId = String(msg.id);
-        messageEl.innerHTML = customerMessageHtml(msg, time);
+        // صف الرسالة: رسائل المساعد بأفاتار مدعوم، ورسائل العميل بفقاعة فقط.
+        const rowEl = document.createElement('div');
+        rowEl.className = `msg-row ${isOwn ? 'own' : 'agent'}`;
+        if (msg.id) rowEl.dataset.msgId = String(msg.id);
+        rowEl.innerHTML = isOwn
+            ? `<div class="msg sent">${customerMessageHtml(msg, time)}</div>`
+            : `<span class="msg-avatar cc-avatar-wrap" aria-hidden="true">${AVATAR_FALLBACK_SVG}${avatarImgHtml()}</span><div class="msg received">${customerMessageHtml(msg, time)}</div>`;
 
-        chatMessages.appendChild(messageEl);
+        chatMessages.appendChild(rowEl);
         chatMessages.scrollTop = chatMessages.scrollHeight;
-        hydrateChatAttachments(messageEl);
+        hydrateChatAttachments(rowEl);
+
+        if (opts.live && !isOwn) {
+            if (document.hidden) setAvatarState('attention');
+            else if (!msg.is_admin_reply) speakBriefly();
+        }
     }
 
     function customerMessageHtml(msg, time) {
@@ -420,7 +728,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return `
             ${attHtml}
             ${body}
-            <div style="font-size: 0.75rem; margin-top: 0.25rem; opacity: 0.7;">${time}${edited}</div>
+            <div class="msg-time">${time}${edited}</div>
         `;
     }
 
@@ -430,8 +738,130 @@ document.addEventListener('DOMContentLoaded', async () => {
         const el = msg?.id && chatMessages?.querySelector(`[data-msg-id="${CSS.escape(String(msg.id))}"]`);
         if (!el) return;
         const time = new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-        el.innerHTML = customerMessageHtml(msg, time);
+        const bubble = el.querySelector('.msg');
+        if (bubble) bubble.innerHTML = customerMessageHtml(msg, time);
         hydrateChatAttachments(el);
+    }
+
+    // ===== التسجيل الصوتي — نفس وحدة الويدجت (voice-recorder.js، حد 3 دقائق) =====
+    // التسجيل يُرسل كمرفق صوتي عادي عبر نفس خط أنابيب المرفقات
+    // (validateFile/uploadAttachment/messageFieldsFor)، بلا مسار منفصل.
+    function setupVoiceRecording() {
+        const micBtn = document.getElementById('chatMicBtn');
+        if (!micBtn) return;
+        if (!isVoiceRecordingSupported()) {
+            micBtn.hidden = true;
+            return;
+        }
+        micBtn.onclick = () => {
+            if (!currentSessionId || !currentUser || micBtn.disabled) return;
+            if (voiceRecorder && (voiceRecorder.state === 'recording' || voiceRecorder.state === 'requesting')) {
+                voiceRecorder.stop();
+            } else {
+                startVoiceRecording();
+            }
+        };
+
+        const cancelBtn = document.getElementById('recCancelBtn');
+        const stopBtn = document.getElementById('recStopBtn');
+        const discardBtn = document.getElementById('recDiscardBtn');
+        const sendBtn = document.getElementById('recSendBtn');
+        if (cancelBtn) cancelBtn.onclick = () => voiceRecorder?.cancel();
+        if (stopBtn) stopBtn.onclick = () => voiceRecorder?.stop();
+        if (discardBtn) discardBtn.onclick = discardVoiceRecording;
+        if (sendBtn) sendBtn.onclick = sendVoiceRecording;
+    }
+
+    async function startVoiceRecording() {
+        discardVoiceRecording();
+        if (!voiceRecorder) {
+            voiceRecorder = new VoiceRecorder({
+                onState: onRecorderState,
+                onTick: (ms) => {
+                    const el = document.getElementById('recTimer');
+                    if (el) el.textContent = formatDuration(ms);
+                }
+            });
+        }
+        setComposerStatus('');
+        await voiceRecorder.start();
+    }
+
+    function onRecorderState(state, detail) {
+        const micBtn = document.getElementById('chatMicBtn');
+        if (state === 'error') {
+            showRecorderBar(null);
+            setComposerStatus(detail?.message || 'تعذّر التسجيل.', 'error');
+            if (micBtn) micBtn.classList.remove('is-recording');
+            setAvatarState('idle');
+        } else if (state === 'recording') {
+            showRecorderBar('recording');
+            if (micBtn) micBtn.classList.add('is-recording');
+            setAvatarState('listening');
+        } else if (state === 'requesting') {
+            setComposerStatus('بانتظار إذن الميكروفون…');
+        } else if (state === 'stopped' && detail) {
+            const check = validateFile({ name: '', type: detail.mime, size: detail.blob.size }, 'audio');
+            if (!check.ok) {
+                showRecorderBar(null);
+                setComposerStatus(check.error, 'error');
+                if (micBtn) micBtn.classList.remove('is-recording');
+                setAvatarState('idle');
+                return;
+            }
+            voiceRecording = { ...detail, mime: check.mime, ext: check.ext, url: URL.createObjectURL(detail.blob) };
+            showRecorderBar('preview');
+            if (micBtn) micBtn.classList.remove('is-recording');
+            setAvatarState('idle');
+        } else if (state === 'idle') {
+            showRecorderBar(null);
+            if (micBtn) micBtn.classList.remove('is-recording');
+            if (avatarState === 'listening') setAvatarState('idle');
+        }
+    }
+
+    /** شريط التسجيل: 'recording' (مؤقت + إيقاف) أو 'preview' (معاينة + إرسال) أو null (مخفي). */
+    function showRecorderBar(mode) {
+        const bar = document.getElementById('chatRecorderBar');
+        if (!bar) return;
+        const isPreview = mode === 'preview';
+        bar.hidden = !mode;
+        bar.classList.toggle('is-preview', isPreview);
+        const setHidden = (id, hidden) => {
+            const el = document.getElementById(id);
+            if (el) el.hidden = hidden;
+        };
+        setHidden('recCancelBtn', isPreview);
+        setHidden('recStatusWrap', isPreview);
+        setHidden('recStopBtn', isPreview);
+        setHidden('recPreviewAudio', !isPreview);
+        setHidden('recDuration', !isPreview);
+        setHidden('recDiscardBtn', !isPreview);
+        setHidden('recSendBtn', !isPreview);
+        if (isPreview && voiceRecording) {
+            const audio = document.getElementById('recPreviewAudio');
+            const duration = document.getElementById('recDuration');
+            if (audio) audio.src = voiceRecording.url;
+            if (duration) duration.textContent = formatDuration(voiceRecording.durationMs);
+        }
+        if (mode === 'recording') {
+            const timer = document.getElementById('recTimer');
+            if (timer) timer.textContent = '0:00';
+        }
+    }
+
+    function discardVoiceRecording() {
+        if (voiceRecording?.url) URL.revokeObjectURL(voiceRecording.url);
+        voiceRecording = null;
+        showRecorderBar(null);
+    }
+
+    async function sendVoiceRecording() {
+        if (!voiceRecording) return;
+        const { blob, mime, ext, durationMs } = voiceRecording;
+        discardVoiceRecording();
+        const file = new File([blob], `voice.${ext}`, { type: mime });
+        await handleFilesSelected([file], { durationMs });
     }
 
     // ===== SETUP CUSTOMER CHAT EVENT LISTENERS =====
@@ -469,6 +899,36 @@ document.addEventListener('DOMContentLoaded', async () => {
             fileInput.accept = FILE_PICKER_ACCEPT;
             attachBtn.onclick = () => { setComposerStatus(''); fileInput.value = ''; fileInput.click(); };
             fileInput.onchange = () => handleFilesSelected(fileInput.files);
+        }
+
+        setupVoiceRecording();
+
+        // نجوم التقييم: اختيار بصري فقط (الكود الأصلي لا يحفظ التقييم في
+        // أي مكان — لا يوجد حفظ في قاعدة البيانات ولا إرسال حقيقي).
+        const starsContainer = document.getElementById('starsContainer');
+        if (starsContainer) {
+            starsContainer.addEventListener('click', (e) => {
+                const star = e.target.closest('.star');
+                if (!star) return;
+                const value = Number(star.dataset.value) || 0;
+                starsContainer.querySelectorAll('.star').forEach(s => {
+                    s.classList.toggle('active', (Number(s.dataset.value) || 0) <= value);
+                });
+            });
+        }
+        const submitRatingBtn = document.getElementById('submitRatingBtn');
+        if (submitRatingBtn) {
+            submitRatingBtn.onclick = () => {
+                const ratingModal = document.getElementById('ratingModal');
+                if (ratingModal) ratingModal.style.display = 'none';
+            };
+        }
+        const ratingCloseBtn = document.getElementById('ratingCloseBtn');
+        if (ratingCloseBtn) {
+            ratingCloseBtn.onclick = () => {
+                const ratingModal = document.getElementById('ratingModal');
+                if (ratingModal) ratingModal.style.display = 'none';
+            };
         }
 
         // لصق صورة مباشرة في مربع الكتابة
@@ -585,6 +1045,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (sendError) {
             console.error('خطأ في إرسال الرسالة:', sendError);
             setComposerStatus('فشل إرسال الرسالة. جرّب تاني.', 'error');
+            setAvatarState('error');
             if (presetText === undefined && chatInput && text && !chatInput.value) chatInput.value = text;
             return false;
         }
@@ -599,7 +1060,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // 2. الرد عن طريق SIE — المحرك الوحيد. لا بوت بديل مخفي.
         try {
-            if (typingIndicator) typingIndicator.style.display = 'block';
+            if (typingIndicator) typingIndicator.style.display = 'flex';
+            setAvatarState('thinking');
 
             // لو الجلسة في وضع "يدوي" (الأدمن بيرد بنفسه)، البوت يسكت
             if (currentSession?.is_manual_mode) return true;
@@ -659,10 +1121,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             return true;
         } catch (err) {
             console.error('خطأ في الرد الآلي:', err);
+            setAvatarState('error');
             await postNotice('error');
             return true;
         } finally {
             if (typingIndicator) typingIndicator.style.display = 'none';
+            if (avatarState === 'thinking') setAvatarState('idle');
             refreshPlanChip();
         }
     }
@@ -680,6 +1144,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.error('خطأ في إنهاء المحادثة:', error);
             return;
         }
+
+        if (currentSession) currentSession.status = 'closed';
+        setComposerEnabled(false);
+        setAvatarState('idle');
+        await loadCustomerSessions();
 
         // إظهار نافذة التقييم
         const ratingModal = document.getElementById('ratingModal');
