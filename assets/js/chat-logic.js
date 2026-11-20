@@ -6,7 +6,7 @@ import { getSieReply } from '/assets/js/sie-client.js';
 import { iconize } from '/assets/js/chat-icons.js';
 import { signedUrls, SIGNED_URL_TTL, SIGNED_URL_TTL_DOWNLOAD } from '/storage-urls.js';
 import { DELETED_MESSAGE_TEXT, EDITED_LABEL, isDeletedMessage, isEditedMessage } from '/assets/js/chat-message-state.js';
-import { VoiceRecorder, isVoiceRecordingSupported } from '/assets/js/voice-recorder.js';
+import { VoiceRecorder, isVoiceRecordingSupported } from '/assets/js/voice-recorder.js?v=2';
 import {
     CHAT_ATTACHMENTS_BUCKET, FILE_PICKER_ACCEPT, validateFile, buildObjectPath, messageFieldsFor,
     attachmentFromMessage, renderAttachmentHtml, hydrateAttachments, downscaleImage, uploadAttachment,
@@ -68,13 +68,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     // حارس واجهة للإيقاف: لو بقيت حالة 'recording' بعد طلب الإيقاف يُلغى
     // التسجيل وتظهر رسالة (الحارس الأول داخل VoiceRecorder.stop نفسه).
     let recordingStopWatchdog = null;
+    // حارس أول نبضة مؤقت: لو دخلت حالة 'recording' ولم تصل أي نبضة
+    // خلال 3ث فالمؤقت لا يعمل أصلًا (الحالة التي ظهرت في اللقطة:
+    // «جاري التسجيل 0:00» متجمد) — يُلغى التسجيل برسالة واضحة.
+    let recordingFirstTickWatchdog = null;
+    let recordingTickCount = 0;
+    function clearRecordingFirstTickWatchdog() {
+        if (recordingFirstTickWatchdog) { clearTimeout(recordingFirstTickWatchdog); recordingFirstTickWatchdog = null; }
+    }
     // آخر رسالة فشل إرسالها (لزر إعادة المحاولة — النص لا يضيع أبدًا).
     let lastFailedSend = null; // { text, fields } | null
     let isSending = false; // يمنع الإرسال المزدوج أثناء حفظ رسالة واحدة
 
     // ===== حالة الأفاتار — نفس نظام الويدجت حرفيا (chat-widget.js: setAvatarState
     // و speakBriefly)، مع إعادة توجيه الجذر إلى .chat-wrapper في هذه الصفحة. =====
-    const MAD3OOM_AVATAR_SRC = '/assets/images/mad3oom-avatar-3d.webp';
+    const MAD3OOM_AVATAR_SRC = '/assets/images/mad3oom-avatar-fluffy.webp';
+    // صورة حالة «يكتب»: الأفاتار القطني نفسه بسماعات رمادية يكتب على
+    // لابتوب — النسخة الثالثة المصححة فقط (الأفاتار على اليسار مواجه
+    // لليمين نحو اللابتوب، والكاميرا ترى ظهر الغطاء الفضي فقط).
+    const MAD3OOM_AVATAR_TYPING_SRC = '/assets/images/mad3oom-avatar-typing-laptop.webp';
     const AVATAR_FALLBACK_SVG = '<svg class="cc-avatar-fallback" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="14" y="20" width="36" height="30" rx="9"></rect><line x1="32" y1="20" x2="32" y2="10"></line><circle cx="32" cy="7" r="2.5" fill="currentColor" stroke="none"></circle><circle cx="24" cy="34" r="2" fill="currentColor" stroke="none"></circle><circle cx="40" cy="34" r="2" fill="currentColor" stroke="none"></circle><path d="M25 43h14"></path></svg>';
     let avatarState = 'idle';
     let avatarStateTimer = null;
@@ -91,9 +103,102 @@ document.addEventListener('DOMContentLoaded', async () => {
         const root = document.querySelector('.chat-wrapper');
         if (!root) return;
         clearTimeout(avatarStateTimer);
+        const prev = avatarState;
         avatarState = state;
         root.dataset.avatarState = state;
         syncHeaderStatus(state);
+        // صورة «يكتب»: تظهر فقط عند دخول حالة التفكير (انتظار رد SIE)،
+        // وتختفي فور مغادرتها — لا تُبدَّل إلا عند تغيّر الحالة فعلًا،
+        // فلا وميض ولا إعادة تحميل مع كل استدعاء.
+        if (state === 'thinking' && prev !== 'thinking') showTypingAvatar(true);
+        else if (prev === 'thinking' && state !== 'thinking') showTypingAvatar(false);
+    }
+
+    // صورة «يكتب» على الرأس واللوحة معًا، بتلاشٍ قصير (CSS transition
+    // على opacity). أثناء الكتابة يهتز الغلاف اهتزاز مفاتيح خفيف عبر
+    // class is-typing (CSS) وتتوقف حركة التنفس العشوائية مؤقتًا.
+    let typingAvatarOn = false;
+    let typingFadeTimer = null;
+    function showTypingAvatar(on) {
+        if (typingAvatarOn === on) return;
+        typingAvatarOn = on;
+        const imgs = [document.getElementById('chatHeaderImg'), document.getElementById('panelAvatarImg')].filter(Boolean);
+        const headerWrap = document.querySelector('.bot-avatar-circle');
+        const panelWrap = document.querySelector('.panel-avatar-wrap');
+        clearTimeout(typingFadeTimer);
+        imgs.forEach((img) => { img.style.opacity = '0'; });
+        typingFadeTimer = setTimeout(() => {
+            imgs.forEach((img) => {
+                img.src = on ? MAD3OOM_AVATAR_TYPING_SRC : MAD3OOM_AVATAR_SRC;
+                img.classList.toggle('is-typing-img', on);
+                img.classList.remove('is-broken'); // فشل تحميل سابق لا يمنع الصورة الجديدة
+                img.style.opacity = '';
+            });
+            headerWrap?.classList.toggle('is-typing', on);
+            panelWrap?.classList.toggle('is-typing', on);
+        }, 180);
+    }
+
+    // ===== حركة الأفاتار الحية (JS — بلا حلقة CSS ثابتة) =====
+    // التنفس/الطفو/الإمالة عشوائية القيم والمدد على غلاف الأفاتار (لا
+    // تتعارض مع حركات الحالات على الصورة نفسها)، والرمشة على فترات
+    // غير منتظمة 3–7ث عبر class قصيرة. من يشاهد دقيقة كاملة لا يرى
+    // نمطًا يتكرر بنفس الشكل. مؤقتات بعمر الصفحة (بلا teardown —
+    // الصفحة نفسها هي عمر المحادثة) وتتوقف تلقائيًا عند الخطأ/الكتابة.
+    let avatarLifeStarted = false;
+    function setupAvatarLife() {
+        if (avatarLifeStarted) return;
+        avatarLifeStarted = true;
+        if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+        // تحميل مسبق لصورة الكتابة حتى يبدو التبديل فوريًا عند أول رد.
+        const preload = new Image();
+        preload.src = MAD3OOM_AVATAR_TYPING_SRC;
+        const rand = (min, max) => min + Math.random() * (max - min);
+        const pose = (el, amp) => {
+            if (!el) return;
+            const schedule = () => setTimeout(next, rand(2400, 5200));
+            const next = () => {
+                if (!document.hidden && avatarState !== 'error' && avatarState !== 'offline' && !typingAvatarOn) {
+                    el.style.transition = `transform ${rand(2.6, 5.2).toFixed(2)}s ease-in-out`;
+                    el.style.transform = `translateY(${rand(-2, 1).toFixed(1)}px) rotate(${rand(-1.6, 1.6).toFixed(2)}deg) scale(${rand(1, 1 + amp).toFixed(3)})`;
+                }
+                schedule();
+            };
+            schedule();
+        };
+        pose(document.querySelector('.bot-avatar-circle'), 0.02);
+        pose(document.querySelector('.panel-avatar-wrap'), 0.035);
+        const blink = (img) => {
+            if (!img) return;
+            img.addEventListener('animationend', (e) => {
+                if (e.animationName === 'avatarBlink') img.classList.remove('is-blinking');
+            });
+            const schedule = () => setTimeout(tick, rand(3000, 7000));
+            const tick = () => {
+                if (!document.hidden && avatarState !== 'error' && avatarState !== 'offline') {
+                    img.classList.remove('is-blinking');
+                    void img.offsetWidth; // إعادة تشغيل الحركة لو كانت ما زالت مطبّقة
+                    img.classList.add('is-blinking');
+                }
+                schedule();
+            };
+            schedule();
+        };
+        blink(document.getElementById('chatHeaderImg'));
+        blink(document.getElementById('panelAvatarImg'));
+        // أفاتار رسائل المساعد: رمشة خفيفة فقط على أحدث رسالة، بلا أي
+        // حركة تغيّر موضعه حتى لا تشتت القراءة.
+        const msgBlink = () => setTimeout(() => {
+            const avatars = document.querySelectorAll('.msg-avatar .cc-avatar-img');
+            const last = avatars[avatars.length - 1];
+            if (last && !document.hidden && avatarState !== 'error' && avatarState !== 'offline') {
+                last.classList.remove('is-blinking');
+                void last.offsetWidth;
+                last.classList.add('is-blinking');
+            }
+            msgBlink();
+        }, rand(5000, 9000));
+        msgBlink();
     }
 
     /** رد مساعد وصل للتو: الأفاتار «يتكلم» ثانيتين ثم يعود للانتظار. */
@@ -160,6 +265,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadCustomerChat();
         setupCustomerChatEventListeners();
         setupAssistantPanel();
+        setupAvatarLife(); // الحركة الحية العشوائية (رمشة/تنفس/إمالة) + تحميل صورة الكتابة مسبقًا
         renderImpersonationBanner();
         renderSidebarProfile();
         setupSidebar();
@@ -986,19 +1092,42 @@ document.addEventListener('DOMContentLoaded', async () => {
             voiceRecorder = new VoiceRecorder({
                 onState: onRecorderState,
                 onTick: (ms) => {
+                    recordingTickCount++;
                     const el = document.getElementById('recTimer');
                     if (el) el.textContent = formatDuration(ms);
                 }
             });
         }
         setComposerStatus('');
-        await voiceRecorder.start();
+        clearRecordingFirstTickWatchdog();
+        try {
+            await voiceRecorder.start();
+        } catch (err) {
+            // start() لا يجب أن يرمي أبدًا بعد إصلاح voice-recorder.js
+            // (كل مسار فشل ينتهي بـ error) — هذا حزام أمان أخير حتى لا
+            // يبقى الشريط عالقًا في 'requesting' بلا رسالة لو عاد الخلل.
+            console.error('خطأ غير متوقع في بدء التسجيل:', err);
+            showRecorderBar(null);
+            setComposerStatus('تعذّر بدء التسجيل. جرّب تاني.', 'error');
+            document.getElementById('chatMicBtn')?.classList.remove('is-recording');
+            setAvatarState('idle');
+            return;
+        }
+        // دفاع أخير: start() يجب أن تنتهي دائمًا بحالة نهائية
+        // (recording/error/idle)؛ لو بقيت 'requesting' فالتسجيل لم يبدأ
+        // فعلًا — ألغِ وأخفِ الشريط بدل تركه عالقًا.
+        if (voiceRecorder.state === 'requesting') {
+            voiceRecorder.cancel();
+            showRecorderBar(null);
+            setComposerStatus('تعذّر بدء التسجيل. جرّب تاني.', 'error');
+        }
     }
 
     /** زر X (أو زر الميكروفون أثناء الانتظار): يلغي التسجيل/الانتظار
      *  ويخفي الشريط فورًا في أي حالة — تسجيل جارٍ، انتظار إذن، أو معاينة. */
     function cancelVoiceRecording() {
         clearRecordingStopWatchdog();
+        clearRecordingFirstTickWatchdog();
         if (voiceRecorder && (voiceRecorder.state === 'recording' || voiceRecorder.state === 'requesting')) {
             voiceRecorder.cancel(); // onRecorderState('idle') يخفي الشريط
             return;
@@ -1031,6 +1160,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const micBtn = document.getElementById('chatMicBtn');
         if (state === 'error') {
             clearRecordingStopWatchdog();
+            clearRecordingFirstTickWatchdog();
             showRecorderBar(null);
             setComposerStatus(detail?.message || 'تعذّر التسجيل.', 'error');
             if (micBtn) micBtn.classList.remove('is-recording');
@@ -1040,6 +1170,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             setComposerStatus(''); // امسح «بانتظار إذن الميكروفون…» — الإذن مُنح بالفعل
             if (micBtn) micBtn.classList.add('is-recording');
             setAvatarState('listening');
+            // حارس أول نبضة: المؤقت الحقيقي يضرب كل 250ms؛ لو لم تصل
+            // أي نبضة خلال 3ث فهو لا يعمل أصلًا — ألغِ برسالة واضحة
+            // بدل شريط «جاري التسجيل 0:00» المتجمد.
+            recordingTickCount = 0;
+            clearRecordingFirstTickWatchdog();
+            recordingFirstTickWatchdog = setTimeout(() => {
+                recordingFirstTickWatchdog = null;
+                if (voiceRecorder?.state === 'recording' && recordingTickCount === 0) {
+                    voiceRecorder.cancel();
+                    setComposerStatus('توقف مؤقت التسجيل — تم إلغاء التسجيل. جرّب تاني.', 'error');
+                }
+            }, 3000);
         } else if (state === 'requesting') {
             // الشريط يظهر الآن أثناء انتظار الإذن — بزر X يعمل — بدل بقاء
             // نص الانتظار وحده بلا أي زر يلغي.
@@ -1048,6 +1190,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             setAvatarState('listening');
         } else if (state === 'stopped' && detail) {
             clearRecordingStopWatchdog();
+            clearRecordingFirstTickWatchdog();
             const check = validateFile({ name: '', type: detail.mime, size: detail.blob.size }, 'audio');
             if (!check.ok) {
                 showRecorderBar(null);
@@ -1062,6 +1205,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             setAvatarState('idle');
         } else if (state === 'idle') {
             clearRecordingStopWatchdog();
+            clearRecordingFirstTickWatchdog();
             showRecorderBar(null);
             if (micBtn) micBtn.classList.remove('is-recording');
             if (avatarState === 'listening') setAvatarState('idle');

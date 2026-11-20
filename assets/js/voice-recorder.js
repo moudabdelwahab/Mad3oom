@@ -12,6 +12,10 @@
  *   • الإيقاف أثناء انتظار الإذن = إلغاء (لا تسجيل بعد ليُوقف).
  *   • الإيقاف له حارس زمني (1.2ث): لو onstop لم يُطلق أبدًا يُنهى الإيقاف
  *     بدل التعليق في حالة 'recording' للأبد.
+ *   • أي فشل في بدء التسجيل (start() يرمي، المسجّل لا يدخل حالة
+ *     recording، لا بيانات إطلاقًا خلال 5ث، خطأ/توقف تلقائي من المسجّل)
+ *     ينتهي بحالة 'error' صريحة — لا يبقى أبدًا في 'requesting' أو
+ *     'recording' بلا تسجيل حقيقي، ولا استثناء يصعد بصمت من start().
  *   • المتصفح بلا دعم: isVoiceRecordingSupported() = false والواجهة تخفي الزر.
  *   • maxBytes (اختياري، الافتراضي بلا حد): لو تجاوز ما سُجّل الحد يتوقف التسجيل ويُرفض
  *     كله بحالة error (reason: 'too_large') — لا يُقص أبدًا. onSize يبلّغ الحجم الحالي.
@@ -78,6 +82,15 @@ export class VoiceRecorder {
         this.stopPromise = null; // إيقاف جارٍ: ضغطة ثانية تعيد الوعد نفسه
         this._stopSettle = null;
         this.result = null;
+        this.rejected = false;
+        this._dataWatchdog = null; // لا بيانات إطلاقًا خلال 5ث من بدء التسجيل = مسجّل صامت
+        this._recorderErrored = false; // MediaRecorder أطلق error (جهاز فُصل، ...)
+    }
+
+    /** يوقف كل مؤقتات التسجيل (مؤقت الواجهة + حارس أول بيانات). */
+    _clearTimers() {
+        if (this.timer) { clearInterval(this.timer); this.timer = null; }
+        if (this._dataWatchdog) { clearTimeout(this._dataWatchdog); this._dataWatchdog = null; }
     }
 
     setState(state, detail) {
@@ -113,24 +126,93 @@ export class VoiceRecorder {
         this.chunks = [];
         this.bytes = 0;
         this.rejected = false;
+        this._recorderErrored = false;
         this.recorder.ondataavailable = (e) => {
             if (!e.data || !(e.data.size > 0) || this.rejected) return;
+            if (this._dataWatchdog) { clearTimeout(this._dataWatchdog); this._dataWatchdog = null; }
             this.chunks.push(e.data);
             this.bytes += e.data.size;
             this.onSize(this.bytes);
             if (this.bytes > this.maxBytes) this.rejectTooLarge();
         };
-        this.recorder.start(250);
+        // توقف تلقائي من المسجّل نفسه (فُصل الجهاز، خطأ داخلي): بلا هذا
+        // المعالج كان التسجيل «يستمر» في الواجهة والمؤقت يتقدم رغم توقف
+        // المسجّل فعليًا، وstop() بعدها لا تفعل شيئًا. onstop يُستبدل في
+        // stop() بـ finish، وفي cancel()/rejectTooLarge() يُلغى — فهذا
+        // المعالج لا يعمل إلا أثناء تسجيل نشط لم يُطلب إيقافه.
+        this.recorder.onstop = () => {
+            if (this.state !== 'recording' || this.stopPromise) return;
+            this._clearTimers();
+            const mime = (this.recorder?.mimeType || this.chunks[0]?.type || 'audio/webm');
+            const blob = new Blob(this.chunks, { type: mime });
+            this.releaseStream();
+            if (this._recorderErrored || !blob.size) {
+                this.chunks = [];
+                this.result = null;
+                this.setState('error', { message: 'توقف التسجيل فجأة — تأكد من الميكروفون وجرّب تاني.' });
+                return;
+            }
+            this.result = { blob, mime, durationMs: Math.min(this.maxMs, Date.now() - this.startedAt) };
+            this.setState('stopped', this.result);
+        };
+        this.recorder.onerror = () => {
+            this._recorderErrored = true;
+            this._handleRecorderFailure('تعذّر إكمال التسجيل — تأكد من الميكروفون وجرّب تاني.');
+        };
+        // start() نفسه قد يرمي (InvalidStateError لو المسارات انتهت،
+        // NotSupportedError، ...): قبل هذا الإصلاح كان الاستثناء يصعد
+        // من start() كـ rejected promise بلا أي setState، فتبقى الحالة
+        // 'requesting' والشريط عالقًا بلا أي رسالة. الآن أي فشل في بدء
+        // التسجيل ينهي الحالة بـ error صريح يخفي الشريط ويعرض السبب.
+        try {
+            this.recorder.start(250);
+        } catch (err) {
+            this.releaseStream();
+            this.setState('error', { message: 'تعذّر بدء التسجيل على المتصفح ده. جرّب تاني.' });
+            return false;
+        }
         // تجاوز الحد أثناء start (بيانات متزامنة): الرفض نهائي، فلا مؤقت ولا حالة تسجيل.
+        // يُفحص قبل فحص الحالة: rejectTooLarge يوقف المسجّل بنفسه، فحالته
+        // 'inactive' هنا لا تعني فشل البدء — وخطأ too_large يجب أن يبقى كما هو.
         if (this.rejected) return false;
+        // start() نجح ظاهريًا لكن المسجّل لم يدخل حالة recording فعلًا
+        // (مسارات منتهية/جهاز مشغول): لا مؤقت ولا حالة تسجيل بلا تسجيل.
+        if (this.recorder.state !== 'recording') {
+            this.releaseStream();
+            this.setState('error', { message: 'تعذّر بدء التسجيل — الميكروفون غير متاح حاليًا. جرّب تاني.' });
+            return false;
+        }
         this.startedAt = Date.now();
         this.timer = setInterval(() => {
             const elapsed = Date.now() - this.startedAt;
             this.onTick(elapsed);
             if (elapsed >= this.maxMs) this.stop();
         }, 250);
+        // مسجّل «يسجّل» بلا أي بيانات إطلاقًا: حتى الصمت ينتج بيانات مع
+        // timeslice، فغيابها 5ث يعني أن الميكروفون لا يرسل صوتًا أصلًا.
+        this._dataWatchdog = setTimeout(() => {
+            this._dataWatchdog = null;
+            if (this.state === 'recording' && !this.chunks.length) {
+                this._handleRecorderFailure('الميكروفون لا يرسل صوتًا — تأكد أنه يعمل وجرّب تاني.');
+            }
+        }, 5000);
         this.setState('recording');
         return true;
+    }
+
+    /** فشل أثناء تسجيل نشط: أنهِ كل شيء وبلّغ الواجهة بـ error صريح
+     *  (يخفي الشريط ويعرض رسالة) بدل بقاء الشريط عالقًا. */
+    _handleRecorderFailure(message) {
+        if (this.state !== 'recording' || this.stopPromise) return; // إيقاف جارٍ: دعه ينتهي هو (حارسه ينهيه)
+        this._clearTimers();
+        if (this.recorder && this.recorder.state !== 'inactive') {
+            this.recorder.onstop = null;
+            try { this.recorder.stop(); } catch { /* already stopped */ }
+        }
+        this.releaseStream();
+        this.chunks = [];
+        this.result = null;
+        this.setState('error', { message });
     }
 
     /** يوقف ويُرجع {blob, mime, durationMs} للمعاينة.
@@ -143,8 +225,7 @@ export class VoiceRecorder {
         if (this.state !== 'recording' || !this.recorder) return Promise.resolve(null);
         if (this.stopPromise) return this.stopPromise; // إيقاف جارٍ بالفعل
         const durationMs = Math.min(this.maxMs, Date.now() - this.startedAt);
-        clearInterval(this.timer);
-        this.timer = null;
+        this._clearTimers();
         this.stopPromise = new Promise((resolve) => {
             let done = false;
             const settle = (value) => {
@@ -178,8 +259,7 @@ export class VoiceRecorder {
     rejectTooLarge() {
         if (this.rejected) return;
         this.rejected = true;
-        clearInterval(this.timer);
-        this.timer = null;
+        this._clearTimers();
         if (this.stopGuard) { clearTimeout(this.stopGuard); this.stopGuard = null; }
         if (this._stopSettle) { const settle = this._stopSettle; this._stopSettle = null; this.stopPromise = null; settle(null); }
         if (this.recorder && this.recorder.state !== 'inactive') {
@@ -194,8 +274,8 @@ export class VoiceRecorder {
 
     /** يلغي في أي مرحلة ويحذف ما سُجّل. */
     cancel() {
-        clearInterval(this.timer);
-        this.timer = null;
+        this._clearTimers();
+        this._recorderErrored = false;
         if (this.stopGuard) { clearTimeout(this.stopGuard); this.stopGuard = null; }
         // إيقاف معلّق (onstop لم يُطلق): سوِّ وعده بـ null بدل تركه معلقًا للأبد.
         if (this._stopSettle) { const settle = this._stopSettle; this._stopSettle = null; this.stopPromise = null; settle(null); }

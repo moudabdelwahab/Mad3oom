@@ -375,8 +375,19 @@
             object-fit: cover;
             object-position: center;
             pointer-events: none;
+            transition: opacity .22s ease; /* تلاشي تبديل صورة «يكتب» */
         }
         .cc-avatar-img.is-broken { display: none; }
+        /* رمشة JS (class قصيرة تُزال عند انتهاء الحركة) — بلا حلقة ثابتة. */
+        @keyframes avatarBlink { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.08); } }
+        .cc-avatar-img.is-blinking,
+        .panel-avatar-img.is-blinking { animation: avatarBlink .2s ease-in-out !important; }
+        /* صورة «يكتب» (النسخة الثالثة): المشهد كامل داخل الدائرة —
+           الوجه على اليسار واللابتوب على اليمين، فيُرى الأفاتار وهو
+           يكتب فعلًا حتى في الدائرة الصغيرة. الصورة مربعة والحاوية
+           مربعة، فالـ object-position هنا انحياز فقط لو تغيّر المقاس. */
+        .cc-avatar-img.is-typing-img { object-position: 38% 34%; }
+        .panel-avatar-img.is-typing-img { object-position: 42% 40%; }
 
         .bot-avatar-circle {
             width: 48px;
@@ -388,11 +399,20 @@
             inset: 0;
             z-index: 1;
             border-radius: 50%;
-            animation: cwAvatarIdle 4.5s ease-in-out infinite;
-            transition: transform .2s ease;
+            /* بلا حلقة idle ثابتة: التنفس العشوائي يقوده JS على الغلاف. */
+            transition: transform .2s ease, opacity .22s ease;
             will-change: transform;
         }
         .bot-avatar-circle:hover .cc-avatar-img { animation: none; transform: scale(1.06); }
+        /* اهتزاز مفاتيح خفيف أثناء الكتابة (على الغلاف — لا يتعارض مع
+           حركات الحالات على الصورة) + وميض نقطة الحالة أثناء التفكير. */
+        @keyframes avatarTypingKeys {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            25% { transform: translateY(-.7px) rotate(-.35deg); }
+            50% { transform: translateY(.4px) rotate(.3deg); }
+            75% { transform: translateY(-.3px) rotate(-.15deg); }
+        }
+        .bot-avatar-circle.is-typing { animation: avatarTypingKeys .34s ease-in-out infinite; }
 
         .msg-avatar {
             width: 32px;
@@ -429,7 +449,6 @@
             opacity: .7;
         }
 
-        @keyframes cwAvatarIdle { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
         @keyframes cwAvatarThinking { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07) translateY(-1px); } }
         @keyframes cwAvatarSpeaking { 0%, 100% { transform: translateY(0) rotate(0deg); } 25% { transform: translateY(-2px) rotate(-1.5deg); } 75% { transform: translateY(1px) rotate(1.5deg); } }
         @keyframes cwAvatarAttention { 0%, 72%, 100% { transform: translateY(0); } 80% { transform: translateY(-4px); } 88% { transform: translateY(0); } 96% { transform: translateY(-2px); } }
@@ -438,6 +457,7 @@
         .chat-header-text h3 { margin: 0; font-size: 1.05rem; color: var(--primary-blue); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .chat-header-status { display: flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; color: var(--ink-2); }
         .chat-header-status-dot { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; flex-shrink: 0; }
+        .chat-wrapper[data-avatar-state='thinking'] .chat-header-status-dot { animation: recPulse 1.2s ease-in-out infinite; }
         .chat-wrapper[data-avatar-state='thinking'] .chat-header-status-dot,
         .chat-wrapper[data-avatar-state='listening'] .chat-header-status-dot { background: #d97706; }
         .chat-wrapper[data-avatar-state='speaking'] .chat-header-status-dot { background: var(--accent-blue); }
@@ -707,6 +727,13 @@
         .composer-status[data-tone="error"] { color: #b42318; }
 
         /* شريط التسجيل الصوتي (يظهر بدل صف الإدخال أثناء التسجيل/المعاينة) */
+        /* قاعدة [hidden] العامة: قواعد display الخاصة بالمؤلف (مثل
+           .recorder-bar{display:flex} و.rec-btn{display:flex}) تتغلب
+           على [hidden] في ورقة أنماط المتصفح — فكانت أزرار الإيقاف
+           والحذف تظهر معًا في كل الأوضاع، والشريط نفسه لا يختفي أبدًا.
+           هذه القاعدة (نفس النمط المستخدم أصلًا لـ .send-error-bar
+           و.panel-section) تعيد لـ hidden معناها في كل الصفحة. */
+        [hidden] { display: none !important; }
         .recorder-bar {
             display: flex;
             align-items: center;
@@ -799,19 +826,22 @@
         .panel-avatar-wrap {
             position: relative; width: 112px; height: 112px; border-radius: 50%;
             box-shadow: 0 0 0 4px #fff, 0 0 18px rgba(0, 119, 204, 0.25);
-            animation: panelFloat 6s ease-in-out infinite, panelGlow 4.5s ease-in-out infinite;
+            /* بلا panelFloat ثابت: الطفو/التنفس العشوائي يقوده JS على الغلاف. */
+            animation: panelGlow 4.5s ease-in-out infinite;
         }
         .panel-avatar-wrap:hover .panel-avatar-breathe { filter: brightness(1.05) saturate(1.1); }
+        .panel-avatar-wrap.is-typing { animation: panelGlow 4.5s ease-in-out infinite, avatarTypingKeys .34s ease-in-out infinite; }
         .panel-avatar-breathe {
             width: 100%; height: 100%; border-radius: 50%;
-            animation: cwAvatarIdle 4.5s ease-in-out infinite;
+            /* بلا حلقة idle ثابتة: الحالات (تفكير/تكلّم/تنبيه) ما زالت CSS بمددها. */
         }
         .panel-avatar-img {
             position: absolute; inset: 0; z-index: 1;
             width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
             pointer-events: none;
             transform-origin: 50% 38%;
-            animation: panelBlink 5.2s ease-in-out infinite;
+            transition: opacity .22s ease;
+            /* بلا panelBlink ثابتة: الرمشة العشوائية يقودها JS عبر is-blinking. */
         }
         .panel-avatar-img.is-broken { display: none; }
         .panel-avatar-badge {
@@ -820,12 +850,10 @@
             background: #16a34a; border: 3px solid #fff;
             animation: panelBadgePulse 2.4s ease-in-out infinite;
         }
-        @keyframes panelFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
         @keyframes panelGlow {
             0%, 100% { box-shadow: 0 0 0 4px #fff, 0 0 18px rgba(0, 119, 204, 0.25); }
             50% { box-shadow: 0 0 0 4px #fff, 0 0 30px rgba(0, 119, 204, 0.45); }
         }
-        @keyframes panelBlink { 0%, 91%, 100% { transform: scaleY(1); } 93.5% { transform: scaleY(0.88); } 96% { transform: scaleY(1); } }
         @keyframes panelBadgePulse {
             0%, 100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.35); }
             50% { box-shadow: 0 0 0 5px rgba(22, 163, 74, 0); }
@@ -943,6 +971,11 @@
 
         @media (prefers-reduced-motion: reduce) {
             .cc-avatar-img,
+            .cc-avatar-img.is-blinking,
+            .panel-avatar-img.is-blinking,
+            .bot-avatar-circle,
+            .bot-avatar-circle.is-typing,
+            .panel-avatar-wrap.is-typing,
             .typing-dots span,
             .rec-dot,
             .mic-btn.is-recording,
@@ -963,6 +996,7 @@
     </style>
   <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
   <link rel="stylesheet" href="/assets/responsive-global.css">
+  <link rel="preload" as="image" href="/assets/images/mad3oom-avatar-typing-laptop.webp">
   <script src="/assets/responsive-global.js" defer></script>
 </head>
 <body>
@@ -1053,7 +1087,7 @@
                         <div class="bot-profile">
                             <div class="bot-avatar-circle cc-avatar-wrap" aria-hidden="true">
                                 <svg class="cc-avatar-fallback" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="14" y="20" width="36" height="30" rx="9"></rect><line x1="32" y1="20" x2="32" y2="10"></line><circle cx="32" cy="7" r="2.5" fill="currentColor" stroke="none"></circle><circle cx="24" cy="34" r="2" fill="currentColor" stroke="none"></circle><circle cx="40" cy="34" r="2" fill="currentColor" stroke="none"></circle><path d="M25 43h14"></path></svg>
-                                <img src="/assets/images/mad3oom-avatar-3d.webp" alt="" id="chatHeaderImg" class="cc-avatar-img" draggable="false" onerror="this.classList.add('is-broken')">
+                                <img src="/assets/images/mad3oom-avatar-fluffy.webp" alt="" id="chatHeaderImg" class="cc-avatar-img" draggable="false" onerror="this.classList.add('is-broken')">
                             </div>
                             <div class="chat-header-text">
                                 <h3 id="chatHeaderName">بوت مدعوم الذكي</h3>
@@ -1162,7 +1196,7 @@
             <button type="button" class="modal-close" id="ratingCloseBtn" aria-label="إغلاق">✕</button>
             <div class="modal-avatar cc-avatar-wrap" aria-hidden="true">
                 <svg class="cc-avatar-fallback" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="14" y="20" width="36" height="30" rx="9"></rect><line x1="32" y1="20" x2="32" y2="10"></line><circle cx="32" cy="7" r="2.5" fill="currentColor" stroke="none"></circle><circle cx="24" cy="34" r="2" fill="currentColor" stroke="none"></circle><circle cx="40" cy="34" r="2" fill="currentColor" stroke="none"></circle><path d="M25 43h14"></path></svg>
-                <img src="/assets/images/mad3oom-avatar-3d.webp" alt="" class="cc-avatar-img" draggable="false" onerror="this.classList.add('is-broken')">
+                <img src="/assets/images/mad3oom-avatar-fluffy.webp" alt="" class="cc-avatar-img" draggable="false" onerror="this.classList.add('is-broken')">
             </div>
             <h3 style="margin-top: 0; color: var(--primary-blue);">تقييم المحادثة</h3>
             <p style="color: #666; font-size: 0.9rem;">كيف كانت تجربتك مع الدعم الفني؟</p>
@@ -1181,7 +1215,7 @@
         </div>
     </div>
 
-    <script type="module" src="/assets/js/chat-logic.js"></script>
+    <script type="module" src="/assets/js/chat-logic.js?v=2"></script>
     <script>
         window.isCustomerChat = true;
     </script>
