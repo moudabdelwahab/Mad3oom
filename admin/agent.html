@@ -131,7 +131,12 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-.01e
 .backend-notice strong{display:block;margin-bottom:.15rem;}
 
 /* ---------- Modal ---------- */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);z-index:500;display:none;align-items:flex-start;justify-content:center;padding:3vh 1rem;overflow-y:auto;}
+/* [إصلاح] z-index كان 500، أي تحت القائمة الجانبية (1001 في
+   dashboard-layout.css و2000 في admin-style.css) والشريط العلوي (1000)،
+   فكانت القائمة ترسم فوق النافذة وتقصّ طرفها الأيمن والتبويبات. القيمة
+   3000 هي نفسها المستعملة لنوافذ admin/mcp.html — فالنافذة الآن تعلو
+   اللوحة كلها وتتوسّط الشاشة فوق تعتيم كامل. */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);z-index:3000;display:none;align-items:flex-start;justify-content:center;padding:3vh 1rem;overflow-y:auto;}
 .modal-overlay.open{display:flex;}
 .modal{background:var(--color-surface);border-radius:var(--radius-lg);width:100%;max-width:760px;box-shadow:0 30px 80px -25px rgba(0,0,0,.35);display:flex;flex-direction:column;max-height:94vh;}
 .modal-head{display:flex;align-items:center;justify-content:space-between;padding:1.2rem 1.4rem;border-bottom:1px solid var(--color-border);}
@@ -139,7 +144,12 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-.01e
 .modal-close{width:32px;height:32px;border-radius:50%;border:none;background:var(--color-muted);color:var(--color-text-secondary);display:flex;align-items:center;justify-content:center;font-size:1.1rem;cursor:pointer;}
 .modal-close:hover{background:var(--pill-red-bg);color:var(--color-danger);}
 
-.tabs{display:flex;gap:.25rem;padding:0 1.4rem;border-bottom:1px solid var(--color-border);overflow-x:auto;flex-shrink:0;}
+.tabs{display:flex;gap:.25rem;padding:0 1.4rem;border-bottom:1px solid var(--color-border);overflow-x:auto;scrollbar-width:thin;flex-shrink:0;}
+
+/* نافذة تأكيد الحذف أصغر من نافذة الإعدادات — نفس الطبقة، فوقها في
+   ترتيب الصفحة، فترسم فوقها دون z-index إضافي. */
+.modal.confirm-box{max-width:440px;}
+.modal.confirm-box .modal-body p{font-size:.88rem;line-height:1.7;color:var(--color-text);}
 .tab-btn{background:none;border:none;padding:.85rem .9rem;font-size:.82rem;font-weight:700;color:var(--color-text-secondary);border-bottom:2px solid transparent;white-space:nowrap;transition:color var(--dur-fast) ease, border-color var(--dur-fast) ease;cursor:pointer;font-family:inherit;}
 .tab-btn:hover{color:var(--color-text);}
 .tab-btn.active{color:var(--color-accent);border-color:var(--color-accent);}
@@ -214,11 +224,27 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-.01e
 .modal-foot{display:flex;align-items:center;justify-content:flex-end;gap:.6rem;padding:1rem 1.4rem;border-top:1px solid var(--color-border);flex-shrink:0;}
 
 /* toast */
-.toast-wrap{position:fixed;bottom:1.2rem;left:1.2rem;z-index:800;display:flex;flex-direction:column;gap:.5rem;}
+/* [إصلاح] z-index كان 800، أي تحت القائمة الجانبية (1001/2000) — أي تنبيه
+   قرب الطرف الأيمن كان يُغطّى. القيمة 4000 هي نفسها في admin/mcp.html. */
+.toast-wrap{position:fixed;bottom:1.2rem;left:1.2rem;z-index:4000;display:flex;flex-direction:column;gap:.5rem;}
 .toast{background:var(--color-text);color:var(--color-background);padding:.7rem 1.1rem;border-radius:.6rem;font-size:.82rem;font-weight:600;box-shadow:0 20px 45px -15px rgba(0,0,0,.4);display:flex;align-items:center;gap:.5rem;animation:toastIn .25s var(--ease-snap);}
 .toast.success{background:var(--color-success);color:#fff;}
 .toast.error{background:var(--color-danger);color:#fff;}
 @keyframes toastIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+
+/* إعدادات متقدمة (تبويب الاتصال): Host/Port/Protocol والمهل — حقول لا
+   يستخدمها نداء الوكيل أصلاً (يستخدم endpoint فقط)، فتُطوى افتراضياً
+   بدل أن تزاحم الحقول الأساسية. */
+.advanced-details{background:var(--color-muted);border:1px solid var(--color-border);border-radius:.6rem;padding:.7rem .9rem;}
+.advanced-details summary{font-size:.83rem;font-weight:700;color:var(--color-text);cursor:pointer;}
+.advanced-details .field-row{margin-top:.9rem;}
+
+/* أزرار تحديد الكل / إلغاء التحديد فوق شبكتي الموارد والصلاحيات. */
+.check-actions{display:flex;gap:.5rem;margin-bottom:.6rem;}
+.check-actions .btn{padding:.35rem .8rem;font-size:.75rem;}
+
+/* تنبيه الصلاحيات الحساسة — نص ثابت، لا منطق إضافي. */
+.sensitive-note{font-size:.72rem;color:var(--pill-amber-text);background:var(--pill-amber-bg);border-radius:.5rem;padding:.6rem .8rem;line-height:1.6;}
 
 .spin{animation:spinAnim .8s linear infinite;}
 @keyframes spinAnim{to{transform:rotate(360deg);}}
@@ -336,7 +362,14 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-.01e
         <div class="field-row three">
           <div class="field">
             <label>النوع</label>
-            <input type="text" id="fType" placeholder="hermes, sie, claude, custom...">
+            <input type="text" id="fType" list="agentTypeList" placeholder="hermes, sie, claude, custom...">
+            <datalist id="agentTypeList">
+              <option value="hermes"></option>
+              <option value="sie"></option>
+              <option value="claude"></option>
+              <option value="muse"></option>
+              <option value="custom"></option>
+            </datalist>
           </div>
           <div class="field">
             <label>الإصدار</label>
@@ -362,8 +395,24 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-.01e
       </div>
 
       <!-- ---------- الاتصال ---------- -->
+      <!-- الحقول الأساسية فقط ظاهرة: Endpoint هو ما يستخدمه نداء الوكيل
+           فعلياً. Host/Port/Protocol والمهل في «إعدادات متقدمة» لأنها لا
+           تدخل في النداء، ووكيل بلا endpoint (مثل Muse عبر MCP) يبقى
+           مسجّلاً ويُدار من خارج مدعوم — اترك الحقل فارغاً. -->
       <div class="tab-panel" data-panel="connection">
-        <div class="field-row three">
+        <div class="field">
+          <label>Endpoint <span class="hint">— عنوان الوكيل المباشر (اتركه فارغاً لو الوكيل بلا endpoint ويُدار من خارج مدعوم)</span></label>
+          <input type="url" id="fEndpoint" placeholder="https://hermes.internal:8080">
+        </div>
+        <div class="field">
+          <label>Health Endpoint <span class="hint">— يُستخدم لفحص الحالة والـ Heartbeat</span></label>
+          <input type="url" id="fHealthEndpoint" placeholder="https://hermes.internal:8080/health">
+        </div>
+        <div class="field">
+          <label>API Key <span class="hint" id="apiKeyHint">— يُشفَّر ولا يُعرض بعد الحفظ</span></label>
+          <input type="password" id="fApiKey" placeholder="اتركه فارغاً إن لم ترغب بالتغيير">
+        </div>
+        <div class="field-row">
           <div class="field">
             <label>نوع الاتصال</label>
             <select id="fConnectionType">
@@ -385,47 +434,38 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-.01e
               <option value="wss">wss</option>
             </select>
           </div>
-          <div class="field">
-            <label>Port</label>
-            <input type="number" id="fPort" placeholder="8080">
-          </div>
         </div>
-        <div class="field-row">
-          <div class="field">
-            <label>Host</label>
-            <input type="text" id="fHost" placeholder="127.0.0.1 أو hermes.internal">
+        <details class="advanced-details">
+          <summary>إعدادات متقدمة</summary>
+          <div class="field-row">
+            <div class="field">
+              <label>Host</label>
+              <input type="text" id="fHost" placeholder="127.0.0.1 أو hermes.internal">
+            </div>
+            <div class="field">
+              <label>Port</label>
+              <input type="number" id="fPort" placeholder="8080">
+            </div>
           </div>
-          <div class="field">
-            <label>Endpoint</label>
-            <input type="url" id="fEndpoint" placeholder="https://hermes.internal:8080">
-          </div>
-        </div>
-        <div class="field">
-          <label>Health Endpoint <span class="hint">— يُستخدم لفحص الحالة والـ Heartbeat</span></label>
-          <input type="url" id="fHealthEndpoint" placeholder="https://hermes.internal:8080/health">
-        </div>
-        <div class="field">
-          <label>API Key <span class="hint" id="apiKeyHint">— يُشفَّر ولا يُعرض بعد الحفظ</span></label>
-          <input type="password" id="fApiKey" placeholder="اتركه فارغاً إن لم ترغب بالتغيير">
-        </div>
-        <div class="field-row three">
-          <div class="field">
-            <label>Timeout (ms)</label>
-            <input type="number" id="fTimeout" value="10000">
-          </div>
-          <div class="field">
-            <label>Retry Count</label>
-            <input type="number" id="fRetryCount" value="3">
+          <div class="field-row three">
+            <div class="field">
+              <label>Timeout (ms)</label>
+              <input type="number" id="fTimeout" value="10000">
+            </div>
+            <div class="field">
+              <label>Retry Count</label>
+              <input type="number" id="fRetryCount" value="3">
+            </div>
+            <div class="field">
+              <label>Retry Delay (ms)</label>
+              <input type="number" id="fRetryDelay" value="2000">
+            </div>
           </div>
           <div class="field">
-            <label>Retry Delay (ms)</label>
-            <input type="number" id="fRetryDelay" value="2000">
+            <label>الفاصل الزمني لفحص الصحة (ثانية) <span class="hint">— كل كام ثانية يتفحّص Agent Manager حالة الوكيل تلقائياً</span></label>
+            <input type="number" id="fHealthCheckInterval" value="30" min="5">
           </div>
-        </div>
-        <div class="field">
-          <label>الفاصل الزمني لفحص الصحة (ثانية) <span class="hint">— كل كام ثانية يتفحّص Agent Manager حالة الوكيل تلقائياً</span></label>
-          <input type="number" id="fHealthCheckInterval" value="30" min="5">
-        </div>
+        </details>
       </div>
 
       <!-- ---------- التشغيل ---------- -->
@@ -458,13 +498,22 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-.01e
       <!-- ---------- الموارد ---------- -->
       <div class="tab-panel" data-panel="resources">
         <p class="hint" style="margin-bottom:.4rem">الموارد المسموح لهذا الوكيل الوصول إليها</p>
+        <div class="check-actions">
+          <button class="btn btn-outline" data-check-all="resourcesGrid">تحديد الكل</button>
+          <button class="btn btn-outline" data-check-none="resourcesGrid">إلغاء التحديد</button>
+        </div>
         <div class="checkbox-grid" id="resourcesGrid"></div>
       </div>
 
       <!-- ---------- الصلاحيات ---------- -->
       <div class="tab-panel" data-panel="permissions">
         <p class="hint" style="margin-bottom:.4rem">الصلاحيات الممنوحة لهذا الوكيل</p>
+        <div class="check-actions">
+          <button class="btn btn-outline" data-check-all="permissionsGrid">تحديد الكل</button>
+          <button class="btn btn-outline" data-check-none="permissionsGrid">إلغاء التحديد</button>
+        </div>
         <div class="checkbox-grid" id="permissionsGrid"></div>
+        <p class="sensitive-note">الوصول إلى البيانات الحساسة وتنفيذ الأوامر صلاحيات خطرة — امنحها فقط لوكيل تثق به وتديره بنفسك.</p>
       </div>
 
       <!-- ---------- متغيرات البيئة ---------- -->
@@ -478,6 +527,9 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-.01e
 
       <!-- ---------- الحالة والأداء ---------- -->
       <div class="tab-panel" data-panel="status">
+        <!-- [إضافة] يظهر لوكيل بلا endpoint بدل أرقام فارغة وزر تحديث يفشل:
+             حالته تُدار من خارج مدعوم ولا تُفحص من هنا. -->
+        <p class="metrics-note" id="noEndpointNote" hidden>هذا الوكيل بلا endpoint — يُدار من خارج مدعوم (مثل ربط MCP)، فلا يوجد اتصال مباشر لفحص حالته أو سجلاته من هنا.</p>
         <div class="metrics-tab-grid" id="liveMetricsGrid">
           <div class="metric-tile"><b id="mCpu">—</b><span>CPU</span></div>
           <div class="metric-tile"><b id="mRam">—</b><span>RAM</span></div>
@@ -544,6 +596,27 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-.01e
     <div class="modal-foot">
       <button class="btn btn-outline" id="btnCancelModal">إلغاء</button>
       <button class="btn btn-primary" id="btnSaveAgent">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Modal: تأكيد حذف الوكيل ================= -->
+<!-- تُفتح فوق نافذة الإعدادات (تالية لها في الصفحة فترسم فوقها بنفس
+     الطبقة)، وتعيد التركيز إليها عند الإغلاق عبر modal-a11y. -->
+<div class="modal-overlay" id="deleteConfirmModal">
+  <div class="modal confirm-box">
+    <div class="modal-head">
+      <h3>حذف الوكيل</h3>
+      <button class="modal-close" id="deleteConfirmCloseBtn">×</button>
+    </div>
+    <div class="modal-body">
+      <p id="deleteConfirmText">سيتم حذف هذا الوكيل نهائياً من مدعوم.</p>
+      <p class="metrics-note" id="deleteConfirmLastNote" hidden>هذا آخر وكيل في القائمة — بعد الحذف ستكون القائمة فارغة، ويمكنك إضافة وكيل جديد في أي وقت.</p>
+      <p class="metrics-note" style="color:var(--color-danger)">لا يمكن التراجع عن هذا الإجراء.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" id="btnCancelDelete">إلغاء</button>
+      <button class="btn btn-danger" id="btnConfirmDelete">حذف نهائياً</button>
     </div>
   </div>
 </div>

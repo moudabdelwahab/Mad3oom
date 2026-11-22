@@ -18,15 +18,22 @@ import {
     callAgentManager, isUsingLocalFallback,
     AGENT_RESOURCES, AGENT_PERMISSIONS, AGENT_STATUS_LABELS,
 } from '/agent-service.js';
+import * as modalA11y from '/assets/js/admin/modal-a11y.js';
+import {
+    hasDirectEndpoint, isEndpointLessAgent,
+    NO_ENDPOINT_MESSAGE, NO_ENDPOINT_CARD_NOTE,
+} from '/assets/js/admin/agent-connection-state.js';
 
 let agentsCache = [];
 let currentAgentId = null; // null = إنشاء وكيل جديد
+let pendingDeleteId = null; // الوكيل بانتظار تأكيد الحذف في نافذة التأكيد
 let envVars = []; // {key, value, is_secret}
 let initialized = false;
 
 export async function initAgentAdminPage() {
     if (initialized) { loadAgents(); return; } // إعادة تحميل فقط لو استُدعيت مرة تانية
     initialized = true;
+    modalA11y.init(); // حبس التركيز داخل النوافذ وقفل تمرير الخلفية — نفس نمط mcp.js
 
     bindStaticEvents();
 
@@ -94,6 +101,11 @@ function agentCardHTML(a) {
     const errorNote = (a.status === 'error' && a.last_error)
         ? `<div class="meta-row" style="color:var(--color-danger);"><span title="${escapeAttr(a.last_error)}">⚠ ${escapeHtml(truncate(a.last_error, 70))}</span></div>`
         : '';
+    // وكيل بلا endpoint (مثل Muse عبر MCP) ليس معطّلاً ولا مخطئاً — حالته
+    // تُدار من خارج مدعوم، فنوضّح ذلك في الكرت بدل تركه بلا تفسير.
+    const noEndpointNote = isEndpointLessAgent(a)
+        ? `<div class="meta-row"><span>${NO_ENDPOINT_CARD_NOTE}</span></div>`
+        : '';
     return `
   <div class="agent-card" data-open-agent="${a.id}">
     <div class="head">
@@ -114,17 +126,30 @@ function agentCardHTML(a) {
       <div class="metric na"><b>—</b><span>المهام</span></div>
     </div>
     <div class="meta-row"><span>آخر Heartbeat: ${heartbeat}</span></div>
+    ${noEndpointNote}
     ${errorNote}
     <div class="card-actions">
       <button class="btn btn-outline btn-sm" data-open-agent="${a.id}">الإعدادات</button>
       <button class="btn btn-outline btn-sm icon-only" data-quick-act="start" data-agent-id="${a.id}" title="تشغيل">▶</button>
       <button class="btn btn-outline btn-sm icon-only" data-quick-act="stop" data-agent-id="${a.id}" title="إيقاف">■</button>
       <button class="btn btn-outline btn-sm icon-only" data-quick-act="restart" data-agent-id="${a.id}" title="إعادة تشغيل">⟳</button>
+      <button class="btn btn-outline btn-sm icon-only" data-quick-act="delete" data-agent-id="${a.id}" title="حذف الوكيل" style="color:var(--color-danger);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13"/></svg></button>
     </div>
   </div>`;
 }
 
 async function quickAction(action, id) {
+    // الحذف لا ينفَّذ مباشرة من الكرت — يمر بنافذة تأكيد تعرض اسم الوكيل.
+    if (action === 'delete') { openDeleteConfirm(id); return; }
+    // تشغيل/إيقاف/إعادة تشغيل وكيل بلا endpoint لا معنى لها من هنا: لا يوجد
+    // اتصال مباشر يتحكم فيه، والنداء كان يرجع أصلاً كخطأ أحمر. نعرض الحالة
+    // كمعلومة محايدة ونتخطّى النداء — إلا في الوضع المحلي التجريبي حيث
+    // start/stop محاكاة لتغيير الحالة فقط ولا تحتاج endpoint أصلاً.
+    const agent = agentsCache.find(a => a.id === id);
+    if (agent && isEndpointLessAgent(agent) && !(await isUsingLocalFallback())) {
+        toast(NO_ENDPOINT_MESSAGE, 'info');
+        return;
+    }
     try {
         toast('جاري التنفيذ...', 'info');
         const result = await callAgentManager(action, { id });
@@ -150,6 +175,9 @@ function bindStaticEvents() {
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         btn.classList.add('active');
         document.querySelector(`.tab-panel[data-panel="${btn.dataset.tab}"]`).classList.add('active');
+        // التبويبات التسعة أعرض من النافذة فشريطها قابل للتمرير — نضمن أن
+        // التبويب النشط ظاهر دائماً بدل أن يبقى مخفياً خارج الشاشة.
+        btn.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         if (btn.dataset.tab === 'status' && currentAgentId) refreshLiveStatus();
         if (btn.dataset.tab === 'logs' && currentAgentId) loadLogs();
     });
@@ -166,6 +194,26 @@ function bindStaticEvents() {
     document.querySelector('.actions-grid')?.addEventListener('click', handleActionTileClick);
     document.getElementById('btnSaveAgent').addEventListener('click', handleSaveAgent);
     document.getElementById('searchInput').addEventListener('input', (e) => renderAgents(e.target.value));
+
+    // تبويب التشغيل يخص العمليات المحلية فقط — يظهر/يختفي مع نوع الاتصال.
+    document.getElementById('fConnectionType').addEventListener('change', updateRuntimeTabVisibility);
+
+    // تحديد الكل / إلغاء التحديد في شبكتي الموارد والصلاحيات.
+    document.querySelectorAll('[data-check-all]').forEach(btn => btn.addEventListener('click', () => setAllChecked(btn.dataset.checkAll, true)));
+    document.querySelectorAll('[data-check-none]').forEach(btn => btn.addEventListener('click', () => setAllChecked(btn.dataset.checkNone, false)));
+
+    // نافذة تأكيد الحذف (تُفتح فوق نافذة الإعدادات، فإغلاقها يعيد التركيز إليها).
+    document.getElementById('btnCancelDelete').addEventListener('click', closeDeleteConfirm);
+    document.getElementById('deleteConfirmCloseBtn').addEventListener('click', closeDeleteConfirm);
+    document.getElementById('deleteConfirmModal').addEventListener('click', (e) => { if (e.target.id === 'deleteConfirmModal') closeDeleteConfirm(); });
+    document.getElementById('btnConfirmDelete').addEventListener('click', confirmDeleteAgent);
+
+    // Escape يغلق نافذة التأكيد أولاً، ثم نافذة الإعدادات.
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        if (document.getElementById('deleteConfirmModal').classList.contains('open')) closeDeleteConfirm();
+        else if (document.getElementById('agentModal').classList.contains('open')) closeModal();
+    });
 }
 
 /* ================= المودال: فتح/إغلاق ================= */
@@ -223,7 +271,31 @@ function openAgentModal(agentId) {
     ['mCpu', 'mRam', 'mUptime', 'mQueue', 'mLatency', 'mHeartbeat'].forEach(id => document.getElementById(id).textContent = '—');
     renderLastErrorNote(agent?.last_error || null);
 
+    // تبويب التشغيل يظهر فقط للعمليات المحلية (process/stdio).
+    updateRuntimeTabVisibility();
+
+    // وكيل بلا endpoint: الحالة والسجلات لا تُفحص من هنا أصلاً، فنوضّح ذلك
+    // في التبويب نفسه ونعطّل زر التحديث بدل أن يرجع خطأً أحمر.
+    const noEndpoint = agent ? isEndpointLessAgent(agent) : false;
+    document.getElementById('noEndpointNote').hidden = !noEndpoint;
+    const refreshBtn = document.getElementById('btnRefreshStatus');
+    refreshBtn.disabled = noEndpoint;
+    refreshBtn.title = noEndpoint ? NO_ENDPOINT_MESSAGE : '';
+
     document.getElementById('agentModal').classList.add('open');
+}
+
+// تبويب «التشغيل» (executable وأوامر البدء/الإيقاف) يخص الوكلاء المُدارين
+// كعمليات محلية فقط. لوكيل HTTP بعيد الحقول دي بلا معنى، فإخفاء التبويب
+// يختصر النافذة من 9 تبويبات ويمنع تعبئة حقول لا تُستخدم أبداً.
+function updateRuntimeTabVisibility() {
+    const type = document.getElementById('fConnectionType').value;
+    const btn = document.querySelector('.tab-btn[data-tab="runtime"]');
+    const show = type === 'process' || type === 'stdio';
+    btn.style.display = show ? '' : 'none';
+    if (!show && btn.classList.contains('active')) {
+        document.querySelector('.tab-btn[data-tab="general"]').click();
+    }
 }
 
 // [إضافة] عرض last_error في تبويب "الحالة والأداء" — كان مخزّناً في القاعدة
@@ -253,6 +325,14 @@ function renderCheckboxGrid(containerId, items, selected) {
 }
 function getCheckedValues(containerId) {
     return Array.from(document.querySelectorAll(`#${containerId} input:checked`)).map(i => i.value);
+}
+
+// تحديد/إلغاء كل الخيارات في شبكة موارد أو صلاحيات دفعة واحدة.
+function setAllChecked(containerId, checked) {
+    document.querySelectorAll(`#${containerId} input[type="checkbox"]`).forEach(cb => {
+        cb.checked = checked;
+        cb.closest('.check-item').classList.toggle('checked', checked);
+    });
 }
 
 /* ---------- متغيرات البيئة ---------- */
@@ -291,6 +371,15 @@ function onEnvVarChange(e) {
 /* ================= الحالة والأداء (Runtime، لا تُخزَّن) ================= */
 async function refreshLiveStatus() {
     if (!currentAgentId) return;
+    // وكيل بلا endpoint لا تُجلب حالته من هنا — نتخطّى النداء أصلاً بدل أن
+    // يرجع خطأً أحمر عن حالة عادية (الاستثناء: الوضع المحلي التجريبي،
+    // حيث رسائل الخطأ نفسها جزء من توضيح حدود الوضع).
+    const agent = agentsCache.find(a => a.id === currentAgentId);
+    if (agent && isEndpointLessAgent(agent) && !(await isUsingLocalFallback())) {
+        toast(NO_ENDPOINT_MESSAGE, 'info');
+        resetLiveMetrics();
+        return;
+    }
     ['mCpu', 'mRam', 'mUptime', 'mQueue', 'mLatency', 'mHeartbeat'].forEach(id => document.getElementById(id).textContent = '...');
     try {
         const result = await callAgentManager('status', { id: currentAgentId });
@@ -315,6 +404,13 @@ function resetLiveMetrics() {
 async function loadLogs() {
     if (!currentAgentId) return;
     const box = document.getElementById('logsBox');
+    // وكيل بلا endpoint ليست له سجلات تُجلب من هنا — نوضّح ذلك في الصندوق
+    // نفسه بدل نداء يفشل.
+    const agent = agentsCache.find(a => a.id === currentAgentId);
+    if (agent && isEndpointLessAgent(agent) && !(await isUsingLocalFallback())) {
+        box.innerHTML = `<div class="log-line info"><span class="lvl">INFO</span><span>${escapeHtml(NO_ENDPOINT_MESSAGE)}</span></div>`;
+        return;
+    }
     box.innerHTML = `<div class="log-line info"><span class="lvl">INFO</span><span>جاري الجلب...</span></div>`;
     try {
         const level = document.getElementById('logLevelFilter').value;
@@ -349,15 +445,16 @@ async function handleActionTileClick(e) {
     if (!tile || !currentAgentId) return;
     const act = tile.dataset.act;
     if (act === 'download_logs_full') return downloadLogsAsFile();
-    if (act === 'delete_agent') {
-        if (!confirm('هل أنت متأكد من حذف هذا الوكيل نهائياً؟ لا يمكن التراجع عن هذا الإجراء.')) return;
-        try {
-            await callAgentManager('delete', { id: currentAgentId });
-            toast('تم حذف الوكيل', 'success');
-            closeModal();
-            loadAgents();
-        } catch (err) { toast(err.message, 'error'); }
-        return;
+    // الحذف يمر بنافذة تأكيد تعرض اسم الوكيل — لا حذف مباشر من التبويب.
+    if (act === 'delete_agent') { openDeleteConfirm(currentAgentId); return; }
+    // فحص الاتصال والتحكم المباشر يحتاجان endpoint؛ وكيل بلا endpoint
+    // (مثل Muse عبر MCP) لا يُفحص ولا يُتحكم فيه من هنا أصلاً.
+    if (act === 'test_connection' || act === 'start' || act === 'stop' || act === 'restart') {
+        const agent = agentsCache.find(a => a.id === currentAgentId);
+        if (agent && isEndpointLessAgent(agent) && !(await isUsingLocalFallback())) {
+            toast(NO_ENDPOINT_MESSAGE, 'info');
+            return;
+        }
     }
     try {
         toast('جاري التنفيذ...', 'info');
@@ -368,6 +465,41 @@ async function handleActionTileClick(e) {
         if (act !== 'test_connection') document.getElementById('fStatusReadonly').value = 'قيد التحديث...';
     } catch (err) {
         toast(err.message, 'error');
+    }
+}
+
+/* ================= حذف الوكيل ================= */
+// الحذف في agent-manager حذف صف من ai_agents فقط — لا يحتاج endpoint ولا
+// يتصل بالوكيل، فيعمل لوكيل بلا endpoint ولآخر وكيل في القائمة بنفس الشكل.
+// نافذة التأكيد تعرض اسم الوكيل، ولو كان آخر وكيل تنبّه أن القائمة ستفرغ.
+function openDeleteConfirm(agentId) {
+    const agent = agentsCache.find(a => a.id === agentId);
+    pendingDeleteId = agentId;
+    document.getElementById('deleteConfirmText').textContent =
+        `سيتم حذف الوكيل «${agent?.name || 'هذا الوكيل'}» نهائياً من مدعوم.`;
+    document.getElementById('deleteConfirmLastNote').hidden = agentsCache.length !== 1;
+    document.getElementById('deleteConfirmModal').classList.add('open');
+}
+function closeDeleteConfirm() {
+    document.getElementById('deleteConfirmModal').classList.remove('open');
+    pendingDeleteId = null;
+}
+async function confirmDeleteAgent() {
+    const id = pendingDeleteId;
+    if (!id) return;
+    const btn = document.getElementById('btnConfirmDelete');
+    btn.disabled = true; // منع النقر المزدوج أثناء الحذف
+    try {
+        await callAgentManager('delete', { id });
+        toast('تم حذف الوكيل', 'success');
+        const wasOpen = currentAgentId === id;
+        closeDeleteConfirm();
+        if (wasOpen) { currentAgentId = null; closeModal(); }
+        loadAgents();
+    } catch (err) {
+        toast(err.message, 'error');
+    } finally {
+        btn.disabled = false;
     }
 }
 
