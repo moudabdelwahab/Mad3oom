@@ -4,6 +4,7 @@ import { initSidebar } from '/assets/js/admin/sidebar.js';
 import { iconize } from '/assets/js/chat-icons.js';
 import { isAccountRestricted } from '/assets/js/account-status.js';
 import { embedContext, initEmbed, reportTitle, reportUnavailable } from '/assets/js/admin/workspace/embed-bridge.js';
+import { isClosed } from '/assets/js/customer/ticket-view-model.js';
 
 // طبقة الوصول للبيانات - تُستورد من إعدادات المنصة الداخلية فقط
 const db = dataClient.supabase;
@@ -40,7 +41,9 @@ let customerData = {
     waMessages: [],
     subscriptions: [],
     activityLogs: [],
-    notes: []
+    notes: [],
+    // فشل أي استعلام من الستة: القسم المتأثر يعرض خطأً صريحًا بدل بيانات فارغة.
+    loadErrors: {}
 };
 
 async function init() {
@@ -196,6 +199,16 @@ async function loadCustomer(customerId) {
         customerData.activityLogs = activityRes.data || [];
         customerData.notes = notesRes.data || [];
         customerData.waMessages = waRes.data || [];
+        // كل استعلام فاشل يُسجَّل لقسمه؛ تبويبه والإحصاءات المرتبطة به تعرض
+        // خطأً صريحًا بدل صفر/فراغ مضلل. نجاح الباقي لا يتأثر.
+        customerData.loadErrors = {
+            ...(ticketsRes.error ? { tickets: true } : {}),
+            ...(chatSessionsRes.error ? { chats: true } : {}),
+            ...(subsRes.error ? { subscriptions: true } : {}),
+            ...(activityRes.error ? { activity: true } : {}),
+            ...(notesRes.error ? { notes: true } : {}),
+            ...(waRes.error ? { whatsapp: true } : {})
+        };
 
         if (customerData.tickets.length > 0) {
             const ticketIds = customerData.tickets.map(t => t.id);
@@ -260,8 +273,12 @@ function renderCustomer(profile) {
         : pillHtml('ch-pill-active', 'نشط');
 
     const subBadge = document.getElementById('custSubBadge');
-    const latestSub = customerData.subscriptions[0];
-    if (latestSub) {
+    // الشارة للاشتراك الفعّال أولًا (فعّال ولم ينتهِ)؛ فإن لم يوجد فالأحدث إنشاءً.
+    const activeSub = customerData.subscriptions.find(s => s.status === 'active' && !(s.end_date && new Date(s.end_date) < new Date()));
+    const latestSub = activeSub || customerData.subscriptions[0];
+    if (customerData.loadErrors.subscriptions) {
+        subBadge.innerHTML = pillHtml('ch-pill-sub-none', 'تعذّر تحميل الاشتراك');
+    } else if (latestSub) {
         const isExpired = latestSub.end_date && new Date(latestSub.end_date) < new Date();
         if (latestSub.status === 'active' && !isExpired) {
             subBadge.innerHTML = pillHtml('ch-pill-sub-on', 'مشترك');
@@ -272,16 +289,17 @@ function renderCustomer(profile) {
         subBadge.innerHTML = pillHtml('ch-pill-sub-none', 'بدون اشتراك');
     }
 
-    document.getElementById('statTicketsCount').textContent = customerData.tickets.length;
-    document.getElementById('statChatsCount').textContent = customerData.chatSessions.length;
-    document.getElementById('statWaCount').textContent = customerData.waMessages.length;
+    const errs = customerData.loadErrors;
+    document.getElementById('statTicketsCount').textContent = errs.tickets ? '—' : customerData.tickets.length;
+    document.getElementById('statChatsCount').textContent = errs.chats ? '—' : customerData.chatSessions.length;
+    document.getElementById('statWaCount').textContent = errs.whatsapp ? '—' : customerData.waMessages.length;
     document.getElementById('statPoints').textContent = profile.points || 0;
-    document.getElementById('statOpenTickets').textContent = customerData.tickets.filter(t => t.status === 'open').length;
+    document.getElementById('statOpenTickets').textContent = errs.tickets ? '—' : customerData.tickets.filter(t => !isClosed(t)).length;
 
-    document.getElementById('tabCountTickets').textContent = customerData.tickets.length;
-    document.getElementById('tabCountChats').textContent = customerData.chatSessions.length;
-    document.getElementById('tabCountWa').textContent = customerData.waMessages.length;
-    document.getElementById('tabCountNotes').textContent = customerData.notes.length;
+    document.getElementById('tabCountTickets').textContent = errs.tickets ? '—' : customerData.tickets.length;
+    document.getElementById('tabCountChats').textContent = errs.chats ? '—' : customerData.chatSessions.length;
+    document.getElementById('tabCountWa').textContent = errs.whatsapp ? '—' : customerData.waMessages.length;
+    document.getElementById('tabCountNotes').textContent = errs.notes ? '—' : customerData.notes.length;
 
     renderTicketsTab();
     renderSubscriptionTab();
@@ -300,6 +318,10 @@ function pillHtml(cls, label) {
 
 function renderTicketsTab() {
     const panel = document.getElementById('panel-tickets');
+    if (customerData.loadErrors.tickets) {
+        panel.innerHTML = errorTab('تعذّر تحميل التذاكر');
+        return;
+    }
     const tickets = customerData.tickets;
 
     if (tickets.length === 0) {
@@ -342,6 +364,10 @@ function priorityLabel(p) {
 
 function renderSubscriptionTab() {
     const panel = document.getElementById('panel-subscription');
+    if (customerData.loadErrors.subscriptions) {
+        panel.innerHTML = errorTab('تعذّر تحميل الاشتراكات');
+        return;
+    }
     const subs = customerData.subscriptions;
 
     if (subs.length === 0) {
@@ -361,7 +387,7 @@ function renderSubscriptionTab() {
                     </div>
                     <div>
                         <div class="ch-sub-label">الباقة</div>
-                        <div class="ch-sub-value">${planLabel(s.plan_type)}</div>
+                        <div class="ch-sub-value">${planLabel(s.plan ?? s.plan_type)}</div>
                     </div>
                     <div>
                         <div class="ch-sub-label">تاريخ البداية</div>
@@ -389,6 +415,10 @@ function planLabel(p) { return { monthly: 'شهري', yearly: 'سنوي' }[p] ||
 
 function renderChatsTab() {
     const panel = document.getElementById('panel-chats');
+    if (customerData.loadErrors.chats) {
+        panel.innerHTML = errorTab('تعذّر تحميل المحادثات');
+        return;
+    }
     const sessions = customerData.chatSessions;
 
     if (sessions.length === 0) {
@@ -424,6 +454,11 @@ function renderChatsTab() {
 function renderWhatsappTab(profile) {
     const panel = document.getElementById('panel-whatsapp');
 
+    if (customerData.loadErrors.whatsapp) {
+        panel.innerHTML = errorTab('تعذّر تحميل رسائل واتساب');
+        return;
+    }
+
     if (!profile.phone) {
         panel.innerHTML = emptyTab('لا توجد محادثات واتساب مرتبطة بهذا العميل', iconWhatsapp());
         return;
@@ -457,6 +492,10 @@ function renderWhatsappTab(profile) {
 
 function renderActivityTab() {
     const panel = document.getElementById('panel-activity');
+    if (customerData.loadErrors.activity) {
+        panel.innerHTML = errorTab('تعذّر تحميل سجل النشاط');
+        return;
+    }
     const logs = customerData.activityLogs;
 
     if (logs.length === 0) {
@@ -484,6 +523,10 @@ function activityActionLabel(action) {
 
 function renderNotesTab() {
     const container = document.getElementById('notesListContainer');
+    if (customerData.loadErrors.notes) {
+        container.innerHTML = errorTab('تعذّر تحميل الملاحظات');
+        return;
+    }
     const notes = customerData.notes;
 
     if (notes.length === 0) {
@@ -549,17 +592,22 @@ function setupNotes() {
 function renderSummary(profile) {
     const el = document.getElementById('aiSummaryText');
     const tickets = customerData.tickets;
-    const openTickets = tickets.filter(t => t.status === 'open').length;
+    const loadErrs = customerData.loadErrors || {};
+    const openTickets = loadErrs.tickets ? 0 : tickets.filter(t => !isClosed(t)).length;
     const resolvedTickets = tickets.filter(t => t.status === 'resolved').length;
     const totalChats = customerData.chatSessions.length;
     const totalWa = customerData.waMessages.length;
-    const sub = customerData.subscriptions[0];
+    // الشارة للاشتراك الفعّال أولًا، فإن لم يوجد فالأحدث — كشارة الرأس.
+    const activeSub = customerData.subscriptions.find(s => s.status === 'active' && !(s.end_date && new Date(s.end_date) < new Date()));
+    const sub = activeSub || customerData.subscriptions[0];
     const isBanned = isAccountRestricted(profile);
 
     const points = [];
     const totalInteractions = tickets.length + totalChats + totalWa;
 
-    if (totalInteractions === 0) {
+    if (loadErrs.tickets || loadErrs.chats || loadErrs.whatsapp) {
+        points.push('تعذّر تحميل بعض بيانات العميل (التذاكر أو المحادثات) — أعد تحميل الصفحة لعرض الملخص كاملًا.');
+    } else if (totalInteractions === 0) {
         points.push('عميل جديد لم يتفاعل بعد مع الدعم الفني أو المحادثات.');
     } else if (totalInteractions > 20) {
         points.push('عميل نشط جدًا، بتفاعل عالٍ مع المنصة عبر التذاكر والمحادثات.');
@@ -567,22 +615,24 @@ function renderSummary(profile) {
         points.push(`تفاعل العميل حتى الآن: ${tickets.length} تذكرة، ${totalChats} محادثة موقع، ${totalWa} رسالة واتساب.`);
     }
 
-    if (openTickets > 0) {
+    if (!loadErrs.tickets && openTickets > 0) {
         points.push(`لديه حاليًا <strong>${openTickets}</strong> تذكرة مفتوحة تحتاج متابعة.`);
-    } else if (tickets.length > 0) {
+    } else if (!loadErrs.tickets && tickets.length > 0) {
         points.push('لا توجد تذاكر مفتوحة حاليًا، جميع التذاكر تم التعامل معها.');
     }
 
-    if (tickets.length > 0 && resolvedTickets / tickets.length > 0.7) {
+    if (!loadErrs.tickets && tickets.length > 0 && resolvedTickets / tickets.length > 0.7) {
         points.push('معدل حل التذاكر الخاص به مرتفع، تجربة دعم جيدة بشكل عام.');
     }
 
-    if (sub) {
+    if (loadErrs.subscriptions) {
+        points.push('تعذّر تحميل الاشتراكات — أعد تحميل الصفحة لعرضها.');
+    } else if (sub) {
         const isExpired = sub.end_date && new Date(sub.end_date) < new Date();
         if (isExpired) {
             points.push('اشتراكه في خدمة الواتساب منتهٍ، فرصة جيدة للتواصل بخصوص التجديد.');
         } else if (sub.status === 'active') {
-            points.push(`مشترك حاليًا في باقة ${planLabel(sub.plan_type)}.`);
+            points.push(`مشترك حاليًا في باقة ${planLabel(sub.plan ?? sub.plan_type)}.`);
         }
     } else {
         points.push('لا يوجد لديه اشتراك نشط في خدمة الواتساب.');
@@ -625,6 +675,16 @@ function emptyTab(message, iconPath) {
         <div class="ch-tab-empty">
             <svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${iconPath}</svg>
             <div class="ch-tab-empty-text">${escapeHtml(message)}</div>
+        </div>
+    `;
+}
+
+/** حالة خطأ صريحة لتبويب فشل استعلامه — لا فراغ مضلل، ولا أرقام صفر كاذبة. */
+function errorTab(message) {
+    return `
+        <div class="ch-tab-empty">
+            <div class="ch-tab-empty-text" style="color:var(--color-danger)">${escapeHtml(message)}</div>
+            <div class="ch-tab-empty-text">أعد تحميل الصفحة لإعادة المحاولة.</div>
         </div>
     `;
 }

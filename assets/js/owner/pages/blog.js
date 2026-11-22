@@ -11,7 +11,13 @@ import { startBlogWorkspace } from '/assets/js/blog/blog-workspace.js';
 (async function init() {
     const ctx = await bootOwnerPage();
     if (!ctx) return;
-    const { data: profile } = await supabase.from('profiles').select('full_name')
-        .eq('id', ctx.session.user.id).maybeSingle();
+    // فشل قراءة الاسم لا يوقف مساحة التحرير: الاسم تجميلي هنا.
+    let profile = {};
+    try {
+        ({ data: profile } = await supabase.from('profiles').select('full_name')
+            .eq('id', ctx.session.user.id).maybeSingle());
+    } catch (err) {
+        console.error('[OwnerBlog] profile:', err?.message || err);
+    }
     await startBlogWorkspace({ id: ctx.session.user.id, email: ctx.session.user.email, profile: profile || {} });
 })();

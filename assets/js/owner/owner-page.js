@@ -154,7 +154,13 @@ function gate(title, text) {
  * يركّب قشرة المالك ثم يسأل الخادم: مالك المنصة؟ وفي سياقه؟ يعيد { session, status } أو null بعد عرض السبب.
  */
 export async function bootOwnerPage() {
-    const { data: { session } } = await supabase.auth.getSession();
+    let session;
+    try {
+        ({ data: { session } } = await supabase.auth.getSession());
+    } catch (err) {
+        gate('تعذّر التحقق', err?.message || 'تعذّرت قراءة الجلسة.');
+        return null;
+    }
     if (!session?.user) {
         const back = encodeURIComponent(location.pathname + location.search + location.hash);
         location.replace(`/login.html?redirect=${back}`);
@@ -192,9 +198,14 @@ export async function bootOwnerPage() {
     return { session, status };
 }
 
-/** ترقيم بسيط: «السابق/التالي» ونطاق الصفوف. onPage(n) يعيد التحميل من الخادم. */
+/** ترقيم بسيط: «السابق/التالي» ونطاق الصفوف. onPage(n) يعيد التحميل من الخادم.
+ * إعادة الرسم تستبدل الزرين؛ فمن كان التركيز على أحدهما يعود إلى نظيره الجديد
+ * (إن بقي مفعّلًا)، بدل أن يسقط التركيز إلى أول الصفحة. */
 export function renderPager(el, { page, size, total, onPage, text }) {
     if (!el) return;
+    const focused = (typeof document !== 'undefined' && typeof el.contains === 'function'
+        && document.activeElement && el.contains(document.activeElement))
+        ? document.activeElement.dataset?.pager || null : null;
     el.hidden = !total || total <= size && page === 0;
     if (el.hidden) { el.innerHTML = ''; return; }
     const last = Math.max(0, Math.ceil(total / size) - 1);
@@ -206,6 +217,10 @@ export function renderPager(el, { page, size, total, onPage, text }) {
         </span>`;
     el.querySelector('[data-pager="prev"]').addEventListener('click', () => onPage(page - 1));
     el.querySelector('[data-pager="next"]').addEventListener('click', () => onPage(page + 1));
+    if (focused) {
+        const next = el.querySelector(`[data-pager="${focused}"]`);
+        if (next && !next.disabled) next.focus({ preventScroll: true });
+    }
 }
 
 /** إخفاء رسالة النتيجة الطافية بالنقر — نفس سلوك .ows-toast في اللوحة. */

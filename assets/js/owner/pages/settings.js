@@ -27,10 +27,23 @@ const ADMIN_ONLY_SETTINGS = Object.freeze([
 ]);
 
 async function registration() {
-    const [result, row] = await Promise.all([
-        supabase.rpc('get_public_registration_settings'),
-        supabase.from('advanced_settings').select('id, value').eq('key', 'registration_mode').maybeSingle()
-    ]);
+    // انقطاع الشبكة يرمي: بلا التقاط يبقى القسم هيكلًا عظميًا وتتوقف run() كلها.
+    let result, row;
+    try {
+        [result, row] = await Promise.all([
+            supabase.rpc('get_public_registration_settings'),
+            supabase.from('advanced_settings').select('id, value').eq('key', 'registration_mode').maybeSingle()
+        ]);
+    } catch (err) {
+        $('settingsRegistration').innerHTML = errorBlock(friendlyError(err));
+        return;
+    }
+    // قراءة القيمة الحالية فشلت: عرض النموذج بقيم افتراضية كان سيُظهر «مفتوح»
+    // كوضع حالي وهو غير مؤكد — خطأ صريح بدل نموذج مضلِّل.
+    if (row.error) {
+        $('settingsRegistration').innerHTML = errorBlock(friendlyError(row.error));
+        return;
+    }
     const s = resolveRegistrationSettings(result);
     const names = {
         [REGISTRATION_MODE.open]: ['مفتوح', 'status-resolved', 'أي زائر يُنشئ حسابًا مباشرة.'],
@@ -75,10 +88,16 @@ async function registration() {
         const btn = e.submitter || $('regForm').querySelector('button[type="submit"]');
         btn.disabled = true;
         say('جارٍ الحفظ…');
-        const res = row.data?.id
-            ? await supabase.from('advanced_settings').update({ value: next, updated_at: new Date().toISOString() }).eq('id', row.data.id).select('id')
-            : await supabase.from('advanced_settings').insert({ key: 'registration_mode', value: next }).select('id');
-        btn.disabled = false;
+        let res;
+        try {
+            res = row.data?.id
+                ? await supabase.from('advanced_settings').update({ value: next, updated_at: new Date().toISOString() }).eq('id', row.data.id).select('id')
+                : await supabase.from('advanced_settings').insert({ key: 'registration_mode', value: next }).select('id');
+        } catch (err) {
+            res = { data: null, error: err };
+        } finally {
+            btn.disabled = false;
+        }
         const out = writeResult(res);
         if (!out.ok) { say(out.message, 'error'); return; }
         say('حُفظ وضع التسجيل، وسُجِّل في سجل التغييرات.', 'success');

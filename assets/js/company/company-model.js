@@ -350,6 +350,13 @@ export function validateMemberForm(values) {
 /**
  * 097: «تذاكر العملاء» = تذاكر نطاق الشركة. تذكرة العميل مع مدعوم (فوترته الشخصية) ليست
  * للشركة؛ القاعدة تحجبها والعزل مفعّل، والواجهة لا تعرضها في كل الأحوال. قبل 097: بلا scope.
+ *
+ * قرار مُوثَّق (2026-11-22): لا نفحص company_id هنا رغم أنه أدق ظاهريًا —
+ * تذكرة قديمة بلا scope تُعامل اليوم كتذكرة شركة، وتشديد الفحص على company_id
+ * كان سيُخفيها من المسار (وكل تذاكر الإنتاج الـ43 بلا company_id أصلًا،
+ * وscope ‏'mad3oom_support' لا 'company'). النطاق يُفرض في القاعدة أصلًا
+ * (company_tickets_list ترجع scope='company' وcompany_id للشركة فقط)، فالفحص
+ * هنا فلتر عرض احترازي لا بوابة أمان، وإبقاؤه متساهلًا يحفظ عرض القديم.
  */
 export function isCompanyScopedTicket(ticket) {
     return !!ticket && (!('scope' in ticket) || ticket.scope === 'company');
@@ -395,13 +402,21 @@ export const INVITATION_STATUS_LABELS = Object.freeze({
 
 /**
  * ماذا يظهر في لوحة العملاء من رد company_customers_list() — خالص.
- * الدعوة لمن رجّعت له القاعدة can_manage والمفتاح مفعّل؛ قائمة العملاء للمشرف
- * (المدير يرى العملاء في «مستخدمو الشركة» أصلًا).
+ *
+ * القاعدة وحدها تقرر من يرى القائمة: ردّ غير null يعني أنها سمحت لهذا الناظر
+ * (096: المدير والمشرف؛ و098 مفعّل: المدير ومن يملك customers.view —
+ * والمشرف افتراضيًا، والموظف فقط إن مُنحها؛ بلا الصلاحية يرجع null).
+ * الواجهة **تعكس** الرد ولا تعيد حساب الصلاحية من الدور: showList صحيحة
+ * كلما رجّعت القاعدة القائمة، لأي دور. viewerRole باقٍ في التوقيع للتوافق
+ * (المنادون والاختبارات القائمة يمررونه) ولا يُستخدم في القرار.
+ * الدعوة وحدها تُحسب من حقلي الرد (can_manage والمفتاح مفعّل).
  */
 export function customersPanelView(payload, viewerRole) {
     if (!payload || typeof payload !== 'object') return { show: false, canInvite: false, showList: false, customers: [] };
     const canInvite = payload.can_manage === true && payload.invitations_enabled === true;
-    const showList = viewerRole === 'supervisor';
+    // القائمة تظهر فقط حين رجّعت القاعدة قائمة فعلًا (مصفوفة)؛ ردّ بلا
+    // حقل customers لا يُظهر لوحة فارغة.
+    const showList = Array.isArray(payload.customers);
     const customers = Array.isArray(payload.customers) ? payload.customers : [];
     return { show: canInvite || showList, canInvite, showList, customers };
 }

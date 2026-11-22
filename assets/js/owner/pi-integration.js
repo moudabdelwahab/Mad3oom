@@ -93,9 +93,16 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
         btn.disabled = true;
         say('جارٍ الحفظ…');
         // select() بعد التعديل: RLS لا تُرجع خطأ حين ترفض، بل صفرًا من الصفوف
-        const { data, error } = await supabase.from('pi_settings')
-            .update({ testnet_enabled, mainnet_enabled }).eq('id', true).select('id');
-        btn.disabled = false;
+        let data = null;
+        let error = null;
+        try {
+            ({ data, error } = await supabase.from('pi_settings')
+                .update({ testnet_enabled, mainnet_enabled }).eq('id', true).select('id'));
+        } catch (err) {
+            error = err;
+        } finally {
+            btn.disabled = false;
+        }
         if (error || !data?.length) { say(error ? friendly(error) : 'لم يُحفظ — القاعدة لم تسمح بالتعديل.', 'error'); return; }
         say('تم حفظ الإعدادات.', 'success');
         load({ force: true });
@@ -138,9 +145,16 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
         const btn = $('piPricesSave');
         btn.disabled = true;
         say('جارٍ حفظ الأسعار…');
-        const { data, error } = await supabase.from('pi_plan_prices')
-            .upsert([...byPlan.values()], { onConflict: 'plan_id' }).select('plan_id');
-        btn.disabled = false;
+        let data = null;
+        let error = null;
+        try {
+            ({ data, error } = await supabase.from('pi_plan_prices')
+                .upsert([...byPlan.values()], { onConflict: 'plan_id' }).select('plan_id'));
+        } catch (err) {
+            error = err;
+        } finally {
+            btn.disabled = false;
+        }
         if (error || !data?.length) { say(error ? friendly(error) : 'لم تُحفظ الأسعار.', 'error'); return; }
         say('تم حفظ الأسعار.', 'success');
     });
@@ -210,15 +224,26 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
         if (loaded && !force) return;
         loaded = true;
 
-        const [settings, plans, prices, payments] = await Promise.all([
-            supabase.from('pi_settings').select('testnet_enabled, mainnet_enabled, updated_at, updated_by').eq('id', true).maybeSingle(),
-            supabase.from('subscription_plans').select('id, name, name_ar, price_monthly, currency, sort_order')
-                .eq('is_active', true).order('sort_order'),
-            supabase.from('pi_plan_prices').select('plan_id, price_monthly_pi, price_yearly_pi'),
-            supabase.from('pi_payments')
-                .select('id, pi_payment_id, user_id, plan_id, billing_cycle, amount, network, status, txid, error, created_at, ticket_id, settled_at, invoice_attached_at, settle_error')
-                .order('created_at', { ascending: false }).limit(200)
-        ]);
+        // انقطاع الشبكة يرمي بلا التقاط، فتبقى الهياكل العظمية إلى الأبد وloaded
+        // عالقًا true فلا يعيد فتح القسم المحاولة. الآن خطأ صريح، وزر «تحديث» يعيد.
+        let settings, plans, prices, payments;
+        try {
+            [settings, plans, prices, payments] = await Promise.all([
+                supabase.from('pi_settings').select('testnet_enabled, mainnet_enabled, updated_at, updated_by').eq('id', true).maybeSingle(),
+                supabase.from('subscription_plans').select('id, name, name_ar, price_monthly, currency, sort_order')
+                    .eq('is_active', true).order('sort_order'),
+                supabase.from('pi_plan_prices').select('plan_id, price_monthly_pi, price_yearly_pi'),
+                supabase.from('pi_payments')
+                    .select('id, pi_payment_id, user_id, plan_id, billing_cycle, amount, network, status, txid, error, created_at, ticket_id, settled_at, invoice_attached_at, settle_error')
+                    .order('created_at', { ascending: false }).limit(200)
+            ]);
+        } catch (err) {
+            loaded = false;
+            $('piKpis').innerHTML = errorBlock(err?.message || 'تعذّر تحميل قسم باي.');
+            $('piPricesBody').innerHTML = '';
+            $('piPaymentsBody').innerHTML = errorBlock(err?.message || 'تعذّر تحميل قسم باي.');
+            return;
+        }
 
         if (missingTables(settings.error)) {
             $('piSetupNotice').hidden = false;

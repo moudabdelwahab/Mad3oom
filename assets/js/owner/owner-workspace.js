@@ -34,6 +34,23 @@ export function badgeText(value) {
     return String(value);
 }
 
+/**
+ * محدِّد CSS يعيد العثور على زرّ بعد إعادة رسم لوحته، لإعادة التركيز إليه.
+ * خالصة: تُبنى من dataset الزر كما كان قبل إعادة الرسم.
+ * تُستبعد `on` (تنقلب قيمتها بعد التبديل) و`critical` (بلا قيمة)، فلا يطابقا
+ * الزر الجديد؛ وتُهرَّب القيم لصلاحية المحدِّد. بلا مفاتيح مميِّزة ⇒ null.
+ */
+export function focusSelectorFor(dataset) {
+    const skip = new Set(['on', 'critical']);
+    const parts = [];
+    for (const [key, value] of Object.entries(dataset || {})) {
+        if (skip.has(key) || value === undefined || value === null || value === '') continue;
+        const attr = 'data-' + key.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase());
+        parts.push(`[${attr}="${String(value).replace(/["\\]/g, '\\$&')}"]`);
+    }
+    return parts.length ? parts.join('') : null;
+}
+
 const readStored = (key) => {
     try { return localStorage.getItem(key); } catch { return null; }
 };

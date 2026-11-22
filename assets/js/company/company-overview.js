@@ -58,7 +58,9 @@ const QUICK_ACTIONS = [
 ];
 
 export function quickActionsFor(ctx) {
-    return QUICK_ACTIONS.filter(action => pageAvailable(action.page, ctx)).slice(0, 4);
+    // الستة كلها: الشبكة في company-dashboard.css عمودان (صفان ونصف لستة
+    // عناصر، وعمود واحد على الجوال)، فلا اقتطاع ولا كسر للتخطيط.
+    return QUICK_ACTIONS.filter(action => pageAvailable(action.page, ctx));
 }
 
 export function renderQuickActions(ctx) {
@@ -78,6 +80,91 @@ export function renderQuickActions(ctx) {
                     </a>
                 </li>`).join('')}
         </ul>`;
+}
+
+/* ── قائمة «ابدأ هنا» لمالك الشركة الجديد ─────────────────────────────────
+   خطوات أولى تُشتق حالة إكمال كلٍّ منها من بيانات محمّلة أصلًا في اللوحة
+   (الأعضاء/العملاء/المتجر/التذاكر) — بلا أي جلب جديد وبلا أي تغيير خادم.
+   غياب بيانات = الخطوة غير مكتملة، ولا يُرمى خطأ أبدًا (دفاعي تمامًا).
+   خطوة المتجر لحسابات المتاجر وحدها؛ لغيرها لا معنى لها فتُستبعد من القائمة
+   ومن حساب الاكتمال. اكتمال ربط المتجر نفسه لا يُشتق من البيانات المتاحة
+   (حالة ربط Shopify تُقرأ في صفحة Shopify وحدها)، فتظهر غير مكتملة برابط
+   لصفحتها دون ادعاء اكتمالها.
+   الإخفاء اليدوي يُحفظ في localStorage بالمفتاح أدناه؛ والاكتمال الكامل
+   يخفي القائمة دون حفظ (فلو تغيّرت البيانات ظهرت مجددًا). */
+
+/** مفتاح إخفاء قائمة «ابدأ هنا» — إغلاق يدوي يبقى مخفيًا عبر الجلسات. */
+export const GETTING_STARTED_DISMISSED_KEY = 'mad3oom.company.getting-started.dismissed.v1';
+
+/** اشتقاق خالص لحالة الخطوات من عدّادات محمّلة أصلًا. */
+export function gettingStartedSteps({ membersCount = 0, customersCount = 0, isStoreAccount = false, platformTicketsCount = 0 } = {}) {
+    const n = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+    const steps = [
+        { key: 'team', title: 'أضف فريقك', text: 'أضف مستخدمًا آخر لشركتك ليظهر في الفريق.', page: 'members', done: n(membersCount) > 1 },
+        { key: 'customers', title: 'ادعُ عملاءك', text: 'ادعُ عميلًا بالبريد لينضم إلى شركتك.', page: 'customers', done: n(customersCount) > 0 },
+        { key: 'ticket', title: 'افتح أول تذكرة', text: 'تواصل مع فريق مدعوم بأول طلب دعم.', page: 'support', done: n(platformTicketsCount) > 0 }
+    ];
+    if (isStoreAccount) {
+        steps.splice(2, 0, { key: 'store', title: 'اربط متجرك', text: 'أكمل ربط متجر Shopify لتصل بياناته إلى الدعم.', page: 'shopify', done: false });
+    }
+    return steps;
+}
+
+/**
+ * يرسم القائمة (أو يحدّثها في مكانها، أو يزيلها عند اكتمال كل الخطوات أو
+ * عند إغلاقها يدويًا). يُنادى من loadOverview عبر refreshOverviewTickets
+ * بعد تحميل التذاكر، ومن onTicketCreated عبر المسار نفسه.
+ */
+export function renderGettingStarted(input = {}) {
+    try {
+        const host = document.getElementById('overviewTabContent');
+        if (!host) return;
+        const existing = document.getElementById('companyGettingStarted');
+        let dismissed = false;
+        try { dismissed = window.localStorage?.getItem(GETTING_STARTED_DISMISSED_KEY) === '1'; } catch { dismissed = false; }
+        const steps = gettingStartedSteps(input);
+        if (dismissed || steps.length === 0 || steps.every(s => s.done)) {
+            existing?.remove();
+            return;
+        }
+        const html = `
+        <section class="panel" id="companyGettingStarted" aria-labelledby="companyGettingStartedHeading">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title" id="companyGettingStartedHeading">ابدأ هنا</h2>
+                    <p class="panel-subtitle">خطوات أولى لتجهيز شركتك — تختفي عند اكتمالها، ويمكن إغلاقها في أي وقت</p>
+                </div>
+                <button type="button" class="panel-link" id="companyGettingStartedDismiss">إغلاق</button>
+            </div>
+            <ul class="company-sub-list">
+                ${steps.map((step, i) => `
+                <li class="company-sub">
+                    <div class="company-sub-main">
+                        <p class="company-sub-plan">${i + 1}. ${escapeHtml(step.title)}</p>
+                        <p class="company-sub-dates">${escapeHtml(step.text)}</p>
+                    </div>
+                    <div class="company-sub-side">
+                        ${step.done
+                            ? '<span class="pill status-tone-success">✓ مكتملة</span>'
+                            : `<a class="panel-link" href="/company-dashboard/#${escapeHtml(step.page)}" data-tab="${escapeHtml(step.page)}">فتح الصفحة</a>`}
+                    </div>
+                </li>`).join('')}
+            </ul>
+        </section>`;
+        if (existing) {
+            existing.outerHTML = html;
+        } else {
+            const anchor = document.getElementById('companyAlerts');
+            if (anchor && anchor.parentNode === host) anchor.insertAdjacentHTML('afterend', html);
+            else host.insertAdjacentHTML('afterbegin', html);
+        }
+        document.getElementById('companyGettingStartedDismiss')?.addEventListener('click', () => {
+            try { window.localStorage?.setItem(GETTING_STARTED_DISMISSED_KEY, '1'); } catch { /* التخزين غير متاح: الإغلاق لهذه الجلسة فقط */ }
+            document.getElementById('companyGettingStarted')?.remove();
+        });
+    } catch {
+        // دفاعي تمامًا: قائمة البداية لا تكسر النظرة العامة أبدًا.
+    }
 }
 
 /* ── ملخّص التذاكر ───────────────────────────────────────────────────────── */

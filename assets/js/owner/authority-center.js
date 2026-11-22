@@ -116,7 +116,13 @@ export function initAuthorityCenter(ctx) {
                     </div>
                 </div>`;
             $('stepUpOpen').addEventListener('click', async () => {
-                if (await requestStepUp({ reason: 'فتح جلسة تحرير للعمليات الحساسة.' })) { renderStepUp(); renderAudit(); }
+                const btn = $('stepUpOpen');
+                btn.disabled = true;
+                try {
+                    if (await requestStepUp({ reason: 'فتح جلسة تحرير للعمليات الحساسة.' })) { renderStepUp(); renderAudit(); }
+                } finally {
+                    btn.disabled = false;
+                }
             });
         }
         applyCriticalState();
@@ -226,7 +232,14 @@ export function initAuthorityCenter(ctx) {
             'to-admin': () => supabase.rpc('owner_set_staff_role', { p_user_id: id, p_role: 'admin' }),
             remove: () => supabase.rpc('owner_set_staff_role', { p_user_id: id, p_role: 'user' })
         };
-        const { error } = await calls[act]();
+        // انقطاع الشبكة يرمي بلا { error }: يُعرض الخطأ وتُعاد الرسوم، فلا يبقى
+        // الزر معطّلًا بلا تفسير ولا رسالة.
+        let error = null;
+        try {
+            ({ error } = await calls[act]());
+        } catch (err) {
+            error = err;
+        }
         say($('staffStatus'), error ? error.message : 'تم.', error ? 'error' : 'success');
         if (!error && ['to-support', 'to-admin', 'remove'].includes(act)) {
             const p = rows.find(r => r.id === id);
@@ -243,7 +256,16 @@ export function initAuthorityCenter(ctx) {
         const submit = e.submitter || e.currentTarget.querySelector('[type=submit]');
         submit.disabled = true;
         say($('staffStatus'), 'جارٍ الإضافة…');
-        const { error } = await supabase.rpc('owner_set_staff_role', { p_user_id: id, p_role: role });
+        // الزر كان لا يُعاد تفعيله أبدًا بعد أول إضافة (لا في النجاح ولا في الفشل)،
+        // فيبقى «إضافة» معطّلًا حتى إعادة تحميل الصفحة.
+        let error = null;
+        try {
+            ({ error } = await supabase.rpc('owner_set_staff_role', { p_user_id: id, p_role: role }));
+        } catch (err) {
+            error = err;
+        } finally {
+            submit.disabled = false;
+        }
         say($('staffStatus'), error ? error.message : 'تمت الإضافة إلى الفريق.', error ? 'error' : 'success');
         if (!error) {
             const p = rows.find(r => r.id === id);

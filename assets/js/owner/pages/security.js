@@ -27,9 +27,17 @@ const device = (ua) => {
     return `<span title="${esc(ua || '')}">${esc(d.label)}</span> <span class="owner-cell-muted">${esc(d.device)}</span>`;
 };
 
-/** نداء كتابة: نتيجة موحّدة من خطأ PostgREST أو { ok:false, error } */
+/** نداء كتابة: نتيجة موحّدة من خطأ PostgREST أو { ok:false, error }.
+ * النداء نفسه قد يرمي (انقطاع شبكة): بلا التقاط كان الزر يبقى بلا رد ولا رسالة. */
 async function write(fn, args, success) {
-    const res = await supabase.rpc(fn, args);
+    let res;
+    try {
+        res = await supabase.rpc(fn, args);
+    } catch (err) {
+        const out = { ok: false, message: err?.message || 'تعذّر الاتصال بالقاعدة' };
+        toast(out.message, 'error');
+        return out;
+    }
     const out = rpcOutcome(res);
     toast(out.ok ? success : out.message, out.ok ? 'success' : 'error');
     return out;
@@ -38,11 +46,18 @@ async function write(fn, args, success) {
 /* ── نظرة عامة ─────────────────────────────────────────────────────────── */
 async function overview() {
     $('secKpis').innerHTML = loadingBlock();
-    const [{ data, error }, changes] = await Promise.all([
-        supabase.rpc('owner_security_overview', { p_days: 7 }),
-        supabase.rpc('owner_account_change_list', { p_limit: 10 })
-    ]);
+    // انقطاع الشبكة يرمي: بلا التقاط تبقى الهياكل العظمية بلا تفسير.
+    let data, changes, error = null;
+    try {
+        [{ data, error }, changes] = await Promise.all([
+            supabase.rpc('owner_security_overview', { p_days: 7 }),
+            supabase.rpc('owner_account_change_list', { p_limit: 10 })
+        ]);
+    } catch (err) {
+        error = err;
+    }
     if (error) { $('secKpis').innerHTML = errorBlock(friendlyError(error)); return; }
+    if (!data) { $('secKpis').innerHTML = errorBlock('تعذّرت قراءة نظرة الأمان.'); return; }
     $('secKpis').innerHTML = kpis([
         ['تسجيلات دخول (7 أيام)', num(data.logins)],
         ['محاولات فاشلة', num(data.failed_logins), data.failed_logins > 0 ? 'kpi--warning' : ''],
@@ -89,12 +104,18 @@ async function activity() {
     const box = $('secLog');
     box.innerHTML = loadingBlock();
     const day = (v, end) => (v ? new Date(`${v}T${end ? '23:59:59' : '00:00:00'}`).toISOString() : null);
-    const { data, error } = await supabase.rpc('owner_security_log', {
-        p_email: $('secEmail').value.trim() || null, p_ip: $('secIp').value.trim() || null,
-        p_type: $('secType').value || null, p_from: day($('secFrom').value), p_to: day($('secTo').value, true),
-        p_severity: $('secSeverity').value || null, p_limit: PAGE, p_offset: logPage * PAGE
-    });
+    let data, error = null;
+    try {
+        ({ data, error } = await supabase.rpc('owner_security_log', {
+            p_email: $('secEmail').value.trim() || null, p_ip: $('secIp').value.trim() || null,
+            p_type: $('secType').value || null, p_from: day($('secFrom').value), p_to: day($('secTo').value, true),
+            p_severity: $('secSeverity').value || null, p_limit: PAGE, p_offset: logPage * PAGE
+        }));
+    } catch (err) {
+        error = err;
+    }
     if (error) { box.innerHTML = errorBlock(friendlyError(error)); return; }
+    if (!data) { box.innerHTML = errorBlock('تعذّرت قراءة سجل الدخول.'); return; }
     if (data?.error === 'invalid_ip') { box.innerHTML = errorBlock('عنوان الشبكة غير صالح.'); return; }
     box.innerHTML = table(['الوقت', 'الحدث', 'الحساب', 'العنوان', 'الموقع التقريبي', 'الجهاز', 'المصدر'], data.items || [], r => `<tr>
         <td>${esc(when(r.at))}</td>
@@ -115,8 +136,14 @@ async function activity() {
 async function shared() {
     const box = $('secShared');
     box.innerHTML = loadingBlock();
-    const { data, error } = await supabase.rpc('owner_ip_correlation', { p_days: Number($('secSharedDays').value), p_min_accounts: 2, p_limit: 50 });
+    let data, error = null;
+    try {
+        ({ data, error } = await supabase.rpc('owner_ip_correlation', { p_days: Number($('secSharedDays').value), p_min_accounts: 2, p_limit: 50 }));
+    } catch (err) {
+        error = err;
+    }
     if (error) { box.innerHTML = errorBlock(friendlyError(error)); return; }
+    if (!data) { box.innerHTML = errorBlock('تعذّرت قراءة العناوين المشتركة.'); return; }
     const items = data.items || [];
     tabs.setBadge('shared', items.length ? num(items.length) : null, items.length ? 'attention' : '');
     box.innerHTML = items.length ? items.map(r => `
@@ -149,10 +176,16 @@ function sessionsTable(items, { mine }) {
 }
 
 async function sessions() {
-    const [mine, staff] = await Promise.all([
-        supabase.rpc('owner_list_sessions', { p_user: null }),
-        supabase.from('profiles').select('id, email, full_name, role').in('role', ['admin', 'support']).order('email')
-    ]);
+    let mine, staff, error = null;
+    try {
+        [mine, staff] = await Promise.all([
+            supabase.rpc('owner_list_sessions', { p_user: null }),
+            supabase.from('profiles').select('id, email, full_name, role').in('role', ['admin', 'support']).order('email')
+        ]);
+    } catch (err) {
+        error = err;
+    }
+    if (error) { $('secMySessions').innerHTML = errorBlock(friendlyError(error)); return; }
     $('secMySessions').innerHTML = mine.error ? errorBlock(friendlyError(mine.error)) : sessionsTable(mine.data?.items || [], { mine: true });
     tabs.setBadge('sessions', mine.data?.items?.length ? num(mine.data.items.length) : null);
     const sel = $('secStaffSelect');
@@ -168,7 +201,12 @@ async function staffSessions() {
     const box = $('secStaffSessions');
     if (!id) { box.innerHTML = '<p class="panel-subtitle">اختر حسابًا لعرض جلساته.</p>'; return; }
     box.innerHTML = loadingBlock();
-    const { data, error } = await supabase.rpc('owner_list_sessions', { p_user: id });
+    let data, error = null;
+    try {
+        ({ data, error } = await supabase.rpc('owner_list_sessions', { p_user: id }));
+    } catch (err) {
+        error = err;
+    }
     if (error) { box.innerHTML = errorBlock(friendlyError(error)); return; }
     box.innerHTML = data?.ok === false ? errorBlock('ليس حساب فريق منصة.')
         : sessionsTable(data.items || [], { mine: false })
@@ -177,9 +215,22 @@ async function staffSessions() {
 
 /* ── جلسات التحرير ────────────────────────────────────────────────────── */
 async function editing() {
-    const [status, hist] = await Promise.all([supabase.rpc('owner_security_status'), supabase.rpc('owner_step_up_history', { p_limit: 30 })]);
+    let status, hist, error = null;
+    try {
+        [status, hist] = await Promise.all([supabase.rpc('owner_security_status'), supabase.rpc('owner_step_up_history', { p_limit: 30 })]);
+    } catch (err) {
+        error = err;
+    }
+    if (error) {
+        $('secEditingNow').innerHTML = errorBlock(friendlyError(error));
+        $('secEditing').innerHTML = errorBlock(friendlyError(error));
+        return;
+    }
     const s = status.data;
-    $('secEditingNow').innerHTML = s?.step_up_fresh
+    // فشل قراءة الحالة كان يُعرض «جلسة التحرير مقفلة» كأنها معلومة مؤكدة.
+    if (status.error) {
+        $('secEditingNow').innerHTML = errorBlock(friendlyError(status.error));
+    } else $('secEditingNow').innerHTML = s?.step_up_fresh
         ? `<div class="owner-stepup-state owner-stepup-state--ok"><p class="owner-stepup-title">جلسة التحرير مفتوحة</p>
              <p class="owner-stepup-text">حتى ${esc(when(s.step_up_expires_at))} · بـ${s.step_up_method === 'recovery_code' ? 'رمز استرداد' : 'تطبيق المصادقة'} · المدة ${esc(num(s.step_up_minutes))} دقيقة</p>
              <button type="button" class="btn btn-outline btn-sm" id="secEndStepUp">إنهاء الجلسة الآن</button></div>`
@@ -219,8 +270,14 @@ const diffText = (oldRow, newRow) => {
 async function changes() {
     const box = $('secChanges');
     box.innerHTML = loadingBlock();
-    const { data, error } = await supabase.rpc('owner_change_history', { p_table: $('secChangesTable').value || null, p_limit: PAGE, p_offset: changesPage * PAGE });
+    let data, error = null;
+    try {
+        ({ data, error } = await supabase.rpc('owner_change_history', { p_table: $('secChangesTable').value || null, p_limit: PAGE, p_offset: changesPage * PAGE }));
+    } catch (err) {
+        error = err;
+    }
     if (error) { box.innerHTML = errorBlock(friendlyError(error)); return; }
+    if (!data) { box.innerHTML = errorBlock('تعذّرت قراءة سجل التغييرات.'); return; }
     const OP = { INSERT: 'إضافة', UPDATE: 'تعديل', DELETE: 'حذف' };
     box.innerHTML = table(['الوقت', 'الجدول', 'العملية', 'التغيير', 'الفاعل', ''], data.items || [], r => `<tr>
         <td>${esc(when(r.at))}</td><td>${esc(CHANGE_TABLE_LABELS[r.table_name] || r.table_name)}<div class="owner-cell-muted owner-mono">${esc(r.row_key || '')}</div></td>
@@ -236,9 +293,14 @@ async function changes() {
 
 /* ── السياسة ──────────────────────────────────────────────────────────── */
 async function policy() {
-    const { data, error } = await supabase.rpc('owner_security_status');
+    let data, error = null;
+    try {
+        ({ data, error } = await supabase.rpc('owner_security_status'));
+    } catch (err) {
+        error = err;
+    }
     if (error) { $('secPolicyError').textContent = friendlyError(error); $('secPolicyError').hidden = false; return; }
-    const p = data.policy || {};
+    const p = data?.policy || {};
     const preset = ['5', '15', '30', '60'].includes(String(p.step_up_minutes)) ? String(p.step_up_minutes) : 'custom';
     document.querySelectorAll('input[name="minutes"]').forEach(r => { r.checked = r.value === preset; });
     $('secCustomWrap').hidden = preset !== 'custom';
@@ -285,6 +347,11 @@ function bindActions() {
         const revoke = e.target.closest('[data-revoke]');
         const global = e.target.closest('[data-global]');
         const rollback = e.target.closest('[data-rollback]');
+        // الأزرار هنا كانت تُنقر مرتين بلا تعطيل أثناء الطلب؛ يُعطَّل الزر حتى الرد،
+        // ويُعاد تفعيله إن بقي في الصفحة (الفشل لا يعيد الرسم، فلا يبقى معطّلًا).
+        const btn = revoke || global || rollback;
+        if (btn) btn.disabled = true;
+        try {
         if (revoke) {
             if (!window.confirm('إلغاء هذه الجلسة؟')) return;
             const out = await write('owner_revoke_session', { p_session: revoke.dataset.revoke }, 'أُلغيت الجلسة.');
@@ -298,16 +365,30 @@ function bindActions() {
             const out = await write('owner_rollback_change', { p_change: Number(rollback.dataset.rollback) }, 'تم التراجع.');
             if (out.ok) changes();
         }
+        } finally {
+            if (btn?.isConnected) btn.disabled = false;
+        }
     });
-    $('secLogoutOthers').addEventListener('click', async () => {
+    $('secLogoutOthers').addEventListener('click', async (e) => {
         if (!window.confirm('إخراج كل أجهزتك الأخرى؟ تبقى هذه الجلسة.')) return;
-        const out = await write('owner_global_logout', { p_user: ctx.session.user.id }, 'خرجت أجهزتك الأخرى.');
-        if (out.ok) sessions();
+        e.currentTarget.disabled = true;
+        try {
+            const out = await write('owner_global_logout', { p_user: ctx.session.user.id }, 'خرجت أجهزتك الأخرى.');
+            if (out.ok) sessions();
+        } finally {
+            if (e.currentTarget.isConnected) e.currentTarget.disabled = false;
+        }
     });
     $('secGlobalForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = $('secGlobalEmail').value.trim().toLowerCase();
-        const { data } = await supabase.from('profiles').select('id, email').ilike('email', email).limit(1);
+        let data = null;
+        try {
+            ({ data } = await supabase.from('profiles').select('id, email').ilike('email', email).limit(1));
+        } catch (err) {
+            toast(friendlyError(err), 'error');
+            return;
+        }
         if (!data?.length) { toast('لا حساب بهذا البريد.', 'error'); return; }
         if (!window.confirm(`إخراج ${data[0].email} من كل الأجهزة؟`)) return;
         const out = await write('owner_global_logout', { p_user: data[0].id }, 'خرج الحساب من كل الأجهزة.');
@@ -318,17 +399,31 @@ function bindActions() {
     $('secSharedDays').addEventListener('change', shared);
     $('secStaffSelect').addEventListener('change', staffSessions);
     $('secChangesTable').addEventListener('change', () => { changesPage = 0; changes(); });
-    $('secVerify').addEventListener('click', async () => {
+    $('secVerify').addEventListener('click', async (e) => {
         $('secIntegrity').innerHTML = loadingBlock();
-        const { data, error } = await supabase.rpc('owner_verify_security_log');
+        e.currentTarget.disabled = true;
+        let data, error = null;
+        try {
+            ({ data, error } = await supabase.rpc('owner_verify_security_log'));
+        } catch (err) {
+            error = err;
+        } finally {
+            e.currentTarget.disabled = false;
+        }
         $('secIntegrity').innerHTML = error ? errorBlock(friendlyError(error))
             : data.ok ? `<p><span class="pill status-resolved">سليمة</span> ${esc(num(data.checked))} سطرًا، آخر بصمة <span class="owner-mono" dir="ltr">${esc(String(data.head || '').slice(0, 16))}…</span></p>`
             : `<p><span class="pill status-rejected">مكسورة</span> عند السطر ${esc(num(data.broken_at))} — عُدِّل السجل خارج القاعدة. صدّر السجل وراجع صلاحيات قاعدة البيانات.</p>`;
     });
     $('secGeo').addEventListener('click', async (e) => {
         e.currentTarget.disabled = true;
-        const { data, error } = await supabase.functions.invoke('security-event', { body: { action: 'enrich_geo' } });
-        e.currentTarget.disabled = false;
+        let data, error = null;
+        try {
+            ({ data, error } = await supabase.functions.invoke('security-event', { body: { action: 'enrich_geo' } }));
+        } catch (err) {
+            error = err;
+        } finally {
+            e.currentTarget.disabled = false;
+        }
         if (error || !data?.ok) { toast('تعذّر تحديث المواقع (المزوّد غير مضبوط أو غير متاح).', 'error'); return; }
         toast(data.resolved ? `حُدِّث موقع ${num(data.resolved)} عنوانًا.` : 'لا عناوين جديدة أو مزوّد المواقع غير مضبوط.', data.resolved ? 'success' : 'info');
         activity();

@@ -21,17 +21,28 @@ const say = (text, tone = 'info') => announce($('pageStatus'), text, tone);
 async function loadPeople(ids) {
     const missing = [...new Set(ids.filter(id => id && !people.has(id)))];
     if (!missing.length) return;
-    const { data } = await supabase.from('profiles').select('id, full_name, email, role').in('id', missing);
-    (data || []).forEach(p => people.set(p.id, p));
+    // فشل القراءة لا يوقف الجدول: الصاحب يُعرض بمعرّفه كما في renderTokens.
+    try {
+        const { data } = await supabase.from('profiles').select('id, full_name, email, role').in('id', missing);
+        (data || []).forEach(p => people.set(p.id, p));
+    } catch (err) {
+        console.error('[OwnerIntegrations] loadPeople:', err?.message || err);
+    }
 }
 
 const tokenLive = (t) => t.is_active && !t.revoked_at && (!t.expires_at || new Date(t.expires_at) > new Date());
 
 async function loadTokens() {
     $('tokensTable').innerHTML = loadingBlock();
-    const { data, error } = await supabase.from('api_tokens')
-        .select('id, user_id, name, description, is_active, revoked_at, expires_at, created_at, last_used_at, usage_count, credential_type, created_by_role, secret_last_four')
-        .order('created_at', { ascending: false });
+    // انقطاع الشبكة يرمي: بلا التقاط يبقى الهيكل العظمي بلا تفسير.
+    let data, error = null;
+    try {
+        ({ data, error } = await supabase.from('api_tokens')
+            .select('id, user_id, name, description, is_active, revoked_at, expires_at, created_at, last_used_at, usage_count, credential_type, created_by_role, secret_last_four')
+            .order('created_at', { ascending: false }));
+    } catch (err) {
+        error = err;
+    }
     if (error) { $('tokensTable').innerHTML = errorBlock(friendlyError(error)); tokens = []; return; }
     tokens = data || [];
     await loadPeople(tokens.map(t => t.user_id));
@@ -87,8 +98,12 @@ async function setToken(token, active, btn) {
         : `إيقاف المفتاح «${token.name}»؟ كل نظام يستعمله يفقد الوصول فورًا.`;
     if (!window.confirm(question)) return;
     btn.disabled = true;
-    const patch = active ? { is_active: true, revoked_at: null } : { is_active: false, revoked_at: new Date().toISOString() };
-    const result = writeResult(await supabase.from('api_tokens').update(patch).eq('id', token.id).select('id'));
+    let result;
+    try {
+        result = writeResult(await supabase.from('api_tokens').update(patch).eq('id', token.id).select('id'));
+    } catch (err) {
+        result = { ok: false, message: friendlyError(err) };
+    }
     if (!result.ok) { btn.disabled = false; say(result.message, 'error'); return; }
     say(active ? 'تم تفعيل المفتاح.' : 'تم إيقاف المفتاح.', 'success');
     loadTokens();
@@ -97,9 +112,14 @@ async function setToken(token, active, btn) {
 let platform = [];
 async function loadPlatform() {
     $('platformIntegrations').innerHTML = loadingBlock();
-    const { data, error } = await supabase.from('external_integrations')
-        .select('id, provider, display_name, protocol, is_active, last_tested_at, last_test_status, last_test_message, last_used_at, priority')
-        .eq('owner_scope', 'platform').order('priority', { ascending: true });
+    let data, error = null;
+    try {
+        ({ data, error } = await supabase.from('external_integrations')
+            .select('id, provider, display_name, protocol, is_active, last_tested_at, last_test_status, last_test_message, last_used_at, priority')
+            .eq('owner_scope', 'platform').order('priority', { ascending: true }));
+    } catch (err) {
+        error = err;
+    }
     if (error) { $('platformIntegrations').innerHTML = errorBlock(friendlyError(error)); platform = []; renderKpis(); return; }
     platform = data || [];
     const box = $('platformIntegrations');
@@ -122,7 +142,12 @@ async function loadPlatform() {
         const active = b.dataset.active === 'true';
         if (!window.confirm(`${active ? 'تفعيل' : 'تعطيل'} «${item?.display_name || item?.provider}» لكل المنصة؟`)) return;
         b.disabled = true;
-        const result = writeResult(await supabase.from('external_integrations').update({ is_active: active }).eq('id', item.id).select('id'));
+        let result;
+        try {
+            result = writeResult(await supabase.from('external_integrations').update({ is_active: active }).eq('id', item.id).select('id'));
+        } catch (err) {
+            result = { ok: false, message: friendlyError(err) };
+        }
         if (!result.ok) { b.disabled = false; say(result.message, 'error'); return; }
         say(active ? 'تم تفعيل التكامل.' : 'تم تعطيل التكامل.', 'success');
         loadPlatform();
@@ -132,9 +157,14 @@ async function loadPlatform() {
 
 async function loadUsage() {
     $('usageTable').innerHTML = loadingBlock();
-    const { data, error } = await supabase.from('api_token_usage_logs')
-        .select('id, token_id, user_id, endpoint, method, status_code, ip_address, created_at')
-        .order('created_at', { ascending: false }).limit(50);
+    let data, error = null;
+    try {
+        ({ data, error } = await supabase.from('api_token_usage_logs')
+            .select('id, token_id, user_id, endpoint, method, status_code, ip_address, created_at')
+            .order('created_at', { ascending: false }).limit(50));
+    } catch (err) {
+        error = err;
+    }
     if (error) { $('usageTable').innerHTML = errorBlock(friendlyError(error)); return; }
     const rows = data || [];
     await loadPeople(rows.map(r => r.user_id));

@@ -21,8 +21,15 @@ let page = 0;
 const say = (text, tone = 'info') => announce($('pageStatus'), text, tone);
 
 async function loadActions() {
-    const { data } = await supabase.from('agent_activity_log').select('action')
-        .order('created_at', { ascending: false }).limit(1000);
+    // انقطاع الشبكة يرمي: بلا التقاط تتوقف init كلها فلا يعمل التصفية ولا الجدول.
+    let data = null;
+    try {
+        ({ data } = await supabase.from('agent_activity_log').select('action')
+            .order('created_at', { ascending: false }).limit(1000));
+    } catch (err) {
+        console.error('[MuseActivityLog] loadActions:', err?.message || err);
+        return;
+    }
     const actions = [...new Set((data || []).map(r => r.action).filter(Boolean))].sort();
     const sel = $('museLogAction');
     const current = sel.value;
@@ -41,7 +48,15 @@ async function load() {
     if ($('museLogTo').value) q = q.lte('created_at', new Date(`${$('museLogTo').value}T23:59:59`).toISOString());
 
     const from = page * LOG_PAGE_SIZE;
-    const { data, error, count } = await q.range(from, from + LOG_PAGE_SIZE - 1);
+    // انقطاع الشبكة يرمي: بلا التقاط يبقى الهيكل العظمي بلا تفسير.
+    let data, error, count;
+    try {
+        ({ data, error, count } = await q.range(from, from + LOG_PAGE_SIZE - 1));
+    } catch (err) {
+        box.innerHTML = errorBlock(friendlyError(err));
+        $('museLogPager').hidden = true;
+        return;
+    }
     if (error) { box.innerHTML = errorBlock(friendlyError(error)); $('museLogPager').hidden = true; return; }
     const rows = data || [];
 

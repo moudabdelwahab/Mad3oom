@@ -16,8 +16,15 @@ let page = 0;
 const people = new Map();
 
 async function loadActions() {
-    const { data } = await supabase.from('activity_logs').select('action')
-        .order('created_at', { ascending: false }).limit(1000);
+    // انقطاع الشبكة يرمي: بلا التقاط تتوقف init كلها فلا يعمل التصفية ولا الجدول.
+    let data = null;
+    try {
+        ({ data } = await supabase.from('activity_logs').select('action')
+            .order('created_at', { ascending: false }).limit(1000));
+    } catch (err) {
+        console.error('[OwnerActivity] loadActions:', err?.message || err);
+        return;
+    }
     const actions = [...new Set((data || []).map(r => r.action).filter(Boolean))].sort();
     const sel = $('activityAction');
     const current = sel.value;
@@ -36,8 +43,13 @@ async function userIds(term) {
 async function loadPeople(ids) {
     const missing = [...new Set(ids.filter(id => id && !people.has(id)))];
     if (!missing.length) return;
-    const { data } = await supabase.from('profiles').select('id, full_name, email').in('id', missing);
-    (data || []).forEach(p => people.set(p.id, p));
+    // فشل القراءة لا يوقف الجدول: الفاعل يُعرض بمعرّفه المختصر كما في الصف.
+    try {
+        const { data } = await supabase.from('profiles').select('id, full_name, email').in('id', missing);
+        (data || []).forEach(p => people.set(p.id, p));
+    } catch (err) {
+        console.error('[OwnerActivity] loadPeople:', err?.message || err);
+    }
 }
 
 async function load() {
@@ -66,7 +78,16 @@ async function load() {
     if ($('activityFrom').value) q = q.gte('created_at', new Date(`${$('activityFrom').value}T00:00:00`).toISOString());
     if ($('activityTo').value) q = q.lte('created_at', new Date(`${$('activityTo').value}T23:59:59`).toISOString());
 
-    const { data, error, count } = await q.range(...pageRange(page, PAGE_SIZE));
+    // الاستعلام الرئيسي يرمي عند انقطاع الشبكة (userIds وحدها كانت ملتقطة):
+    // بلا التقاط يبقى الهيكل العظمي بلا تفسير.
+    let data, error, count;
+    try {
+        ({ data, error, count } = await q.range(...pageRange(page, PAGE_SIZE)));
+    } catch (err) {
+        box.innerHTML = errorBlock(friendlyError(err));
+        $('activityPager').hidden = true;
+        return;
+    }
     if (error) { box.innerHTML = errorBlock(friendlyError(error)); $('activityPager').hidden = true; return; }
     const rows = data || [];
     await loadPeople(rows.map(r => r.user_id));

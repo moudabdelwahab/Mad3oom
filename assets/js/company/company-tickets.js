@@ -235,6 +235,19 @@ export function createTicketStream(stream, { userId, onNewTicket, keep = null } 
             </ul>`;
     }
 
+    /** تحديث تبويبات العرض وأعدادها في مكانها — بلا إعادة بناء حقل البحث فيحافظ على التركيز. */
+    function refreshTabs() {
+        const box = container();
+        if (!box) return;
+        const counts = countByView(tickets, userId);
+        box.querySelectorAll('[data-stream-view]').forEach(btn => {
+            const key = btn.getAttribute('data-stream-view');
+            btn.setAttribute('aria-selected', String(key === activeView));
+            const count = btn.querySelector('.view-tab-count');
+            if (count) count.textContent = String(counts[key] || 0);
+        });
+    }
+
     async function renderDetail(ticketId) {
         const ticket = tickets.find(t => String(t.id) === String(ticketId));
         const panel = el(uid('Detail'));
@@ -489,7 +502,12 @@ export function createTicketStream(stream, { userId, onNewTicket, keep = null } 
         box.querySelectorAll('[data-stream-view]').forEach(btn => {
             btn.addEventListener('click', () => {
                 activeView = btn.getAttribute('data-stream-view');
-                render();
+                // القائمة فقط — لا يُعاد بناء حقل البحث فيضيع تركيز المستخدم
+                refreshTabs();
+                renderList(applyTicketView(tickets, { view: activeView, search: searchTerm, userId }));
+                bindRows();
+                // زر «فتح تذكرة» في حالة القائمة الفارغة يُربط هنا لأن wire() لا يُعاد تشغيله
+                box.querySelector('[data-action="new-ticket"]')?.addEventListener('click', () => onNewTicket?.());
             });
         });
 

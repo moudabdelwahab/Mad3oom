@@ -51,7 +51,13 @@ const done = (title, text, tone = 'ok') => render(`
             <div class="stepup-actions"><button type="button" class="btn btn-primary is-danger" id="approvalReject">رفض التغيير وإخراج كل الجلسات</button></div>`);
         $('approvalReject').addEventListener('click', async (e) => {
             e.currentTarget.disabled = true;
-            const out = rpcOutcome(await supabase.rpc('owner_reject_account_change', { p_request: link.request, p_token: link.token }));
+            // انقطاع الشبكة يرمي: بلا التقاط يبقى الزر معطّلًا بلا تفسير.
+            let out;
+            try {
+                out = rpcOutcome(await supabase.rpc('owner_reject_account_change', { p_request: link.request, p_token: link.token }));
+            } catch (err) {
+                out = { ok: false, message: err?.message || 'تعذّر الاتصال بالقاعدة' };
+            }
             clear();
             if (!out.ok) { done('لم يُنفَّذ الرفض', out.message, 'warn'); return; }
             try { await supabase.auth.signOut(); } catch { /* الجلسات أُلغيت في القاعدة على أي حال */ }
@@ -74,7 +80,13 @@ const done = (title, text, tone = 'ok') => render(`
         <p class="panel-subtitle">لم تطلبه؟ لا توافق، واستخدم رابط «ارفض» في رسالة التنبيه نفسها.</p>`);
     $('approvalApprove').addEventListener('click', async (e) => {
         e.currentTarget.disabled = true;
-        const out = rpcOutcome(await supabase.rpc('owner_approve_account_change', { p_request: link.request, p_token: link.token }));
+        // انقطاع الشبكة يرمي: بلا التقاط يبقى الزر معطّلًا بلا تفسير.
+        let out;
+        try {
+            out = rpcOutcome(await supabase.rpc('owner_approve_account_change', { p_request: link.request, p_token: link.token }));
+        } catch (err) {
+            out = { ok: false, message: err?.message || 'تعذّر الاتصال بالقاعدة' };
+        }
         if (!out.ok) {
             e.currentTarget.disabled = false;
             if (out.code === 'step_up_required') { done('لم تكتمل الموافقة', 'يلزم رمز التحقق بخطوتين. أعد المحاولة.', 'warn'); return; }

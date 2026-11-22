@@ -48,21 +48,42 @@ export function renderCompanyReports({ dashboard, platformTickets, customerTicke
         return;
     }
 
-    const timeZone = defaultTimeZone();
-    const platformRows = filterTickets(platformTickets, filters);
-    const customerRows = filterTickets(customerTickets, filters);
-
-    const platform = summarizeTickets(platformRows, userId, { timeZone });
-    const customers = summarizeTickets(customerRows, userId, { timeZone });
-    const subs = summarizeSubscriptions(dashboard.subscriptions);
-    const registration = registrationInfo(dashboard.registration);
-    const memberRows = Array.isArray(members) ? members : [];
-
-    snapshot = { platformRows, customerRows, userId, timeZone, companyName: dashboard.company?.name };
+    const context = { dashboard, platformTickets, customerTickets, members, userId };
+    const r = computeResults(context);
+    snapshot = { platformRows: r.platformRows, customerRows: r.customerRows, userId, timeZone: r.timeZone, companyName: r.companyName };
 
     container.innerHTML = `
         ${filterBar()}
 
+        <div id="companyReportResults">${resultsHtml(r)}</div>`;
+
+    wireFilters(context);
+    wireExports();
+}
+
+/** حساب ملخصات النتائج من المرشّحات الحالية — بلا رسم. */
+function computeResults({ dashboard, platformTickets, customerTickets, members, userId }) {
+    const timeZone = defaultTimeZone();
+    const platformRows = filterTickets(platformTickets, filters);
+    const customerRows = filterTickets(customerTickets, filters);
+    return {
+        timeZone,
+        platformRows,
+        customerRows,
+        platform: summarizeTickets(platformRows, userId, { timeZone }),
+        customers: summarizeTickets(customerRows, userId, { timeZone }),
+        subs: summarizeSubscriptions(dashboard.subscriptions),
+        registration: registrationInfo(dashboard.registration),
+        registrationExpiry: dashboard.registration?.expiry_date,
+        memberRows: Array.isArray(members) ? members : [],
+        companyName: dashboard.company?.name
+    };
+}
+
+/** كل ما تحت شريط الفلاتر — يُعاد رسمه وحده عند تغيير أي مرشّح. */
+function resultsHtml(r) {
+    const { platform, customers, subs, registration, memberRows } = r;
+    return `
         <div class="kpi-grid">
             ${kpi('تذاكر مفتوحة مع مدعوم', platform.open,
                   platform.awaiting ? `${platform.awaiting} بانتظار ردّك` : 'لا شيء ينتظر ردّك',
@@ -79,7 +100,7 @@ export function renderCompanyReports({ dashboard, platformTickets, customerTicke
                   subs.daysToNearestExpiry == null ? 'لا اشتراك فعّال' : `أقرب انتهاء بعد ${subs.daysToNearestExpiry} يوم`,
                   subs.active ? 'kpi--success' : 'kpi--danger')}
             ${kpi('السجل التجاري', registration.label,
-                  registration.hasDate ? `ينتهي في ${formatDate(dashboard.registration.expiry_date)}` : 'غير مسجّل',
+                  registration.hasDate ? `ينتهي في ${formatDate(r.registrationExpiry)}` : 'غير مسجّل',
                   registration.tone === 'danger' ? 'kpi--danger' : (registration.tone === 'warning' ? 'kpi--warning' : ''))}
         </div>
 
@@ -117,7 +138,7 @@ export function renderCompanyReports({ dashboard, platformTickets, customerTicke
                 'الشهر', platform.byPeriod, customers.byPeriod, periodLabel)}
         </div>
 
-        ${customerBreakdown(customerRows)}
+        ${customerBreakdown(r.customerRows)}
 
         <section class="panel" aria-labelledby="reportScopeHeading">
             <div class="panel-header">
@@ -141,7 +162,7 @@ export function renderCompanyReports({ dashboard, platformTickets, customerTicke
                 </div>
                 <div class="company-fact">
                     <dt>المنطقة الزمنية</dt>
-                    <dd><code>${escapeHtml(timeZone)}</code> — التجميع الشهري بتقويمك المحلي لا بالـUTC.</dd>
+                    <dd><code>${escapeHtml(r.timeZone)}</code> — التجميع الشهري بتقويمك المحلي لا بالـUTC.</dd>
                 </div>
                 <div class="company-fact">
                     <dt>التصدير</dt>
@@ -149,9 +170,15 @@ export function renderCompanyReports({ dashboard, platformTickets, customerTicke
                 </div>
             </dl>
         </section>`;
+}
 
-    wireFilters({ dashboard, platformTickets, customerTickets, members, userId });
-    wireExports();
+/** إعادة رسم النتائج فقط — شريط الفلاتر لا يُمس فيبقى التركيز في حقل المستخدم. */
+function renderResults(context) {
+    const r = computeResults(context);
+    snapshot = { platformRows: r.platformRows, customerRows: r.customerRows, userId: context.userId, timeZone: r.timeZone, companyName: r.companyName };
+    const box = document.getElementById('companyReportResults');
+    if (!box) { renderCompanyReports(context); return; }
+    box.innerHTML = resultsHtml(r);
 }
 
 /* ── مكوّنات العرض ───────────────────────────────────────────────────────── */
@@ -296,7 +323,8 @@ function customerBreakdown(customerRows) {
 /* ── الربط ───────────────────────────────────────────────────────────────── */
 
 function wireFilters(context) {
-    const rerender = () => renderCompanyReports(context);
+    // إعادة رسم النتائج فقط — شريط الفلاتر يبقى في مكانه فيحافظ حقل المستخدم على التركيز
+    const rerender = () => renderResults(context);
 
     document.getElementById('reportFrom')?.addEventListener('change', (e) => {
         filters.from = e.target.value; rerender();
@@ -308,7 +336,15 @@ function wireFilters(context) {
         filters.status = e.target.value; rerender();
     });
     document.getElementById('reportReset')?.addEventListener('click', () => {
-        filters.from = ''; filters.to = ''; filters.status = 'all'; rerender();
+        filters.from = ''; filters.to = ''; filters.status = 'all';
+        // شريط الفلاتر لا يُعاد بناؤه، فتُزامَن قيم حقوله يدويًا
+        const from = document.getElementById('reportFrom');
+        if (from) from.value = '';
+        const to = document.getElementById('reportTo');
+        if (to) to.value = '';
+        const status = document.getElementById('reportStatus');
+        if (status) status.value = 'all';
+        rerender();
     });
 }
 

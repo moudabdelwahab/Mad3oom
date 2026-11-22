@@ -201,11 +201,19 @@ test('085: الواجهة لا تقرر النطاق ولا ترسل معرّف 
 
 /* ── 096: لوحة العملاء والدعوات ─────────────────────────────────────────── */
 
-test('096: الدعوة لمن رجّعت له القاعدة can_manage والمفتاح مفعّل فقط', () => {
+test('096: الدعوة لمن رجّعت له القاعدة can_manage والمفتاح مفعّل فقط؛ والقائمة تظهر لكل من رجّعت له القاعدة ردًا (2026-11-22: المالك يرى قائمة عملائه حتى بلا دعوة)', () => {
     const p = (o) => ({ company_id: 'c', customers: [], ...o });
     assert.equal(customersPanelView(p({ can_manage: true, invitations_enabled: true }), 'admin').canInvite, true);
-    assert.equal(customersPanelView(p({ can_manage: true, invitations_enabled: false }), 'admin').show, false);
-    assert.equal(customersPanelView(p({ can_manage: false, invitations_enabled: true }), 'admin').show, false);
+    // بلا دعوة (المفتاح مطفأ): لا نموذج دعوة، لكن لوحة العملاء ظاهرة بقائمتها
+    const noInvite = customersPanelView(p({ can_manage: true, invitations_enabled: false }), 'admin');
+    assert.equal(noInvite.show, true);
+    assert.equal(noInvite.showList, true);
+    assert.equal(noInvite.canInvite, false);
+    // بلا إدارة: لا دعوة، لكن القائمة ظاهرة
+    const noManage = customersPanelView(p({ can_manage: false, invitations_enabled: true }), 'admin');
+    assert.equal(noManage.show, true);
+    assert.equal(noManage.showList, true);
+    assert.equal(noManage.canInvite, false);
     assert.equal(customersPanelView(p({ can_manage: 'true', invitations_enabled: true }), 'admin').canInvite, false);
     const sup = customersPanelView(p({ can_manage: false, invitations_enabled: true, customers: [{ id: 'u' }] }), 'supervisor');
     assert.equal(sup.show && sup.showList && !sup.canInvite, true);

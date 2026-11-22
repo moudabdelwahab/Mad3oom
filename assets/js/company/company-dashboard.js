@@ -41,12 +41,12 @@ import { renderCompanyDocuments } from '/assets/js/company/company-documents.js'
 import { initCompanyMoves } from '/assets/js/company/company-moves.js';
 import { fetchInboxSummary, applyInboxBadge, loadCompanyInbox } from '/assets/js/company/company-inbox.js';
 import {
-    COMPANY_ROUTES, routeFromHash, pageAvailable, breadcrumbFor, pageHeadFor, COMPANY_PAGES
+    COMPANY_ROUTES, routeFromHash, isUnknownHash, pageAvailable, breadcrumbFor, pageHeadFor, COMPANY_PAGES
 } from '/assets/js/company/company-routes.js';
 import { icon, renderPageHead, renderBreadcrumb } from '/assets/js/company/company-ui.js';
 import {
     renderOverviewAlerts, renderQuickActions, renderOverviewTickets, renderOverviewTicketsLoading,
-    renderRecentNotifications, renderRecentActivity
+    renderRecentNotifications, renderRecentActivity, renderGettingStarted
 } from '/assets/js/company/company-overview.js';
 import { loadCompanyPermissions, loadCompanyAccessLog } from '/assets/js/company/company-access.js';
 import { initMemberAdmin, openMemberDetails, renderMemberAdminLists } from '/assets/js/company/company-member-admin.js';
@@ -218,6 +218,7 @@ async function boot() {
         showSection('tickets', { history: 'replace' });
         await platformTickets.load({ search: query });
     } else {
+        notifyUnknownHash();
         showSection(routeFromHash(window.location.hash), { history: 'none' });
     }
 }
@@ -247,6 +248,10 @@ const LOADERS = {
     permissions: () => loadCompanyPermissions(),
     accessLog: () => loadCompanyAccessLog(),
     usage: () => loadCompanyUsage(),
+    // الاشتراكات والامتيازات كانا بلا مُحمِّل: يُرسمان مرة واحدة من حمولة
+    // الإقلاع ولا يُعاد تحميلهما أبدًا. مُحمِّلاهما يعيدان قراءة الحمولة.
+    subscriptions: () => loadSubscriptionsSection(),
+    entitlements: () => loadEntitlementsSection(),
     company: () => loadCompanyPage(),
     notifications: () => loadCompanyNotifications(),
     profile: () => loadCompanyProfile(),
@@ -281,6 +286,17 @@ function sectionFromHash() {
 }
 
 /**
+ * هاش مجهول في الرابط: نعود للنظرة العامة مع Toast يشرح ذلك.
+ * routeFromHash خالصة فلا تعرض هي؛ الفحص هنا في نقاط دخول الهاش وحدها
+ * (التحميل وتغيّر الهاش)، لا في showSection — فالنقر داخل اللوحة لا هاش له.
+ */
+function notifyUnknownHash() {
+    if (isUnknownHash(window.location.hash)) {
+        ui?.showToast?.('الصفحة المطلوبة غير موجودة — عُدت إلى النظرة العامة.', 'info');
+    }
+}
+
+/**
  * history: 'push' (نقرة المستخدم) | 'replace' (تصحيح المسار) | 'none' (جاء من hashchange أو التحميل).
  * updateHash القديم ما زال مقبولًا للتوافق: false = 'none'.
  */
@@ -291,6 +307,12 @@ export function showSection(name, { history: mode = 'push', updateHash } = {}) {
     const requested = SECTIONS.includes(name) ? name : 'overview';
     const section = pageAvailable(requested, navContext()) ? requested : 'overview';
     if (section !== requested && mode === 'none') mode = 'replace';
+    // إعادة توجيه بسبب الدور لا بسبب السياق: الصفحة متاحة للمدير في السياق
+    // نفسه (الصندوق والمتجر كما هما)، فالمنع من الدور — نقول ذلك بدل الصمت.
+    if (section !== requested && viewerRole !== 'admin'
+        && pageAvailable(requested, { ...navContext(), viewerRole: 'admin' })) {
+        ui?.showToast?.('هذه الصفحة متاحة لمدير الشركة فقط.', 'info');
+    }
 
     SECTIONS.forEach(key => {
         const el = document.getElementById(`${key}TabContent`);
@@ -326,8 +348,8 @@ function renderSectionContext(section) {
 
 function wireSectionRouting() {
     // زر الرجوع والتقدّم في المتصفح والروابط المباشرة (#members مثلًا) تبدّل الصفحة
-    window.addEventListener('hashchange', () => showSection(sectionFromHash(), { history: 'none' }));
-    window.addEventListener('popstate', () => showSection(sectionFromHash(), { history: 'none' }));
+    window.addEventListener('hashchange', () => { notifyUnknownHash(); showSection(sectionFromHash(), { history: 'none' }); });
+    window.addEventListener('popstate', () => { notifyUnknownHash(); showSection(sectionFromHash(), { history: 'none' }); });
 
     // أي رابط داخل المحتوى يحمل data-tab يبدّل الصفحة بدل ما ينقل المتصفح
     document.addEventListener('click', (event) => {
@@ -419,6 +441,14 @@ async function refreshOverviewTickets() {
         customers: { ok: customersOk, rows: customerTickets.rows() },
         userId: currentUserId
     });
+    // قائمة «ابدأ هنا» تُشتق من البيانات المحمّلة أصلًا؛ إعادة رسمها هنا تحدث
+    // خطوة «افتح أول تذكرة» بعد إنشاء تذكرة دون انتظار إعادة فتح النظرة العامة.
+    if (viewerRole === 'admin') renderGettingStarted({
+        membersCount: companyMembers.length,
+        customersCount: companyCustomerList.length,
+        isStoreAccount: accountType?.organization_kind === 'ecommerce_store',
+        platformTicketsCount: platformTickets.rows().length
+    });
 }
 
 /* ── صفحات تُحمَّل عند الفتح ────────────────────────────────────────────── */
@@ -437,7 +467,7 @@ async function loadCustomersPage() {
             renderState(note, {
                 variant: 'empty',
                 title: 'لا توجد أدوات عملاء متاحة لحسابك بعد',
-                text: 'دعوة العملاء بالبريد تظهر هنا حين تتيحها مدعوم لشركتك. عملاء الشركة الحاليون يظهرون في «أعضاء الفريق».'
+                text: 'دعوة العملاء بالبريد وقائمة العملاء تظهران هنا حين تتيحها مدعوم لشركتك وتمنحك الصلاحية اللازمة.'
             });
         } else {
             note.innerHTML = '';
@@ -590,6 +620,48 @@ async function refreshDashboardPayload() {
     renderEntitlements();
     if (loadedOnce.has('overview')) renderOverviewAlerts(dashboard, viewerRole);
     return true;
+}
+
+/**
+ * مُحمِّلا قسمَي الاشتراكات والامتيازات: يعيدان قراءة الحمولة عند أول فتح،
+ * مع حالة تحميل (skeleton كسائر الأقسام) وحالة خطأ بزر إعادة محاولة
+ * (نمط renderMembers؛ زرها يمرّ عبر reloadPage بمفتاح القسم نفسه).
+ * رسم المحتوى نفسه لم يتغيّر: هو renderSubscriptions/renderEntitlements
+ * كما تناديهما refreshDashboardPayload. عند الفشل يُمسح القسم من loadedOnce
+ * فيُعاد تحميله عند فتحه مجددًا.
+ */
+async function loadSubscriptionsSection() {
+    const container = document.getElementById('companySubscriptions');
+    if (!container) return;
+    // القسم للمدير وحده (sectionAllowed)؛ غيره لا يصل هنا عبر التنقّل أصلًا.
+    if (viewerRole !== 'admin') { container.innerHTML = ''; return; }
+    renderSkeletonLines(container, 3);
+    const ok = await refreshDashboardPayload();
+    if (!ok) {
+        loadedOnce.delete('subscriptions');
+        renderState(container, {
+            variant: 'error',
+            title: 'تعذّر تحميل الاشتراكات',
+            text: 'تحقق من اتصالك ثم أعد المحاولة.',
+            action: { label: 'إعادة المحاولة', retry: 'subscriptions', variant: 'btn-primary' }
+        });
+    }
+}
+
+async function loadEntitlementsSection() {
+    const container = document.getElementById('companyEntitlements');
+    if (!container) return;
+    renderSkeletonLines(container, 3);
+    const ok = await refreshDashboardPayload();
+    if (!ok) {
+        loadedOnce.delete('entitlements');
+        renderState(container, {
+            variant: 'error',
+            title: 'تعذّر تحميل الخدمات والامتيازات',
+            text: 'تحقق من اتصالك ثم أعد المحاولة.',
+            action: { label: 'إعادة المحاولة', retry: 'entitlements', variant: 'btn-primary' }
+        });
+    }
 }
 
 /**
@@ -834,35 +906,138 @@ async function onRemoveMember(memberId, memberName) {
 
 /**
  * القرار في القاعدة: company_customers_list() للمدير والمشرف (null لغيرهما، وقبل 096)،
- * والدعوة لمن رجّعت له can_manage والمفتاح مفعّل. الدعوة ترد بنفس الرسالة لأي بريد،
- * فالواجهة لا تقول «الحساب موجود» أو «غير موجود» أبدًا.
+ * ومع تفعيل 098 لمن يملك customers.view؛ والدعوة لمن رجّعت له can_manage والمفتاح مفعّل.
+ * الدعوة ترد بنفس الرسالة لأي بريد، فالواجهة لا تقول «الحساب موجود» أو «غير موجود» أبدًا.
+ * فشل القراءة ليس «لا عملاء»: حالة خطأ صريحة بزر إعادة محاولة (نمط renderMembers).
  */
+let customersQuery = '';
+let customersPendingCount = 0;
+let customersInvitationsKnown = false;
+
+/**
+ * شريط عدّادات وبحث صفحة العملاء — يُبنى مرة واحدة بالجافاسكربت فوق نموذج
+ * الدعوة (بلا تغيير في HTML)، فيبقى البحث وتركيزه عبر إعادة الرسم.
+ */
+function ensureCustomersToolbar(panel) {
+    let toolbar = document.getElementById('companyCustomersToolbar');
+    if (toolbar) {
+        toolbar.hidden = false;
+        return toolbar;
+    }
+    toolbar = document.createElement('div');
+    toolbar.id = 'companyCustomersToolbar';
+    toolbar.innerHTML = `
+        <p class="company-sub-counts" id="companyCustomersCounts"></p>
+        <div class="form-field">
+            <label class="visually-hidden" for="companyCustomersSearch">ابحث في العملاء والدعوات</label>
+            <input type="search" id="companyCustomersSearch" class="form-control"
+                   placeholder="ابحث بالاسم أو البريد…" value="${escapeHtml(customersQuery)}">
+        </div>`;
+    toolbar.querySelector('#companyCustomersSearch').addEventListener('input', (event) => {
+        customersQuery = event.target.value;
+        applyCustomersFilter();
+    });
+    panel.insertBefore(toolbar, document.getElementById('companyInviteForm'));
+    return toolbar;
+}
+
+/** بحث محلي في الصفوف المعروضة (بلا إعادة قراءة)، وتحديث سطر العدّادات. */
+function applyCustomersFilter() {
+    const q = customersQuery.trim().toLowerCase();
+    let visibleCustomers = 0;
+    let visibleInvitations = 0;
+    document.querySelectorAll('#companyCustomers [data-customer]').forEach(li => {
+        const hit = !q || li.textContent.toLowerCase().includes(q);
+        li.hidden = !hit;
+        if (hit) visibleCustomers++;
+    });
+    document.querySelectorAll('#companyInvitations [data-invitation-row]').forEach(li => {
+        const hit = !q || li.textContent.toLowerCase().includes(q);
+        li.hidden = !hit;
+        if (hit) visibleInvitations++;
+    });
+    const counts = document.getElementById('companyCustomersCounts');
+    if (!counts) return;
+    const parts = [`${companyCustomerList.length.toLocaleString('ar-EG')} عميل`];
+    if (customersInvitationsKnown) parts.push(`${customersPendingCount.toLocaleString('ar-EG')} دعوة معلّقة`);
+    if (q) parts.push(`عرض ${visibleCustomers.toLocaleString('ar-EG')} عميل و${visibleInvitations.toLocaleString('ar-EG')} دعوة مطابقة للبحث`);
+    counts.textContent = parts.join(' · ');
+}
+
+/**
+ * زر «إعادة المحاولة» في حالة خطأ صفحة العملاء يعيد قراءة الصفحة نفسها.
+ * لا نتركه للمعالِج العام: RETRY_PAGES يوجّه data-retry="customers" إلى
+ * مسار تذاكر العملاء (customerTickets) لا إلى loadCustomersPage.
+ */
+function wireCustomersRetry(container) {
+    container.querySelector('[data-retry]')?.addEventListener('click', (event) => {
+        event.stopPropagation();
+        renderCustomers();
+    });
+}
+
 async function renderCustomers() {
     const panel = document.getElementById('companyCustomersPanel');
     if (!panel) return;
+    const list = document.getElementById('companyCustomers');
+    const invitationsBox = document.getElementById('companyInvitations');
     const result = await fetchCompanyCustomers();
-    const view = customersPanelView(result.ok ? result.data : null, viewerRole);
+    if (!result.ok) {
+        companyCustomerList = [];
+        customersPendingCount = 0;
+        customersInvitationsKnown = false;
+        panel.hidden = false;
+        document.getElementById('companyInviteForm').hidden = true;
+        const toolbar = document.getElementById('companyCustomersToolbar');
+        if (toolbar) toolbar.hidden = true;
+        invitationsBox.innerHTML = '';
+        renderState(list, {
+            variant: 'error',
+            title: 'تعذّر تحميل عملاء الشركة',
+            text: 'تحقق من اتصالك ثم أعد المحاولة.',
+            action: { label: 'إعادة المحاولة', retry: 'customers', variant: 'btn-primary' }
+        });
+        wireCustomersRetry(list);
+        return;
+    }
+    const view = customersPanelView(result.data, viewerRole);
     companyCustomerList = Array.isArray(view.customers) ? view.customers : [];
     panel.hidden = !view.show;
     if (!view.show) return;
 
     document.getElementById('companyInviteForm').hidden = !view.canInvite;
-    const invitationsBox = document.getElementById('companyInvitations');
-    invitationsBox.innerHTML = '';
+    ensureCustomersToolbar(panel);
     if (view.canInvite) {
         const inv = await fetchCompanyInvitations();
-        const rows = inv.ok && Array.isArray(inv.data) ? inv.data : [];
-        invitationsBox.innerHTML = rows.length ? `
+        if (!inv.ok) {
+            customersPendingCount = 0;
+            customersInvitationsKnown = false;
+            renderState(invitationsBox, {
+                variant: 'error',
+                title: 'تعذّر تحميل الدعوات',
+                text: 'تحقق من اتصالك ثم أعد المحاولة.',
+                action: { label: 'إعادة المحاولة', retry: 'customers', variant: 'btn-primary' }
+            });
+            wireCustomersRetry(invitationsBox);
+        } else {
+            const rows = Array.isArray(inv.data) ? inv.data : [];
+            customersPendingCount = rows.filter(i => i.status === 'pending').length;
+            customersInvitationsKnown = true;
+            invitationsBox.innerHTML = rows.length ? `
             <ul class="company-sub-list">
                 ${rows.map(i => {
                     const info = invitationStatusInfo(i.status);
                     // 112: حالة البريد للمعلّقة وحدها — «أُرسل» = قَبِله مزوّد البريد، لا مجرد صف محفوظ
                     const mail = invitationEmailInfo(i.status, i.email_status);
+                    const expiry = i.expires_at
+                        ? (i.status === 'pending' ? ` · تنتهي في ${escapeHtml(formatDate(i.expires_at))}`
+                            : i.status === 'expired' ? ` · انتهت في ${escapeHtml(formatDate(i.expires_at))}` : '')
+                        : '';
                     return `
                     <li class="company-sub" data-invitation-row="${escapeHtml(i.id)}">
                         <div class="company-sub-main">
                             <p class="company-sub-plan">${escapeHtml(i.email || '—')}</p>
-                            <p class="company-sub-dates">دُعي في ${escapeHtml(formatDate(i.created_at))}</p>
+                            <p class="company-sub-dates">دُعي في ${escapeHtml(formatDate(i.created_at))}${expiry}</p>
                         </div>
                         <div class="company-sub-side">
                             <span class="pill ${escapeHtml(info.pill)}">${escapeHtml(info.label)}</span>
@@ -871,46 +1046,58 @@ async function renderCustomers() {
                             <button type="button" class="panel-link" data-resend-invitation="${escapeHtml(i.email)}"
                                     data-resend-mode="${mail.action}">${mail.action === 'retry' ? 'إعادة المحاولة' : 'إعادة الإرسال'}</button>` : ''}
                             ${i.status === 'pending' ? `
-                            <button type="button" class="panel-link is-danger" data-cancel-invitation="${escapeHtml(i.id)}">إلغاء الدعوة</button>` : ''}
+                            <button type="button" class="panel-link is-danger" data-cancel-invitation="${escapeHtml(i.id)}"
+                                    data-invitation-email="${escapeHtml(i.email || '')}">إلغاء الدعوة</button>` : ''}
                         </div>
                     </li>`;
                 }).join('')}
             </ul>` : '';
-        invitationsBox.querySelectorAll('[data-cancel-invitation]').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                btn.disabled = true;
-                const r = await cancelCompanyInvitation(btn.getAttribute('data-cancel-invitation'));
-                if (!r.ok) ui?.showToast?.(r.error || 'تعذّر إلغاء الدعوة', 'error');
-                await renderCustomers();
+            invitationsBox.querySelectorAll('[data-cancel-invitation]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const email = btn.getAttribute('data-invitation-email') || 'هذا العميل';
+                    const ok = await ui.showConfirm(
+                        'إلغاء الدعوة؟',
+                        `سيُلغى إرسال الدعوة إلى «${email}» ولن يتمكن من قبولها بعد ذلك.`,
+                        { confirmLabel: 'إلغاء الدعوة', cancelLabel: 'تراجع', danger: true }
+                    );
+                    if (!ok) return;
+                    btn.disabled = true;
+                    const r = await cancelCompanyInvitation(btn.getAttribute('data-cancel-invitation'));
+                    if (!r.ok) ui?.showToast?.(r.error || 'تعذّر إلغاء الدعوة', 'error');
+                    await renderCustomers();
+                });
             });
-        });
-        invitationsBox.querySelectorAll('[data-resend-invitation]').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                btn.disabled = true;
-                const resend = btn.getAttribute('data-resend-mode') === 'resend';
-                const view = inviteResultView(await inviteCompanyCustomer(btn.getAttribute('data-resend-invitation'), { resend }));
-                ui?.showToast?.(view.message, view.ok ? 'success' : 'error');
-                await renderCustomers();
+            invitationsBox.querySelectorAll('[data-resend-invitation]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    btn.disabled = true;
+                    const resend = btn.getAttribute('data-resend-mode') === 'resend';
+                    const view = inviteResultView(await inviteCompanyCustomer(btn.getAttribute('data-resend-invitation'), { resend }));
+                    ui?.showToast?.(view.message, view.ok ? 'success' : 'error');
+                    await renderCustomers();
+                });
             });
-        });
+        }
+    } else {
+        customersPendingCount = 0;
+        customersInvitationsKnown = false;
+        invitationsBox.innerHTML = '';
     }
 
-    const list = document.getElementById('companyCustomers');
-    if (!view.showList) { list.innerHTML = ''; return; }
     if (!view.customers.length) {
         renderState(list, { variant: 'empty', title: 'لا يوجد عملاء بعد', text: 'يظهر هنا عملاء الشركة بعد انضمامهم.' });
-        return;
-    }
-    list.innerHTML = `
+    } else {
+        list.innerHTML = `
         <ul class="company-sub-list">
             ${view.customers.map(c => `
             <li class="company-sub" data-customer="${escapeHtml(c.id)}">
                 <div class="company-sub-main">
                     <p class="company-sub-plan">${escapeHtml(c.name || '—')}</p>
-                    <p class="company-sub-dates">${escapeHtml(c.email || '')}${c.phone ? ` · ${escapeHtml(c.phone)}` : ''}</p>
+                    <p class="company-sub-dates">${escapeHtml(c.email || '')}${c.phone ? ` · ${escapeHtml(c.phone)}` : ''}${c.joined_at || c.created_at ? ` · انضم في ${escapeHtml(formatDate(c.joined_at || c.created_at))}` : ''}</p>
                 </div>
             </li>`).join('')}
         </ul>`;
+    }
+    applyCustomersFilter();
 }
 
 /* ── المستخدمون: الأعضاء والعملاء والدعوات في مكان واحد ───────────────────
@@ -936,9 +1123,16 @@ async function reloadUsersDirectory() {
     const custResult = await fetchCompanyCustomers();
     const view = customersPanelView(custResult.ok ? custResult.data : null, viewerRole);
     let invitations = [];
+    let invitationsFailed = false;
     if (view.canInvite) {
         const inv = await fetchCompanyInvitations();
         invitations = inv.ok && Array.isArray(inv.data) ? inv.data : [];
+        invitationsFailed = !inv.ok;
+    }
+    // فشل قراءة العملاء أو الدعوات لا يُخفى بصمت: تنبيه واحد، والقائمة تُبنى
+    // مما وُجد (التفصيل وحالة الخطأ الكاملة في صفحة «عملاء الشركة»).
+    if (!custResult.ok || invitationsFailed) {
+        ui?.showToast?.('تعذّر تحميل العملاء أو الدعوات — قد تكون القائمة غير مكتملة', 'error');
     }
     usersRows = buildCompanyDirectory({
         members: companyMembers,
@@ -1077,6 +1271,12 @@ async function runCompanyUserAction(id, row) {
     } else if (id === 'remove') {
         await onRemoveMember(row.id, row.name);
     } else if (id === 'cancelInvite') {
+        const ok = await ui.showConfirm(
+            'إلغاء الدعوة؟',
+            `سيُلغى إرسال الدعوة إلى «${row.email}» ولن يتمكن من قبولها بعد ذلك.`,
+            { confirmLabel: 'إلغاء الدعوة', cancelLabel: 'تراجع', danger: true }
+        );
+        if (!ok) return;
         const r = await cancelCompanyInvitation(row.id);
         if (!r.ok) ui?.showToast?.(r.error || 'تعذّر إلغاء الدعوة', 'error');
         await renderCustomers();
@@ -1133,13 +1333,16 @@ function wireAddMember() {
     if (!modal || !form || !openBtn) return;
 
     openBtn.addEventListener('click', () => {
-        // الفتح أولًا: openMemberModal بيمسح الأخطاء، فالتحذير لازم ييجي بعده.
-        openMemberModal();
+        // الفحص قبل الفتح: غير المخوَّل لا تُفتح له النافذة أصلًا، بل Toast
+        // يشرح السبب. المسار الآخر الوحيد للنافذة (زرها في صفحة «المستخدمون»)
+        // ينادي هذا الزر نفسه، فيمرّ بالفحص نفسه.
         // إخفاء الزر تنظيم للواجهة لا حماية؛ الفحص الحقيقي عند الإرسال
         // (نداء جديد للقاعدة) وفي القاعدة نفسها.
         if (!canManageMembersNow) {
-            showMemberError('حسابك غير مخوَّل بإضافة مستخدمين لهذه الشركة.');
+            ui?.showToast?.('حسابك غير مخوَّل بإضافة مستخدمين لهذه الشركة.', 'error');
+            return;
         }
+        openMemberModal();
     });
 
     document.getElementById('addMemberClose')?.addEventListener('click', closeMemberModal);

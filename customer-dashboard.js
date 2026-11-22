@@ -448,7 +448,6 @@ function meter(percent, tone = '') {
 
         const counts = countByView(cachedTickets, user.id);
         const avgHours = averageFirstResponseHours(cachedTickets);
-        const badgeData = snapshot.badges?.ok ? snapshot.badges.data : null;
         const unread = Number(container.dataset.unread || 0);
 
         const cards = [
@@ -476,7 +475,7 @@ function meter(percent, tone = '') {
             {
                 label: 'إشعارات غير مقروءة',
                 value: unread,
-                hint: badgeData ? `${badgeData.earned}/${badgeData.total} شارة مكتسبة` : '',
+                hint: unread ? 'إشعارات بانتظار قراءتك' : 'كل الإشعارات مقروءة',
                 tone: unread ? 'accent' : 'success',
                 action: 'notifications'
             }
@@ -1644,7 +1643,21 @@ function meter(percent, tone = '') {
 
         const plans = snapshot.planSubs?.ok ? snapshot.planSubs.data : [];
         const activePlans = plans.filter(p => p.is_active);   // نفس تعريف القاعدة
-        blocks.push(`
+        if (!snapshot.planSubs?.ok) {
+            // فشل القراءة ليس «لا باقة»: حالة خطأ صريحة بزر إعادة محاولة،
+            // وباقي أقسام الاستهلاك تُرسم من بياناتها كما هي.
+            const errorBox = document.createElement('div');
+            renderState(errorBox, {
+                variant: 'error',
+                title: 'تعذّر تحميل الباقة الحالية',
+                text: 'تحقق من اتصالك ثم أعد المحاولة.',
+                action: { label: 'إعادة المحاولة', retry: 'usage' }
+            });
+            blocks.push(`<section class="panel"><div class="panel-header"><div>
+                <h2 class="panel-title">الباقة الحالية</h2>
+                <p class="panel-subtitle">الباقات المفعّلة على حسابك ومدتها</p>
+            </div></div>${errorBox.innerHTML}</section>`);
+        } else blocks.push(`
             <section class="panel">
                 <div class="panel-header">
                     <div>
@@ -1813,8 +1826,20 @@ function meter(percent, tone = '') {
         // حماية الحساب وكلمة المرور و2FA والجلسات والأجهزة: الوحدة الموحّدة
         // نفسها المستخدمة في لوحتي الشركة والإدارة. تُركَّب في عنصر منفصل
         // قبل إدراجه، فيظهر القسم كاملًا دفعة واحدة.
+        // رمي التركيب لا يُبقي الهيكل العظمي للأبد: حالة خطأ صريحة بزر إعادة
+        // محاولة في مكان الوحدة، وباقي القسم (الدخول والمفاتيح) يُرسم كما هو.
         const accountEl = document.createElement('div');
-        await mountAccountSettings(accountEl, accountMountOptions('security'));
+        try {
+            await mountAccountSettings(accountEl, accountMountOptions('security'));
+        } catch (err) {
+            console.error('[CustomerDashboard] account settings (security):', err?.message || err);
+            renderState(accountEl, {
+                variant: 'error',
+                title: 'تعذّر تحميل إعدادات الحساب',
+                text: 'تحقق من اتصالك ثم أعد المحاولة.',
+                action: { label: 'إعادة المحاولة', retry: 'security' }
+            });
+        }
 
         // سجل الدخول من نفس allow-list سجل النشاط — فمفيش أحداث إدارية
         const loginEvents = toTimeline((activityRes.ok ? activityRes.data : []) || [], { limit: 40 })
@@ -1971,7 +1996,19 @@ function meter(percent, tone = '') {
     ========================================================= */
 
     async function renderProfileSection() {
-        await mountAccountSettings(document.getElementById('accountProfileMount'), accountMountOptions('profile'));
+        const mount = document.getElementById('accountProfileMount');
+        if (!mount) return;
+        try {
+            await mountAccountSettings(mount, accountMountOptions('profile'));
+        } catch (err) {
+            console.error('[CustomerDashboard] account settings (profile):', err?.message || err);
+            renderState(mount, {
+                variant: 'error',
+                title: 'تعذّر تحميل الملف الشخصي',
+                text: 'تحقق من اتصالك ثم أعد المحاولة.',
+                action: { label: 'إعادة المحاولة', retry: 'profile' }
+            });
+        }
     }
 
     /* =========================================================

@@ -212,11 +212,22 @@ export async function mountContextBar() {
     renderPreviewStrip(active);
 
     let contexts = [];
+    let contextsFailed = false;
     try {
         contexts = await loadContexts();
-    } catch { /* القائمة تبقى فارغة، والزر يعرض الحالة وحدها */ }
+    } catch {
+        // القائمة كانت تبقى فارغة بصمت، والزر يعرض الحالة وحدها بلا تفسير.
+        contextsFailed = true;
+    }
 
     ui.list.innerHTML = '';
+    if (contextsFailed) {
+        const item = document.createElement('div');
+        item.className = 'portal-menu-item';
+        item.setAttribute('aria-disabled', 'true');
+        item.textContent = 'تعذّر تحميل الواجهات — أغلق القائمة وأعد فتحها';
+        ui.list.appendChild(item);
+    }
     for (const c of contexts) {
         const pres = CONTEXT_PRESENTATION[c.key] || {};
         const item = document.createElement('button');

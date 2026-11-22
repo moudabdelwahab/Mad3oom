@@ -118,6 +118,16 @@ export function routeFromHash(hash) {
     return COMPANY_ROUTES.includes(key) ? key : 'overview';
 }
 
+/**
+ * هل الـhash قيمة غير معروفة؟ (هاش فارغ أو #overview ليسا مجهولين.)
+ * خالصة لتُختبَر في node؛ الـToast نفسه يعرضه الموجّه (company-dashboard.js)
+ * عند العودة للنظرة العامة، لأن هذه الوحدة لا تعرف الـDOM.
+ */
+export function isUnknownHash(hash) {
+    const key = String(hash || '').replace(/^#/, '').split(/[?&/]/)[0];
+    return key !== '' && !COMPANY_ROUTES.includes(key);
+}
+
 export function groupOf(page) {
     return COMPANY_GROUPS.find(g => g.pages.includes(page)) || COMPANY_GROUPS[0];
 }

@@ -23,7 +23,14 @@ const toggle = (p, role, field, checked, label) => `
 async function load() {
     const box = $('permMatrix');
     box.innerHTML = loadingBlock();
-    const res = await supabase.rpc('owner_permission_matrix');
+    // انقطاع الشبكة يرمي: بلا التقاط يبقى الهيكل العظمي بلا تفسير.
+    let res;
+    try {
+        res = await supabase.rpc('owner_permission_matrix');
+    } catch (err) {
+        box.innerHTML = errorBlock(friendlyError(err));
+        return;
+    }
     const out = rpcOutcome(res);
     if (!out.ok) { box.innerHTML = errorBlock(out.message || friendlyError(res.error)); return; }
     const groups = groupPermissions(out.data.permissions);
@@ -50,9 +57,15 @@ function bind() {
         if (!input) return;
         const want = input.checked;
         input.disabled = true;
-        const res = await supabase.rpc('owner_set_role_permission', {
-            p_role: input.dataset.role, p_permission: input.dataset.perm, p_field: input.dataset.field, p_value: want
-        });
+        // انقطاع الشبكة يرمي: بلا التقاط يبقى المبدّل معطّلًا على حالة غير محفوظة.
+        let res;
+        try {
+            res = await supabase.rpc('owner_set_role_permission', {
+                p_role: input.dataset.role, p_permission: input.dataset.perm, p_field: input.dataset.field, p_value: want
+            });
+        } catch (err) {
+            res = { data: null, error: err };
+        }
         const out = rpcOutcome(res);
         input.disabled = false;
         if (!out.ok) {
@@ -61,7 +74,11 @@ function bind() {
             return;
         }
         toast('حُفظ. القاعدة تفرض القرار من الطلب التالي.', 'success');
-        load();
+        await load();
+        // إعادة الرسم تستبدل المبدّل؛ يعود التركيز إليه بدل أن يسقط إلى أول الصفحة.
+        document.querySelector(
+            `input[data-perm="${CSS.escape(input.dataset.perm)}"][data-role="${CSS.escape(input.dataset.role)}"][data-field="${CSS.escape(input.dataset.field)}"]`
+        )?.focus({ preventScroll: true });
     });
     $('permRefresh').addEventListener('click', load);
 }

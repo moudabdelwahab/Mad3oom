@@ -48,7 +48,7 @@ export function buildCompanyDirectory({ members = [], staff = null, customers = 
             key: `customer:${c.id}`, kind: 'customer', id: c.id, raw: c,
             name: c.name || c.email || '—', email: c.email || '', phone: c.phone || '',
             roleLabel: DIRECTORY_KINDS.customer, rolePill: 'status-neutral',
-            staffLabel: '', statusLabel: '', created_at: c.created_at || null
+            staffLabel: '', statusLabel: '', created_at: c.joined_at || c.created_at || null
         });
     }
     for (const i of invitations || []) {
@@ -93,7 +93,10 @@ export function filterCompanyDirectory(rows, { q = '', kind = '', staff = '' } =
  *   member   details (التفاصيل والإدارة: الملف، بيانات الدخول، رابط كلمة المرور، الإيقاف، النقل)
  *            لمن يدير الأعضاء على غير المالك وغير نفسه؛ staff:<role> حين staffActions().canEdit؛
  *            remove حين memberActions().canRemove؛ وmyProfile للحساب نفسه.
- *   invitation  resend/retry حسب حالة البريد، وcancel للمعلّقة.
+ *   invitation  resend/retry حسب حالة البريد، وcancel للمعلّقة — كلاهما لمن
+ *            يدير (canManage) فقط، كصفحة «عملاء الشركة» (الدعوات لا تظهر في
+ *            القائمة أصلًا إلا لمن يملك الدعوة؛ والشرط هنا يطابقها فلا يظهر
+ *            إجراء لا يملكه الناظر حين تختلف الحمولتان).
  *   الكل    copyEmail/copyPhone حين توجد القيمة (لا تغيّر شيئًا).
  * ctx: { canManage, staff }
  */
@@ -111,7 +114,7 @@ export function companyUserActions(row, { canManage = false, staff = null } = {}
             for (const o of STAFF_ROLE_OPTIONS) actions.push({ id: `staff:${o.value}`, label: o.label, current: o.value === current });
         }
     }
-    if (row.kind === 'invitation') {
+    if (row.kind === 'invitation' && canManage === true) {
         const mail = invitationEmailInfo(row.raw?.status, row.raw?.email_status);
         if (mail?.action) actions.push({ id: `invite:${mail.action}`, label: mail.action === 'retry' ? 'إعادة محاولة إرسال الدعوة' : 'إعادة إرسال الدعوة' });
     }
@@ -124,7 +127,7 @@ export function companyUserActions(row, { canManage = false, staff = null } = {}
     if (row.kind === 'member' && memberActions(row.raw, { canManage }).canRemove) {
         actions.push({ id: 'remove', label: 'إزالة من الشركة', danger: true });
     }
-    if (row.kind === 'invitation' && row.raw?.status === 'pending') {
+    if (row.kind === 'invitation' && canManage === true && row.raw?.status === 'pending') {
         actions.push({ id: 'cancelInvite', label: 'إلغاء الدعوة', danger: true });
     }
     return actions;

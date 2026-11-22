@@ -42,8 +42,13 @@ async function loadActivations() {
 async function loadActivators(ids) {
     const missing = [...new Set(ids.filter(id => id && !people.has(id)))];
     if (!missing.length) return;
-    const { data } = await supabase.from('profiles').select('id, full_name, email').in('id', missing);
-    (data || []).forEach(p => people.set(p.id, p));
+    // فشل القراءة لا يوقف الجدول: المفعِّل يُعرض بمعرّفه المختصر كما في الصف.
+    try {
+        const { data } = await supabase.from('profiles').select('id, full_name, email').in('id', missing);
+        (data || []).forEach(p => people.set(p.id, p));
+    } catch (err) {
+        console.error('[MuseActivations] loadActivators:', err?.message || err);
+    }
 }
 
 async function load() {
@@ -64,7 +69,16 @@ async function load() {
     if ($('museAccountsRole').value) q = q.eq('role', $('museAccountsRole').value);
 
     const [from, to] = pageRange(page, ACCOUNTS_PAGE_SIZE);
-    const { data, error, count } = await q.range(from, to);
+    // الاستعلام الرئيسي يرمي عند انقطاع الشبكة (التفعيلات وحدها كانت ملتقطة):
+    // بلا التقاط يبقى الهيكل العظمي بلا تفسير.
+    let data, error, count;
+    try {
+        ({ data, error, count } = await q.range(from, to));
+    } catch (err) {
+        box.innerHTML = errorBlock(friendlyError(err));
+        $('museAccountsPager').hidden = true;
+        return;
+    }
     if (error) { box.innerHTML = errorBlock(friendlyError(error)); $('museAccountsPager').hidden = true; return; }
     const rows = data || [];
     await loadActivators([...activations.values()].map(r => r.activated_by));
@@ -120,14 +134,19 @@ async function toggleActivation(input) {
     if (label) label.textContent = 'جارٍ الحفظ…';
 
     let result;
-    if (turningOn) {
-        result = await supabase.from('muse_account_activations')
-            .upsert(activationUpsertPayload({ owner, byUserId: ownerId }), { onConflict: 'owner_id' })
-            .select('id');
-    } else {
-        result = await supabase.from('muse_account_activations')
-            .update(activationDeactivatePayload({ byUserId: ownerId }))
-            .eq('owner_id', owner.id).select('id');
+    // انقطاع الشبكة يرمي: بلا التقاط يبقى المبدّل معطّلًا على «جارٍ الحفظ…» إلى الأبد.
+    try {
+        if (turningOn) {
+            result = await supabase.from('muse_account_activations')
+                .upsert(activationUpsertPayload({ owner, byUserId: ownerId }), { onConflict: 'owner_id' })
+                .select('id');
+        } else {
+            result = await supabase.from('muse_account_activations')
+                .update(activationDeactivatePayload({ byUserId: ownerId }))
+                .eq('owner_id', owner.id).select('id');
+        }
+    } catch (err) {
+        result = { data: null, error: err };
     }
     const checked = writeResult(result, { denied: 'لم يُحفظ التغيير — القاعدة لم تسمح بالتعديل.' });
     if (!checked.ok) {
@@ -155,7 +174,9 @@ async function toggleActivation(input) {
         badge.textContent = turningOn ? 'مفعّل' : 'غير مفعّل';
     }
     say(turningOn ? `تم تفعيل Muse لحساب ${owner.email}.` : `تم إيقاف Muse لحساب ${owner.email}.`);
-    load();
+    // إعادة الرسم تستبدل المبدّل؛ يعود التركيز إليه بدل أن يسقط إلى أول الصفحة.
+    await load();
+    document.querySelector(`input[data-owner-id="${CSS.escape(owner.id)}"]`)?.focus({ preventScroll: true });
 }
 
 (async function init() {

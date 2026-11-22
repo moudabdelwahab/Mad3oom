@@ -765,23 +765,52 @@ function gate(title, text) {
     pill.textContent = 'الواجهة الحالية: مالك المنصة';
     pill.hidden = false;
 
-    const [audit, profiles, companies, subs] = await Promise.all([
-        supabase.from('owner_context_audit')
-                .select('event, from_context, to_context, at, detail')
-                .order('at', { ascending: false }).limit(50),
-        supabase.from('profiles').select('id, email, full_name, role, pi_uid'),
-        // companies لا تقرؤها سياسة المالك كاملة (صاحب الشركة وأعضاؤها) — فكان العدّ شركته وحدها.
-        // دليل العملاء (is_support_user ← owner_capability('staff')) يعيد كل الشركات.
-        supabase.rpc('admin_customer_filter_options'),
-        supabase.from('whatsapp_subscriptions').select('id', { count: 'exact', head: true })
-                .eq('status', 'active')
-    ]);
+    const errorBlock = (message) => `
+        <div class="state-block state-block--error state-block--compact">
+            <p class="state-title">تعذّرت القراءة</p><p class="state-text">${esc(message)}</p></div>`;
+
+    // التحميل الأول: أي انقطاع شبكة كان يرمي هنا بلا التقاط، فتبقى الهياكل
+    // العظمية في المؤشرات والسجل إلى الأبد. الآن خطأ صريح مع زر إعادة محاولة.
+    let audit, profiles, companies, subs;
+    let loadFailed = null;
+    try {
+        [audit, profiles, companies, subs] = await Promise.all([
+            supabase.from('owner_context_audit')
+                    .select('event, from_context, to_context, at, detail')
+                    .order('at', { ascending: false }).limit(50),
+            supabase.from('profiles').select('id, email, full_name, role, pi_uid'),
+            // companies لا تقرؤها سياسة المالك كاملة (صاحب الشركة وأعضاؤها) — فكان العدّ شركته وحدها.
+            // دليل العملاء (is_support_user ← owner_capability('staff')) يعيد كل الشركات.
+            supabase.rpc('admin_customer_filter_options'),
+            supabase.from('whatsapp_subscriptions').select('id', { count: 'exact', head: true })
+                    .eq('status', 'active')
+        ]);
+    } catch (err) {
+        loadFailed = err;
+    }
+    if (loadFailed) {
+        const retry = (box) => {
+            box.innerHTML = errorBlock(loadFailed.message)
+                + '<p><button type="button" class="btn btn-outline btn-sm" data-owner-retry>إعادة المحاولة</button></p>';
+            box.querySelector('[data-owner-retry]').addEventListener('click', () => location.reload());
+        };
+        retry($('ownerKpis'));
+        retry($('auditBody'));
+        return;
+    }
 
     const rows = profiles.data || [];
     const byId = new Map(rows.map(p => [p.id, p]));
     const count = (r) => rows.filter(p => p.role === r).length;
     const denied = (audit.data || []).filter(a => a.event === 'denied').length;
 
+    // قراءة الحسابات فشلت: أصفار كاذبة أسوأ من خطأ صريح — المؤشرات تعرض الخطأ
+    // مع زر إعادة محاولة، وباقي اللوحة يعرض ما أمكنه.
+    if (profiles.error) {
+        $('ownerKpis').innerHTML = errorBlock(profiles.error.message)
+            + '<p><button type="button" class="btn btn-outline btn-sm" data-owner-retry>إعادة المحاولة</button></p>';
+        $('ownerKpis').querySelector('[data-owner-retry]').addEventListener('click', () => location.reload());
+    } else {
     $('ownerKpis').innerHTML = [
         ['الحسابات', rows.length, ''],
         ['أدمن', count('admin'), 'kpi--info'],
@@ -794,10 +823,7 @@ function gate(title, text) {
             <p class="kpi-label">${esc(label)}</p>
             <p class="kpi-value">${esc(value)}</p>
         </div>`).join('');
-
-    const errorBlock = (message) => `
-        <div class="state-block state-block--error state-block--compact">
-            <p class="state-title">تعذّرت القراءة</p><p class="state-text">${esc(message)}</p></div>`;
+    }
 
     const accountCell = (userId) => {
         const u = byId.get(userId);
@@ -884,8 +910,15 @@ function initSieAuthority({ byId, rows, accountCell, errorBlock, center, badge =
             e.currentTarget.disabled = true;
             say('جارٍ الحفظ…');
             // select() بعد التعديل: RLS لا تُرجع خطأ حين ترفض، بل صفرًا من الصفوف.
-            const { data: updated, error: upErr } = await supabase.from('sie_settings')
-                .update({ value: next }).eq('key', 'engine_enabled').select('key');
+            // وانقطاع الشبكة يرمي: يُعرض الخطأ ويُعاد رسم الزر، فلا يبقى معطّلًا بلا تفسير.
+            let updated = null;
+            let upErr = null;
+            try {
+                ({ data: updated, error: upErr } = await supabase.from('sie_settings')
+                    .update({ value: next }).eq('key', 'engine_enabled').select('key'));
+            } catch (err) {
+                upErr = err;
+            }
             if (upErr || !updated?.length) {
                 say(upErr ? friendly(upErr) : 'لم يُحفظ التغيير — القاعدة لم تسمح بالتعديل.', 'error');
             } else {
@@ -928,7 +961,12 @@ function initSieAuthority({ byId, rows, accountCell, errorBlock, center, badge =
             if (!window.confirm(`سحب إدارة محرك الدعم الذكي من ${target?.full_name || target?.email || 'هذا الحساب'}؟`)) return;
             btn.disabled = true;
             say('جارٍ سحب الصلاحية…');
-            const { error } = await supabase.rpc('owner_revoke_sie_admin', { p_user_id: btn.dataset.revoke });
+            let error = null;
+            try {
+                ({ error } = await supabase.rpc('owner_revoke_sie_admin', { p_user_id: btn.dataset.revoke }));
+            } catch (err) {
+                error = err;
+            }
             say(error ? friendly(error) : 'تم سحب الصلاحية.', error ? 'error' : 'success');
             renderAdmins();
             center.refreshAudit();
@@ -970,9 +1008,14 @@ function initSieAuthority({ byId, rows, accountCell, errorBlock, center, badge =
         const btn = $('sieGrantBtn');
         btn.disabled = true;
         say('جارٍ المنح…');
-        const { error } = await supabase.rpc('owner_grant_sie_admin', {
-            p_user_id: userId, p_note: $('sieGrantNote').value.trim() || null
-        });
+        let error = null;
+        try {
+            ({ error } = await supabase.rpc('owner_grant_sie_admin', {
+                p_user_id: userId, p_note: $('sieGrantNote').value.trim() || null
+            }));
+        } catch (err) {
+            error = err;
+        }
         btn.disabled = false;
         if (error) { say(friendly(error), 'error'); return; }
         $('sieGrantNote').value = '';

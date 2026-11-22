@@ -124,7 +124,7 @@ export async function loadCompanyApi({ selfId } = {}) {
             <div class="kpi ${active.length ? 'kpi--success' : ''}">
                 <p class="kpi-label">مفاتيح فعّالة</p>
                 <p class="kpi-value">${active.length}</p>
-                <p class="kpi-hint">من ${tokens.length} مفتاحًا على حساب الشركة وأعضائها</p>
+                <p class="kpi-hint">من ${tokens.length} مفتاحًا على حساب الشركة</p>
             </div>
             <div class="kpi">
                 <p class="kpi-label">إجمالي النداءات</p>
@@ -297,7 +297,7 @@ function renderKeys(tokens, selfId) {
         </ul>`;
 
     box.querySelectorAll('[data-api-toggle]').forEach(btn => {
-        btn.addEventListener('click', () => toggleKey(btn.getAttribute('data-api-toggle'), tokens, selfId));
+        btn.addEventListener('click', () => toggleKey(btn, btn.getAttribute('data-api-toggle'), tokens, selfId));
     });
 }
 
@@ -308,7 +308,7 @@ function renderKeys(tokens, selfId) {
  * نتيجته. لو كان المفتاح خارج النطاق فلن يتأثر أي صف — والرسالة تقول ذلك
  * بدل أن تدّعي نجاحًا.
  */
-async function toggleKey(tokenId, tokens, selfId) {
+async function toggleKey(btn, tokenId, tokens, selfId) {
     const token = tokens.find(t => t.id === tokenId);
     if (!token) return;
     const disabling = token.is_active !== false;
@@ -322,20 +322,26 @@ async function toggleKey(tokenId, tokens, selfId) {
     );
     if (!ok) return;
 
+    // تعطيل الزر أثناء الطلب لمنع طلبين بنقرة مزدوجة؛ يُعاد تفعيله في finally نجاحًا أو فشلًا
+    if (btn) { btn.disabled = true; btn.setAttribute('aria-busy', 'true'); }
     try {
-        const { data, error } = await supabase
-            .from('api_tokens')
-            .update({ is_active: !disabling })
-            .eq('id', tokenId)
-            .select('id');
-        if (error) throw error;
-        if (!data || data.length === 0) {
-            throw new Error('لا تملك صلاحية تعديل هذا المفتاح.');
+        try {
+            const { data, error } = await supabase
+                .from('api_tokens')
+                .update({ is_active: !disabling })
+                .eq('id', tokenId)
+                .select('id');
+            if (error) throw error;
+            if (!data || data.length === 0) {
+                throw new Error('لا تملك صلاحية تعديل هذا المفتاح.');
+            }
+            ui?.showToast?.(disabling ? 'تم إيقاف المفتاح' : 'تم تفعيل المفتاح', 'success');
+            await loadCompanyApi({ selfId });
+        } catch (err) {
+            ui?.showToast?.(err?.message || 'تعذّر تنفيذ الإجراء', 'error');
         }
-        ui?.showToast?.(disabling ? 'تم إيقاف المفتاح' : 'تم تفعيل المفتاح', 'success');
-        await loadCompanyApi({ selfId });
-    } catch (err) {
-        ui?.showToast?.(err?.message || 'تعذّر تنفيذ الإجراء', 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); }
     }
 }
 

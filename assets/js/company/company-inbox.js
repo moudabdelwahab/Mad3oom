@@ -78,16 +78,74 @@ let listData = null;
 let wired = false;
 
 export async function loadCompanyInbox() {
-    if (!wired) { wire(); wired = true; }
+    if (!wired) { wired = wire(); }
+    if (!wired) return;
     await renderList();
+}
+
+/** حدّ حقل الرد — مطابق لـ maxlength في الصفحة. */
+const REPLY_MAX_LENGTH = 5000;
+
+/** عدّاد أحرف الرد: «المكتوب / الحد». */
+function updateReplyCount() {
+    const input = document.getElementById('companyInboxReplyBody');
+    const count = document.getElementById('companyInboxReplyCount');
+    if (!input || !count) return;
+    count.textContent = `${input.value.length} / ${REPLY_MAX_LENGTH}`;
+}
+
+/** ينشئ عدّاد الأحرف مرة واحدة بعد حقل الرد (الصفحة لا تحمله). */
+function ensureReplyCounter(input) {
+    if (!input || document.getElementById('companyInboxReplyCount')) return;
+    const field = input.closest('.form-field');
+    if (!field?.parentNode) return;
+    const count = document.createElement('p');
+    count.id = 'companyInboxReplyCount';
+    count.className = 'panel-subtitle';
+    count.setAttribute('aria-live', 'polite');
+    field.parentNode.insertBefore(count, field.nextSibling);
+    updateReplyCount();
+}
+
+/** زر «رجوع إلى القائمة» أعلى الخيط المفتوح — يُنشأ مرة واحدة. */
+function ensureThreadClose(pane) {
+    if (!pane || document.getElementById('companyInboxClose')) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-secondary btn-sm';
+    btn.id = 'companyInboxClose';
+    btn.textContent = '‹ رجوع إلى القائمة';
+    btn.addEventListener('click', async () => {
+        openId = null;
+        pane.hidden = true;
+        await renderList();
+        document.getElementById('companyInboxList')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    pane.insertBefore(btn, pane.firstChild);
 }
 
 function wire() {
     const select = document.getElementById('companyInboxFilter');
+    const refresh = document.getElementById('companyInboxRefresh');
+    const form = document.getElementById('companyInboxReply');
+    if (!select || !refresh || !form) return false;
     select.innerHTML = INBOX_FILTERS.map(f => `<option value="${f.value}">${escapeHtml(f.label)}</option>`).join('');
-    select.addEventListener('change', async () => { filter = select.value; await renderList(); });
-    document.getElementById('companyInboxRefresh').addEventListener('click', () => renderList());
-    document.getElementById('companyInboxReply').addEventListener('submit', async (event) => {
+    select.addEventListener('change', async () => {
+        filter = select.value;
+        // خيط مفتوح قد يختفي من القائمة بعد تغيير الفلتر — يُغلق معها
+        openId = null;
+        const pane = document.getElementById('companyInboxThread');
+        if (pane) pane.hidden = true;
+        await renderList();
+    });
+    refresh.addEventListener('click', () => renderList());
+    const input = document.getElementById('companyInboxReplyBody');
+    if (input) {
+        ensureReplyCounter(input);
+        input.addEventListener('input', updateReplyCount);
+        updateReplyCount();
+    }
+    form.addEventListener('submit', async (event) => {
         event.preventDefault();
         const input = document.getElementById('companyInboxReplyBody');
         const internal = document.getElementById('companyInboxInternal').checked;
@@ -101,9 +159,11 @@ function wire() {
         if (!r.ok) { errorBox.textContent = r.error; errorBox.hidden = false; return; }
         errorBox.hidden = true;
         input.value = '';
+        updateReplyCount();
         await openThread(openId);
         await renderList();
     });
+    return true;
 }
 
 async function renderList() {
@@ -140,6 +200,7 @@ async function openThread(id) {
     const t = r.data || {};
     const pane = document.getElementById('companyInboxThread');
     pane.hidden = false;
+    ensureThreadClose(pane);
     document.getElementById('companyInboxSubject').textContent = t.subject || '';
     document.getElementById('companyInboxMeta').textContent =
         `${t.customer_name || '—'} · ${t.status === 'closed' ? 'مغلقة' : 'مفتوحة'}`;
@@ -187,4 +248,7 @@ async function openThread(id) {
         await renderList();
         await openThread(id);
     });
+    updateReplyCount();
+    // الخيط أسفل القائمة — يُمرَّر إليه عند فتحه حتى يراه المستخدم على الموبايل
+    pane.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }

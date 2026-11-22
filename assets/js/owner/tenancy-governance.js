@@ -12,6 +12,8 @@
  */
 import { applyCriticalState } from '/assets/js/owner/authority-center.js';
 import { announce } from '/assets/js/owner/owner-workspace.js';
+// استيراد منفصل عمدًا: سطر announce أعلاه يُستبدل حرفيًا في tests/owner-governance.render.test.mjs
+import { focusSelectorFor } from '/assets/js/owner/owner-workspace.js';
 
 const MISSING = new Set(['PGRST202', '42883', 'PGRST404']);
 
@@ -288,8 +290,16 @@ export function delegationExpiry(value, now = new Date()) {
 export function initTenancyGovernance(ctx) {
     const { supabase, $, esc, when, table, td, staff = [], badge = () => {} } = ctx;
 
+    // النداء نفسه قد يرمي (انقطاع شبكة) لا أن يعود بـ error: بلا التقاط كانت
+    // كل لوحات الحوكمة ترفض كاملة وتبقى هياكلها العظمية. الآن { error } دائمًا.
     const rpc = async (name, args) => {
-        const { data, error } = await supabase.rpc(name, args);
+        let data;
+        let error;
+        try {
+            ({ data, error } = await supabase.rpc(name, args));
+        } catch (err) {
+            return { error: err?.message || 'تعذّر الاتصال بالقاعدة' };
+        }
         if (error && (MISSING.has(error.code) || error.status === 404)) return { missing: true };
         if (error) return { error: error.message || 'تعذّر التنفيذ' };
         return { data };
@@ -321,6 +331,13 @@ export function initTenancyGovernance(ctx) {
         status(done, 'success');
         // إعادة العرض تستبدل محتوى اللوحات في مكانها: لا تمرير، والتبويب الحالي يبقى كما هو
         await renderAll();
+        // إعادة الرسم تستبدل الزر الذي نُقر؛ يعود التركيز إلى نظيره الجديد، وإلا
+        // بقي حيث كان (اختفى الصف بعد التنفيذ) — فلا يسقط التركيز إلى أول الصفحة.
+        if (btn) {
+            const selector = focusSelectorFor(btn.dataset);
+            const next = selector && document.querySelector(selector);
+            if (next) next.focus({ preventScroll: true });
+        }
         return res.data;
     }
 
@@ -585,6 +602,7 @@ export function initTenancyGovernance(ctx) {
         if (res.missing || res.error) badge('usage', null);
         if (res.missing) { box.innerHTML = notApplied('سجل الاستهلاك'); return; }
         if (res.error) { box.innerHTML = failed(res.error); return; }
+        if (!res.data) { box.innerHTML = failed('تعذّرت قراءة سجل الاستهلاك.'); return; }
         const r = res.data || {};
         const mismatches = r.mismatches || [];
         const unexplained = mismatches.filter(m => m.reason !== 'membership_changed').length;

@@ -64,7 +64,12 @@ export function createOwnerNotifications({ container, markAllButton, service, op
             const n = items.find(x => String(x.id) === btn.dataset.ownerNotif);
             if (!n) return;
             if (!n.is_read) {
-                await service.markAsRead(n.id);
+                // تعليم المقروء محاولة لطيفة: فشلها لا يمنع فتح الإشعار نفسه.
+                try {
+                    await service.markAsRead(n.id);
+                } catch (err) {
+                    console.error('[OwnerNotifications] markAsRead:', err?.message || err);
+                }
                 n.is_read = true;
                 document.dispatchEvent(new CustomEvent('customer:notifications-read'));
                 render();
@@ -79,7 +84,10 @@ export function createOwnerNotifications({ container, markAllButton, service, op
             items = (await service.fetchNotifications()) || [];
         } catch (err) {
             console.error('[OwnerNotifications] load:', err?.message || err);
-            container.innerHTML = `<div class="state-block state-block--compact state-block--error"><p class="state-text">تعذّر تحميل الإشعارات. حاول مرة أخرى.</p></div>`;
+            // كان الخطأ نصًا بلا إعادة محاولة: الآن زر يعيد التحميل بنفس النمط.
+            container.innerHTML = `<div class="state-block state-block--compact state-block--error"><p class="state-text">تعذّر تحميل الإشعارات.</p>
+                <p><button type="button" class="btn btn-outline btn-sm" data-owner-notif-retry>إعادة المحاولة</button></p></div>`;
+            container.querySelector('[data-owner-notif-retry]').addEventListener('click', load);
             markAllButton.hidden = true;
             return;
         }

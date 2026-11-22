@@ -18,9 +18,15 @@ const PASSCODE_MIN = 6;
 async function load() {
     const box = $('passcodesTable');
     box.innerHTML = loadingBlock();
-    const { data, error } = await supabase.from('access_passcodes')
-        .select('id, label, is_active, created_at, revoked_at, passcode_redemptions(user_id)')
-        .order('created_at', { ascending: false });
+    // انقطاع الشبكة يرمي: بلا التقاط يبقى الهيكل العظمي بلا تفسير.
+    let data, error = null;
+    try {
+        ({ data, error } = await supabase.from('access_passcodes')
+            .select('id, label, is_active, created_at, revoked_at, passcode_redemptions(user_id)')
+            .order('created_at', { ascending: false }));
+    } catch (err) {
+        error = err;
+    }
     if (error) { box.innerHTML = errorBlock(friendlyError(error)); return; }
     box.innerHTML = table(['الوصف', 'الحالة', 'مرات الاستخدام', 'أُنشئ', 'عُطّل', ''], data || [], c => `<tr>
         <td>${esc(c.label || '—')}</td>
@@ -37,7 +43,12 @@ async function toggle(btn) {
     const makeActive = btn.dataset.active === 'true';
     if (!makeActive && !window.confirm('تعطيل الكود يسحب الإعفاء فورًا من كل من استخدمه. متابعة؟')) return;
     btn.disabled = true;
-    const { error } = await supabase.rpc('owner_set_passcode_active', { p_id: btn.dataset.code, p_active: makeActive });
+    let error = null;
+    try {
+        ({ error } = await supabase.rpc('owner_set_passcode_active', { p_id: btn.dataset.code, p_active: makeActive }));
+    } catch (err) {
+        error = err;
+    }
     if (error) { btn.disabled = false; say(friendlyError(error), 'error'); return; }
     say(makeActive ? 'تم تفعيل الكود.' : 'تم تعطيل الكود.', 'success');
     load();
@@ -51,8 +62,14 @@ async function create(e) {
     const btn = $('passcodeCreate');
     btn.disabled = true;
     say('جارٍ الإنشاء…');
-    const { data, error } = await supabase.rpc('owner_set_passcode', { p_code: code, p_label: label });
-    btn.disabled = false;
+    let data, error = null;
+    try {
+        ({ data, error } = await supabase.rpc('owner_set_passcode', { p_code: code, p_label: label }));
+    } catch (err) {
+        error = err;
+    } finally {
+        btn.disabled = false;
+    }
     if (error || !data?.ok) { say(error ? friendlyError(error) : (data?.message || 'تعذّر إنشاء الكود.'), 'error'); return; }
     $('passcodeForm').reset();
     say('تم إنشاء الكود. احفظه الآن — لا يمكن عرضه مرة أخرى.', 'success');

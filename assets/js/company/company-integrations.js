@@ -313,6 +313,44 @@ async function busy(button, fn) {
     }
 }
 
+/**
+ * نسخ سر معروض مرة واحدة إلى الحافظة.
+ * خالصة قابلة للاختبار: الحافظة والمستند يُحقنان (افتراضيًا navigator.clipboard وdocument).
+ * الحافظة أولًا، وعند غيابها أو رفضها نسخة احتياطية (textarea + execCommand).
+ * ترجع { ok: true } عند النجاح، و{ ok: false, error } عند الفشل.
+ */
+export async function copySecret(secret, { clipboard, doc } = {}) {
+    const value = String(secret ?? '');
+    const clip = clipboard ?? globalThis.navigator?.clipboard;
+    if (clip?.writeText) {
+        try {
+            await clip.writeText(value);
+            return { ok: true };
+        } catch {
+            // الحافظة محظورة أو السياق غير آمن — النسخة الاحتياطية أدناه
+        }
+    }
+    const d = doc ?? globalThis.document;
+    if (!d?.createElement || !d?.body || typeof d.execCommand !== 'function') {
+        return { ok: false, error: 'تعذّر النسخ: الحافظة غير متاحة في هذا المتصفح' };
+    }
+    let ta = null;
+    try {
+        ta = d.createElement('textarea');
+        ta.value = value;
+        if (typeof ta.setAttribute === 'function') ta.setAttribute('readonly', '');
+        if (ta.style) { ta.style.position = 'fixed'; ta.style.opacity = '0'; }
+        d.body.appendChild(ta);
+        if (typeof ta.select === 'function') ta.select();
+        if (d.execCommand('copy') === false) return { ok: false, error: 'تعذّر نسخ السر' };
+        return { ok: true };
+    } catch {
+        return { ok: false, error: 'تعذّر نسخ السر' };
+    } finally {
+        if (ta) { try { d.body.removeChild(ta); } catch { /* أُزيلت من قبل */ } }
+    }
+}
+
 function cardOf(provider) {
     return (cards || []).find((c) => c.key === provider);
 }
@@ -362,7 +400,23 @@ async function onAction(button) {
 
     if (action === 'open-form') { openForm = provider; render(); el(`ihubForm-${provider}`)?.querySelector('input')?.focus(); return; }
     if (action === 'close-form') { openForm = null; render(); return; }
-    if (action === 'dismiss-reveal') { revealed = null; render(); return; }
+    if (action === 'dismiss-reveal') {
+        if (revealed?.value) {
+            const copied = await copySecret(revealed.value);
+            if (copied.ok) {
+                ui?.showToast?.('تم نسخ السر', 'success');
+                revealed = null;
+                render();
+            } else {
+                // يبقى السر معروضًا عند فشل النسخ حتى لا يضيع نهائيًا — يُنسخ يدويًا
+                ui?.showToast?.(copied.error || 'تعذّر نسخ السر', 'error');
+            }
+        } else {
+            revealed = null;
+            render();
+        }
+        return;
+    }
 
     if (action === 'oauth') {
         await busy(button, async () => {

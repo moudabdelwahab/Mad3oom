@@ -28,8 +28,14 @@ let integrations = null;
 let diagnostics = null;
 
 async function rpc(name, args) {
-    const { data, error } = await supabase.rpc(name, args);
-    return { data, error };
+    // النداء نفسه قد يرمي (انقطاع شبكة) لا أن يعود بـ error: بلا التقاط كانت
+    // كل أقسام المتاجر تبقى هياكل عظمية بلا تفسير.
+    try {
+        const { data, error } = await supabase.rpc(name, args);
+        return { data, error };
+    } catch (err) {
+        return { data: null, error: err };
+    }
 }
 
 async function loadAccounts(page = 0) {

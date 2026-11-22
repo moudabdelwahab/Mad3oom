@@ -36,15 +36,18 @@ async function pickShell() {
 }
 
 async function loadData() {
+    // فشل المحفظة ليس «بلا اشتراك»: نميّزه بعلامة، فبطاقة الخطة تعرض خطأً
+    // صريحًا بدل أن تُظهر العميل المدفوع كمجاني.
+    let walletFailed = false;
     const [wallet, plans, history] = await Promise.all([
-        fetchTicketWallet().catch((err) => { console.error('[MySubscription] wallet:', err); return null; }),
+        fetchTicketWallet().catch((err) => { console.error('[MySubscription] wallet:', err); walletFailed = true; return null; }),
         supabase.from('subscription_plans').select('key, name_ar, price_monthly, price_yearly, currency').then(r => r.data || []),
         supabase.from('whatsapp_subscriptions')
             .select('id, plan, status, billing_cycle, start_date, end_date, created_at, is_renewal, payment_method, upgrade_amount, upgraded_from_subscription_id, price_snapshot')
             .order('created_at', { ascending: false })
             .then(r => r.data || [])
     ]);
-    return { wallet, plans, history };
+    return { wallet, walletFailed, plans, history };
 }
 
 function priceOf(plans, key, cycle) {
@@ -53,7 +56,25 @@ function priceOf(plans, key, cycle) {
     return { amount: cycle === 'yearly' ? p.price_yearly : p.price_monthly, currency: p.currency };
 }
 
-function planCard({ wallet, plans, history }) {
+function planCard({ wallet, walletFailed, plans, history }) {
+    // المحفظة لم تُقرأ: لا نعرف الخطة، فلا ندّعي المجانية — خطأ صريح وإعادة محاولة.
+    if (walletFailed) {
+        return `
+        <section class="ms-card">
+            <div class="ms-plan-top">
+                <div>
+                    <div class="ms-eyebrow">خطتك الحالية</div>
+                    <div class="ms-plan-name">تعذّر تحميل الاشتراك</div>
+                    <div class="ms-price">—</div>
+                </div>
+                <span class="ms-pill tone-bad">تعذّر التحميل</span>
+            </div>
+            <p class="ms-note" style="margin-top:1rem">تعذّر تحميل بيانات اشتراكك الآن. هذا لا يعني أنك على الخطة المجانية — تحقق من اتصالك ثم أعد المحاولة.</p>
+            <div class="ms-actions">
+                <button type="button" class="btn btn-primary" id="msRetryWallet">إعادة المحاولة</button>
+            </div>
+        </section>`;
+    }
     const isFree = !wallet || wallet.is_free;
     const planKey = wallet?.plan_key || 'free';
     const current = !isFree ? history.find(h => h.id === wallet.subscription_id) : null;
@@ -76,13 +97,15 @@ function planCard({ wallet, plans, history }) {
         const start = current?.start_date;
         const end = current?.end_date || wallet.subscription_end;
         const prog = start && end ? cycleProgress(start, end) : null;
-        const daysLeft = prog ? prog.daysLeft : Math.max(0, Math.ceil((new Date(end) - new Date()) / 86400000));
-        const barTone = daysLeft <= 7 ? ' is-warn' : '';
+        // بلا تاريخ انتهاء صالح لا نحسب أيامًا: «—» بدل «NaN يوم».
+        const endTime = end ? new Date(end).getTime() : NaN;
+        const daysLeft = prog ? prog.daysLeft : (Number.isNaN(endTime) ? null : Math.max(0, Math.ceil((endTime - Date.now()) / 86400000)));
+        const barTone = daysLeft !== null && daysLeft <= 7 ? ' is-warn' : '';
         body = `
             <div class="ms-dates">
                 <div class="ms-date"><div class="l">بدأ في</div><div class="v">${esc(fmtDate(start))}</div></div>
                 <div class="ms-date"><div class="l">ينتهي في</div><div class="v">${esc(fmtDate(end))}</div></div>
-                <div class="ms-date"><div class="l">المتبقي</div><div class="v">${daysLeft} يوم</div></div>
+                <div class="ms-date"><div class="l">المتبقي</div><div class="v">${daysLeft === null ? '—' : `${daysLeft} يوم`}</div></div>
             </div>
             ${prog ? `<div class="ms-bar${barTone}"><span style="width:${prog.percentLeft}%"></span></div>
                 <div class="ms-bar-note">متبقي ${prog.daysLeft} من ${prog.totalDays} يوم في دورة الاشتراك الحالية</div>` : ''}
@@ -180,6 +203,8 @@ async function render() {
         ${featuresCard(planKey, data.plans)}
         <div style="height:1.25rem"></div>
         ${historyCard(data.history, data.plans)}`;
+    // زر إعادة المحاولة في حالة خطأ المحفظة يعيد قراءة الصفحة كلها.
+    $('msRetryWallet')?.addEventListener('click', render);
 }
 
 async function init() {

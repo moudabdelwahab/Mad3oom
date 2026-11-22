@@ -22,7 +22,13 @@ const pill = (s) => `<span class="pill ${SUB_STATUS_TONES[s] || 'status-neutral'
 
 async function load() {
     $('subsTable').innerHTML = loadingBlock();
-    const { data, error } = await supabase.rpc('admin_list_subscriptions');
+    // انقطاع الشبكة يرمي: بلا التقاط يبقى الهيكل العظمي بلا تفسير.
+    let data, error = null;
+    try {
+        ({ data, error } = await supabase.rpc('admin_list_subscriptions'));
+    } catch (err) {
+        error = err;
+    }
     if (error) {
         $('subsTable').innerHTML = errorBlock(friendlyError(error));
         $('subsKpis').innerHTML = '';
@@ -140,10 +146,16 @@ function openChange(sub, to) {
         const btn = form.querySelector('button[type="submit"]');
         btn.disabled = true;
         status('جارٍ التنفيذ…');
-        const { error } = await supabase.rpc('admin_set_subscription_status', {
-            p_subscription_id: sub.id, p_status: to, p_reason: reason, p_end_date: endDate
-        });
-        btn.disabled = false;
+        let error = null;
+        try {
+            ({ error } = await supabase.rpc('admin_set_subscription_status', {
+                p_subscription_id: sub.id, p_status: to, p_reason: reason, p_end_date: endDate
+            }));
+        } catch (err) {
+            error = err;
+        } finally {
+            btn.disabled = false;
+        }
         if (error) { status(friendlyError(error), 'error'); return; }
         modal.close();
         say(`تم: ${action.label} — ${sub.customer_name}.`, 'success');
@@ -156,7 +168,13 @@ const AUDIT_ACTIONS = { deactivate: 'تعطيل', reactivate: 'إعادة تفع
 async function openAudit(sub) {
     if (!sub) return;
     const modal = openModal({ title: `سجل الاشتراك — ${sub.customer_name}`, wide: true, html: loadingBlock() });
-    const { data, error } = await supabase.rpc('admin_subscription_audit', { p_subscription_id: sub.id });
+    // انقطاع الشبكة يرمي: بلا التقاط تبقى النافذة على التحميل إلى الأبد.
+    let data, error = null;
+    try {
+        ({ data, error } = await supabase.rpc('admin_subscription_audit', { p_subscription_id: sub.id }));
+    } catch (err) {
+        error = err;
+    }
     if (error) { modal.body.innerHTML = errorBlock(friendlyError(error)); return; }
     const change = (o, n) => Object.keys({ ...(o || {}), ...(n || {}) })
         .filter(k => JSON.stringify(o?.[k]) !== JSON.stringify(n?.[k]))

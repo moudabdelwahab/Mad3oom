@@ -42,13 +42,23 @@ const person = (id) => {
 async function loadPeople(ids) {
     const missing = [...new Set(ids.filter(id => id && !people.has(id)))];
     if (!missing.length) return;
-    const { data } = await supabase.from('profiles').select('id, full_name, email, role').in('id', missing);
-    (data || []).forEach(p => people.set(p.id, p));
+    // فشل القراءة لا يوقف الجدول: الاسم يبقى معرّفًا مختصرًا كما في person().
+    try {
+        const { data } = await supabase.from('profiles').select('id, full_name, email, role').in('id', missing);
+        (data || []).forEach(p => people.set(p.id, p));
+    } catch (err) {
+        console.error('[OwnerTickets] loadPeople:', err?.message || err);
+    }
 }
 
 async function loadStaff() {
-    const { data, error } = await supabase.from('profiles').select('id, full_name, email, role')
-        .in('role', STAFF_ROLES).order('full_name', { ascending: true });
+    let data, error = null;
+    try {
+        ({ data, error } = await supabase.from('profiles').select('id, full_name, email, role')
+            .in('role', STAFF_ROLES).order('full_name', { ascending: true }));
+    } catch (err) {
+        error = err;
+    }
     staff = error ? [] : (data || []);
     staff.forEach(p => people.set(p.id, p));
     const sel = $('ticketsAssignee');
@@ -58,19 +68,30 @@ async function loadStaff() {
 
 /** أسماء الشركات من دليل العملاء — companies نفسها لا تقرؤها سياسة المالك كاملة. */
 async function loadCompanies() {
-    const { data } = await supabase.rpc('admin_customer_filter_options');
-    (data?.companies || []).forEach(c => companies.set(c.id, c.name));
+    try {
+        const { data } = await supabase.rpc('admin_customer_filter_options');
+        (data?.companies || []).forEach(c => companies.set(c.id, c.name));
+    } catch (err) {
+        console.error('[OwnerTickets] loadCompanies:', err?.message || err);
+    }
 }
 
 async function loadKpis() {
     const head = () => supabase.from('tickets').select('id', { count: 'exact', head: true });
-    const [open, progress, unassigned, high, overdue] = await Promise.all([
-        head().eq('status', 'open'),
-        head().eq('status', 'in-progress'),
-        head().in('status', LIVE).is('assigned_to', null),
-        head().in('status', LIVE).eq('priority', 'high'),
-        head().in('status', LIVE).lt('sla_resolution_due_at', new Date().toISOString())
-    ]);
+    // انقطاع الشبكة يرمي: بلا التقاط تبقى المؤشرات هيكلًا عظميًا — تُعرض «—» بدل الصفر.
+    let counts = null;
+    try {
+        counts = await Promise.all([
+            head().eq('status', 'open'),
+            head().eq('status', 'in-progress'),
+            head().in('status', LIVE).is('assigned_to', null),
+            head().in('status', LIVE).eq('priority', 'high'),
+            head().in('status', LIVE).lt('sla_resolution_due_at', new Date().toISOString())
+        ]);
+    } catch (err) {
+        counts = null;
+    }
+    const [open, progress, unassigned, high, overdue] = counts || [{}, {}, {}, {}, {}];
     const v = (r) => r.error ? '—' : num(r.count);
     $('ticketsKpis').innerHTML = kpis([
         ['مفتوحة', v(open), 'kpi--info'],
@@ -105,7 +126,13 @@ const overdue = (t) => LIVE.includes(t.status) && t.sla_resolution_due_at && new
 async function loadTickets() {
     const box = $('ticketsTable');
     box.innerHTML = loadingBlock();
-    const { data, error, count } = await query();
+    // انقطاع الشبكة يرمي: بلا التقاط يبقى الهيكل العظمي بلا تفسير.
+    let data, error, count;
+    try {
+        ({ data, error, count } = await query());
+    } catch (err) {
+        error = err;
+    }
     if (error) { box.innerHTML = errorBlock(friendlyError(error)); $('ticketsPager').hidden = true; return; }
     rows = data || [];
     await loadPeople(rows.flatMap(t => [t.user_id, t.assigned_to]));
@@ -130,12 +157,19 @@ async function loadTickets() {
 
 async function openTicket(id) {
     const modal = openModal({ title: 'تذكرة', wide: true, html: loadingBlock() });
-    const [ticket, replies] = await Promise.all([
-        supabase.from('tickets').select(`${COLUMNS}, description, contact_info, ticket_type, first_response_at, resolved_at, reopen_count`)
-            .eq('id', id).maybeSingle(),
-        supabase.from('ticket_replies').select('id, user_id, message, created_at, is_internal')
-            .eq('ticket_id', id).order('created_at', { ascending: true })
-    ]);
+    // انقطاع الشبكة يرمي: بلا التقاط تبقى النافذة على التحميل إلى الأبد.
+    let ticket, replies;
+    try {
+        [ticket, replies] = await Promise.all([
+            supabase.from('tickets').select(`${COLUMNS}, description, contact_info, ticket_type, first_response_at, resolved_at, reopen_count`)
+                .eq('id', id).maybeSingle(),
+            supabase.from('ticket_replies').select('id, user_id, message, created_at, is_internal')
+                .eq('ticket_id', id).order('created_at', { ascending: true })
+        ]);
+    } catch (err) {
+        modal.body.innerHTML = errorBlock(friendlyError(err));
+        return;
+    }
     if (ticket.error || !ticket.data) {
         modal.body.innerHTML = errorBlock(ticket.error ? friendlyError(ticket.error) : 'التذكرة غير موجودة أو خارج نطاق رؤيتك.');
         return;
@@ -265,8 +299,14 @@ async function openTicket(id) {
         const submit = form.querySelector('button[type="submit"]');
         submit.disabled = true;
         status('جارٍ الحفظ…');
-        const result = writeResult(await supabase.from('tickets').update(patch).eq('id', t.id).select('id'));
-        submit.disabled = false;
+        let result;
+        try {
+            result = writeResult(await supabase.from('tickets').update(patch).eq('id', t.id).select('id'));
+        } catch (err) {
+            result = { ok: false, message: friendlyError(err) };
+        } finally {
+            submit.disabled = false;
+        }
         if (!result.ok) { status(result.message, 'error'); return; }
         modal.close();
         say(`تم تحديث التذكرة #${t.ticket_number ?? ''}.`, 'success');

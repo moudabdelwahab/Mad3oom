@@ -211,7 +211,11 @@ export async function loadShopifyPage() {
         wireConnect(c, conn);
         return;
     }
-    const s = await fetchSyncStatus(conn.id);
+    // حالة المزامنة وقائمة الامتثال مستقلتان عن بعضهما وعن حالة الإدارة أعلاه،
+    // فتُجلبان معًا. كلٌّ يُفحص وحده كما كان (فشل جزئي لا يكسر الصفحة):
+    // fetchManageStatus يبقى منفصلًا قبلهما لأنه مطلوب قبل فرع «الربط معلّق»
+    // أعلاه، فلا معنى لجلب المزامنة والامتثال لربط لم يكتمل بعد.
+    const [s, comp] = await Promise.all([fetchSyncStatus(conn.id), fetchComplianceList()]);
     const status = s.ok ? s.data : null;
     const health = connectionHealth(status?.connection || conn);
     const missing = missingScopes((status?.connection || conn).granted_scopes);
@@ -221,7 +225,6 @@ export async function loadShopifyPage() {
     const jobs = status?.jobs || [];
     const ev = status?.events || {};
     const failures = ev.recent_failures || [];
-    const comp = await fetchComplianceList();
     const compliance = comp.ok && Array.isArray(comp.data) ? comp.data : [];
     c.innerHTML = `
     <section class="panel ihub-card" aria-labelledby="shopifyConnHeading">
@@ -618,8 +621,13 @@ export async function loadStoreReports() {
     const c = $('storeReportsBody');
     if (!c) return;
     renderSkeletonLines(c, 4);
-    const r = await fetchStoreReport(reportDays);
+    // التصنيفات تُجلب هنا مع التقرير: المتغير العام categories لا يمتلئ إلا
+    // عبر صفحة الطلبات (renderCategories)، فالتقارير كانت تبني تسمياتها من
+    // قائمة فارغة عند فتحها أولًا. الفشل هنا لا يكسر التقرير: نرجع للذاكرة
+    // (قد تكون فارغة فتظهر مفاتيح التصنيفات كما هي).
+    const [r, cats] = await Promise.all([fetchStoreReport(reportDays), fetchCategories()]);
     if (!r.ok) { renderState(c, { variant: 'error', title: 'تعذّر بناء تقرير المتجر', text: msg(r.code, r.error) }); return; }
+    if (cats.ok && Array.isArray(cats.data)) categories = cats.data;
     const d = r.data;
     const catLabels = Object.fromEntries((categories || []).map((x) => [x.key, x.label_ar]));
     const dist = (title, rows) => `<section class="panel"><h3 class="panel-title">${esc(title)}</h3>${rows.length
