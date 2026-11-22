@@ -1,6 +1,9 @@
 /**
  * owner/muse-chat.html — شات Muse الوكيل الداخلي في لوحة المالك.
  *
+ * التصميم: مربع واحد في المنتصف — ترويسة فيها أفاتار Muse المتحرك
+ * وحالته وأزرار التحكم فيه، ومنطقة رسائل، وإدخال.
+ *
  * الجلسة: صف ai_sessions واحد بموديل muse يملكه المستخدم الحالي. الصفحة
  * تجد الجلسة النشطة الأقدم، وإن لم توجد أنشأتها بنفس إعداد الجلسة التجريبية
  * الحالية (عنوان/وضع/توجيه/ترحيب) — ولا تنشئ مكررًا ما دامت واحدة موجودة.
@@ -9,6 +12,11 @@
  * وتظهر الرسالة فورًا من نتيجة الـ insert. الرد يصل عبر الجسر الذي يفحص
  * الجلسة كل دقيقة؛ الصفحة تستطلع الرسائل الجديدة كل 5 ثوانٍ فتظهر بلا تحديث
  * يدوي. لا Realtime، ولا مؤشر كتابة، ولا حالة حضور — لا شيء منها حقيقي هنا.
+ *
+ * الأفاتار: حالاته مرتبطة بأحداث حقيقية — خمول أثناء الانتظار، تفكير من
+ * لحظة الإرسال حتى وصول الرد، كلام لحظة وصول الرد، انتباه عند تركيز
+ * الإدخال. عدّاد الانتظار يعرض ثوانٍ حقيقية منصرمة منذ الإرسال، وعند
+ * وصول الرد يعرض كم ثانية استغرق — من طابعي الإرسال والرد أنفسهما.
  *
  * لا تلمس هذه الصفحة أي جدول غير ai_sessions (إنشاء الجلسة عند غيابها فقط)
  * و ai_session_messages (قراءة وإرسال). لا SIE، ولا شات عملاء.
@@ -19,7 +27,9 @@ import {
 import {
     MUSE_MODEL_ID, MUSE_SESSION_TITLE, MUSE_SYSTEM_PROMPT, MUSE_GREETING,
     POLL_MS, MESSAGES_LIMIT, mergeMessages,
+    formatWaitSeconds, formatReplyTook, secondsBetween, waitingSince,
 } from '/assets/js/owner/muse-chat-state.js';
+import { createMuseAvatar, museAvatarSvg } from '/assets/js/owner/muse-avatar.js';
 
 const $ = (id) => document.getElementById(id);
 const MESSAGE_COLUMNS = 'id, role, content, created_at';
@@ -30,6 +40,11 @@ const renderedIds = new Set();
 let sending = false;
 let pollTimer = null;
 let pollFailures = 0;
+
+/* توقيت الرد: طابع إرسال آخر رسالة بلا رد، ومؤقت العدّاد الحي. */
+let avatar = null;
+let waitTimer = null;
+let waitingSinceAt = null;
 
 const say = (text, tone = 'info') => announce($('pageStatus'), text, tone);
 
@@ -42,9 +57,15 @@ function messageNode(m) {
     const el = document.createElement('article');
     el.className = `muse-msg muse-msg--${m.role === 'user' ? 'user' : 'assistant'}`;
     el.dataset.messageId = m.id;
-    el.innerHTML = `
-        <p class="muse-msg-text">${esc(m.content)}</p>
-        <time class="muse-msg-time" datetime="${esc(m.created_at || '')}">${esc(when(m.created_at))}</time>`;
+    const body = `
+        <div class="muse-msg-body">
+            <p class="muse-msg-text">${esc(m.content)}</p>
+            <time class="muse-msg-time" datetime="${esc(m.created_at || '')}">${esc(when(m.created_at))}</time>
+        </div>`;
+    // رسائل المساعد تحمل علامة الأفاتار الصغيرة الثابتة — نفس الـ SVG بلا حركة.
+    el.innerHTML = m.role === 'user'
+        ? body
+        : `<span class="muse-msg-avatar" aria-hidden="true">${museAvatarSvg()}</span>${body}`;
     return el;
 }
 
@@ -143,6 +164,7 @@ async function pollMessages() {
             messages = merged;
             appendNew($('museChatMessages'), messages);
         }
+        checkReplyArrived();
     } catch (err) {
         pollFailures++;
         if (pollFailures === 2) {
@@ -150,6 +172,55 @@ async function pollMessages() {
         }
         console.error('[MuseChat] poll failed:', err?.message || err);
     }
+}
+
+/* ─────────────────── توقيت الرد والأفاتار ─────────────────── */
+
+function setReplyStatus(text, waiting) {
+    const el = $('museReplyStatus');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle('is-waiting', !!waiting);
+}
+
+/** من لحظة الإرسال: الأفاتار يفكّر، والعدّاد يحسب ثوانٍ حقيقية كل ثانية. */
+function startWaiting(sentAt) {
+    stopWaitTimer();
+    waitingSinceAt = sentAt || new Date().toISOString();
+    if (avatar) avatar.setState('thinking');
+    setReplyStatus(formatWaitSeconds(0), true);
+    waitTimer = setInterval(() => {
+        if (!waitingSinceAt) return;
+        setReplyStatus(
+            formatWaitSeconds(secondsBetween(waitingSinceAt, new Date().toISOString())), true);
+    }, 1000);
+}
+
+function stopWaitTimer() {
+    if (waitTimer) clearInterval(waitTimer);
+    waitTimer = null;
+}
+
+/** وصل رد مساعد بعد طابع الإرسال: أوقف العدّاد واعرض كم ثانية استغرق. */
+function checkReplyArrived() {
+    if (!waitingSinceAt) return;
+    const since = new Date(waitingSinceAt);
+    const reply = [...messages]
+        .filter((m) => m.role === 'assistant' && new Date(m.created_at || 0) > since)
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))[0];
+    if (!reply) return;
+    const took = secondsBetween(waitingSinceAt, reply.created_at);
+    waitingSinceAt = null;
+    stopWaitTimer();
+    setReplyStatus(formatReplyTook(took), false);
+    if (avatar) {
+        // مدة الكلام من طول الرد الحقيقي — 45 مللي ثانية لكل حرف تقريبًا.
+        avatar.setState('speaking', 1500 + 45 * (reply.content || '').length);
+    }
+}
+
+function setStatusReady() {
+    setReplyStatus('جاهز — اكتب رسالتك بالأسفل.', false);
 }
 
 function showSendError(message) {
@@ -185,6 +256,7 @@ async function sendMessage() {
         appendNew($('museChatMessages'), messages);
         input.value = '';
         input.focus();
+        startWaiting(data.created_at || new Date().toISOString());
     } catch (err) {
         showSendError(`تعذّر إرسال الرسالة: ${friendlyError(err)} — مسودتك محفوظة، جرّب إعادة المحاولة.`);
         input.focus();
@@ -200,6 +272,10 @@ async function loadSession(userId) {
         sessionId = session.id;
         await loadMessages();
         $('museChatLoadRetry').hidden = true;
+        // رسالة بلا رد من تحميل سابق؟ استأنف العدّاد من طابع إرسالها الحقيقي.
+        const pending = waitingSince(messages);
+        if (pending) startWaiting(pending);
+        else setStatusReady();
         if (pollTimer) clearInterval(pollTimer);
         pollTimer = setInterval(pollMessages, POLL_MS);
         document.addEventListener('visibilitychange', () => { if (!document.hidden) pollMessages(); });
@@ -214,7 +290,13 @@ async function init() {
     if (!booted) return;
     $('museChatMessages').innerHTML = loadingBlock();
 
+    avatar = createMuseAvatar($('museAvatar'), {
+        animBtn: $('museAvatarAnimBtn'),
+        paceBtn: $('museAvatarPaceBtn'),
+    });
+
     $('museChatForm').addEventListener('submit', (e) => { e.preventDefault(); sendMessage(); });
+    $('museChatInput').addEventListener('focus', () => { if (avatar) avatar.setState('attention'); });
     $('museChatRetryBtn').addEventListener('click', () => { hideSendError(); sendMessage(); });
     $('museChatLoadRetry').addEventListener('click', () => {
         $('museChatLoadRetry').hidden = true;
@@ -231,5 +313,9 @@ init().catch((err) => {
     console.error('[MuseChat] init failed:', err?.message || err);
 });
 
-// إيقاف الاستطلاع عند مغادرة الصفحة حتى لا يبقى مؤقت معلّق.
-window.addEventListener('pagehide', () => { if (pollTimer) clearInterval(pollTimer); });
+// إيقاف الاستطلاع والعدّاد والأفاتار عند مغادرة الصفحة حتى لا يبقى مؤقت معلّق.
+window.addEventListener('pagehide', () => {
+    if (pollTimer) clearInterval(pollTimer);
+    stopWaitTimer();
+    if (avatar) avatar.destroy();
+});

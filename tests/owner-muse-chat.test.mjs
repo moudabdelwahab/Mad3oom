@@ -10,6 +10,11 @@
  *    أي جدول آخر؛ والرسالة تُعرض من نتيجة الـ insert لا من الاستطلاع.
  *  • الاستطلاع: آخر 50 رسالة تُدمج بالمعرّف كل 5 ثوانٍ، فلا تفوت رسالة
  *    تشارك أخرى نفس الطابع الزمني، ولا يتكرر عرض رسالة.
+ *  • المربع: الشات كله داخل مربع واحد في المنتصف — ترويسة بالأفاتار
+ *    والتحكم، ورسائل، وإدخال — بلا بانر عريض بعرض الصفحة.
+ *  • الأفاتار والتوقيت: حالات الأفاتار موصولة بأحداث حقيقية (تفكير من
+ *    الإرسال حتى الرد، كلام لحظة وصوله، انتباه عند تركيز الإدخال)،
+ *    والعدّاد يعرض ثوانٍ حقيقية ويعلن كم ثانية استغرق الرد.
  *  • لا مزايا مخترعة: لا Realtime، ولا مؤشر كتابة، ولا حالة «متصل»، ولا نداء
  *    لـ ai-session / ai-gateway (مسار SIE) — الصفحة تقرأ الجدولين مباشرة.
  *  • كل id يقرأه الـ JS موجود فعلًا في الـ HTML.
@@ -161,4 +166,58 @@ test('التنسيق يعرف فقاعات الرسائل وحالة الخطأ'
 test('قاعدة [hidden] عامة حتى لا يهزم display:flex شريط الخطأ المخفي', () => {
     // درس شريط التسجيل: display:flex على عنصر hidden يظهره فارغًا عند التحميل.
     assert.match(chatCss(), /\[hidden\]\s*\{\s*display:\s*none !important;\s*\}/);
+});
+
+/* ─────────────────── المربع والأفاتار والتوقيت ─────────────────── */
+
+test('الشات مربع واحد في المنتصف: ترويسة بالأفاتار والتحكم، لا بانر عريض', () => {
+    const html = chatHtml();
+    assert.match(html, /class="muse-square-wrap"/);
+    assert.match(html, /class="panel muse-square"/);
+    assert.match(html, /id="museAvatar"/);
+    assert.match(html, /id="museReplyStatus"/);
+    assert.match(html, /id="museAvatarAnimBtn"/);
+    assert.match(html, /id="museAvatarPaceBtn"/);
+    assert.doesNotMatch(html, /owner-banner/);
+    assert.doesNotMatch(html, /owner-page-banner/);
+});
+
+test('الأفاتار والتوقيت موصولان بأحداث حقيقية في منطق الصفحة', () => {
+    const js = chatJs();
+    assert.match(js, /createMuseAvatar\(\$\('museAvatar'\)/);
+    assert.match(js, /animBtn: \$\('museAvatarAnimBtn'\)/);
+    assert.match(js, /paceBtn: \$\('museAvatarPaceBtn'\)/);
+    assert.match(js, /avatar\.setState\('thinking'\)/);
+    assert.match(js, /avatar\.setState\('speaking',/);
+    assert.match(js, /avatar\.setState\('attention'\)/);
+    assert.match(js, /startWaiting\(data\.created_at/);
+    assert.match(js, /formatWaitSeconds\(/);
+    assert.match(js, /formatReplyTook\(took\)/);
+    assert.match(js, /waitingSince\(messages\)/);
+    assert.match(js, /setInterval\(\(\) => \{\s*if \(!waitingSinceAt\) return;/);
+});
+
+test('رسائل المساعد تحمل علامة الأفاتار الصغيرة الثابتة', () => {
+    const js = chatJs();
+    assert.match(js, /museAvatarSvg\(\)/);
+    assert.match(js, /muse-msg-avatar/);
+});
+
+test('التنسيق يعرف المربع والأفاتار وحالاته', () => {
+    const css = chatCss();
+    assert.match(css, /\.muse-square\s*\{/);
+    assert.match(css, /aspect-ratio:\s*1 \/ 1/);
+    assert.match(css, /\.muse-avatar--thinking/);
+    assert.match(css, /\.muse-avatar\.is-blinking \.muse-avatar-eyes/);
+    assert.match(css, /scaleY\(0\.08\)/);
+    assert.match(css, /\.muse-avatar--speaking \.muse-avatar-smile/);
+    assert.match(css, /\.muse-avatar--off/);
+    assert.match(css, /\.muse-square-status\.is-waiting/);
+});
+
+test('ملفا الأفاتار موجودان ومربوطان بالصفحة', () => {
+    assert.ok(fs.existsSync(path.join(ROOT, 'assets/js/owner/muse-avatar.js')));
+    assert.ok(fs.existsSync(path.join(ROOT, 'assets/js/owner/muse-avatar-state.js')));
+    assert.match(chatJs(), /from '\/assets\/js\/owner\/muse-avatar\.js'/);
+    assert.match(chatJs(), /from '\/assets\/js\/owner\/muse-chat-state\.js'/);
 });

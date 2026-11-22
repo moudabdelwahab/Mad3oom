@@ -45,3 +45,40 @@ export function mergeMessages(existing, incoming, limit = MESSAGES_LIMIT) {
         new Date(a.created_at || 0) - new Date(b.created_at || 0));
     return merged.slice(-limit);
 }
+
+/* ─────────────────── توقيت الرد بالثانية ─────────────────── */
+
+/**
+ * نص عدّاد الانتظار الحي — ثوانٍ حقيقية منصرمة منذ الإرسال، بلا تقريب
+ * يخفيها: «بانتظار الرد… 23 ث».
+ */
+export function formatWaitSeconds(seconds) {
+    const n = Math.max(0, Math.floor(seconds));
+    return `بانتظار الرد… ${n} ث`;
+}
+
+/** نص وصول الرد — من طابعي الإرسال والرد الحقيقيين: «وصل الرد في 47 ثانية». */
+export function formatReplyTook(seconds) {
+    const n = Math.max(0, Math.round(seconds));
+    return `وصل الرد في ${n} ثانية`;
+}
+
+/** ثوانٍ بين طابعين زمنيين — سالبة تُقصّ إلى صفر، لا أرقام وهمية. */
+export function secondsBetween(from, to) {
+    const ms = new Date(to || 0) - new Date(from || 0);
+    return Math.max(0, ms / 1000);
+}
+
+/**
+ * هل المحادثة بانتظار رد؟ آخر رسالة من المستخدم ولا رد مساعد بعدها —
+ * طابع إرسالها هو بداية العدّاد، حتى بعد إعادة تحميل الصفحة.
+ * ترجع طابع الإرسال أو null.
+ */
+export function waitingSince(messages) {
+    const rows = [...(messages || [])]
+        .filter((m) => m && m.id)
+        .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+    if (!rows.length) return null;
+    const last = rows[rows.length - 1];
+    return last.role === 'user' ? (last.created_at || null) : null;
+}
