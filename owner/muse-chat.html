@@ -52,39 +52,78 @@
         </section>
 
         <div id="ownerContent" hidden>
-            <!-- مربع الشات: الترويسة بالأفاتار، والرسائل، والإدخال — كلها داخل مربع واحد في المنتصف. -->
-            <div class="muse-square-wrap">
-                <section class="panel muse-square" aria-labelledby="museChatHeading">
-                    <header class="muse-square-head">
-                        <div class="muse-avatar" id="museAvatar"></div>
-                        <div class="muse-square-titles">
-                            <h1 class="muse-square-title" id="museChatHeading">Muse — الوكيل الداخلي</h1>
-                            <p class="muse-square-status" id="museReplyStatus" role="status">جاهز — اكتب رسالتك بالأسفل.</p>
-                        </div>
-                        <div class="muse-square-controls">
-                            <button type="button" class="btn btn-outline btn-sm" id="museAvatarAnimBtn" aria-pressed="true">إيقاف الحركة</button>
-                            <button type="button" class="btn btn-outline btn-sm" id="museAvatarPaceBtn" aria-pressed="false">الإيقاع: هادئة</button>
-                        </div>
-                    </header>
-
-                    <div id="museChatMessages" class="muse-chat-messages" role="log" aria-live="polite" aria-label="رسائل المحادثة">
-                        <div class="skeleton skeleton-card" aria-hidden="true"></div>
+            <!-- تخطيط الشات: قائمة المحادثات واختيار الوكيل بجانب مربع الشات. -->
+            <div class="muse-chat-layout">
+                <aside class="panel muse-sessions-panel" aria-label="المحادثات والوكلاء">
+                    <div class="muse-agent-picker" role="group" aria-label="اختيار الوكيل">
+                        <button type="button" class="muse-agent-chip is-active" data-model-id="muse" aria-pressed="true">Muse</button>
+                        <button type="button" class="muse-agent-chip" data-model-id="muse-assistant" aria-pressed="false">المساعد العام</button>
                     </div>
+                    <button type="button" class="btn btn-primary btn-sm muse-new-chat-btn" id="museNewChatBtn">+ محادثة جديدة</button>
+                    <ul class="muse-session-list" id="museSessionList" aria-label="قائمة المحادثات"></ul>
+                    <p class="muse-sessions-empty" id="museSessionsEmpty" hidden>لا محادثات بعد — ابدأ محادثة جديدة.</p>
+                </aside>
 
-                    <button type="button" class="btn btn-outline btn-sm muse-chat-load-retry" id="museChatLoadRetry" hidden>إعادة المحاولة</button>
+                <!-- مربع الشات: الترويسة بالأفاتار، والرسائل، والإدخال — كلها داخل مربع واحد في المنتصف. -->
+                <div class="muse-square-wrap">
+                    <section class="panel muse-square" aria-labelledby="museChatHeading">
+                        <header class="muse-square-head">
+                            <div class="muse-avatar" id="museAvatar"></div>
+                            <div class="muse-square-titles">
+                                <h1 class="muse-square-title" id="museChatHeading">Muse — الوكيل الداخلي</h1>
+                                <p class="muse-square-status" id="museReplyStatus" role="status">جاهز — اكتب رسالتك بالأسفل.</p>
+                                <p class="muse-quota" id="museQuota" role="status" hidden></p>
+                            </div>
+                            <div class="muse-square-controls">
+                                <button type="button" class="btn btn-outline btn-sm" id="museAvatarAnimBtn" aria-pressed="true">إيقاف الحركة</button>
+                                <button type="button" class="btn btn-outline btn-sm" id="museAvatarPaceBtn" aria-pressed="false">الإيقاع: هادئة</button>
+                            </div>
+                        </header>
 
-                    <div class="muse-chat-error" id="museChatError" hidden>
-                        <p id="museChatErrorText" role="alert"></p>
-                        <button type="button" class="btn btn-outline btn-sm" id="museChatRetryBtn">إعادة المحاولة</button>
+                        <div id="museChatMessages" class="muse-chat-messages" role="log" aria-live="polite" aria-label="رسائل المحادثة">
+                            <div class="skeleton skeleton-card" aria-hidden="true"></div>
+                        </div>
+
+                        <button type="button" class="btn btn-outline btn-sm muse-chat-load-retry" id="museChatLoadRetry" hidden>إعادة المحاولة</button>
+
+                        <div class="muse-chat-error" id="museChatError" hidden>
+                            <p id="museChatErrorText" role="alert"></p>
+                            <button type="button" class="btn btn-outline btn-sm" id="museChatRetryBtn">إعادة المحاولة</button>
+                        </div>
+
+                        <!-- شريط الرد: يظهر فوق الإدخال عند اختيار «رد على الرسالة» من قائمة السياق. -->
+                        <div class="muse-reply-bar" id="museReplyBar" hidden>
+                            <span class="muse-reply-quote" id="museReplyQuote"></span>
+                            <button type="button" class="muse-reply-cancel" id="museReplyCancel" aria-label="إلغاء الرد" title="إلغاء الرد">✕</button>
+                        </div>
+
+                        <form class="muse-chat-form" id="museChatForm" novalidate>
+                            <label class="visually-hidden" for="museChatInput">اكتب رسالتك لـ Muse</label>
+                            <input type="text" class="form-control" id="museChatInput" placeholder="اكتب رسالتك لـ Muse…" autocomplete="off" maxlength="2000">
+                            <button type="submit" class="btn btn-primary" id="museChatSend">إرسال</button>
+                        </form>
+                        <p class="muse-chat-note">الرد بيوصل في حوالي دقيقة — الجسر بيفحص المحادثة كل دقيقة. دي جلسة تجريبية على حسابك بس.</p>
+                    </section>
+                </div>
+            </div>
+
+            <!-- قائمة سياق الرسالة: كليك يمين (أو ضغطة طويلة) على فقاعة — تفاعل وردّ ونسخ. -->
+            <div class="muse-msg-menu" id="museMsgMenu" hidden role="menu" aria-label="خيارات الرسالة">
+                <div class="muse-msg-menu-reactions" id="museMsgMenuReactions" role="group" aria-label="تفاعل"></div>
+                <button type="button" class="muse-msg-menu-item" id="museMsgMenuReply" role="menuitem">↩ رد على الرسالة</button>
+                <button type="button" class="muse-msg-menu-item" id="museMsgMenuCopy" role="menuitem">⧉ نسخ النص</button>
+            </div>
+
+            <!-- تأكيد حذف المحادثة: يحذف الجلسة وكل رسائلها نهائيًا. -->
+            <div class="muse-confirm" id="museDeleteConfirm" hidden role="dialog" aria-modal="true" aria-labelledby="museDeleteConfirmTitle">
+                <div class="panel muse-confirm-card">
+                    <h2 class="muse-confirm-title" id="museDeleteConfirmTitle">حذف المحادثة؟</h2>
+                    <p class="muse-confirm-text">سيتم حذف «<span id="museDeleteConfirmName"></span>» وكل رسائلها نهائيًا، ولا يمكن التراجع.</p>
+                    <div class="muse-confirm-actions">
+                        <button type="button" class="btn btn-danger" id="museDeleteConfirmBtn">حذف نهائيًا</button>
+                        <button type="button" class="btn btn-outline" id="museDeleteCancelBtn">إلغاء</button>
                     </div>
-
-                    <form class="muse-chat-form" id="museChatForm" novalidate>
-                        <label class="visually-hidden" for="museChatInput">اكتب رسالتك لـ Muse</label>
-                        <input type="text" class="form-control" id="museChatInput" placeholder="اكتب رسالتك لـ Muse…" autocomplete="off" maxlength="2000">
-                        <button type="submit" class="btn btn-primary" id="museChatSend">إرسال</button>
-                    </form>
-                    <p class="muse-chat-note">الرد بيوصل في حوالي دقيقة — الجسر بيفحص المحادثة كل دقيقة. دي جلسة تجريبية على حسابك بس.</p>
-                </section>
+                </div>
             </div>
 
             <p class="owner-sie-status ows-toast" id="pageStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>

@@ -60,6 +60,14 @@
     color: var(--color-accent-2);
 }
 
+/* الكوتة: تظهر فقط عندما تحمل الجلسة النشطة extensions.quota. */
+.muse-quota {
+    margin: 2px 0 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--color-accent);
+}
+
 .muse-square-controls {
     display: flex;
     gap: 8px;
@@ -240,6 +248,137 @@
     color: var(--color-text-secondary);
 }
 
+/* ── شريط الرد على رسالة ── */
+
+.muse-reply-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 16px 0;
+    padding: 8px 12px;
+    border: 1px solid var(--color-accent);
+    border-radius: 10px;
+    background: var(--color-accent-soft);
+}
+
+.muse-reply-quote {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+}
+
+.muse-reply-cancel {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--color-muted);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.muse-reply-cancel:hover {
+    background: var(--color-surface-2);
+    color: var(--color-text);
+}
+
+/* ── الاقتباس والتفاعلات داخل فقاعة الرسالة ── */
+
+.muse-msg-quote {
+    margin: 0 0 6px;
+    padding: 4px 10px;
+    border-inline-start: 3px solid var(--color-accent);
+    border-radius: 6px;
+    background: var(--color-surface);
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+}
+
+.muse-msg-reactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.muse-msg-reaction {
+    padding: 2px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-surface);
+    font-size: 15px;
+    line-height: 1.4;
+    cursor: pointer;
+}
+
+.muse-msg-reaction:hover {
+    border-color: var(--color-danger);
+}
+
+/* ── قائمة سياق الرسالة (كليك يمين) ── */
+
+.muse-msg-menu {
+    position: fixed;
+    z-index: 3000;
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+    padding: 6px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-surface);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.muse-msg-menu-reactions {
+    display: flex;
+    gap: 2px;
+    padding: 2px 2px 6px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.muse-msg-menu-emoji {
+    flex: 1;
+    padding: 6px 2px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.muse-msg-menu-emoji:hover,
+.muse-msg-menu-emoji:focus-visible {
+    background: var(--color-surface-2);
+}
+
+.muse-msg-menu-item {
+    padding: 9px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: right;
+    cursor: pointer;
+}
+
+.muse-msg-menu-item:hover,
+.muse-msg-menu-item:focus-visible {
+    background: var(--color-surface-2);
+}
+
 @media (max-width: 640px) {
     .muse-square {
         width: 100%;
@@ -251,5 +390,225 @@
     }
     .muse-square-head {
         padding: 12px;
+    }
+}
+
+/* ── التخطيط: قائمة الجلسات بجانب المربع ── */
+
+.muse-chat-layout {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.muse-sessions-panel {
+    width: 280px;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    max-height: calc(100vh - 150px);
+    overflow-y: auto;
+}
+
+.muse-square-wrap {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ── اختيار الوكيل: Muse الرئيسي والمساعد العام ── */
+
+.muse-agent-picker {
+    display: flex;
+    gap: 8px;
+}
+
+.muse-agent-chip {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-surface-2);
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.muse-agent-chip.is-active {
+    background: var(--color-accent-soft);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.muse-new-chat-btn {
+    width: 100%;
+}
+
+/* ── قائمة الجلسات ── */
+
+.muse-session-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.muse-session-item {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-surface-2);
+    overflow: hidden;
+}
+
+.muse-session-item.is-active {
+    border-color: var(--color-accent);
+    background: var(--color-accent-soft);
+}
+
+.muse-session-open {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 10px 12px;
+    border: 0;
+    background: transparent;
+    color: var(--color-text);
+    font-family: inherit;
+    text-align: right;
+    cursor: pointer;
+}
+
+.muse-session-title {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.muse-session-badge {
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--color-accent-soft);
+    border: 1px solid var(--color-accent);
+    color: var(--color-accent);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.muse-session-time {
+    font-size: 12px;
+    color: var(--color-muted);
+}
+
+.muse-session-actions {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px;
+}
+
+.muse-session-icon-btn {
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--color-muted);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.muse-session-icon-btn:hover {
+    background: var(--color-surface-2);
+    color: var(--color-text);
+}
+
+.muse-session-icon-btn--danger:hover {
+    background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+    color: var(--color-danger);
+}
+
+.muse-session-rename-input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--color-accent);
+    border-radius: 8px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: 14px;
+}
+
+.muse-sessions-empty {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    text-align: center;
+}
+
+/* ── نافذة تأكيد الحذف ── */
+
+.muse-confirm {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.muse-confirm-card {
+    width: 100%;
+    max-width: 420px;
+    padding: 20px;
+}
+
+.muse-confirm-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--color-text);
+}
+
+.muse-confirm-text {
+    margin: 10px 0 0;
+    color: var(--color-text-secondary);
+    line-height: 1.7;
+}
+
+.muse-confirm-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+    justify-content: flex-start;
+}
+
+@media (max-width: 900px) {
+    .muse-chat-layout {
+        flex-direction: column;
+    }
+    .muse-sessions-panel {
+        width: 100%;
+        max-height: none;
+    }
+    .muse-square-wrap {
+        width: 100%;
     }
 }

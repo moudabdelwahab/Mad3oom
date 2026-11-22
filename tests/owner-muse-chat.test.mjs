@@ -3,9 +3,10 @@
  *
  * ما تحرسه هذه الاختبارات:
  *
- *  • الجلسة: الصفحة تجد جلسة Muse النشطة الأقدم للمالك الحالي بموديل muse،
- *    ولا تنشئ جلسة إلا عند غيابها — وبنفس عنوان الجلسة التجريبية وتوجيهها
- *    وترحيبها حرفيًا، حتى لا تنشأ جلسة بسلوك مختلف.
+ *  • الجلسات: الصفحة تحمل كل جلسات المالك النشطة لموديلات الوكلاء
+ *    (Muse و Muse Assistant)، الأحدث نشاطًا أولًا، وتفتح المحفوظة عند
+ *    التحميل أو تنشئ جلسة للوكيل الرئيسي عند غيابها — وبنفس عنوان الجلسة
+ *    التجريبية وتوجيهها وترحيبها حرفيًا، حتى لا تنشأ جلسة بسلوك مختلف.
  *  • الإرسال: insert واحد في ai_session_messages فقط (role=user)، ولا يلمس
  *    أي جدول آخر؛ والرسالة تُعرض من نتيجة الـ insert لا من الاستطلاع.
  *  • الاستطلاع: آخر 50 رسالة تُدمج بالمعرّف كل 5 ثوانٍ، فلا تفوت رسالة
@@ -94,18 +95,18 @@ test('الصفحة لا تنادي أي Edge Function ولا مسار SIE', () =
     assert.doesNotMatch(js, /chat_sessions|chat_messages/);
 });
 
-test('البحث عن الجلسة مقيّد بالمالك والموديل والحالة النشطة', () => {
+test('تحميل الجلسات مقيّد بالمالك وموديلات الوكلاء والحالة النشطة', () => {
     const js = chatJs();
-    assert.match(js, /\.eq\('owner_id',/);
-    assert.match(js, /\.eq\('model_id', MUSE_MODEL_ID\)/);
+    assert.match(js, /\.eq\('owner_id', ownerId\)/);
+    assert.match(js, /\.in\('model_id', agentModelIds\(\)\)/);
     assert.match(js, /\.eq\('status', 'active'\)/);
-    assert.match(js, /\.maybeSingle\(\)/);
+    assert.match(js, /\.order\('last_active_at', \{ ascending: false \}\)/);
 });
 
-test('الإرسال insert واحد بدور user وموديل muse', () => {
+test('الإرسال insert واحد بدور user وموديل الجلسة النشطة', () => {
     const js = chatJs();
     assert.match(js, /role: 'user'/);
-    assert.match(js, /model_id: MUSE_MODEL_ID/);
+    assert.match(js, /model_id: activeModelId/);
     assert.match(js, /\.select\(MESSAGE_COLUMNS\)\s*\.single\(\)/);
 });
 

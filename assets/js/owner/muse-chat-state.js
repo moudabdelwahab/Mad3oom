@@ -26,6 +26,141 @@ export const MUSE_SYSTEM_PROMPT = 'أنت Muse، وكيل ذكاء اصطناع�
 /** رسالة الترحيب التي تُحفظ مع أي جلسة جديدة — نفس ترحيب الجلسة الحالية. */
 export const MUSE_GREETING = 'أهلا محمود، أنا Muse، وكيلك الداخلي في مدعوم. دي جلسة تجريبية على حسابك بس، وبرد عليك هنا كل دقيقة تقريبا. أقدر أعرض التذاكر والعملاء والاشتراكات، وأنفذ اللي تطلبه مني. جرّب تسألني عن التذاكر المفتوحة.';
 
+/* ─────────────────── الوكلاء: Muse + الوكلاء الفرعيون ─────────────────── */
+
+/**
+ * وكلاء الشات الداخلي. كل وكيل له model_id خاص به — جلساته في ai_sessions
+ * تحمل model_id نفسه، فيظهر في قائمة الجلسات نفسها بعلامة تميّزه.
+ *
+ * الوكيل الرئيسي يعيد استخدام توجيه الجلسة التجريبية حرفيًا. الوكيل
+ * المساعد العام (muse-assistant) غير مقيّد بتخصص — طلب محمود الصريح:
+ * مساعد عام بصلاحيات Muse نفسها، لا متخصص ضيق؛ توجيهه عام بنفس قواعد
+ * الحماية (العربية، محمود فقط، لا SIE ولا شات عملاء، لا تغيير بيانات
+ * إلا بطلب صريح)، وطلبات برمجة الصفحات تُمرَّر للوكيل الرئيسي ولا تُبنى
+ * من داخل جلسة المساعد. التوجيه يُستخدم عند إنشاء الجلسة فقط؛ جلسة
+ * موجودة للوكيل تُستخدم كما هي.
+ */
+export const MUSE_AGENTS = [
+    {
+        modelId: 'muse',
+        label: 'Muse — الوكيل الداخلي',
+        shortLabel: 'Muse',
+        specialty: null,
+        systemPrompt: MUSE_SYSTEM_PROMPT,
+        greeting: MUSE_GREETING,
+    },
+    {
+        modelId: 'muse-assistant',
+        label: 'Muse Assistant — مساعد عام',
+        shortLabel: 'المساعد العام',
+        specialty: 'مساعد عام',
+        systemPrompt: 'أنت Muse Assistant، وكيل ذكاء اصطناعي داخلي عام في منصة Mad3oom — مساعد Muse بلا تخصص مقيّد. تتكلم مع مالك المنصة محمود (mahmoud@mad3oom.com) فقط، بالعربية. تنفذ طلباته على المنصة عبر أدوات Mad3oom (تذاكر، عملاء، واتساب، اشتراكات، إشعارات) وقراءة قاعدة البيانات. لا تلمس SIE ولا شات العملاء أبدا. لا ترسل واتساب ولا تنشئ تذاكر ولا تغير بيانات إلا بطلب صريح منه في الرسالة. طلبات برمجة صفحات جديدة تُمرَّر للوكيل الرئيسي ولا تُبنى من داخل هذه الجلسة. لو الطلب غامض، اسأل قبل ما تنفذ.',
+        greeting: 'أهلا محمود، أنا Muse Assistant، مساعدك العام في مدعوم. أقدر أساعدك في التذاكر والعملاء والاشتراكات وأي طلب عام، وطلبات برمجة الصفحات بمرّرها للوكيل الرئيسي. جرّب تسألني عن التذاكر المفتوحة.',
+    },
+];
+
+/** وكيل من model_id — غير المعروف يرجع للوكيل الرئيسي، لا ينهار. */
+export function agentForModelId(modelId) {
+    return MUSE_AGENTS.find((a) => a.modelId === modelId) || MUSE_AGENTS[0];
+}
+
+/** كل model_id التي تظهر في قائمة الجلسات — الرئيسي والفرعيون فقط. */
+export function agentModelIds() {
+    return MUSE_AGENTS.map((a) => a.modelId);
+}
+
+/* ─────────────────── الجلسات: ترتيب واختيار وعناوين ─────────────────── */
+
+/** مفتاح localStorage: معرّفات الجلسات التي أعاد المستخدم تسميتها يدويًا. */
+export const RENAMED_SESSIONS_KEY = 'muse-chat-renamed-sessions';
+
+/** مفتاح localStorage: الجلسة النشطة الأخيرة حتى تبقى بعد إعادة التحميل. */
+export const ACTIVE_SESSION_KEY = 'muse-chat-active-session';
+
+/** ترتيب الجلسات: الأحدث نشاطًا أولًا، وcreated_at بديلًا عند غياب النشاط. */
+export function sortSessions(sessions) {
+    return [...(sessions || [])].sort((a, b) =>
+        new Date(b.last_active_at || b.created_at || 0)
+        - new Date(a.last_active_at || a.created_at || 0));
+}
+
+/**
+ * الجلسة التي تُفتح عند التحميل: المفضلة المحفوظة إن كانت في القائمة،
+ * وإلا الأحدث نشاطًا، وإلا null — فينشئ المتصفح جلسة جديدة.
+ */
+export function pickActiveSession(sessions, preferredId) {
+    const sorted = sortSessions(sessions);
+    if (preferredId) {
+        const preferred = sorted.find((s) => s && s.id === preferredId);
+        if (preferred) return preferred;
+    }
+    return sorted[0] || null;
+}
+
+/** أقصى طول لعنوان تلقائي من أول رسالة — يبقى العنوان سطرًا واحدًا قصيرًا. */
+export const AUTO_TITLE_MAX = 40;
+
+/**
+ * عنوان تلقائي من أول رسالة للمستخدم: تطبيع المسافات وقصّ عند الحد مع «…».
+ * فراغ أو نص فارغ يرجع '' فلا يُكتب عنوان فارغ.
+ */
+export function deriveTitle(text, max = AUTO_TITLE_MAX) {
+    const clean = (text || '').replace(/\s+/g, ' ').trim();
+    if (!clean) return '';
+    if (clean.length <= max) return clean;
+    return `${clean.slice(0, max - 1).trimEnd()}…`;
+}
+
+/** هل أعيدت تسمية الجلسة يدويًا؟ مجموعة المعرّفات المحفوظة هي المصدر. */
+export function isRenamed(renamedIds, sessionId) {
+    return !!(renamedIds && typeof renamedIds.has === 'function' && renamedIds.has(sessionId));
+}
+
+/** نسخة جديدة من المجموعة بعد إضافة جلسة أعيدت تسميتها — بلا تعديل للأصل. */
+export function withRenamed(renamedIds, sessionId) {
+    const next = new Set(renamedIds || []);
+    next.add(sessionId);
+    return next;
+}
+
+/** نسخة جديدة من المجموعة بعد إزالة جلسة — تُستخدم عند حذفها. */
+export function withoutRenamed(renamedIds, sessionId) {
+    const next = new Set(renamedIds || []);
+    next.delete(sessionId);
+    return next;
+}
+
+/**
+ * هل يُسمح بالتسمية التلقائية لهذه الجلسة؟ فقط إن لم يُعد المستخدم
+ * تسميتها يدويًا — فلا يكتب عنوان أول رسالة فوق عنوان اختاره هو.
+ */
+export function shouldAutoTitle(session, renamedIds) {
+    return !!session && !isRenamed(renamedIds, session.id);
+}
+
+/** هل الجلسة بلا أي رسالة مستخدم بعد؟ عنوان أول رسالة يُكتب مرة واحدة فقط. */
+export function hasUserMessage(messages) {
+    return (messages || []).some((m) => m && m.role === 'user');
+}
+
+/* ─────────────────── الكوتة: عرض فقط عند وجودها في الجلسة ─────────────────── */
+
+/**
+ * نص عرض الكوتة في ترويسة الشات — من ai_sessions.extensions.quota فقط،
+ * بالشكل الذي يدمجه الجسر: {plan, used, remaining, reset, updated_at}.
+ * ترجع null عند غياب quota أو غياب remaining، فتُخفى العنصر كليًا ولا يُعرض
+ * أي رقم من مصدر آخر ولا رقم مخترع.
+ */
+export function formatQuota(quota) {
+    if (!quota || typeof quota !== 'object') return null;
+    const remaining = quota.remaining;
+    if (remaining === null || remaining === undefined || remaining === '') return null;
+    let text = `المتبقي من الكوتة: ${remaining}`;
+    if (quota.plan) text += ` — الخطة: ${quota.plan}`;
+    if (quota.reset) text += ` — التجديد: ${quota.reset}`;
+    return text;
+}
+
 /** استطلاع الرسائل الجديدة كل 5 ثوانٍ — كافٍ لظهور الرد بلا تحديث يدوي. */
 export const POLL_MS = 5000;
 
@@ -44,6 +179,63 @@ export function mergeMessages(existing, incoming, limit = MESSAGES_LIMIT) {
     const merged = [...byId.values()].sort((a, b) =>
         new Date(a.created_at || 0) - new Date(b.created_at || 0));
     return merged.slice(-limit);
+}
+
+/* ─────────────────── قائمة السياق: تفاعل وردّ ونسخ ─────────────────── */
+
+/**
+ * التفاعلات المتاحة في قائمة سياق الرسالة — مجموعة ثابتة صغيرة، بلا عدّادات
+ * مخترعة: الشارة تعرض فقط التفاعلات المحفوظة فعلًا في reactions للرسالة.
+ * التفاعل هنا لمالك واحد (التجربة على حساب محمود فقط)، فالمحفوظ قائمة
+ * إيموجي بلا عدد ولا هوية مرسِل.
+ */
+export const REACTION_EMOJIS = ['❤️', '👍', '😂', '😮', '😢', '🔥'];
+
+/**
+ * تبديل تفاعل على رسالة: إضافته إن غاب، وإزالته إن وُجد. ترجع نسخة جديدة
+ * ولا تعدّل المدخلة. إيموجي خارج المجموعة الثابتة يُتجاهل — فلا يُحفظ
+ * تفاعل لم يعرضه الشريط أبدًا.
+ */
+export function toggleReaction(reactions, emoji) {
+    if (!REACTION_EMOJIS.includes(emoji)) return [...(reactions || [])];
+    const current = reactionsOf({ reactions });
+    return current.includes(emoji)
+        ? current.filter((e) => e !== emoji)
+        : [...current, emoji];
+}
+
+/**
+ * تفاعلات رسالة كما حُفظت: مصفوفة إيموجي، أو [] عند غيابها أو فسادها —
+ * فلا يعرض الشريط أبدًا تفاعلًا غير محفوظ.
+ */
+export function reactionsOf(message) {
+    const list = message?.reactions;
+    return Array.isArray(list) ? list.filter((e) => typeof e === 'string') : [];
+}
+
+/** أقصى طول لنص الاقتباس في شريط الرد وعرض الرد — يبقى الاقتباس سطرًا قصيرًا. */
+export const QUOTE_MAX = 120;
+
+/**
+ * معاينة اقتباس: تطبيع المسافات وقصّ عند الحد مع «…». فراغ أو نص فارغ
+ * يرجع '' فلا يُعرض اقتباس فارغ.
+ */
+export function quotePreview(content, max = QUOTE_MAX) {
+    const clean = (content || '').replace(/\s+/g, ' ').trim();
+    if (!clean) return '';
+    if (clean.length <= max) return clean;
+    return `${clean.slice(0, max - 1).trimEnd()}…`;
+}
+
+/**
+ * موضع قائمة السياق عند المؤشر، مقصوصة داخل نافذة العرض حتى لا تخرج
+ * عنها قرب الحواف. ترجع {left, top} بالبكسل؛ قائمة أكبر من النافذة
+ * تُثبَّت عند 0.
+ */
+export function clampMenuPosition(x, y, menuWidth, menuHeight, viewportWidth, viewportHeight) {
+    const left = Math.max(0, Math.min(x, viewportWidth - menuWidth));
+    const top = Math.max(0, Math.min(y, viewportHeight - menuHeight));
+    return { left, top };
 }
 
 /* ─────────────────── توقيت الرد بالثانية ─────────────────── */
