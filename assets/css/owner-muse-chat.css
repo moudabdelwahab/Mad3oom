@@ -1,0 +1,108 @@
+/* شات Muse في لوحة المالك (owner/muse-chat.html) — فقاعات بسيطة فوق متغيرات اللوحة. */
+
+/* قاعدة عامة: أي عنصر بلا display صريح يهزم [hidden] — منها شريط الخطأ أدناه
+   (display:flex). بدونها يظهر الشريط فارغًا عند التحميل. */
+[hidden] {
+    display: none !important;
+}
+
+.muse-chat-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.muse-chat-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 4px;
+    max-height: 62vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.muse-msg {
+    max-width: 78%;
+    padding: 10px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    background: var(--color-surface-2);
+    color: var(--color-text);
+    align-self: flex-start;
+}
+
+.muse-msg--assistant {
+    align-self: flex-start;
+}
+
+.muse-msg--user {
+    align-self: flex-end;
+    background: var(--color-accent-soft);
+    border-color: var(--color-accent);
+}
+
+.muse-msg-text {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    line-height: 1.7;
+}
+
+.muse-msg-time {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--color-muted);
+}
+
+.muse-chat-load-retry {
+    margin-top: 8px;
+}
+
+.muse-chat-error {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 8px 0;
+    padding: 10px 12px;
+    border: 1px solid var(--color-danger);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--color-danger) 8%, transparent);
+}
+
+.muse-chat-error p {
+    margin: 0;
+    flex: 1;
+    min-width: 200px;
+}
+
+.muse-chat-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border);
+}
+
+.muse-chat-form .form-control {
+    flex: 1;
+    min-width: 0;
+}
+
+.muse-chat-note {
+    margin: 10px 0 0;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+}
+
+@media (max-width: 640px) {
+    .muse-msg {
+        max-width: 92%;
+    }
+    .muse-chat-messages {
+        max-height: 56vh;
+    }
+}
