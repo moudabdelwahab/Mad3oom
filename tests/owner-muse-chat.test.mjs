@@ -73,7 +73,7 @@ test('ثوابت الجلسة مطابقة للجلسة التجريبية ال�
     assert.match(MUSE_SYSTEM_PROMPT, /لا تلمس SIE/);
     assert.match(MUSE_SYSTEM_PROMPT, /mahmoud@mad3oom\.com/);
     assert.match(MUSE_GREETING, /وكيلك الداخلي/);
-    assert.match(MUSE_GREETING, /كل دقيقة/);
+    assert.match(MUSE_GREETING, /أقل من دقيقة/);
 });
 
 /* ─────────────────── الصفحة تلمس الجدولين فقط ─────────────────── */
@@ -124,7 +124,8 @@ test('لا حالة اتصال مزيفة ولا مؤشر كتابة', () => {
         assert.doesNotMatch(src, /online/i);
         assert.doesNotMatch(src, /يكتب الآن|جارٍ الكتابة/);
     }
-    assert.match(chatHtml(), /حوالي دقيقة/);
+    assert.match(chatHtml(), /أقل من دقيقة/);
+    assert.match(chatHtml(), /كل 15 ثانية/);
 });
 
 /* ─────────────────── الربط بين HTML و JS ─────────────────── */

@@ -6,8 +6,9 @@
  * ودمج الرسائل فقط، حتى تُختبَر بلا متصفح وبلا قاعدة (نفس نمط
  * assets/js/admin/agent-connection-state.js).
  *
- * لا يوجد هنا أي نداء شبكة ولا أي حالة «متصل»: الرد يصل عبر جسر يفحص الجلسة
- * كل دقيقة، والصفحة تستطلع الرسائل الجديدة كل POLL_MS.
+ * لا يوجد هنا أي نداء شبكة ولا أي حالة «متصل»: الرد يصل عبر الجسر
+ * الدائم الذي يفحص الجلسة كل 15 ثانية، والصفحة تستطلع الرسائل
+ * الجديدة كل POLL_MS.
  */
 
 /** موديل جلسة Muse الداخلية — نفس القيمة في ai_sessions.model_id. */
@@ -24,7 +25,7 @@ export const MUSE_SESSION_TITLE = 'Muse — وكيل داخلي';
 export const MUSE_SYSTEM_PROMPT = 'أنت Muse، وكيل ذكاء اصطناعي داخلي في منصة Mad3oom. تتكلم مع مالك المنصة محمود (mahmoud@mad3oom.com) فقط، بالعربية. تنفذ طلباته على المنصة عبر أدوات Mad3oom (تذاكر، عملاء، واتساب، اشتراكات، إشعارات) وقراءة قاعدة البيانات. لا تلمس SIE ولا شات العملاء أبدا. لا ترسل واتساب ولا تنشئ تذاكر ولا تغير بيانات إلا بطلب صريح منه في الرسالة. لو الطلب غامض، اسأل قبل ما تنفذ.';
 
 /** رسالة الترحيب التي تُحفظ مع أي جلسة جديدة — نفس ترحيب الجلسة الحالية. */
-export const MUSE_GREETING = 'أهلا محمود، أنا Muse، وكيلك الداخلي في مدعوم. دي جلسة تجريبية على حسابك بس، وبرد عليك هنا كل دقيقة تقريبا. أقدر أعرض التذاكر والعملاء والاشتراكات، وأنفذ اللي تطلبه مني. جرّب تسألني عن التذاكر المفتوحة.';
+export const MUSE_GREETING = 'أهلا محمود، أنا Muse، وكيلك الداخلي في مدعوم. دي جلسة تجريبية على حسابك بس، وبرد عليك هنا في أقل من دقيقة عادةً. أقدر أعرض التذاكر والعملاء والاشتراكات، وأنفذ اللي تطلبه مني. جرّب تسألني عن التذاكر المفتوحة.';
 
 /* ─────────────────── الوكلاء: Muse + الوكلاء الفرعيون ─────────────────── */
 
@@ -143,21 +144,142 @@ export function hasUserMessage(messages) {
     return (messages || []).some((m) => m && m.role === 'user');
 }
 
-/* ─────────────────── الكوتة: عرض فقط عند وجودها في الجلسة ─────────────────── */
+/* ─────────────────── الكوتة: تحليل لقطة extensions.quota وعرضها ─────────────────── */
 
 /**
- * نص عرض الكوتة في ترويسة الشات — من ai_sessions.extensions.quota فقط،
- * بالشكل الذي يدمجه الجسر: {plan, used, remaining, reset, updated_at}.
- * ترجع null عند غياب quota أو غياب remaining، فتُخفى العنصر كليًا ولا يُعرض
- * أي رقم من مصدر آخر ولا رقم مخترع.
+ * تحليل لقطة الكوتة إلى بنية عرض، ونصها في سطر واحد — من
+ * ai_sessions.extensions.quota فقط، بالشكل الذي يدمجه الجسر:
+ * {plan, used, remaining, reset, updated_at}. الصيغتان الحيّتان
+ * مقبولتان: النسب تُستخرج من "51%" أو من "67% of free weekly limit"،
+ * وتاريخ التجديد يُحلَّل من "2026-11-26 23:15 EET" أو من
+ * "Nov 26 at 11:15 PM EET" إلى تاريخ عربي. ترجع null عند غياب quota
+ * أو غياب remaining، فلا يُعرض أي رقم من مصدر آخر ولا رقم مخترع.
  */
-export function formatQuota(quota) {
+
+/**
+ * نسبة مئوية من قيمة لقطة: "51%" أو "67% of free weekly limit"
+ * ترجع 51؛ قيمة بلا علامة % — مثل "50 رسالة" أو عدد خام 120 (عدد
+ * رسائل لا نسبة) — ترجع null فلا يُرسم شريط.
+ */
+export function parseQuotaPercent(value) {
+    if (typeof value !== 'string') return null;
+    const m = value.match(/(\d+(?:\.\d+)?)\s*%/);
+    if (!m) return null;
+    const n = Number(m[1]);
+    return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : null;
+}
+
+/** أشهر إنجليزية قصيرة → رقم الشهر، لتحليل "Nov 26 at 11:15 PM EET". */
+const EN_MONTHS = {
+    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+    jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+};
+
+/**
+ * طابع تجديد الكوتة → Date بتوقيت القاهرة أو null.
+ * الصيغتان الحيّتان: "2026-11-26 23:15 EET" و"Nov 26 at 11:15 PM EET".
+ * الصيغة الإنجليزية بلا سنة تأخذ سنتها من updated_at (مرجع اللقطة) أو
+ * من السنة الحالية عند غيابه — فالتجديد دائمًا في المستقبل القريب.
+ */
+export function parseQuotaReset(value, updatedAt) {
+    if (value instanceof Date) return Number.isNaN(value) ? null : value;
+    if (typeof value !== 'string' || !value.trim()) return null;
+    const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+    if (iso) {
+        const d = new Date(`${iso[1]}-${iso[2]}-${iso[3]}T${iso[4]}:${iso[5]}:00+02:00`);
+        return Number.isNaN(d) ? null : d;
+    }
+    const en = value.match(/^([A-Za-z]{3}) (\d{1,2}) at (\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (en) {
+        const month = EN_MONTHS[en[1].toLowerCase()];
+        if (month === undefined) return null;
+        let hour = Number(en[3]);
+        if (en[5].toUpperCase() === 'PM' && hour < 12) hour += 12;
+        if (en[5].toUpperCase() === 'AM' && hour === 12) hour = 0;
+        const refYear = updatedAt ? new Date(updatedAt).getFullYear() : new Date().getFullYear();
+        const year = Number.isFinite(refYear) ? refYear : new Date().getFullYear();
+        const d = new Date(Date.UTC(year, month, Number(en[2]), hour - 2, Number(en[4])));
+        return Number.isNaN(d) ? null : d;
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed) ? null : parsed;
+}
+
+/**
+ * تاريخ عربي بأرقام لاتينية — "26 نوفمبر 2026 في 11:15 م"؛ بلا وقت عند
+ * withTime=false ("1 ديسمبر 2026"). ترجع null عند تاريخ فاسد.
+ */
+export function formatQuotaDate(date, withTime = true) {
+    if (!(date instanceof Date) || Number.isNaN(date)) return null;
+    const options = { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Cairo' };
+    if (withTime) {
+        options.hour = 'numeric';
+        options.minute = '2-digit';
+    }
+    try {
+        return new Intl.DateTimeFormat('ar-EG-u-nu-latn', options).format(date);
+    } catch (err) {
+        return null;
+    }
+}
+
+/**
+ * اسم الخطة بالعربية: "free" و"Free (weekly limit)" → "المجانية (أسبوعية)"؛
+ * خطة غير مجانية تُعرض كما هي — فلا يُخترع اسم خطة.
+ */
+export function normalizeQuotaPlan(plan) {
+    if (plan === null || plan === undefined) return null;
+    const raw = String(plan).trim();
+    if (!raw) return null;
+    if (!raw.toLowerCase().includes('free')) return raw;
+    return raw.toLowerCase().includes('week') ? 'المجانية (أسبوعية)' : 'المجانية';
+}
+
+/** حد الكوتة المنخفضة: أقل من 20% متبقٍ يُعرض كتحذير أحمر. */
+export const QUOTA_LOW_THRESHOLD = 20;
+
+/**
+ * تحليل لقطة الكوتة إلى بنية عرض. البنية: remainingLabel (نص العرض،
+ * مثل "51%")، remainingPct وusedPct (أرقام للشريط أو null)، pct (النسبة
+ * المتبقية للشريط — من used عند غياب remaining المئوية)، low (أقل من
+ * الحد)، planLabel وresetLabel (عربي)، updatedAt (Date أو null).
+ */
+export function parseQuota(quota) {
     if (!quota || typeof quota !== 'object') return null;
     const remaining = quota.remaining;
     if (remaining === null || remaining === undefined || remaining === '') return null;
-    let text = `المتبقي من الكوتة: ${remaining}`;
-    if (quota.plan) text += ` — الخطة: ${quota.plan}`;
-    if (quota.reset) text += ` — التجديد: ${quota.reset}`;
+    const remainingPct = parseQuotaPercent(remaining);
+    const usedPct = parseQuotaPercent(quota.used);
+    const pct = remainingPct ?? (usedPct === null ? null : 100 - usedPct);
+    const resetRaw = quota.reset ? String(quota.reset) : '';
+    const resetDate = parseQuotaReset(quota.reset, quota.updated_at);
+    const resetHasTime = /:\d{2}/.test(resetRaw);
+    const updatedDate = quota.updated_at ? new Date(quota.updated_at) : null;
+    return {
+        remainingLabel: remainingPct !== null ? `${remainingPct}%` : String(remaining),
+        remainingPct,
+        usedPct,
+        pct,
+        low: pct !== null && pct < QUOTA_LOW_THRESHOLD,
+        planLabel: normalizeQuotaPlan(quota.plan),
+        resetLabel: resetDate
+            ? (formatQuotaDate(resetDate, resetHasTime) || resetRaw)
+            : (resetRaw || null),
+        updatedAt: updatedDate && !Number.isNaN(updatedDate) ? updatedDate : null,
+    };
+}
+
+/**
+ * نص الكوتة في سطر واحد — من parseQuota نفسه، فالنص والبطاقة لا يختلفان
+ * أبدًا: «المتبقي من الكوتة: 51% — الخطة: المجانية (أسبوعية) — التجديد:
+ * 26 نوفمبر 2026 في 11:15 م». ترجع null عند غياب quota أو غياب remaining.
+ */
+export function formatQuota(quota) {
+    const parsed = parseQuota(quota);
+    if (!parsed) return null;
+    let text = `المتبقي من الكوتة: ${parsed.remainingLabel}`;
+    if (parsed.planLabel) text += ` — الخطة: ${parsed.planLabel}`;
+    if (parsed.resetLabel) text += ` — التجديد: ${parsed.resetLabel}`;
     return text;
 }
 

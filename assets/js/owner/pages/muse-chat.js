@@ -20,7 +20,7 @@
  *
  * الإرسال: insert واحد في ai_session_messages فقط (role=user، وموديل
  * الجلسة النشطة)، وتظهر الرسالة فورًا من نتيجة الـ insert. الرد يصل عبر
- * الجسر الذي يفحص الجلسة كل دقيقة؛ الصفحة تستطلع الرسائل الجديدة كل 5
+ * الجسر الدائم الذي يفحص الجلسة كل 15 ثانية؛ الصفحة تستطلع الرسائل الجديدة كل 5
  * ثوانٍ فتظهر بلا تحديث يدوي. لا Realtime، ولا مؤشر كتابة، ولا حالة
  * حضور — لا شيء منها حقيقي هنا.
  *
@@ -40,10 +40,11 @@
  * و ai_session_messages (قراءة وإرسال وحذف عند حذف الجلسة). لا SIE، ولا
  * شات عملاء، ولا تفعيل حسابات أخرى — التجربة على حساب المالك الحالي فقط.
  *
- * الكوتة: ترويسة المربع تعرض «المتبقي من الكوتة: …» (مع الخطة والتجديد
- * عند وجودهما) فقط عندما تحمل الجلسة النشطة extensions.quota بقيمة
- * remaining؛ وتُخفى تمامًا عند غيابها. لا رقم من أي مصدر آخر، ولا رقم
- * مخترع — والجسر هو من يحدّث quota في extensions.
+ * الكوتة: بطاقة صغيرة في الترويسة — شريط تقدّم بالنسبة المتبقية ونص
+ * المستخدَم والخطة وتاريخ التجديد بالعربية وآخر تحديث، من الجلسة
+ * النشطة extensions.quota فقط (parseQuota يحلّل صيغتي اللقطة الحيّتين
+ * إلى أرقام عربية). عند غياب quota يظهر تلميح صامت بلا أي رقم. لا رقم
+ * من أي مصدر آخر، ولا رقم مخترع — والجسر هو من يحدّث quota في extensions.
  */
 import {
     supabase, bootOwnerPage, announce, esc, when, friendlyError, errorBlock, loadingBlock,
@@ -54,7 +55,7 @@ import {
     formatWaitSeconds, formatReplyTook, secondsBetween, waitingSince,
     agentForModelId, agentModelIds, sortSessions, pickActiveSession,
     deriveTitle, isRenamed, withRenamed, withoutRenamed, shouldAutoTitle,
-    hasUserMessage, formatQuota, RENAMED_SESSIONS_KEY, ACTIVE_SESSION_KEY,
+    hasUserMessage, parseQuota, formatQuotaDate, RENAMED_SESSIONS_KEY, ACTIVE_SESSION_KEY,
     REACTION_EMOJIS, toggleReaction, reactionsOf, clampMenuPosition, quotePreview,
 } from '/assets/js/owner/muse-chat-state.js';
 import { createMuseAvatar, museAvatarSvg } from '/assets/js/owner/muse-avatar.js';
@@ -65,6 +66,9 @@ const SESSION_COLUMNS = 'id, title, model_id, status, extensions, last_active_at
 const RENAME_MAX = 80;
 const LONG_PRESS_MS = 600;
 
+/** إعادة قراءة الكوتة دوريًا حتى بلا رسائل جديدة. */
+const QUOTA_REFRESH_MS = 30000;
+
 let ownerId = null;
 let sessionId = null;
 let activeModelId = MUSE_MODEL_ID;
@@ -74,6 +78,7 @@ const renderedIds = new Set();
 let sending = false;
 let pollTimer = null;
 let pollFailures = 0;
+let lastQuotaRefreshAt = 0;
 let switchToken = 0;
 let renamedIds = new Set();
 let pendingDeleteId = null;
@@ -527,23 +532,45 @@ function updateSquareHeader() {
     updateQuotaDisplay(sessions.find((s) => s.id === sessionId) || null);
 }
 
-/** عرض الكوتة من الجلسة النشطة فقط — تُخفى تمامًا عند غياب quota. */
+/**
+ * عرض الكوتة من الجلسة النشطة: بطاقة بشريط تقدّم ونسبة وتجديد وآخر
+ * تحديث — أو تلميح صامت عند غياب quota، بلا أي رقم مخترع. كل نص
+ * ديناميكي يمر عبر esc، والنسبة للشريط رقم محلَّل لا نص خام.
+ */
 function updateQuotaDisplay(session) {
     const el = $('museQuota');
     if (!el) return;
-    const text = formatQuota(session?.extensions?.quota);
-    if (text) {
-        el.textContent = text;
-        el.hidden = false;
-    } else {
-        el.textContent = '';
-        el.hidden = true;
+    const parsed = parseQuota(session?.extensions?.quota);
+    el.hidden = false;
+    if (!parsed) {
+        el.classList.remove('is-low');
+        el.innerHTML = '<span class="muse-quota-empty">الكوتة ستظهر هنا بعد أول رد من الوكيل.</span>';
+        return;
     }
+    const bar = parsed.pct !== null
+        ? `<div class="muse-quota-bar" role="progressbar" aria-valuenow="${parsed.pct}" aria-valuemin="0" aria-valuemax="100" aria-label="المتبقي من الكوتة"><span class="muse-quota-bar-fill" style="width:${parsed.pct}%"></span></div>`
+        : '';
+    const meta = [
+        parsed.usedPct !== null ? `المستخدَم ${parsed.usedPct}%` : '',
+        parsed.planLabel ? `الخطة: ${esc(parsed.planLabel)}` : '',
+        parsed.resetLabel ? `التجديد: ${esc(parsed.resetLabel)}` : '',
+        parsed.updatedAt ? `آخر تحديث: ${esc(formatQuotaDate(parsed.updatedAt) || '')}` : '',
+    ].filter(Boolean).join(' • ');
+    el.classList.toggle('is-low', parsed.low);
+    el.innerHTML = `
+        <div class="muse-quota-top">
+            <span class="muse-quota-label">المتبقي من الكوتة</span>
+            <strong class="muse-quota-value">${esc(parsed.remainingLabel)}</strong>
+        </div>
+        ${bar}
+        ${meta ? `<div class="muse-quota-meta">${meta}</div>` : ''}
+        ${parsed.low ? '<div class="muse-quota-low">الكوتة أوشكت على النفاد — أقل من 20% متبقٍ.</div>' : ''}`;
 }
 
 /** إعادة قراءة extensions للجلسة النشطة — الجسر يحدّث quota فيها. */
 async function refreshQuota() {
     if (!sessionId) return;
+    lastQuotaRefreshAt = Date.now();
     try {
         const { data, error } = await supabase.from('ai_sessions')
             .select('extensions')
@@ -749,6 +776,8 @@ async function pollMessages() {
             // رسائل جديدة تعني نشاطًا للجسر — قد يكون حدّث الكوتة معها.
             refreshQuota();
         }
+        // الكوتة قد تتحدّث بلا رسائل جديدة (لقطة الجسر) — حدّثها كل 30 ثانية.
+        if (Date.now() - lastQuotaRefreshAt > QUOTA_REFRESH_MS) refreshQuota();
         checkReplyArrived();
     } catch (err) {
         pollFailures++;

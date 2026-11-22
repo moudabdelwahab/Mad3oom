@@ -25,7 +25,9 @@ import {
     MUSE_AGENTS, agentForModelId, agentModelIds,
     sortSessions, pickActiveSession, deriveTitle, AUTO_TITLE_MAX,
     isRenamed, withRenamed, withoutRenamed, shouldAutoTitle, hasUserMessage,
-    formatQuota, RENAMED_SESSIONS_KEY, ACTIVE_SESSION_KEY,
+    formatQuota, parseQuota, parseQuotaPercent, parseQuotaReset,
+    formatQuotaDate, normalizeQuotaPlan, QUOTA_LOW_THRESHOLD,
+    RENAMED_SESSIONS_KEY, ACTIVE_SESSION_KEY,
 } from '../assets/js/owner/muse-chat-state.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -147,14 +149,59 @@ test('تنسيق الكوتة: المتبقي فقط، ومع الخطة وال�
     assert.equal(formatQuota({ remaining: 0 }), 'المتبقي من الكوتة: 0');
     assert.equal(
         formatQuota({ plan: 'pro', remaining: '50 رسالة', reset: '2026-12-01' }),
-        'المتبقي من الكوتة: 50 رسالة — الخطة: pro — التجديد: 2026-12-01');
+        'المتبقي من الكوتة: 50 رسالة — الخطة: pro — التجديد: 1 ديسمبر 2026');
+    assert.equal(
+        formatQuota({ plan: 'Free (weekly limit)', used: '49%', remaining: '51%', reset: '2026-11-26 23:15 EET', updated_at: '2026-11-22T21:05:10Z' }),
+        'المتبقي من الكوتة: 51% — الخطة: المجانية (أسبوعية) — التجديد: 26 نوفمبر 2026 في 11:15 م');
+    assert.equal(
+        formatQuota({ plan: 'free', used: '33% of free weekly limit', remaining: '67% of free weekly limit', reset: 'Nov 26 at 11:15 PM EET', updated_at: '2026-11-22T15:21:08Z' }),
+        'المتبقي من الكوتة: 67% — الخطة: المجانية — التجديد: 26 نوفمبر 2026 في 11:15 م');
     assert.equal(formatQuota('120'), null);
 });
 
-test('الصفحة تقرأ extensions من صف الجلسة وتحدّث الكوتة عند وصول رسائل', () => {
+test('تحليل الكوتة: الصيغتان الحيّتان للقطة تعطيان نفس العرض النظيف', () => {
+    const fresh = { plan: 'Free (weekly limit)', used: '49%', reset: '2026-11-26 23:15 EET', remaining: '51%', updated_at: '2026-11-22T21:05:10Z' };
+    const stale = { plan: 'free', used: '33% of free weekly limit', reset: 'Nov 26 at 11:15 PM EET', remaining: '67% of free weekly limit', updated_at: '2026-11-22T15:21:08Z' };
+    const pf = parseQuota(fresh);
+    const ps = parseQuota(stale);
+    assert.equal(pf.remainingLabel, '51%');
+    assert.equal(pf.remainingPct, 51);
+    assert.equal(pf.usedPct, 49);
+    assert.equal(pf.pct, 51);
+    assert.equal(pf.planLabel, 'المجانية (أسبوعية)');
+    assert.equal(pf.resetLabel, '26 نوفمبر 2026 في 11:15 م');
+    assert.equal(pf.low, false);
+    assert.ok(pf.updatedAt instanceof Date);
+    assert.equal(ps.remainingLabel, '67%');
+    assert.equal(ps.remainingPct, 67);
+    assert.equal(ps.usedPct, 33);
+    assert.equal(ps.planLabel, 'المجانية');
+    assert.equal(ps.resetLabel, '26 نوفمبر 2026 في 11:15 م');
+    assert.equal(ps.low, false);
+    // منخفضة: أقل من 20% تحذير؛ وبلا remaining مئوية تُشتق من used.
+    assert.equal(parseQuota({ remaining: '15%', used: '85%' }).low, true);
+    assert.equal(parseQuota({ remaining: '15%', used: '85%' }).pct, 15);
+    assert.equal(parseQuota({ used: '80%' }), null);
+    assert.equal(parseQuota({ remaining: '120 رسالة' }).pct, null);
+    assert.equal(parseQuota({ remaining: '120 رسالة' }).remainingLabel, '120 رسالة');
+    // أدوات التحليل وحدها.
+    assert.equal(parseQuotaPercent('67% of free weekly limit'), 67);
+    assert.equal(parseQuotaPercent('50 رسالة'), null);
+    assert.equal(parseQuotaPercent(51), null); // عدد خام = عدد رسائل، لا نسبة
+    assert.equal(normalizeQuotaPlan('Free (weekly limit)'), 'المجانية (أسبوعية)');
+    assert.equal(normalizeQuotaPlan('free'), 'المجانية');
+    assert.equal(normalizeQuotaPlan('pro'), 'pro');
+    assert.equal(formatQuotaDate(new Date('2026-11-26T21:15:00Z')), '26 نوفمبر 2026 في 11:15 م');
+    assert.equal(formatQuotaDate(new Date('2026-12-01T00:00:00Z'), false), '1 ديسمبر 2026');
+    assert.equal(QUOTA_LOW_THRESHOLD, 20);
+});
+
+test('الصفحة تقرأ extensions من صف الجلسة وتحدّث الكوتة دوريًا', () => {
     const js = chatJs();
     assert.match(js, /extensions, last_active_at/);
-    assert.match(js, /formatQuota\(session\?\.extensions\?\.quota\)/);
+    assert.match(js, /parseQuota\(session\?\.extensions\?\.quota\)/);
+    assert.match(js, /QUOTA_REFRESH_MS/);
+    assert.match(js, /Date\.now\(\) - lastQuotaRefreshAt > QUOTA_REFRESH_MS/);
     assert.match(js, /refreshQuota\(\)/);
     assert.match(js, /\.select\('extensions'\)/);
     assert.match(js, /\.eq\('id', sessionId\)/);
@@ -174,11 +221,24 @@ test('الصفحة فيها اختيار وكيل بزرّين ومحادثة ج
     assert.match(html, /id="museSessionsEmpty"/);
 });
 
-test('عنصر الكوتة في الترويسة مخفي افتراضيًا ويظهر فقط بقيمة', () => {
+test('عنصر الكوتة في الترويسة مخفي افتراضيًا ويظهر دائمًا — بطاقة أو تلميح', () => {
     const html = chatHtml();
-    assert.match(html, /id="museQuota"[^>]*hidden/);
+    assert.match(html, /<div class="muse-quota" id="museQuota"[^>]*hidden/);
     assert.match(chatJs(), /el\.hidden = false/);
-    assert.match(chatJs(), /el\.hidden = true/);
+    assert.doesNotMatch(chatJs(), /el\.hidden = true/);
+    assert.match(chatJs(), /muse-quota-bar/);
+    assert.match(chatJs(), /muse-quota-empty/);
+    assert.match(chatJs(), /muse-quota-low/);
+    assert.match(chatJs(), /role="progressbar"/);
+});
+
+test('نصوص الصفحة تعكس الجسر الدائم: 15 ثانية لا دقيقة', () => {
+    const html = chatHtml();
+    assert.match(html, /كل 15 ثانية/);
+    assert.doesNotMatch(html, /يفحص المحادثة كل دقيقة/);
+    assert.match(chatStateJs(), /كل 15 ثانية/);
+    assert.doesNotMatch(chatStateJs(), /كل دقيقة/);
+    assert.match(MUSE_GREETING, /أقل من دقيقة/);
 });
 
 test('نافذة تأكيد الحذف موجودة بأزرارها ونصها العربي', () => {
@@ -265,6 +325,9 @@ test('التنسيق يعرف التخطيط والقائمة والاختيار
     assert.match(css, /\.muse-session-item\.is-active/);
     assert.match(css, /\.muse-session-badge/);
     assert.match(css, /\.muse-quota/);
+    assert.match(css, /\.muse-quota-bar/);
+    assert.match(css, /\.muse-quota-bar-fill/);
+    assert.match(css, /\.muse-quota\.is-low/);
     assert.match(css, /\.muse-confirm\s*\{/);
     assert.match(css, /z-index:\s*3000/);
 });
