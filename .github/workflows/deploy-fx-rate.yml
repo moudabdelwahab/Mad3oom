@@ -62,4 +62,5 @@ jobs:
         run: |
           supabase functions deploy fx-rate \
             --project-ref "$SUPABASE_PROJECT_REF" \
-            --use-api
+            --use-api \
+            --yes
