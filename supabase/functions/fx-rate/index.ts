@@ -40,7 +40,7 @@ const CORS_HEADERS = {
 
 const CBE_RATES_URL = "https://www.cbe.org.eg/en/economic-research/statistics/exchange-rates";
 const FRANKFURTER_URL = "https://api.frankfurter.dev/v2/rate/usd/egp";
-const FETCH_TIMEOUT_MS = 8000;
+const FETCH_TIMEOUT_MS = 20000;
 const CACHE_TTL_MS = 60 * 60 * 1000; // ساعة واحدة
 
 const round4 = (n: number) => Math.round(n * 10000) / 10000;
@@ -95,7 +95,7 @@ function parseCbeUsd(text: string): { buy: number; sell: number; rateDate: strin
 async function fetchCbe(): Promise<{ buy: number; sell: number; rateDate: string } | null> {
   try {
     const res = await fetchWithTimeout(CBE_RATES_URL, {
-      headers: { "User-Agent": "Mad3oom fx-rate (contact: support@mad3oom.com)", Accept: "text/html" },
+      headers: { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36", Accept: "text/html" },
     });
     if (!res.ok) {
       console.warn("[fx-rate] CBE HTTP", res.status);
