@@ -64,4 +64,5 @@ jobs:
         run: |
           supabase functions deploy mcp \
             --project-ref "$SUPABASE_PROJECT_REF" \
-            --use-api
+            --use-api \
+            --yes
