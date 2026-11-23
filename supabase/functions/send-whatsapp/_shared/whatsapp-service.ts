@@ -6,6 +6,8 @@ import {
   loadBillingSettings,
   preflightBalance,
   chargeForSentMessage,
+  resolveServiceCharge,
+  resolveTemplateCharge,
 } from "./whatsapp-billing.ts";
 
 const GRAPH_VERSION = "v25.0";
@@ -106,8 +108,10 @@ export async function sendTextMessage(params: SendTextParams): Promise<SendResul
   if (!pid) return { ok: false, status: 400, error: "تعذر تحديد phone_number_id" };
 
   // ── المحفظة: فحص قبل أي نداء خارجي (H-03) ────────────────────────────────
+  // سعر الخدمة لهذا الرقم هذا الشهر: صفر داخل شريحة Meta المجانية (أول
+  // 1,000 رسالة خدمة مسلَّمة شهريًا لكل رقم)، وسعر الخدمة المشتق بعدها.
   const settings = await loadBillingSettings();
-  const amount = settings.textCharge;
+  const amount = await resolveServiceCharge({ userId: params.userId, wabaId: pid, settings });
   const pre = await preflightBalance(params.userId, amount, settings);
   if (!pre.allowed) {
     return { ok: false, status: 402, error: "الرصيد غير كافٍ لإرسال الرسالة. اشحن محفظة واتساب ثم أعد المحاولة." };
@@ -141,10 +145,10 @@ export async function sendTemplateMessage(params: SendTemplateParams): Promise<S
   if (!pid) return { ok: false, status: 400, error: "تعذر تحديد phone_number_id" };
 
   // ── المحفظة: فحص قبل أي نداء خارجي (H-03) ────────────────────────────────
-  // نفس سعر القالب الذي تستعمله integrations-api (template_charge_egp)، فالسعر
-  // واحد في كل المسارات ولا يتفرّع.
+  // سعر القالب بالدولار (يتبع سعر المرافق) × سعر صرف البنك المركزي الحي
+  // وقت المحاسبة — نفس القاعدة في كل المسارات ولا يتفرّع.
   const settings = await loadBillingSettings();
-  const amount = settings.templateCharge;
+  const amount = await resolveTemplateCharge(settings);
   const pre = await preflightBalance(params.userId, amount, settings);
   if (!pre.allowed) {
     return { ok: false, status: 402, error: "الرصيد غير كافٍ لإرسال رسالة القالب. اشحن محفظة واتساب ثم أعد المحاولة." };

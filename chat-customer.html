@@ -699,6 +699,17 @@
             font-family: inherit;
         }
         .submit-rating-btn:hover { background: var(--accent-blue-2); }
+        .submit-rating-btn:disabled { opacity: 0.6; cursor: progress; }
+
+        .rating-thanks {
+            margin: 1rem 0 0;
+            padding: 0.75rem;
+            background: #eef6ff;
+            border-radius: 8px;
+            color: var(--primary-blue);
+            font-weight: 700;
+            text-align: center;
+        }
 
         /* مربع الكتابة: [إرفاق][النص][SIE · الخطة][ميكروفون][إرسال] */
         .attach-btn { background: #f0f2f5; color: var(--primary-blue); }
@@ -1212,6 +1223,8 @@
             <textarea id="ratingComment" class="rating-textarea" rows="3" placeholder="أضف تعليقك هنا (اختياري)..."></textarea>
 
             <button id="submitRatingBtn" class="submit-rating-btn">إرسال التقييم</button>
+
+            <p id="ratingThanks" class="rating-thanks" hidden></p>
         </div>
     </div>
 

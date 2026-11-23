@@ -30,11 +30,33 @@ function db(): SupabaseClient {
   return createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 }
 
+// ── التسعير المصدَّر (Meta — بطاقة أسعار مصر، سارية 1 أكتوبر 2026) ──
+// المصدر: Meta for Developers, "Pricing on the WhatsApp Business Platform"
+// — بطاقة أسعار USD سارية 2026-10-01 (رُوجعت من الصفحة الرسمية وملف PDF
+// الخاص بها في 2026-11-23): مصر سوق مستقل — Marketing 0.0644، Utility
+// 0.0036، Authentication 0.0036، Service 0.0036 دولار للرسالة المسلَّمة.
+// الأسعار بالدولار كما هي من Meta — بلا مصاريف مدعوم وبلا سعر صرف ثابت.
+// الجنيه يُحسب وقت المحاسبة فقط: سعر الدولار × سعر صرف البنك المركزي
+// الحي، عبر دالة fx-rate (supabase/functions/fx-rate — البنك المركزي
+// أولًا، ثم Frankfurter، ثم ذاكرة fx_rates؛ الترحيل 126). التفصيل الكامل
+// في الترحيل 125 وفي docs/whatsapp-pricing-egypt-2026-10-01.md
+// (ريبو whatsapp-mad3oom). الشرائح الحجمية لا تُطبَّق: تبدأ من 100,001
+// رسالة مرافق شهريًا.
+export const META_EGYPT_RATES_USD = Object.freeze({
+  marketing: 0.0644,
+  utility: 0.0036,
+  authentication: 0.0036,
+  service: 0.0036,
+});
+export const META_RATE_CARD_EFFECTIVE = "2026-10-01";
+
 export interface BillingSettings {
   chargeEnabled: boolean;
   enforce: boolean;
-  templateCharge: number;
-  textCharge: number;
+  // الأسعار بالدولار (مفاتيح integration_settings) — الجنيه يُحسب وقت
+  // المحاسبة عبر getUsdEgpRate()، لا يُخزَّن هنا.
+  templateChargeUsd: number;
+  textChargeUsd: number;
 }
 
 /** يقرأ الإعدادات من نفس الجدول الذي يقرؤه integrations-api. يفشل مفتوحًا عمدًا:
@@ -44,20 +66,179 @@ export async function loadBillingSettings(): Promise<BillingSettings> {
     const { data, error } = await db()
       .from("integration_settings")
       .select("key, value")
-      .in("key", ["wallet_charge_enabled", "wallet_enforce_send", "template_charge_egp", "text_charge_egp"]);
+      .in("key", ["wallet_charge_enabled", "wallet_enforce_send", "template_charge_usd", "text_charge_usd"]);
     if (error) throw error;
 
     const map = new Map<string, unknown>((data || []).map((r: Record<string, unknown>) => [r.key as string, r.value]));
     return {
       chargeEnabled: map.get("wallet_charge_enabled") !== false,
       enforce: map.get("wallet_enforce_send") === true,
-      templateCharge: Number(map.get("template_charge_egp") ?? 0.282),
-      textCharge: Number(map.get("text_charge_egp") ?? 0),
+      // الافتراضيات بالدولار من بطاقة Meta لمصر (انظر الثوابت أعلاه):
+      // قالب (يتبع سعر المرافق) 0.0036، نصية (خدمة بعد الشريحة) 0.0036.
+      // القيمة المخزَّنة في integration_settings (الترحيل 125) هي المرجع؛
+      // الافتراضي هنا شبكة أمان فقط عند غياب الصف.
+      templateChargeUsd: Number(map.get("template_charge_usd") ?? 0.0036),
+      textChargeUsd: Number(map.get("text_charge_usd") ?? 0.0036),
     };
   } catch (err) {
     console.error("[wa-billing] settings read failed, defaulting to metering-only:", (err as Error).message);
-    return { chargeEnabled: true, enforce: false, templateCharge: 0.282, textCharge: 0 };
+    return { chargeEnabled: true, enforce: false, templateChargeUsd: 0.0036, textChargeUsd: 0.0036 };
   }
+}
+
+// ── سعر الصرف الحي (دولار → جنيه) وقت المحاسبة ──
+// المصدر الوحيد هو دالة fx-rate (البنك المركزي المصري أولًا، ثم
+// Frankfurter، ثم ذاكرة fx_rates). عند تعذّر الدالة يُقرأ آخر سعر
+// مخزَّن مباشرة من fx_rates؛ وعند تعذّر كل شيء يرجع null — والمنادي
+// يفشل مفتوحًا (رسالة بلا خصم) بدل منع رسالة عميل أو خصم بسعر قديم
+// صامت. لا يوجد سعر صرف ثابت في هذا الملف إطلاقًا.
+export async function getUsdEgpRate(): Promise<{ rate: number; source: string; asOf: string } | null> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    try {
+      const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/fx-rate`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        },
+        signal: ctrl.signal,
+      });
+      if (res.ok) {
+        const data = await res.json() as { usd_egp?: unknown; source?: unknown; as_of?: unknown };
+        const rate = Number(data.usd_egp);
+        if (Number.isFinite(rate) && rate > 0) {
+          return { rate, source: String(data.source ?? "fx-rate"), asOf: String(data.as_of ?? "") };
+        }
+      }
+      console.warn("[wa-billing] fx-rate HTTP", res.status, "— falling back to fx_rates table");
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (err) {
+    console.warn("[wa-billing] fx-rate call failed, falling back to fx_rates table:", (err as Error).message);
+  }
+  try {
+    const { data, error } = await db()
+      .from("fx_rates")
+      .select("rate, source, as_of")
+      .eq("base", "USD")
+      .eq("quote", "EGP")
+      .order("as_of", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (data && Number(data.rate) > 0) {
+      return { rate: Number(data.rate), source: `cache:${data.source}`, asOf: String(data.as_of) };
+    }
+  } catch (err) {
+    console.error("[wa-billing] fx_rates fallback read failed:", (err as Error).message);
+  }
+  return null;
+}
+
+/** يحوّل مبلغًا بالدولار إلى جنيه بسعر الصرف الحي. null = لا سعر متاح. */
+export async function toEgp(usdAmount: number): Promise<number | null> {
+  const fx = await getUsdEgpRate();
+  if (!fx) return null;
+  return Math.round(usdAmount * fx.rate * 100) / 100;
+}
+
+/** سعر القالب بالجنيه وقت المحاسبة: 0 عند تعذّر سعر الصرف (فشل مفتوح). */
+export async function resolveTemplateCharge(settings: BillingSettings): Promise<number> {
+  if (!settings.chargeEnabled) return 0;
+  const egp = await toEgp(settings.templateChargeUsd);
+  if (egp === null) {
+    console.error("[wa-billing] no FX rate available, skipping template charge (fail-open)");
+    return 0;
+  }
+  return egp;
+}
+
+// ── الشريحة المجانية لرسائل الخدمة (Meta، من 1 أكتوبر 2026) ──
+// لكل رقم أعمال 1,000 رسالة خدمة مسلَّمة مجانًا شهريًا؛ تُحاسَب الرسالة
+// رقم 1,001 فما بعد بسعر الخدمة. تُصفَّر الشريحة شهريًا في 12 ليلًا
+// بتوقيت حساب المراسلة (هنا: Africa/Cairo — الأرقام مصرية)، ولا تُرحَّل
+// الرسائل غير المستعملة. المصدر: صفحة أسعار Meta الرسمية، قسم
+// "Free tier of monthly service messages".
+export const SERVICE_FREE_TIER_PER_MONTH = 1000;
+
+// إزاحة Africa/Cairo عن UTC (بالمللي ثانية) في لحظة معينة، عبر Intl.
+function cairoOffsetMsAt(utcMs: number): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Africa/Cairo", hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(new Date(utcMs));
+  const v = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  const wallAsUtc = Date.UTC(v("year"), v("month") - 1, v("day"), v("hour") % 24, v("minute"), v("second"));
+  return wallAsUtc - utcMs;
+}
+
+// أول الشهر الحالي 00:00 بتوقيت Africa/Cairo، كـ ISO (UTC).
+// تُؤخذ الإزاحة من منتصف الشهر — بعيدًا عن أي انتقال توقيت صيفي، وهي
+// نفس إزاحة أول الشهر في Africa/Cairo (الانتقالات آخر الشهر دائمًا).
+export function cairoMonthStartIso(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Africa/Cairo", year: "numeric", month: "2-digit",
+  }).formatToParts(now);
+  const v = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  const year = v("year"), month = v("month");
+  const offsetMs = cairoOffsetMsAt(Date.UTC(year, month - 1, 15, 12, 0, 0));
+  return new Date(Date.UTC(year, month - 1, 1, 0, 0, 0) - offsetMs).toISOString();
+}
+
+/**
+ * كم رسالة خدمة مسلَّمة استهلكها هذا الرقم هذا الشهر؟ تُعدّ الرسائل
+ * الصادرة (text/media) غير الفاشلة التي قبلتها Meta (sent/delivered/read).
+ * عند أي خطأ في القراءة تُرجع 0 (فشل مفتوح): قراءة قياس فاشلة لا تمنع
+ * ردًا على عميل ولا تخصم خطأً — والخصم الفائت أهون من المنع الخطأ.
+ */
+export async function countServiceMessagesUsedThisMonth(params: {
+  userId: string;
+  wabaId: string | null;
+}): Promise<number> {
+  try {
+    let query = db()
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", params.userId)
+      .eq("direction", "outbound")
+      .in("message_type", ["text", "media"])
+      .neq("status", "failed")
+      .in("delivery_status", ["sent", "delivered", "read"])
+      .gte("created_at", cairoMonthStartIso());
+    if (params.wabaId) query = query.eq("waba_id", params.wabaId);
+    const { count, error } = await query;
+    if (error) throw error;
+    return count ?? 0;
+  } catch (err) {
+    console.error("[wa-billing] service allowance count failed, treating as within free tier:", (err as Error).message);
+    return 0;
+  }
+}
+
+/**
+ * سعر رسالة الخدمة (نصية/وسائط) لهذا الرقم في هذا الشهر بالجنيه: صفر
+ * داخل الشريحة المجانية (أول 1,000 رسالة خدمة مسلَّمة شهريًا لكل رقم)،
+ * وسعر الخدمة بالدولار × سعر الصرف الحي بعدها. صفر أيضًا عند تعذّر سعر
+ * الصرف (فشل مفتوح — يُسجَّل). لا يرمي أبدًا.
+ */
+export async function resolveServiceCharge(params: {
+  userId: string;
+  wabaId: string | null;
+  settings: BillingSettings;
+}): Promise<number> {
+  if (!params.settings.chargeEnabled) return 0;
+  const used = await countServiceMessagesUsedThisMonth({ userId: params.userId, wabaId: params.wabaId });
+  if (used < SERVICE_FREE_TIER_PER_MONTH) return 0;
+  const egp = await toEgp(params.settings.textChargeUsd);
+  if (egp === null) {
+    console.error("[wa-billing] no FX rate available, skipping service charge (fail-open)");
+    return 0;
+  }
+  return egp;
 }
 
 export type PreflightResult =

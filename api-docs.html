@@ -2887,8 +2887,8 @@ send_1724180000123                           <span class="tok-com">❌ يتغي�
         <table class="doc-table">
           <thead><tr><th>الإعداد</th><th>القيمة الحالية</th><th>المعنى</th></tr></thead>
           <tbody>
-            <tr><td><code>template_charge_egp</code></td><td><code>0.282</code></td><td>تكلفة رسالة القالب بالجنيه</td></tr>
-            <tr><td><code>text_charge_egp</code></td><td><code>0</code></td><td>تكلفة الرسالة النصية عبر أداة MCP</td></tr>
+            <tr><td><code>template_charge_usd</code></td><td><code>0.0036</code></td><td>تكلفة رسالة القالب بالدولار — سعر المرافق من بطاقة أسعار Meta لمصر، سارية 1 أكتوبر 2026 (الترحيل 125). الجنيه يُحسب وقت المحاسبة: السعر × سعر صرف البنك المركزي الحي عبر دالة fx-rate</td></tr>
+            <tr><td><code>text_charge_usd</code></td><td><code>0.0036</code></td><td>تكلفة الرسالة النصية (خدمة) بالدولار — تُخصم فقط بعد أول 1,000 رسالة خدمة مجانية شهريًا لكل رقم، والجنيه يُحسب وقت المحاسبة بسعر الصرف الحي (الترحيل 125)</td></tr>
             <tr><td><code>wallet_charge_enabled</code></td><td><code>true</code></td><td>الخصم من المحفظة مفعّل</td></tr>
             <tr><td><code>wallet_enforce_send</code></td><td><code>false</code></td><td>نقص الرصيد <strong>يُسجَّل تحذيرًا ولا يمنع الإرسال حاليًا</strong> — قياس أولًا</td></tr>
             <tr><td><code>default_rate_limit_per_minute</code></td><td><code>60</code></td><td>حد الطلبات لكل تكامل</td></tr>

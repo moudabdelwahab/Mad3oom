@@ -50,6 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentUser = null;
     let currentSessionId = null;
     let currentSession = null;
+    let selectedRating = 0;
     let messageChannel = null;
     let botSettings = null;
     // استحقاق SIE من الخادم (sie_my_entitlement) — للعرض فقط؛ الحدود نفسها
@@ -1322,24 +1323,51 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         setupVoiceRecording();
 
-        // نجوم التقييم: اختيار بصري فقط (الكود الأصلي لا يحفظ التقييم في
-        // أي مكان — لا يوجد حفظ في قاعدة البيانات ولا إرسال حقيقي).
+        // نجوم التقييم: اختيار نجمة يخزّن قيمتها، وزر الإرسال يحفظها في
+        // جدول chat_ratings مع الجلسة (نجمة واحدة لكل جلسة). إن كانت الجلسة
+        // قيّمت من قبل يُعرض التقييم المحفوظ بدل النموذج.
         const starsContainer = document.getElementById('starsContainer');
         if (starsContainer) {
             starsContainer.addEventListener('click', (e) => {
                 const star = e.target.closest('.star');
                 if (!star) return;
-                const value = Number(star.dataset.value) || 0;
-                starsContainer.querySelectorAll('.star').forEach(s => {
-                    s.classList.toggle('active', (Number(s.dataset.value) || 0) <= value);
-                });
+                selectedRating = Number(star.dataset.value) || 0;
+                setRatingStars(selectedRating);
             });
         }
         const submitRatingBtn = document.getElementById('submitRatingBtn');
         if (submitRatingBtn) {
-            submitRatingBtn.onclick = () => {
-                const ratingModal = document.getElementById('ratingModal');
-                if (ratingModal) ratingModal.style.display = 'none';
+            submitRatingBtn.onclick = async () => {
+                if (!selectedRating || !currentSessionId) {
+                    const ratingModal = document.getElementById('ratingModal');
+                    if (ratingModal) ratingModal.style.display = 'none';
+                    return;
+                }
+                // منع الإرسال المزدوج: زر معطَّل أثناء الحفظ، وقيد فريد
+                // على الجلسة في قاعدة البيانات.
+                submitRatingBtn.disabled = true;
+                submitRatingBtn.textContent = 'جارٍ إرسال التقييم...';
+                const comment = (document.getElementById('ratingComment')?.value || '').trim() || null;
+                const { error } = await supabase.from('chat_ratings').insert({
+                    session_id: currentSessionId,
+                    user_id: currentSession?.user_id || currentUser?.id || null,
+                    rating: selectedRating,
+                    comment,
+                });
+                if (error) {
+                    console.error('خطأ في حفظ التقييم:', error);
+                    // قيد فريد (23505) = الجلسة قيّمت من قبل — يُعرض كنجاح
+                    // بدل رسالة خطأ، لأن التقييم محفوظ فعلًا.
+                    if (error.code !== '23505') {
+                        const ratingModal = document.getElementById('ratingModal');
+                        if (ratingModal) ratingModal.style.display = 'none';
+                        submitRatingBtn.disabled = false;
+                        submitRatingBtn.textContent = 'إرسال التقييم';
+                        return;
+                    }
+                }
+                try { localStorage.setItem(`mad3oom-rated-${currentSessionId}`, String(selectedRating)); } catch (_) { /* تجاهل */ }
+                showRatingThanks(selectedRating);
             };
         }
         const ratingCloseBtn = document.getElementById('ratingCloseBtn');
@@ -1696,6 +1724,67 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ===== END CUSTOMER CHAT =====
+    // ===== تقييم المحادثة (chat_ratings) =====
+    function setRatingStars(value) {
+        const starsContainer = document.getElementById('starsContainer');
+        if (!starsContainer) return;
+        starsContainer.querySelectorAll('.star').forEach(s => {
+            s.classList.toggle('active', (Number(s.dataset.value) || 0) <= value);
+        });
+    }
+
+    function showRatingForm() {
+        selectedRating = 0;
+        setRatingStars(0);
+        const comment = document.getElementById('ratingComment');
+        if (comment) { comment.value = ''; comment.style.display = ''; }
+        const btn = document.getElementById('submitRatingBtn');
+        if (btn) { btn.disabled = false; btn.textContent = 'إرسال التقييم'; btn.style.display = ''; }
+        const stars = document.getElementById('starsContainer');
+        if (stars) stars.style.display = '';
+        const thanks = document.getElementById('ratingThanks');
+        if (thanks) thanks.hidden = true;
+    }
+
+    function showRatingThanks(value) {
+        const stars = document.getElementById('starsContainer');
+        if (stars) stars.style.display = 'none';
+        const comment = document.getElementById('ratingComment');
+        if (comment) comment.style.display = 'none';
+        const btn = document.getElementById('submitRatingBtn');
+        if (btn) { btn.disabled = false; btn.textContent = 'إرسال التقييم'; btn.style.display = 'none'; }
+        const thanks = document.getElementById('ratingThanks');
+        if (thanks) {
+            const filled = '★'.repeat(value);
+            const empty = '☆'.repeat(Math.max(0, 5 - value));
+            thanks.textContent = `شكرًا لتقييمك! ${filled}${empty} (${value} من 5)`;
+            thanks.hidden = false;
+        }
+    }
+
+    // إن كانت الجلسة قيّمت من قبل (تخزين محلي أو قاعدة البيانات) يُعرض
+    // التقييم المحفوظ بدل النموذج، فلا يُرسَل التقييم مرتين.
+    async function loadExistingRating(sessionId) {
+        if (!sessionId) return;
+        try {
+            const local = localStorage.getItem(`mad3oom-rated-${sessionId}`);
+            if (local) { showRatingThanks(Number(local) || 0); return; }
+        } catch (_) { /* تجاهل */ }
+        try {
+            const { data, error } = await supabase
+                .from('chat_ratings')
+                .select('rating')
+                .eq('session_id', sessionId)
+                .maybeSingle();
+            if (!error && data?.rating) {
+                try { localStorage.setItem(`mad3oom-rated-${sessionId}`, String(data.rating)); } catch (_) { /* تجاهل */ }
+                showRatingThanks(Number(data.rating));
+            }
+        } catch (err) {
+            console.error('خطأ في قراءة التقييم السابق:', err);
+        }
+    }
+
     async function endCustomerChat() {
         if (!confirm('هل تريد إنهاء المحادثة؟')) return;
 
@@ -1714,10 +1803,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         setAvatarState('idle');
         await loadCustomerSessions();
 
-        // إظهار نافذة التقييم
+        // إظهار نافذة التقييم (نموذج جديد، أو التقييم المحفوظ إن وُجد)
         const ratingModal = document.getElementById('ratingModal');
         if (ratingModal) {
             ratingModal.style.display = 'flex';
+            showRatingForm();
+            loadExistingRating(currentSessionId);
         }
     }
 
