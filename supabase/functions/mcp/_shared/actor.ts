@@ -1,6 +1,6 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const MAIN_ADMIN_EMAILS = ["support@mad3oom.online", "info@mad3oom.online"];
+const MAIN_ADMIN_EMAILS = ["support@mad3oom.online", "info@mad3oom.online", "mahmoud@mad3oom.com"];
 
 export interface Actor {
   id: string;
