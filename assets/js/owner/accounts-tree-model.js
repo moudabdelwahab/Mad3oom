@@ -419,6 +419,257 @@ export function applyFilters(root, filters = {}) {
     return prune(root, []);
 }
 
+/* ── النقل بين آباء الشجرة (المرحلة 2) ───────────────────────────────────────
+   نقل العميل = نقل عضويته الأساسية بين شركتين (owner_account_transfer، 129،
+   يعيد استخدام _transfer_execute وcustomer_transfers من 101)؛ ونقل الشركة =
+   إسنادها إلى وحدة أخرى (owner_assign_company_unit القائم في 099).
+   المعنى موثَّق في 129: ليس نقل ملكية حساب ولا ملكية شركة. مالك الشركة
+   وموظفها لا يُنقلان بهذا المسار، والعميل المباشر بلا عضوية أساسية يحتاج
+   انضمامًا أولًا. كل ما هنا خالص: لا DOM ولا شبكة ولا قرار صلاحية — الرفض
+   الحقيقي في القاعدة (owner_critical_ok والسبب ومفتاح منع التكرار). */
+
+export const TRANSFER_MIN_REASON = 20;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** سبب النقل: ≥20 حرفًا بعد القصّ، كما في owner_transfer_exceptional (101). */
+export function validateTransferReason(reason) {
+    const trimmed = String(reason || '').trim();
+    if (trimmed.length < TRANSFER_MIN_REASON) {
+        return { ok: false, error: `سبب النقل مطلوب (20 حرفًا على الأقل) — كتبت ${trimmed.length}.` };
+    }
+    return { ok: true, reason: trimmed };
+}
+
+/** مفتاح منع تكرار: UUID يُولَّد عند فتح الحوار ويبقى له طوال محاولاته، فيعيد الإرسال نفسه بدل نقل ثانٍ. */
+export function newIdempotencyKey() {
+    try {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    } catch {
+        // بلا crypto: بديل محلي فريد بما يكفي لمفتاح حوار واحد.
+    }
+    const hex = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1);
+    return `${hex()}${hex()}-${hex()}-4${hex().slice(1)}-${hex()}-${hex()}${hex()}${hex()}`.toLowerCase();
+}
+
+export function isIdempotencyKey(value) {
+    return UUID_RE.test(String(value || ''));
+}
+
+/** العضوية الأساسية السارية للشخص، أو null — لا نقل بلا شركة أساسية. */
+export function primaryMembership(personData) {
+    const memberships = asArray(personData?.memberships);
+    return memberships.find(m => m.is_primary === true && m.status === 'active') || null;
+}
+
+/** هل تُعرض زر «نقل» على عقدة الشخص؟ عميل (أو مباشر) له عضوية أساسية سارية فقط. */
+export function canTransferPerson(node) {
+    if (!node || node.type !== 'person') return false;
+    if (node.data?.kind !== 'customer' && node.data?.kind !== 'direct') return false;
+    return primaryMembership(node.data) !== null;
+}
+
+/** شركات يملكها الشخص (يظهر فيها kind=owner تحتها) — تُستبعد من وجهات نقله. */
+export function ownedCompanyIds(tree, personId) {
+    const owned = new Set();
+    for (const { node } of flattenTree(tree)) {
+        if (node.type === 'company') {
+            for (const child of node.children || []) {
+                if (child.type === 'person' && child.id === personId && child.data?.kind === 'owner') {
+                    owned.add(node.id);
+                }
+            }
+        }
+    }
+    return owned;
+}
+
+function unitNameById(tree) {
+    const names = new Map();
+    for (const { node } of flattenTree(tree)) {
+        if (node.type === 'unit') names.set(node.id, node.name);
+    }
+    return names;
+}
+
+/**
+ * وجهات النقل المتاحة لعقدة من الشجرة المبنية.
+ * شخص: كل الشركات إلا مصدره الأساسي والشركات التي يملكها، مع اسم وحدتها.
+ * شركة: كل الوحدات إلا وحدتها الحالية، مع خيار «بلا وحدة» إن كانت مسندة.
+ */
+export function transferTargets(tree, node) {
+    if (!tree || !node) return { kind: null, options: [] };
+    if (node.type === 'person') {
+        const source = primaryMembership(node.data);
+        const owned = ownedCompanyIds(tree, node.id);
+        const units = unitNameById(tree);
+        const options = [];
+        for (const { node: c } of flattenTree(tree)) {
+            if (c.type !== 'company') continue;
+            if (source && c.id === source.company_id) continue;
+            if (owned.has(c.id)) continue;
+            const parentUnit = String(c.parentKey || '').startsWith('unit:')
+                ? units.get(String(c.parentKey).replace(/^unit:/, '')) : null;
+            options.push({ id: c.id, name: c.name, unitName: parentUnit || 'بلا وحدة' });
+        }
+        options.sort((a, b) => String(a.name).localeCompare(String(b.name), 'ar'));
+        return { kind: 'person', sourceCompanyId: source?.company_id || null, options };
+    }
+    if (node.type === 'company') {
+        const currentUnitId = String(node.parentKey || '').startsWith('unit:')
+            ? String(node.parentKey).replace(/^unit:/, '') : null;
+        const options = [];
+        for (const { node: u } of flattenTree(tree)) {
+            if (u.type !== 'unit' || u.id === currentUnitId) continue;
+            options.push({ id: u.id, name: u.name, depth: u.data?.depth ?? 0 });
+        }
+        options.sort((a, b) => String(a.name).localeCompare(String(b.name), 'ar'));
+        return { kind: 'company', currentUnitId, canUnassign: currentUnitId !== null, options };
+    }
+    return { kind: null, options: [] };
+}
+
+/**
+ * يبني نداء النقل بعد التحقق الخالص: السبب والوجهة ومفتاح منع التكرار.
+ * يعيد { ok, rpc, args, idempotencyKey } أو { ok:false, error }.
+ * شخص: owner_account_transfer (129)؛ شركة: owner_assign_company_unit (099).
+ * الوجهة null لشركة تعني «بلا وحدة» (إنهاء الإسناد) — مسموحة في 099.
+ */
+export function buildTransferPayload({ node, tree, targetId = undefined, reason = '', keepSourceSecondary = false, idempotencyKey = null } = {}) {
+    const reasonCheck = validateTransferReason(reason);
+    if (!reasonCheck.ok) return { ok: false, error: reasonCheck.error };
+    const key = isIdempotencyKey(idempotencyKey) ? idempotencyKey : newIdempotencyKey();
+    if (node?.type === 'person') {
+        if (!canTransferPerson(node)) {
+            return { ok: false, error: 'لا شركة أساسية سارية لهذا الحساب — النقل يتطلب عضوية أساسية.' };
+        }
+        const targets = transferTargets(tree, node);
+        if (!targets.options.some(o => o.id === targetId)) {
+            return { ok: false, error: 'اختر شركة وجهة صالحة من القائمة.' };
+        }
+        return {
+            ok: true, idempotencyKey: key, rpc: 'owner_account_transfer',
+            args: {
+                p_customer: node.id, p_to_company: targetId, p_reason: reasonCheck.reason,
+                p_keep_source_secondary: keepSourceSecondary === true, p_idempotency_key: key
+            }
+        };
+    }
+    if (node?.type === 'company') {
+        const targets = transferTargets(tree, node);
+        const unassign = targetId === null || targetId === '';
+        if (!unassign && !targets.options.some(o => o.id === targetId)) {
+            return { ok: false, error: 'اختر وحدة وجهة صالحة من القائمة.' };
+        }
+        if (unassign && !targets.canUnassign) return { ok: false, error: 'الشركة بلا وحدة أصلًا.' };
+        return {
+            ok: true, idempotencyKey: key, rpc: 'owner_assign_company_unit',
+            args: { p_company: node.id, p_unit: unassign ? null : targetId, p_reason: reasonCheck.reason }
+        };
+    }
+    return { ok: false, error: 'النقل متاح على عقدة عميل أو شركة فقط.' };
+}
+
+/* ── التفاصيل الكاملة (المرحلة 2) ───────────────────────────────────────────
+   تطبيع ردّ owner_account_details() (129): مصفوفات آمنة، عضويات سارية/منتهية،
+   كل الاشتراكات، عدّادات التذاكر حسب الحالة، وسجل تدقيق مدمج مرتب تنازليًا
+   ومقصوص عند 50. القيم المجهولة تُعرض كما هي لا تُخفى. */
+
+export function buildFullAccountDetails(raw = {}) {
+    const memberships = asArray(raw.memberships);
+    const subscriptions = asArray(raw.subscriptions).map(s => ({
+        ...s,
+        isActive: s.is_active === true
+            || (s.status === 'active' && s.end_date ? new Date(s.end_date).getTime() > Date.now() : false)
+    }));
+    const tickets = raw.tickets || {};
+    const counts = {};
+    for (const [status, n] of Object.entries(tickets.counts || {})) counts[status] = toInt(n);
+    const audit = asArray(raw.audit)
+        .map(e => ({ ...e, at: e.at || null }))
+        .sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))
+        .slice(0, 50);
+    return {
+        profile: raw.profile || null,
+        accountType: raw.account_type || null,
+        direct: raw.direct || null,
+        ownedCompany: raw.owned_company || null,
+        staff: raw.staff || null,
+        memberships,
+        membershipsActive: memberships.filter(m => m.status === 'active'),
+        membershipsEnded: memberships.filter(m => m.status !== 'active'),
+        manager: raw.manager || null,
+        managerHistory: asArray(raw.manager_history),
+        subscriptions,
+        subscriptionsActive: subscriptions.filter(s => s.isActive),
+        wallet: raw.wallet || null,
+        usage: asArray(raw.usage),
+        tickets: { counts, open: toInt(tickets.open), latest: asArray(tickets.latest) },
+        transfers: { pending: toInt(raw.transfers?.pending), latest: asArray(raw.transfers?.latest) },
+        requests: asArray(raw.requests),
+        audit,
+        historyNote: raw.history_note || ''
+    };
+}
+
+/* ── تعديل بيانات الحساب (المرحلة 2) ────────────────────────────────────────
+   الحقول الآمنة: الاسم الكامل والجوال فقط. البريد والرتبة خارج التوقيع عمدًا
+   (129): البريد يعيش في auth.users بلا مسار معتمد، والرتبة عبر مراجعات
+   الإدارة — فهما قراءة فقط مع السبب، لا حقلًا قابلًا للتحرير. */
+
+export const EDITABLE_PROFILE_FIELDS = Object.freeze(['full_name', 'phone']);
+
+export const READONLY_PROFILE_FIELDS = Object.freeze({
+    email: 'البريد مرتبط بحساب الدخول في Auth ولا مسار معتمد لتغييره من لوحة المالك.',
+    role: 'الرتبة تُغيَّر عبر مراجعات الإدارة (حوكمة الشركات) لا من تعديل البيانات.'
+});
+
+/** رتب طاقم المنصة الحسّاسة: تعديلها يتطلب تحققًا بخطوتين (129). */
+export const SENSITIVE_PROFILE_ROLES = Object.freeze(['platform_owner', 'admin', 'support']);
+
+export function profileEditRequiresStepUp(role) {
+    return SENSITIVE_PROFILE_ROLES.includes(role);
+}
+
+const PHONE_RE = /^\+?[0-9][0-9 ()-]*$/;
+
+/**
+ * التحقق الخالص من تعديل بيانات: fullName وphone اختياريان (undefined = بلا تغيير،
+ * وسلسلة فارغة للجوال = مسحه)؛ القيم المطابقة للحالية تُستبعد فيُكتشف عدم التغيير.
+ * يعيد { ok, errors, changes, noop, values }.
+ */
+export function validateProfileEdit({ fullName = undefined, phone = undefined, current = {} } = {}) {
+    const errors = [];
+    const changes = {};
+    let newName = current.full_name ?? null;
+    let newPhone = current.phone ?? null;
+    if (fullName !== undefined && fullName !== null) {
+        newName = String(fullName).trim();
+        if (newName.length < 2 || newName.length > 120) {
+            errors.push('الاسم الكامل بين حرفين و120 حرفًا.');
+        }
+    }
+    if (phone !== undefined && phone !== null) {
+        const trimmed = String(phone).trim();
+        if (trimmed === '') {
+            newPhone = null;
+        } else {
+            newPhone = trimmed;
+            if (newPhone.length > 30 || !PHONE_RE.test(newPhone)) {
+                errors.push('الجوال أرقام وعلامة + ومسافات وشرطات فقط (30 حرفًا حدًا أقصى).');
+            }
+        }
+    }
+    if (fullName === undefined && phone === undefined) {
+        errors.push('لا حقل للتعديل: الاسم الكامل أو الجوال.');
+    }
+    if (errors.length) return { ok: false, errors, changes: {}, noop: false, values: { fullName: newName, phone: newPhone } };
+    if (newName !== (current.full_name ?? null)) changes.full_name = newName;
+    if (newPhone !== (current.phone ?? null)) changes.phone = newPhone;
+    const noop = Object.keys(changes).length === 0;
+    return { ok: true, errors: [], changes, noop, values: { fullName: newName, phone: newPhone } };
+}
+
 /* ── الطي/الفتح: مجموعة مفاتيح مطوية تُحفظ في localStorage ─────────────── */
 
 /** الافتراضي بلا حفظ سابق: الوحدات العميقة (عمق ≥2) مطوية، والباقي مفتوح. */

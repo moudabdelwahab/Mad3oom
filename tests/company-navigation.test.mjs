@@ -699,7 +699,18 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         الحارس owner_only؛ بلا جداول جديدة وبلا كتابة. مقيسٌ في
     //         tests/sql/owner-account-tree.test.sql و
     //         tests/owner-accounts-tree.test.mjs.
-    assert.equal(migrations[migrations.length - 1], '128_owner_account_tree.sql',
+    //   129 — نقل الحساب وتفاصيله الكاملة وتعديل بياناته، بقرار صريح ضمن
+    //         خطة شجرة الحسابات (2026-11-24): owner_account_transfer()
+    //         يعيد استخدام _transfer_execute() وcustomer_transfers (101)
+    //         لنقل العضوية الأساسية بين شركتين، وowner_account_details()
+    //         قراءة فقط للتفاصيل الكاملة، وowner_update_account_profile()
+    //         للاسم والجوال فقط (البريد والرتبة خارج التوقيع عمدًا)؛ ونقل
+    //         الشركة بين الوحدتين يعيد استخدام owner_assign_company_unit()
+    //         القائم (099) بلا دالة جديدة. الحارس owner_only /
+    //         owner_critical_ok؛ بلا جداول جديدة وبلا تغيير مفاتيح. مقيسٌ في
+    //         tests/sql/owner-account-transfer-details.test.sql و
+    //         tests/owner-accounts-tree.test.mjs.
+    assert.equal(migrations[migrations.length - 1], '129_owner_account_transfer_details.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

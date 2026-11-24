@@ -1,26 +1,39 @@
 /**
- * owner/accounts.html — شجرة الحسابات لمالك المنصة (المرحلة 1: قراءة فقط).
+ * owner/accounts.html — شجرة الحسابات لمالك المنصة.
  *
- * المصدر الوحيد owner_account_tree() (مigrations/128): الشجرة كاملة في نداء
- * واحد — وحدات ≤6 وشركاتها وأعضاؤها، وفرع العملاء المباشرين، وشركات بلا
- * وحدة. لا إجراءات كتابة هنا إطلاقًا: لا إنشاء وحدة ولا إسناد ولا تفويض
- * ولا طلبات — كلها في مساراتها القائمة (حوكمة الشركات)، وهذه الصفحة تعرض
- * فقط وتربط إليها. المفاتيح delegation_enabled و
- * account_request_execution_enabled و company_suspension_enforced لا تُلمس.
+ * المرحلة 1 (قراءة فقط): المصدر owner_account_tree() (migrations/128):
+ * الشجرة كاملة في نداء واحد — وحدات ≤6 وشركاتها وأعضاؤها، وفرع العملاء
+ * المباشرين، وشركات بلا وحدة.
  *
- * لوحة التفاصيل: من ردّ الشجرة نفسه. ولعميلٍ تُستكمل — عند النقر فقط — من
- * admin_customer_details() الموجود (سجل العضويات والامتيازات والطلبات)؛
- * فإن رفضته القاعدة في سياق المالك (42501) عُرضت بيانات الشجرة مع ملاحظة
- * أن التفاصيل الكاملة في دليل العملاء، لا رقم مخترع ولا صفحة فارغة.
+ * المرحلة 2: النقل بين آباء الشجرة + التفاصيل الكاملة + تعديل الاسم والجوال.
+ * نقل العميل بين شركتين عبر owner_account_transfer() (129، يعيد استخدام
+ * _transfer_execute وcustomer_transfers من 101)؛ ونقل الشركة بين وحدتين عبر
+ * owner_assign_company_unit() القائم (099)؛ والتفاصيل الكاملة عبر
+ * owner_account_details() (129)؛ والتعديل عبر owner_update_account_profile()
+ * (129: الاسم والجوال فقط — البريد والرتبة قراءة فقط بلا مسار معتمد).
+ * كل كتابة بسبب ≥20 حرفًا للنقل (≥10 للتعديل) ومفتاح منع تكرار، وتتطلب
+ * جلسة تحرير (تحقق بخطوتين) قبل الإرسال؛ الرفض الحقيقي في القاعدة.
+ * لا إنشاء وحدة ولا تفويض ولا طلبات هنا — كلها في مساراتها القائمة.
+ * لا مفاتيح feature تُلمس.
+ *
+ * لوحة التفاصيل: من ردّ الشجرة نفسه فورًا، ثم تُستكمل — عند النقر فقط — من
+ * owner_account_details()؛ فإن رفضته القاعدة (42501) يُجرَّب
+ * admin_customer_details() الموجود، ثم تُعرض بيانات الشجرة مع ملاحظة أن
+ * التفاصيل الكاملة في دليل العملاء، لا رقم مخترع ولا صفحة فارغة.
  */
 import {
-    supabase, bootOwnerPage, announce, esc, when, day, num, kpis, errorBlock, loadingBlock, friendlyError
+    supabase, bootOwnerPage, announce, esc, when, day, num, kpis, errorBlock, loadingBlock, friendlyError, openModal
 } from '/assets/js/owner/owner-page.js';
 import {
     buildAccountTree, flattenTree, searchTree, applyFilters, defaultCollapsed,
     loadCollapsed, saveCollapsed, toggleCollapsed, TYPE_LABELS, ACCOUNT_TYPE_LABELS,
-    PERSON_KIND_LABELS, statusInfo, subscriptionInfo, normalizeSearch
+    PERSON_KIND_LABELS, statusInfo, subscriptionInfo, normalizeSearch,
+    TRANSFER_MIN_REASON, validateTransferReason, newIdempotencyKey,
+    canTransferPerson, transferTargets, buildTransferPayload, buildFullAccountDetails,
+    validateProfileEdit, profileEditRequiresStepUp, READONLY_PROFILE_FIELDS
 } from '/assets/js/owner/accounts-tree-model.js';
+import { TICKET_STATUS_LABELS, TICKET_STATUS_TONES } from '/assets/js/owner/owner-labels.js';
+import { ensureStepUp } from '/assets/js/security/step-up-modal.js';
 
 const $ = (id) => document.getElementById(id);
 const MISSING = new Set(['PGRST202', '42883', 'PGRST404']);
@@ -32,6 +45,7 @@ let selectedKey = 'root';
 let searchTerm = '';
 let searchMatches = new Set();
 let detailsCache = new Map();
+let legacyCache = new Map();
 
 const say = (text, tone = 'info') => announce($('pageStatus'), text, tone);
 
@@ -180,7 +194,7 @@ function renderDetail() {
             ['عملاء', num(c.customers)], ['تذاكر مفتوحة', num(c.open_tickets)],
             ['التفويض', d.delegationEnabled ? 'مفعّل' : 'مطفأ (يبقى مطفأ في هذه المرحلة)']
         ]);
-        html += '<p class="panel-subtitle">الجذر «مالك المنصة». اختر عقدة من الشجرة لعرض تفاصيلها. كل ما هنا قراءة فقط؛ الإجراءات في حوكمة الشركات ومساراتها القائمة.</p>';
+        html += '<p class="panel-subtitle">الجذر «مالك المنصة». اختر عقدة من الشجرة لعرض تفاصيلها. النقل والتعديل متاحان من أزرار تفاصيل العقدة؛ باقي الإجراءات في حوكمة الشركات ومساراتها القائمة.</p>';
     } else if (node.type === 'unit') {
         html += kv([
             ['الوصف', d.description ? esc(d.description) : null],
@@ -202,8 +216,9 @@ function renderDetail() {
             </li>`).join('')}</ul>`);
         }
         html += detailSection('سجل تدقيق الوحدة', eventsList(d.events));
-        html += '<p class="panel-subtitle">إنشاء وحدة أو إسناد شركة أو منح تفويض: في حوكمة الشركات بلوحة المالك، لا من هذه الصفحة.</p>';
+        html += '<p class="panel-subtitle">إنشاء وحدة أو منح تفويض: في حوكمة الشركات بلوحة المالك، لا من هذه الصفحة. أما نقل شركة إلى وحدة أخرى فمن زر «نقل» في تفاصيل الشركة هنا.</p>';
     } else if (node.type === 'company') {
+        html += detailActions(node);
         html += kv([
             ['الحالة', pill(node.statusLabel, node.statusTone)],
             ['الأعضاء', num(d.membersCount)], ['العملاء', num(d.customersCount)],
@@ -218,6 +233,7 @@ function renderDetail() {
         html += detailSection('سجل تدقيق الشركة', eventsList(d.events));
         html += '<p class="panel-subtitle"><a href="/admin/customers.html">دليل العملاء في مساحة الإدارة</a> · <a href="/owner/subscriptions.html">اشتراكات المنصة</a></p>';
     } else if (node.type === 'person') {
+        html += detailActions(node);
         const sub = node.data.subscription;
         html += kv([
             ['الدور', d.accountTypeLabel ? esc(d.accountTypeLabel) : null],
@@ -245,10 +261,10 @@ function renderDetail() {
                 <p class="state-text">أسندها ${esc(h.assigned_by_name || '—')}${h.reason ? ` · ${esc(h.reason)}` : ''}${h.ended_at ? ` · انتهت (${esc(h.end_cause || '')})` : ''}</p>
             </li>`).join('')}</ul>`);
         }
-        html += '<div id="acctExtraDetail"><p class="panel-subtitle">جارٍ إكمال السجل من دليل العملاء…</p></div>';
+        html += '<div id="acctFullDetail"><p class="panel-subtitle">جارٍ إكمال التفاصيل الكاملة…</p></div>';
         html += '<p class="panel-subtitle"><a href="/admin/customers.html">دليل العملاء في مساحة الإدارة</a></p>';
         box.innerHTML = html;
-        loadExtraDetail(node);
+        loadFullDetail(node);
         return;
     } else {
         // فرعا «عملاء مباشرون» و«شركات بلا وحدة»: عدّادات فقط.
@@ -261,16 +277,51 @@ function renderDetail() {
     box.innerHTML = html;
 }
 
-/** تفصيل العميل الإضافي من admin_customer_details() عند النقر فقط، مع تخزين مؤقت. */
-async function loadExtraDetail(node) {
-    const slot = $('acctExtraDetail');
+/** أزرار إجراءات العقدة في لوحة التفاصيل: نقل (عميل/شركة) وتعديل (شخص). */
+function detailActions(node) {
+    const acts = [];
+    if (node.type === 'company') {
+        acts.push('<button type="button" class="btn btn-outline btn-sm" data-action="transfer">نقل إلى وحدة أخرى</button>');
+    }
+    if (node.type === 'person') {
+        if (canTransferPerson(node)) {
+            acts.push('<button type="button" class="btn btn-outline btn-sm" data-action="transfer">نقل إلى شركة أخرى</button>');
+        }
+        acts.push('<button type="button" class="btn btn-outline btn-sm" data-action="edit-profile">تعديل الاسم والجوال</button>');
+    }
+    return acts.length ? `<div class="owner-row-actions" style="margin-bottom:12px">${acts.join('')}</div>` : '';
+}
+
+/** التفاصيل الكاملة من owner_account_details() (129) عند النقر فقط، مع تخزين مؤقت. */
+async function loadFullDetail(node) {
+    const slot = $('acctFullDetail');
     if (!slot) return;
+    if (detailsCache.has(node.id)) {
+        renderFullDetail(slot, detailsCache.get(node.id));
+        return;
+    }
+    let data, error = null;
+    try {
+        ({ data, error } = await supabase.rpc('owner_account_details', { p_user_id: node.id }));
+    } catch (err) {
+        error = err;
+    }
+    if (!error && data) {
+        detailsCache.set(node.id, data);
+        renderFullDetail(slot, data);
+        return;
+    }
+    loadLegacyDetail(node, slot);
+}
+
+/** احتياط المرحلة 1: admin_customer_details() الموجود (105) إن رفضت القاعدة الجديد. */
+async function loadLegacyDetail(node, slot) {
     if (node.data.kind === 'unit_member' || node.data.accountType === 'platform_staff') {
         slot.innerHTML = '<p class="panel-subtitle">عضو طاقم: تفاصيله الكاملة في إدارة المستخدمين، لا في دليل العملاء.</p>';
         return;
     }
-    if (detailsCache.has(node.id)) {
-        renderExtraDetail(slot, detailsCache.get(node.id));
+    if (legacyCache.has(node.id)) {
+        renderExtraDetail(slot, legacyCache.get(node.id));
         return;
     }
     let data, error = null;
@@ -283,8 +334,53 @@ async function loadExtraDetail(node) {
         slot.innerHTML = '<p class="panel-subtitle">تعذّر إكمال السجل من دليل العملاء في هذا السياق — البيانات أعلاه من شجرة الحسابات، والتفاصيل الكاملة (السجل والطلبات) في <a href="/admin/customers.html">دليل العملاء</a>.</p>';
         return;
     }
-    detailsCache.set(node.id, data);
+    legacyCache.set(node.id, data);
     renderExtraDetail(slot, data);
+}
+
+function renderFullDetail(slot, raw) {
+    const full = buildFullAccountDetails(raw);
+    let html = '';
+    html += detailSection('كل الاشتراكات', full.subscriptions.length
+        ? `<ul class="owner-thread">${full.subscriptions.map(su => `<li>
+            <div class="owner-thread-head"><span>${esc(su.plan_name_ar || su.plan || '')}</span><span>${esc(subscriptionInfo(su).label)}${su.end_date ? ` · ينتهي ${esc(day(su.end_date))}` : ''}</span></div>
+            <p class="state-text">${su.company_name ? `الشركة: ${esc(su.company_name)} · ` : ''}الدورة: ${esc(su.billing_cycle || '—')} · بدأ ${esc(day(su.start_date))}${su.days_remaining !== null && su.days_remaining !== undefined ? ` · متبقٍ ${num(su.days_remaining)} يوم` : ''}</p>
+        </li>`).join('')}</ul>`
+        : '<p class="panel-subtitle">بلا اشتراكات.</p>');
+    const w = full.wallet;
+    html += detailSection('المحفظة والاستهلاك', kv([
+        ['إجمالي النقاط', w ? num(w.total_points) : '—'],
+        ['النقاط المتاحة', w ? num(w.available_points) : '—'],
+        ['التجميد', w ? (w.is_frozen ? 'مجمّد' : 'غير مجمّد') : '—']
+    ]) + (full.usage.length
+        ? `<ul class="owner-thread">${full.usage.map(u => `<li>
+            <div class="owner-thread-head"><span>${esc(u.event || '')} · ${esc(u.counter || '')} · ${num(u.units)}</span><span>${esc(when(u.recorded_at))}</span></div>
+            <p class="state-text">الفترة: ${esc(day(u.period))}${u.source ? ` · المصدر: ${esc(u.source)}` : ''}</p>
+        </li>`).join('')}</ul>`
+        : '<p class="panel-subtitle">لا قيود استهلاك مسجّلة.</p>'));
+    const counts = Object.entries(full.tickets.counts)
+        .map(([st, n]) => `${esc(TICKET_STATUS_LABELS[st] || st)}: ${num(n)}`).join(' · ');
+    html += detailSection('التذاكر', (counts ? `<p class="state-text">${counts}</p>` : '<p class="panel-subtitle">بلا تذاكر.</p>')
+        + (full.tickets.latest.length
+            ? `<ul class="owner-thread">${full.tickets.latest.map(t => `<li>
+                <div class="owner-thread-head"><span>${t.ticket_number ? `#${esc(t.ticket_number)} · ` : ''}${esc(t.title || 'تذكرة بلا عنوان')}</span><span>${esc(TICKET_STATUS_LABELS[t.status] || t.status || '')}</span></div>
+                <p class="state-text">${t.company_name ? `${esc(t.company_name)} · ` : ''}${esc(when(t.created_at))}</p>
+            </li>`).join('')}</ul>` : ''));
+    if (full.transfers.pending || full.transfers.latest.length) {
+        html += detailSection('النقل بين الشركات', (full.transfers.pending
+            ? `<p class="state-text">طلبات معلّقة: ${num(full.transfers.pending)}</p>` : '')
+            + `<ul class="owner-thread">${full.transfers.latest.map(tr => `<li>
+                <div class="owner-thread-head"><span>${esc(tr.from_company || '')} ← ${esc(tr.to_company || '')}</span><span>${esc(tr.status || '')}</span></div>
+                <p class="state-text">بادر به: ${esc(tr.initiated_as || '—')} · ${esc(when(tr.created_at))}${tr.completed_at ? ` · اكتمل ${esc(when(tr.completed_at))}` : ''}</p>
+            </li>`).join('')}</ul>`);
+    }
+    html += detailSection('سجل التدقيق الكامل', full.audit.length
+        ? `<ul class="owner-thread">${full.audit.slice(0, 20).map(a => `<li>
+            <div class="owner-thread-head"><span>${esc(a.action || '')}</span><span>${esc(when(a.at))}</span></div>
+            <p class="state-text">الفاعل: ${esc(a.actor_name || '—')}${a.source ? ` · المصدر: ${esc(a.source)}` : ''}${a.company_name ? ` · ${esc(a.company_name)}` : ''}</p>
+        </li>`).join('')}</ul><p class="panel-subtitle">${esc(full.historyNote || '')}</p>`
+        : '<p class="panel-subtitle">لا أحداث مسجّلة على هذا الحساب.</p>');
+    slot.innerHTML = html;
 }
 
 function renderExtraDetail(slot, data) {
@@ -300,6 +396,140 @@ function renderExtraDetail(slot, data) {
             <div class="owner-thread-head"><span>${esc(r.request_type || '')}</span><span>${esc(r.status || '')}</span></div>
             <p class="state-text">${esc(r.company_name || '')} · ${esc(when(r.requested_at))}</p>
         </li>`).join('')}</ul>`) : '');
+}
+
+/** حوار النقل: وجهة + سبب ≥20 حرفًا + مفتاح منع تكرار يولَّد للحوارة؛ ثم جلسة تحرير، ثم النداء. */
+function openTransferDialog(node) {
+    const isPerson = node.type === 'person';
+    const targets = transferTargets(tree, node);
+    const key = newIdempotencyKey();
+    const { body, close } = openModal({
+        title: isPerson ? `نقل «${node.name}» إلى شركة أخرى` : `نقل «${node.name}» إلى وحدة أخرى`,
+        wide: true
+    });
+    const options = isPerson
+        ? targets.options.map(o => `<option value="${esc(o.id)}">${esc(o.name)} — ${esc(o.unitName)}</option>`).join('')
+        : targets.options.map(o => `<option value="${esc(o.id)}">${esc('— '.repeat(o.depth || 0) + o.name)}</option>`).join('')
+            + (targets.canUnassign ? '<option value="">بلا وحدة (إنهاء الإسناد)</option>' : '');
+    body.innerHTML = `
+        <form id="acctTransferForm" novalidate>
+            <p class="state-text">${isPerson
+                ? `ينقل عضوية «${esc(node.name)}» الأساسية من شركته الحالية إلى شركة الوجهة.`
+                : `ينقل الشركة إلى وحدة أخرى؛ إسنادها الحالي يُنهى ويبقى في السجل. لا يمنح النقل أي وصول لبيانات الشركة.`}</p>
+            <label for="acctTransferTarget">${isPerson ? 'شركة الوجهة' : 'الوحدة الوجهة'}</label>
+            <select class="form-control" id="acctTransferTarget" required>${options}</select>
+            ${isPerson ? '<label class="acct-check"><input type="checkbox" id="acctTransferKeep"> إبقاء الشركة الحالية عضوية إضافية بعد النقل</label>' : ''}
+            <label for="acctTransferReason">سبب النقل (إجباري، ${TRANSFER_MIN_REASON} حرفًا على الأقل — يُسجَّل في التدقيق)</label>
+            <textarea class="form-control" id="acctTransferReason" rows="3" maxlength="500" required></textarea>
+            <p class="panel-subtitle"><span id="acctTransferCount">0</span> / ${TRANSFER_MIN_REASON} حرفًا على الأقل.</p>
+            <p class="panel-subtitle">يتطلب النقل جلسة تحرير (تحقق بخطوتين) — تُفتح نافذته عند التأكيد إن لم تكن سارية. مفتاح منع التكرار لهذا الحوار: <span dir="ltr">${esc(key)}</span>.</p>
+            <p class="state-text" id="acctTransferError" role="alert" style="color: var(--color-danger, #c0392b)" hidden></p>
+            <div class="owner-row-actions">
+                <button type="submit" class="btn btn-primary" id="acctTransferSubmit">تأكيد النقل</button>
+                <button type="button" class="btn btn-outline" data-transfer-cancel>إلغاء</button>
+            </div>
+        </form>`;
+    const form = body.querySelector('#acctTransferForm');
+    const reasonEl = body.querySelector('#acctTransferReason');
+    const countEl = body.querySelector('#acctTransferCount');
+    const errorEl = body.querySelector('#acctTransferError');
+    const showError = (msg) => { errorEl.textContent = msg; errorEl.hidden = false; };
+    reasonEl.addEventListener('input', () => { countEl.textContent = String(reasonEl.value.trim().length); });
+    body.querySelector('[data-transfer-cancel]').addEventListener('click', close);
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errorEl.hidden = true;
+        const reasonCheck = validateTransferReason(reasonEl.value);
+        if (!reasonCheck.ok) { showError(reasonCheck.error); return; }
+        const payload = buildTransferPayload({
+            node, tree,
+            targetId: body.querySelector('#acctTransferTarget').value || null,
+            reason: reasonCheck.reason,
+            keepSourceSecondary: body.querySelector('#acctTransferKeep')?.checked === true,
+            idempotencyKey: key
+        });
+        if (!payload.ok) { showError(payload.error); return; }
+        const submit = body.querySelector('#acctTransferSubmit');
+        submit.disabled = true;
+        try {
+            const ok = await ensureStepUp({ reason: 'نقل حساب — عملية حرجة تتطلب تحققًا بخطوتين.' });
+            if (!ok) { showError('أُلغي التحقق بخطوتين — لم يُنفَّذ النقل.'); return; }
+            const { data, error } = await supabase.rpc(payload.rpc, payload.args);
+            if (error) { showError(friendlyError(error)); return; }
+            close();
+            say(data?.replayed ? 'هذا النقل نُفّذ سابقًا بهذا المفتاح — لم يتكرر.' : 'تم النقل وسُجِّل في التدقيق.', 'success');
+            await load();
+        } catch (err) {
+            showError(friendlyError(err));
+        } finally {
+            submit.disabled = false;
+        }
+    });
+}
+
+/** حوار تعديل الاسم والجوال: البريد والرتبة قراءة فقط مع سبب المنع. */
+function openEditDialog(node) {
+    const d = node.data || {};
+    const current = { full_name: node.name, phone: d.phone || null };
+    const needsStepUp = profileEditRequiresStepUp(d.role);
+    const { body, close } = openModal({ title: `تعديل بيانات «${node.name}»`, wide: true });
+    body.innerHTML = `
+        <form id="acctEditForm" novalidate>
+            <p class="state-text">الحقول الآمنة فقط: الاسم الكامل والجوال. يُسجَّل التعديل بسبب في التدقيق.</p>
+            <label for="acctEditName">الاسم الكامل</label>
+            <input class="form-control" id="acctEditName" type="text" maxlength="120" value="${esc(current.full_name || '')}" dir="auto">
+            <label for="acctEditPhone">الجوال (اتركه فارغًا لمسحه)</label>
+            <input class="form-control" id="acctEditPhone" type="tel" maxlength="30" value="${esc(current.phone || '')}" dir="ltr">
+            <dl class="owner-detail-grid">
+                <div><dt>البريد</dt><dd><span dir="ltr">${esc(d.email || '—')}</span><br><span class="panel-subtitle">${esc(READONLY_PROFILE_FIELDS.email)}</span></dd></div>
+                ${d.kind !== 'unit_member' ? `<div><dt>الرتبة</dt><dd>${esc(d.role || '—')}<br><span class="panel-subtitle">${esc(READONLY_PROFILE_FIELDS.role)}</span></dd></div>` : ''}
+            </dl>
+            <label for="acctEditReason">سبب التعديل (إجباري، 10 أحرف على الأقل — يُسجَّل في التدقيق)</label>
+            <textarea class="form-control" id="acctEditReason" rows="2" maxlength="500" required></textarea>
+            ${needsStepUp ? '<p class="panel-subtitle">حساب حسّاس (طاقم المنصة): يتطلب جلسة تحرير (تحقق بخطوتين) عند التأكيد.</p>' : ''}
+            <p class="state-text" id="acctEditError" role="alert" style="color: var(--color-danger, #c0392b)" hidden></p>
+            <div class="owner-row-actions">
+                <button type="submit" class="btn btn-primary" id="acctEditSubmit">حفظ التعديل</button>
+                <button type="button" class="btn btn-outline" data-edit-cancel>إلغاء</button>
+            </div>
+        </form>`;
+    const form = body.querySelector('#acctEditForm');
+    const errorEl = body.querySelector('#acctEditError');
+    const showError = (msg) => { errorEl.textContent = msg; errorEl.hidden = false; };
+    body.querySelector('[data-edit-cancel]').addEventListener('click', close);
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errorEl.hidden = true;
+        const check = validateProfileEdit({
+            fullName: body.querySelector('#acctEditName').value,
+            phone: body.querySelector('#acctEditPhone').value,
+            current
+        });
+        if (!check.ok) { showError(check.errors.join(' ')); return; }
+        if (check.noop) { close(); say('لا تغيير للحفظ — القيم كما هي.', 'info'); return; }
+        const reason = body.querySelector('#acctEditReason').value.trim();
+        if (reason.length < 10) { showError('سبب التعديل مطلوب (10 أحرف على الأقل).'); return; }
+        const submit = body.querySelector('#acctEditSubmit');
+        submit.disabled = true;
+        try {
+            const ok = await ensureStepUp({ reason: 'تعديل بيانات حساب — عملية تتطلب تحققًا بخطوتين.' });
+            if (!ok) { showError('أُلغي التحقق بخطوتين — لم يُحفظ التعديل.'); return; }
+            const { data, error } = await supabase.rpc('owner_update_account_profile', {
+                p_user_id: node.id,
+                p_full_name: 'full_name' in check.changes ? check.changes.full_name : null,
+                p_phone: 'phone' in check.changes ? (check.changes.phone ?? '') : null,
+                p_reason: reason
+            });
+            if (error) { showError(friendlyError(error)); return; }
+            close();
+            if (data?.changed === false) say('لا تغيير للحفظ — القيم كما هي.', 'info');
+            else { say('تم حفظ التعديل وسُجِّل في التدقيق.', 'success'); await load(); }
+        } catch (err) {
+            showError(friendlyError(err));
+        } finally {
+            submit.disabled = false;
+        }
+    });
 }
 
 function renderUnitOptions() {
@@ -335,6 +565,7 @@ async function load() {
     collapsed = saved ?? defaultCollapsed(tree);
     selectedKey = 'root';
     detailsCache = new Map();
+    legacyCache = new Map();
     searchTerm = '';
     $('acctSearch').value = '';
     searchMatches = new Set();
@@ -366,6 +597,14 @@ function selectNode(key) {
     ['acctType', 'acctStatus', 'acctUnit'].forEach(id => $(id).addEventListener('change', applyView));
     $('acctNoManager').addEventListener('change', applyView);
     $('acctRefresh').addEventListener('click', load);
+    $('acctDetail').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const node = findNode(selectedKey);
+        if (!node) return;
+        if (btn.dataset.action === 'transfer') openTransferDialog(node);
+        if (btn.dataset.action === 'edit-profile') openEditDialog(node);
+    });
     $('acctExpandAll').addEventListener('click', () => { collapsed = new Set(); saveCollapsed(window.localStorage, collapsed); renderTree(); });
     $('acctCollapseAll').addEventListener('click', () => {
         collapsed = new Set(flattenTree(view).filter(({ node }) => node.children.length).map(({ node }) => node.key));
