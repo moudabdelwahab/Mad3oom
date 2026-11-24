@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>الاستوديو الصوتي | مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-workspace.css">
+    <link rel="stylesheet" href="/assets/css/portal-notifications.css">
+    <link rel="stylesheet" href="/assets/css/owner-pages.css">
+    <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
+    <link rel="stylesheet" href="/assets/css/owner-voice-studio.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في لوحة المالك — الثيم وحالة الطي قبل أول رسم. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body class="customer-shell owner-shell dash-layout" data-owner-page="voice-studio">
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main" id="ownerMain">
+        <!-- بوابة العرض: سبب المنع بدل صفحة فارغة. القرار الحقيقي في القاعدة؛ هذه رسالة. -->
+        <section class="panel" id="ownerGate" hidden>
+            <div class="state-block" id="ownerGateBody"></div>
+        </section>
+
+        <div id="ownerContent" hidden>
+            <div class="owner-page-stack vs-page">
+                <!-- تلميح افتتاحي قصير باسم مدعوم — يُتخطّى بعد أول عرض. -->
+                <div class="vs-intro" id="vsIntro" hidden>
+                    <div class="vs-intro-main">
+                        <p class="vs-intro-title">أهلاً بك في الاستوديو الصوتي — مدعوم</p>
+                        <p class="vs-intro-text">تعليق صوتي عربي باثنتي عشرة لهجة، وكتب صوتية، وبودكاست، وتفريغ نصي — كلها من لوحة المالك.</p>
+                    </div>
+                    <button type="button" class="btn btn-outline btn-sm" id="vsIntroClose">فهمت، ابدأ</button>
+                </div>
+
+                <section class="panel vs-head-panel" aria-labelledby="vsPageTitle">
+                    <div class="vs-head">
+                        <div>
+                            <h1 class="panel-title" id="vsPageTitle">الاستوديو الصوتي</h1>
+                            <p class="vs-head-sub">محرك التعليق الصوتي العربي — مدعوم</p>
+                            <p class="vs-engine-badge" id="vsEngineBadge" role="status">المحرك: Edge TTS — مجاني، بلا مفتاح</p>
+                            <div class="vs-engine-pills" role="group" aria-label="اختيار محرك التوليد">
+                                <button type="button" class="vs-pill is-active" id="vsEngineEdge" data-vs-engine="edge">Edge TTS (مجاني)</button>
+                                <button type="button" class="vs-pill" id="vsEngineGemini" data-vs-engine="gemini">Gemini (بمفتاح)</button>
+                            </div>
+                            <p class="vs-engine-note">Edge TTS خدمة غير رسمية من مايكروسوفت، بلا عقد ولا مفتاح — قد تتوقف أو تتغير دون إشعار، وليست خدمة مضمونة.</p>
+                        </div>
+                        <div class="vs-key-box">
+                            <label class="vs-key-label" for="vsGeminiKey">مفتاح Gemini الشخصي (اختياري — لمحرك Gemini ووظائف النص فقط)</label>
+                            <div class="vs-key-row">
+                                <input type="password" class="form-control" id="vsGeminiKey" placeholder="AIza…" autocomplete="off" spellcheck="false">
+                                <button type="button" class="btn btn-outline btn-sm" id="vsSaveKeyBtn">حفظ المفتاح</button>
+                            </div>
+                            <p class="vs-key-status" id="vsKeyStatus" role="status">بلا مفتاح شخصي — التوليد الصوتي يعمل عبر Edge TTS المجاني؛ وظائف النص (تحسين، تفريغ…) تحتاج مفتاح Gemini.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <nav class="vs-mode-tabs" id="vsModeTabs" aria-label="أوضاع الاستوديو">
+                    <button type="button" class="vs-mode-tab is-active" data-vs-mode="voice" aria-pressed="true">تعليق صوتي</button>
+                    <button type="button" class="vs-mode-tab" data-vs-mode="audiobook" aria-pressed="false">كتب صوتية</button>
+                    <button type="button" class="vs-mode-tab" data-vs-mode="podcast" aria-pressed="false">بودكاست</button>
+                    <button type="button" class="vs-mode-tab" data-vs-mode="transcript" aria-pressed="false">تفريغ نصي</button>
+                </nav>
+
+                <!-- ── وضع التعليق الصوتي ── -->
+                <section id="vsSectionVoice" aria-label="التعليق الصوتي">
+                    <div class="vs-stack">
+                        <section class="panel vs-panel">
+                            <h2 class="vs-step-title">١. منصة اختيار اللهجات</h2>
+                            <div class="vs-dialects" id="vsDialects" role="group" aria-label="اختيار اللهجة"></div>
+                            <p class="vs-dialect-note" id="vsDialectNote" hidden>ملاحظة: لا يوجد صوت سوداني أصلي في Edge TTS — يُستخدم أقرب بديل مصري (Salma / Shakir).</p>
+                        </section>
+
+                        <section class="panel vs-panel">
+                            <h2 class="vs-step-title">٢. الفئة العمرية والنمط الأدائي</h2>
+                            <div class="vs-types" id="vsTypes" role="group" aria-label="الفئة العمرية"></div>
+                            <div class="vs-genders" id="vsGenders" role="group" aria-label="الجنس">
+                                <button type="button" class="vs-pill is-active" data-vs-gender="ذكر">ذكر</button>
+                                <button type="button" class="vs-pill" data-vs-gender="أنثى">أنثى</button>
+                            </div>
+                            <div class="vs-field-row">
+                                <label class="vs-field-label" for="vsField">المجال</label>
+                                <select class="form-control vs-field-select" id="vsField"></select>
+                            </div>
+                            <h3 class="vs-gallery-title">معرض النخب الصوتية</h3>
+                            <div class="vs-gallery" id="vsGallery"></div>
+                            <p class="vs-gallery-empty" id="vsGalleryEmpty" hidden>محرك البحث الصوتي لا يجد نتائج لهذا الاختيار.</p>
+                        </section>
+
+                        <section class="panel vs-panel">
+                            <h2 class="vs-step-title">٣. غرفة التحكم والمعالجة</h2>
+                            <div class="vs-controls" id="vsControls"></div>
+                            <div class="vs-purpose">
+                                <span class="vs-purpose-label">الغرض من الصوت (اختياري)</span>
+                                <div class="vs-purpose-list" id="vsPurpose"></div>
+                                <p class="vs-purpose-note" id="vsPurposeNote" hidden></p>
+                            </div>
+                            <div class="vs-lock-row">
+                                <button type="button" class="btn btn-primary" id="vsLockBtn">تثبيت الصوت</button>
+                                <button type="button" class="btn btn-outline" id="vsFingerprintBtn">بصمة الصوت</button>
+                            </div>
+                            <p class="vs-lock-note">تثبيت الصوت يمنع تغيير اللهجة أو المؤدي أو الإعدادات أثناء جلسات الإنتاج الطويلة لضمان الاتساق الكامل.</p>
+                            <div class="vs-fingerprint" id="vsFingerprintPanel" hidden>
+                                <div class="vs-fingerprint-head">
+                                    <h3 class="vs-fingerprint-title">تخصيص بصمة الصوت</h3>
+                                    <button type="button" class="vs-fingerprint-close" id="vsFpCancel" aria-label="إغلاق">✕</button>
+                                </div>
+                                <label class="vs-fp-label" for="vsFpName">اسم الهوية الصوتية (اختياري)</label>
+                                <input type="text" class="form-control" id="vsFpName" placeholder="مثل: صوت البودكاست، صوت القناة…">
+                                <div class="vs-fp-grid">
+                                    <div>
+                                        <span class="vs-fp-label">الأسلوب</span>
+                                        <div class="vs-fp-opts" id="vsFpStyle" role="group" aria-label="الأسلوب"></div>
+                                    </div>
+                                    <div>
+                                        <span class="vs-fp-label">الإيقاع</span>
+                                        <div class="vs-fp-opts" id="vsFpRhythm" role="group" aria-label="الإيقاع"></div>
+                                    </div>
+                                    <div>
+                                        <span class="vs-fp-label">طريقة السرد</span>
+                                        <div class="vs-fp-opts" id="vsFpNarrative" role="group" aria-label="طريقة السرد"></div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-primary" id="vsFpSave">حفظ بصمة الصوت</button>
+                                <button type="button" class="btn btn-outline btn-sm" id="vsFpDeactivate" hidden>إلغاء تفعيل البصمة</button>
+                                <p class="vs-fp-confirm" id="vsFpConfirm" role="status" hidden>تم حفظ بصمة الصوت بنجاح.</p>
+                            </div>
+                        </section>
+
+                        <section class="panel vs-panel">
+                            <h2 class="vs-step-title">٤. هندسة النص والمخطوطة</h2>
+                            <div class="vs-text-grid">
+                                <div>
+                                    <label class="vs-field-label" for="vsInputText">مسودة النص</label>
+                                    <textarea class="form-control vs-textarea" id="vsInputText" placeholder="ابدأ بكتابة فكرتك هنا…"></textarea>
+                                    <div class="vs-text-actions">
+                                        <button type="button" class="btn btn-outline" id="vsPreprocessBtn">تحسين النص ذكياً</button>
+                                        <button type="button" class="btn btn-outline" id="vsKeySentencesBtn" title="تحليل الجمل المحورية">الجمل المحورية</button>
+                                        <button type="button" class="btn btn-outline" id="vsImportTextBtn">استيراد من ملف</button>
+                                        <input type="file" id="vsImportFile" accept=".txt,.doc,.docx,.pdf" hidden>
+                                    </div>
+                                    <p class="vs-import-name" id="vsImportName" hidden></p>
+                                </div>
+                                <div>
+                                    <label class="vs-field-label" for="vsProcessedText">المخطوطة النهائية</label>
+                                    <textarea class="form-control vs-textarea" id="vsProcessedText" placeholder="سيظهر النص المعالج هنا للإخراج النهائي…"></textarea>
+                                </div>
+                            </div>
+                            <div class="vs-key-sentences" id="vsKeySentences" hidden>
+                                <p class="vs-key-sentences-title">جملة محورية</p>
+                                <div id="vsKeySentencesList"></div>
+                            </div>
+                            <button type="button" class="btn btn-primary vs-generate" id="vsGenerateBtn">توليد الصوت النهائي</button>
+                            <div class="vs-progress" id="vsProgress" hidden>
+                                <p class="vs-progress-label" id="vsProgressLabel" role="status">جاري تهيئة المحرك…</p>
+                                <div class="meter" role="presentation"><span class="meter-fill" id="vsProgressBar" style="width:0%"></span></div>
+                                <p class="vs-progress-pct" id="vsProgressPct">0%</p>
+                            </div>
+                            <div class="vs-result" id="vsResult" hidden></div>
+                        </section>
+
+                        <section class="panel vs-panel" id="vsHistoryPanel" hidden>
+                            <h2 class="vs-step-title">السجل الأخير</h2>
+                            <div class="vs-history" id="vsHistory"></div>
+                        </section>
+                    </div>
+                </section>
+
+                <!-- ── وضع الكتب الصوتية ── -->
+                <section id="vsSectionAudiobook" aria-label="الكتب الصوتية" hidden>
+                    <div class="vs-stack">
+                        <section class="panel vs-panel">
+                            <div class="vs-book-head">
+                                <div>
+                                    <h2 class="vs-step-title">استوديو الكتب الصوتية</h2>
+                                    <p class="vs-head-sub">حوّل كتابك لتجربة صوتية كاملة — راوٍ، وشخصيات، وإخراج احترافي.</p>
+                                </div>
+                                <button type="button" class="btn btn-outline" id="vsBookNewBtn">مشروع جديد</button>
+                            </div>
+                            <ol class="vs-book-steps" id="vsBookSteps"></ol>
+                            <div class="vs-book-panel" id="vsBookPanel"></div>
+                        </section>
+                    </div>
+                </section>
+
+                <!-- ── وضع البودكاست ── -->
+                <section id="vsSectionPodcast" aria-label="البودكاست" hidden>
+                    <div class="vs-stack">
+                        <section class="panel vs-panel">
+                            <h2 class="vs-step-title">استوديو البودكاست</h2>
+                            <p class="vs-head-sub">اصنع بودكاست ذكي بصوت بشري — تحليل، وحوار، وإنتاج جاهز.</p>
+                            <div class="vs-pod-source">
+                                <div class="vs-field-row">
+                                    <label class="vs-field-label" for="vsPodDialect">لهجة الحوار</label>
+                                    <select class="form-control vs-field-select" id="vsPodDialect"></select>
+                                </div>
+                                <div class="vs-pod-source-tabs" role="group" aria-label="مصدر المحتوى">
+                                    <button type="button" class="vs-pill is-active" data-vs-pod-source="manual">نص يدوي</button>
+                                    <button type="button" class="vs-pill" data-vs-pod-source="upload">رفع ملف</button>
+                                </div>
+                            </div>
+                            <div id="vsPodManualBox">
+                                <label class="vs-field-label" for="vsPodText">نص البودكاست المراد تحليله</label>
+                                <textarea class="form-control vs-textarea" id="vsPodText" placeholder="اكتب فكرة البودكاست أو السيناريو الأولي هنا…"></textarea>
+                            </div>
+                            <div id="vsPodUploadBox" hidden>
+                                <label class="vs-field-label" for="vsPodFile">رفع ملف نصي أو مستند (TXT / DOCX / PDF)</label>
+                                <input type="file" class="form-control" id="vsPodFile" accept=".txt,.doc,.docx,.pdf">
+                                <p class="vs-import-name" id="vsPodFileName" hidden></p>
+                            </div>
+                            <button type="button" class="btn btn-primary vs-generate" id="vsPodAnalyzeBtn">تحليل المحتوى وصياغة المسودة</button>
+                            <div class="vs-pod-distribution" id="vsPodDistribution" hidden>
+                                <div class="vs-pod-dist-head">
+                                    <h3 class="vs-step-title">توزيع الشخصيات والأصوات</h3>
+                                    <div class="vs-pod-dist-actions">
+                                        <button type="button" class="btn btn-outline btn-sm" id="vsPodAddSpeaker">+ إضافة شخصية جديدة</button>
+                                        <button type="button" class="btn btn-outline btn-sm" id="vsPodReanalyze">إعادة تحليل السيناريو بعد التعديلات</button>
+                                    </div>
+                                </div>
+                                <div class="vs-pod-dist-mode" role="group" aria-label="نمط التوزيع">
+                                    <button type="button" class="vs-pill is-active" data-vs-pod-dist="smart">توزيع ذكي</button>
+                                    <button type="button" class="vs-pill" data-vs-pod-dist="manual">توزيع يدوي</button>
+                                </div>
+                                <div class="vs-pod-speakers" id="vsPodSpeakers"></div>
+                                <button type="button" class="btn btn-primary vs-generate" id="vsPodConfirmBtn">اعتماد التوزيع والمتابعة</button>
+                                <p class="vs-pod-dist-note" id="vsPodDistNote" hidden>يرجى التأكد من اختيار أصوات لكافة الشخصيات المكتشفة قبل المتابعة.</p>
+                            </div>
+                            <div class="vs-pod-script" id="vsPodScript" hidden>
+                                <h3 class="vs-step-title">مسودة الحوار</h3>
+                                <div class="vs-pod-turns" id="vsPodTurns"></div>
+                                <button type="button" class="btn btn-primary vs-generate" id="vsPodGenerateBtn">بدء الإنتاج الصوتي النهائي</button>
+                                <div class="vs-progress" id="vsPodProgress" hidden>
+                                    <p class="vs-progress-label" id="vsPodProgressLabel" role="status">جاري الإنتاج…</p>
+                                    <div class="meter" role="presentation"><span class="meter-fill" id="vsPodProgressBar" style="width:0%"></span></div>
+                                    <p class="vs-progress-pct" id="vsPodProgressPct">0%</p>
+                                </div>
+                            </div>
+                            <div class="vs-result" id="vsPodResult" hidden></div>
+                        </section>
+                    </div>
+                </section>
+
+                <!-- ── وضع التفريغ النصي ── -->
+                <section id="vsSectionTranscript" aria-label="التفريغ النصي" hidden>
+                    <div class="vs-stack">
+                        <section class="panel vs-panel">
+                            <h2 class="vs-step-title">استوديو التفريغ النصي</h2>
+                            <p class="vs-head-sub">تفريغ صوتي احترافي — استخراج النص كاملاً بدون اختصار أو تعديل.</p>
+                            <div class="vs-tr-grid">
+                                <div>
+                                    <label class="vs-field-label" for="vsTrFile">رفع ملف وسائط (صوت أو فيديو)</label>
+                                    <input type="file" class="form-control" id="vsTrFile" accept="audio/*,video/*">
+                                    <p class="vs-import-name" id="vsTrFileName" hidden></p>
+                                </div>
+                                <div class="vs-tr-side">
+                                    <div class="vs-tr-toggle">
+                                        <span>تقسيم النص حسب التوقيت</span>
+                                        <button type="button" class="vs-switch" id="vsTrTimestamps" role="switch" aria-checked="false" aria-label="تقسيم النص حسب التوقيت"><span class="vs-switch-knob"></span></button>
+                                    </div>
+                                    <button type="button" class="btn btn-primary vs-generate" id="vsTrStartBtn">بدء التفريغ النصي</button>
+                                </div>
+                            </div>
+                            <div class="vs-tr-result" id="vsTrResultBox" hidden>
+                                <div class="vs-tr-result-head">
+                                    <h3 class="vs-step-title">محرر النص المستخرج</h3>
+                                    <div class="vs-tr-export">
+                                        <button type="button" class="btn btn-outline btn-sm" id="vsTrCopy">نسخ النص</button>
+                                        <label class="vs-field-label" for="vsTrFormat">صيغة الإخراج</label>
+                                        <select class="form-control vs-field-select" id="vsTrFormat">
+                                            <option value="txt">TXT</option>
+                                            <option value="docx">DOCX</option>
+                                            <option value="srt">SRT</option>
+                                        </select>
+                                        <button type="button" class="btn btn-outline btn-sm" id="vsTrDownload">تحميل</button>
+                                    </div>
+                                </div>
+                                <textarea class="form-control vs-textarea vs-tr-textarea" id="vsTrResult" aria-label="النص المستخرج"></textarea>
+                                <div class="vs-tr-send">
+                                    <button type="button" class="btn btn-outline" id="vsTrToPodcast">إرسال إلى استوديو البودكاست</button>
+                                    <button type="button" class="btn btn-outline" id="vsTrToAudiobook">إرسال إلى استوديو الكتب الصوتية</button>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </section>
+
+                <p class="vs-footnote">الاستوديو الصوتي — مدعوم</p>
+            </div>
+
+            <p class="owner-sie-status ows-toast" id="pageStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
+            <div class="vs-error" id="vsError" role="alert" hidden></div>
+        </div>
+    </main>
+
+    <script type="module" src="/assets/js/owner/pages/voice-studio.js"></script>
+</body>
+</html>

@@ -1,0 +1,489 @@
+/* ============================================================================
+   owner-voice-studio.css — الاستوديو الصوتي (مدعوم) في لوحة المالك.
+   مقصور على [data-owner-page="voice-studio"].
+   الألوان من توكنز نظام التصميم فقط (var(--color-*) و var(--owner-*)) —
+   بلا أي لون ثابت جديد، وبلا ذهبي أو نيون. الخط Cairo محمّل أصلًا في
+   صفحات المالك.
+   ========================================================================== */
+
+[data-owner-page="voice-studio"] [hidden] { display: none !important; }
+
+[data-owner-page="voice-studio"] .vs-page { display: flex; flex-direction: column; gap: var(--sp-5); }
+
+[data-owner-page="voice-studio"] .vs-head-sub { color: var(--color-text-secondary); margin: var(--sp-1) 0 0; }
+
+[data-owner-page="voice-studio"] .vs-stack { display: flex; flex-direction: column; gap: var(--sp-5); }
+
+[data-owner-page="voice-studio"] .vs-panel { margin: 0; }
+
+[data-owner-page="voice-studio"] .vs-step-title {
+    font-size: var(--fs-lg);
+    font-weight: 800;
+    color: var(--color-text);
+    margin: 0 0 var(--sp-4);
+}
+
+[data-owner-page="voice-studio"] .vs-footnote {
+    text-align: center;
+    color: var(--color-text-3);
+    font-size: .8rem;
+    margin: var(--sp-2) 0 0;
+}
+
+/* ── التلميح الافتتاحي ── */
+[data-owner-page="voice-studio"] .vs-intro {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    padding: var(--sp-4) var(--sp-5);
+    border: 1px solid var(--owner-border);
+    border-radius: var(--r-lg);
+    background: var(--owner-tint);
+}
+[data-owner-page="voice-studio"] .vs-intro-title { font-weight: 800; margin: 0 0 var(--sp-1); }
+[data-owner-page="voice-studio"] .vs-intro-text { color: var(--color-text-secondary); margin: 0; }
+
+/* ── الترويسة ومفتاح Gemini ── */
+[data-owner-page="voice-studio"] .vs-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--sp-4);
+}
+[data-owner-page="voice-studio"] .vs-key-box { min-width: min(100%, 22rem); }
+[data-owner-page="voice-studio"] .vs-key-label { display: block; font-size: .8rem; font-weight: 700; color: var(--color-text-secondary); margin-bottom: var(--sp-2); }
+[data-owner-page="voice-studio"] .vs-key-row { display: flex; gap: var(--sp-2); }
+[data-owner-page="voice-studio"] .vs-key-row .form-control { flex: 1; min-width: 0; }
+[data-owner-page="voice-studio"] .vs-key-status { font-size: .8rem; color: var(--color-text-secondary); margin: var(--sp-2) 0 0; }
+[data-owner-page="voice-studio"] .vs-key-status.is-saved { color: var(--color-success); }
+
+/* ── شارة المحرك واختياره ── */
+[data-owner-page="voice-studio"] .vs-engine-badge {
+    display: inline-block;
+    font-size: .85rem;
+    font-weight: 800;
+    color: var(--color-accent);
+    background: var(--owner-tint);
+    border: 1px solid var(--owner-border);
+    border-radius: var(--r-pill);
+    padding: var(--sp-1) var(--sp-3);
+    margin: var(--sp-3) 0 0;
+}
+[data-owner-page="voice-studio"] .vs-engine-pills { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3); }
+[data-owner-page="voice-studio"] .vs-engine-note { font-size: .75rem; color: var(--color-text-3); margin: var(--sp-2) 0 0; max-width: 32rem; line-height: 1.7; }
+[data-owner-page="voice-studio"] .vs-dialect-note { font-size: .85rem; font-weight: 700; color: var(--color-accent); margin: var(--sp-3) 0 0; }
+
+/* ── تبويبات الأوضاع ── */
+[data-owner-page="voice-studio"] .vs-mode-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+}
+[data-owner-page="voice-studio"] .vs-mode-tab {
+    padding: var(--sp-3) var(--sp-5);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-pill);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    font-weight: 700;
+    cursor: pointer;
+}
+[data-owner-page="voice-studio"] .vs-mode-tab.is-active {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: white;
+}
+[data-owner-page="voice-studio"] .vs-mode-tab:hover:not(.is-active) { color: var(--color-text); }
+
+/* ── أزرار الاختيار (حبوب) ── */
+[data-owner-page="voice-studio"] .vs-pill {
+    padding: var(--sp-2) var(--sp-4);
+    border: 1px solid var(--owner-border);
+    border-radius: var(--r-pill);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    font-weight: 700;
+    font-size: .85rem;
+    cursor: pointer;
+}
+[data-owner-page="voice-studio"] .vs-pill.is-active {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: white;
+}
+[data-owner-page="voice-studio"] .vs-pill:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ── اللهجات ── */
+[data-owner-page="voice-studio"] .vs-dialects {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: var(--sp-3);
+}
+[data-owner-page="voice-studio"] .vs-dialect {
+    text-align: right;
+    padding: var(--sp-4);
+    border: 1px solid var(--owner-border);
+    border-radius: var(--r-lg);
+    background: var(--color-surface);
+    cursor: pointer;
+}
+[data-owner-page="voice-studio"] .vs-dialect.is-active {
+    border-color: var(--color-accent);
+    background: var(--owner-tint);
+}
+[data-owner-page="voice-studio"] .vs-dialect-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+[data-owner-page="voice-studio"] .vs-dialect-title { font-size: 1.05rem; font-weight: 800; margin: 0; }
+[data-owner-page="voice-studio"] .vs-dialect.is-active .vs-dialect-title { color: var(--color-accent); }
+[data-owner-page="voice-studio"] .vs-dialect-check {
+    width: 1.5rem; height: 1.5rem; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--color-surface-2); color: var(--color-text-3);
+    flex: none;
+}
+[data-owner-page="voice-studio"] .vs-dialect.is-active .vs-dialect-check { background: var(--color-accent); color: white; }
+[data-owner-page="voice-studio"] .vs-dialect-desc { color: var(--color-text-secondary); font-size: .85rem; line-height: 1.7; margin: var(--sp-2) 0 0; }
+[data-owner-page="voice-studio"] .vs-dialect:disabled { opacity: .6; cursor: not-allowed; }
+
+/* ── الفئة والجنس والمجال ── */
+[data-owner-page="voice-studio"] .vs-types,
+[data-owner-page="voice-studio"] .vs-genders { display: flex; flex-wrap: wrap; gap: var(--sp-2); justify-content: center; margin-bottom: var(--sp-4); }
+[data-owner-page="voice-studio"] .vs-field-row { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-4); }
+[data-owner-page="voice-studio"] .vs-field-label { font-size: .85rem; font-weight: 700; color: var(--color-text-secondary); white-space: nowrap; }
+[data-owner-page="voice-studio"] .vs-field-select { width: auto; min-width: 0; flex: 1; }
+
+/* ── معرض الأصوات ── */
+[data-owner-page="voice-studio"] .vs-gallery-title {
+    text-align: center;
+    font-size: .8rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    color: var(--color-text-3);
+    margin: var(--sp-5) 0 var(--sp-3);
+}
+[data-owner-page="voice-studio"] .vs-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+    gap: var(--sp-3);
+}
+[data-owner-page="voice-studio"] .vs-voice-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-2);
+    text-align: center;
+    padding: var(--sp-4);
+    border: 1px solid var(--owner-border);
+    border-radius: var(--r-lg);
+    background: var(--color-surface);
+    cursor: pointer;
+}
+[data-owner-page="voice-studio"] .vs-voice-card.is-active {
+    border-color: var(--color-accent);
+    background: var(--owner-tint);
+}
+[data-owner-page="voice-studio"] .vs-voice-icon {
+    width: 3rem; height: 3rem;
+    border-radius: var(--r-lg);
+    display: flex; align-items: center; justify-content: center;
+    background: var(--color-surface-2);
+    color: var(--color-accent-2);
+}
+[data-owner-page="voice-studio"] .vs-voice-icon svg { width: 1.6rem; height: 1.6rem; }
+[data-owner-page="voice-studio"] .vs-voice-name { font-weight: 800; font-size: 1rem; }
+[data-owner-page="voice-studio"] .vs-voice-cat {
+    font-size: .75rem; font-weight: 700;
+    padding: .15rem .6rem;
+    border-radius: var(--r-pill);
+    background: var(--color-surface-2);
+    color: var(--color-text-secondary);
+}
+[data-owner-page="voice-studio"] .vs-voice-desc { font-size: .8rem; line-height: 1.7; color: var(--color-text-secondary); margin: 0; }
+[data-owner-page="voice-studio"] .vs-voice-preview {
+    margin-top: auto;
+    width: 100%;
+    padding: var(--sp-2);
+    border: 1px solid var(--owner-border);
+    border-radius: var(--r-lg);
+    background: var(--color-surface-2);
+    color: var(--color-text-secondary);
+    font-weight: 700;
+    font-size: .8rem;
+    cursor: pointer;
+}
+[data-owner-page="voice-studio"] .vs-voice-preview.is-playing { background: var(--color-accent); border-color: var(--color-accent); color: white; }
+[data-owner-page="voice-studio"] .vs-voice-card:disabled { opacity: .6; cursor: not-allowed; }
+[data-owner-page="voice-studio"] .vs-gallery-empty { text-align: center; color: var(--color-text-3); padding: var(--sp-5) 0; }
+
+/* نبرة أيقونة الفئة — توكنز فقط، لا لون لكل فئة خارج النظام. */
+[data-owner-page="voice-studio"] .vs-cat-mic-ads { color: var(--color-warning); }
+[data-owner-page="voice-studio"] .vs-cat-mic-kids { color: var(--color-accent-soft); }
+[data-owner-page="voice-studio"] .vs-cat-mic-youtube { color: var(--color-danger); }
+[data-owner-page="voice-studio"] .vs-cat-mic-drama { color: var(--color-danger); }
+[data-owner-page="voice-studio"] .vs-cat-mic-edu { color: var(--color-success); }
+
+/* ── أدوات الاستوديو ── */
+[data-owner-page="voice-studio"] .vs-controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-4);
+}
+[data-owner-page="voice-studio"] .vs-control-title {
+    display: block;
+    font-size: .75rem; font-weight: 700;
+    letter-spacing: .08em;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--sp-2);
+}
+[data-owner-page="voice-studio"] .vs-control-opts { display: flex; flex-direction: column; gap: var(--sp-2); }
+[data-owner-page="voice-studio"] .vs-control-opt {
+    text-align: right;
+    padding: var(--sp-3);
+    border: 1px solid var(--owner-border);
+    border-radius: var(--r-lg);
+    background: var(--color-surface);
+    cursor: pointer;
+}
+[data-owner-page="voice-studio"] .vs-control-opt.is-active { border-color: var(--color-accent); background: var(--owner-tint); }
+[data-owner-page="voice-studio"] .vs-control-opt-label { display: block; font-weight: 700; font-size: .9rem; }
+[data-owner-page="voice-studio"] .vs-control-opt.is-active .vs-control-opt-label { color: var(--color-accent); }
+[data-owner-page="voice-studio"] .vs-control-opt-desc { display: block; font-size: .75rem; color: var(--color-text-secondary); line-height: 1.6; margin-top: .2rem; }
+[data-owner-page="voice-studio"] .vs-control-opt:disabled { opacity: .55; cursor: not-allowed; }
+
+[data-owner-page="voice-studio"] .vs-purpose { border-top: 1px solid var(--owner-border); padding-top: var(--sp-4); margin-bottom: var(--sp-4); }
+[data-owner-page="voice-studio"] .vs-purpose-label { display: block; text-align: center; font-size: .75rem; font-weight: 700; letter-spacing: .08em; color: var(--color-text-secondary); margin-bottom: var(--sp-3); }
+[data-owner-page="voice-studio"] .vs-purpose-list { display: flex; flex-wrap: wrap; gap: var(--sp-2); justify-content: center; }
+[data-owner-page="voice-studio"] .vs-purpose-note { text-align: center; font-size: .8rem; color: var(--color-accent); margin: var(--sp-3) 0 0; }
+
+/* ── التثبيت والبصمة ── */
+[data-owner-page="voice-studio"] .vs-lock-row { display: flex; flex-wrap: wrap; gap: var(--sp-3); justify-content: center; }
+[data-owner-page="voice-studio"] .vs-lock-note { text-align: center; font-size: .8rem; color: var(--color-text-3); margin: var(--sp-3) 0 0; }
+[data-owner-page="voice-studio"] .vs-fingerprint {
+    margin-top: var(--sp-4);
+    padding: var(--sp-4);
+    border: 1px solid var(--owner-border);
+    border-radius: var(--r-lg);
+    background: var(--color-surface-2);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+}
+[data-owner-page="voice-studio"] .vs-fingerprint-head { display: flex; align-items: center; justify-content: space-between; }
+[data-owner-page="voice-studio"] .vs-fingerprint-title { margin: 0; font-size: 1rem; }
+[data-owner-page="voice-studio"] .vs-fingerprint-close { background: none; border: none; color: var(--color-text-3); cursor: pointer; font-size: 1rem; }
+[data-owner-page="voice-studio"] .vs-fp-label { display: block; font-size: .75rem; font-weight: 700; color: var(--color-text-secondary); margin-bottom: var(--sp-2); }
+[data-owner-page="voice-studio"] .vs-fp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--sp-3); }
+[data-owner-page="voice-studio"] .vs-fp-opts { display: flex; flex-direction: column; gap: var(--sp-2); }
+[data-owner-page="voice-studio"] .vs-fp-opt {
+    padding: var(--sp-2);
+    border: 1px solid var(--owner-border);
+    border-radius: var(--r-lg);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    font-size: .85rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+[data-owner-page="voice-studio"] .vs-fp-opt.is-active { border-color: var(--color-accent); background: var(--owner-tint); color: var(--color-text); }
+[data-owner-page="voice-studio"] .vs-fp-confirm { color: var(--color-success); font-weight: 700; margin: 0; }
+
+/* ── النص والتوليد ── */
+[data-owner-page="voice-studio"] .vs-text-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
+@media (max-width: 48rem) {
+    [data-owner-page="voice-studio"] .vs-text-grid { grid-template-columns: 1fr; }
+}
+[data-owner-page="voice-studio"] .vs-textarea { width: 100%; min-height: 12rem; line-height: 1.9; resize: vertical; }
+[data-owner-page="voice-studio"] .vs-text-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3); }
+[data-owner-page="voice-studio"] .vs-import-name { font-size: .8rem; color: var(--color-text-secondary); margin: var(--sp-2) 0 0; }
+[data-owner-page="voice-studio"] .vs-key-sentences {
+    margin-top: var(--sp-4);
+    padding: var(--sp-4);
+    border: 1px solid var(--owner-border);
+    border-radius: var(--r-lg);
+    background: var(--owner-tint);
+}
+[data-owner-page="voice-studio"] .vs-key-sentences-title { font-size: .8rem; font-weight: 800; color: var(--color-accent); margin: 0 0 var(--sp-2); }
+[data-owner-page="voice-studio"] .vs-key-sentence { color: var(--color-text-secondary); font-style: italic; border-right: 2px solid var(--color-accent); padding-right: var(--sp-3); margin: var(--sp-2) 0; line-height: 1.8; }
+[data-owner-page="voice-studio"] .vs-generate { width: 100%; margin-top: var(--sp-4); padding: var(--sp-4); font-size: 1.1rem; }
+[data-owner-page="voice-studio"] .vs-progress { margin-top: var(--sp-4); }
+[data-owner-page="voice-studio"] .vs-progress-label { text-align: center; font-size: .85rem; font-weight: 700; color: var(--color-accent); margin: 0 0 var(--sp-2); }
+[data-owner-page="voice-studio"] .vs-progress-pct { text-align: center; font-size: .8rem; color: var(--color-text-secondary); margin: var(--sp-2) 0 0; }
+[data-owner-page="voice-studio"] .vs-result { margin-top: var(--sp-5); display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); }
+
+/* ── المشغّل الموحّد ── */
+[data-owner-page="voice-studio"] .vs-player {
+    width: 100%;
+    max-width: 48rem;
+    padding: var(--sp-5);
+    border: 1px solid var(--owner-border);
+    border-radius: var(--r-lg);
+    background: var(--color-surface);
+}
+[data-owner-page="voice-studio"] .vs-player-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); border-bottom: 1px solid var(--owner-border); padding-bottom: var(--sp-3); margin-bottom: var(--sp-4); }
+[data-owner-page="voice-studio"] .vs-player-title { font-weight: 800; font-size: 1.1rem; margin: 0; }
+[data-owner-page="voice-studio"] .vs-player-sub { font-size: .75rem; color: var(--color-accent); letter-spacing: .08em; margin: var(--sp-1) 0 0; }
+[data-owner-page="voice-studio"] .vs-player-actions { display: flex; gap: var(--sp-2); }
+[data-owner-page="voice-studio"] .vs-player-btn {
+    padding: var(--sp-2);
+    border: 1px solid var(--owner-border);
+    border-radius: var(--r-lg);
+    background: var(--color-surface-2);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    line-height: 1;
+}
+[data-owner-page="voice-studio"] .vs-player-btn:hover { color: var(--color-accent); border-color: var(--color-accent); }
+[data-owner-page="voice-studio"] .vs-player-btn svg { width: 1.1rem; height: 1.1rem; display: block; }
+[data-owner-page="voice-studio"] .vs-player-body { display: flex; align-items: center; gap: var(--sp-4); }
+[data-owner-page="voice-studio"] .vs-play-btn {
+    width: 3.5rem; height: 3.5rem; flex: none;
+    border-radius: 50%;
+    border: none;
+    background: var(--color-accent);
+    color: white;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+}
+[data-owner-page="voice-studio"] .vs-play-btn svg { width: 1.5rem; height: 1.5rem; }
+[data-owner-page="voice-studio"] .vs-seek-wrap { flex: 1; min-width: 0; }
+[data-owner-page="voice-studio"] .vs-time { display: flex; justify-content: space-between; font-size: .75rem; font-weight: 700; color: var(--color-text-3); margin-bottom: var(--sp-1); }
+[data-owner-page="voice-studio"] .vs-seek { width: 100%; accent-color: var(--color-accent); }
+[data-owner-page="voice-studio"] .vs-volume-wrap { display: flex; align-items: center; gap: var(--sp-2); }
+[data-owner-page="voice-studio"] .vs-volume { width: 5rem; accent-color: var(--color-accent); }
+
+/* ── السجل ── */
+[data-owner-page="voice-studio"] .vs-history { display: flex; flex-direction: column; gap: var(--sp-2); }
+[data-owner-page="voice-studio"] .vs-history-item {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    border: 1px solid var(--owner-border);
+    border-radius: var(--r-lg);
+    background: var(--color-surface);
+}
+[data-owner-page="voice-studio"] .vs-history-name { font-weight: 700; margin: 0; }
+[data-owner-page="voice-studio"] .vs-history-time { font-size: .75rem; color: var(--color-text-3); margin: 0; }
+
+/* ── الكتاب الصوتي ── */
+[data-owner-page="voice-studio"] .vs-book-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-4); }
+[data-owner-page="voice-studio"] .vs-book-steps {
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    padding: 0;
+    margin: 0 0 var(--sp-5);
+}
+[data-owner-page="voice-studio"] .vs-book-step {
+    display: flex; flex-direction: column; align-items: center; gap: var(--sp-2);
+    background: none; border: none; cursor: pointer; flex: 1; min-width: 0;
+}
+[data-owner-page="voice-studio"] .vs-book-step:disabled { cursor: not-allowed; opacity: .5; }
+[data-owner-page="voice-studio"] .vs-book-step-dot {
+    width: 2.25rem; height: 2.25rem; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--owner-border);
+    background: var(--color-surface);
+    color: var(--color-text-3);
+    font-size: .8rem; font-weight: 800;
+}
+[data-owner-page="voice-studio"] .vs-book-step.is-active .vs-book-step-dot { background: var(--color-accent); border-color: var(--color-accent); color: white; }
+[data-owner-page="voice-studio"] .vs-book-step.is-done .vs-book-step-dot { border-color: var(--color-accent); color: var(--color-accent); }
+[data-owner-page="voice-studio"] .vs-book-step-label { font-size: .7rem; font-weight: 700; color: var(--color-text-secondary); text-align: center; }
+[data-owner-page="voice-studio"] .vs-book-step.is-active .vs-book-step-label { color: var(--color-accent); }
+[data-owner-page="voice-studio"] .vs-book-panel { display: flex; flex-direction: column; gap: var(--sp-4); }
+[data-owner-page="voice-studio"] .vs-book-next { align-self: center; }
+[data-owner-page="voice-studio"] .vs-book-note { text-align: center; font-size: .85rem; color: var(--color-text-secondary); margin: 0; }
+[data-owner-page="voice-studio"] .vs-book-success { text-align: center; color: var(--color-success); font-weight: 700; margin: 0; }
+[data-owner-page="voice-studio"] .vs-seg {
+    padding: var(--sp-4);
+    border: 1px solid var(--owner-border);
+    border-radius: var(--r-lg);
+    background: var(--color-surface);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+}
+[data-owner-page="voice-studio"] .vs-seg-head { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: flex-end; }
+[data-owner-page="voice-studio"] .vs-seg-label-wrap { flex: 1; min-width: 10rem; }
+[data-owner-page="voice-studio"] .vs-seg-label { width: 100%; font-size: 1.05rem; font-weight: 800; background: transparent; border: none; color: var(--color-text); padding: 0; }
+[data-owner-page="voice-studio"] .vs-seg-label:focus { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+[data-owner-page="voice-studio"] .vs-seg-content { width: 100%; min-height: 7rem; line-height: 1.9; }
+[data-owner-page="voice-studio"] .vs-seg-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+[data-owner-page="voice-studio"] .vs-seg-pilot { margin-top: var(--sp-2); }
+
+/* ── البودكاست ── */
+[data-owner-page="voice-studio"] .vs-pod-source { display: flex; flex-wrap: wrap; gap: var(--sp-4); align-items: flex-end; margin-bottom: var(--sp-4); }
+[data-owner-page="voice-studio"] .vs-pod-source-tabs { display: flex; gap: var(--sp-2); }
+[data-owner-page="voice-studio"] .vs-pod-distribution,
+[data-owner-page="voice-studio"] .vs-pod-script { margin-top: var(--sp-5); border-top: 1px solid var(--owner-border); padding-top: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4); }
+[data-owner-page="voice-studio"] .vs-pod-dist-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); }
+[data-owner-page="voice-studio"] .vs-pod-dist-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+[data-owner-page="voice-studio"] .vs-pod-dist-mode { display: flex; gap: var(--sp-2); }
+[data-owner-page="voice-studio"] .vs-pod-speakers { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: var(--sp-3); }
+[data-owner-page="voice-studio"] .vs-speaker {
+    padding: var(--sp-4);
+    border: 1px solid var(--owner-border);
+    border-radius: var(--r-lg);
+    background: var(--color-surface);
+    display: flex; flex-direction: column; gap: var(--sp-3);
+}
+[data-owner-page="voice-studio"] .vs-speaker-tag { font-size: .7rem; font-weight: 800; letter-spacing: .08em; color: var(--color-accent); }
+[data-owner-page="voice-studio"] .vs-speaker-role { width: 100%; font-weight: 700; }
+[data-owner-page="voice-studio"] .vs-speaker-desc { font-size: .8rem; color: var(--color-text-secondary); font-style: italic; line-height: 1.7; margin: 0; }
+[data-owner-page="voice-studio"] .vs-speaker-reason { font-size: .75rem; color: var(--color-accent); background: var(--owner-tint); border-radius: var(--r-pill); padding: .15rem .6rem; width: fit-content; }
+[data-owner-page="voice-studio"] .vs-pod-dist-note { color: var(--color-danger); font-size: .85rem; font-weight: 700; text-align: center; margin: 0; }
+[data-owner-page="voice-studio"] .vs-pod-turns { display: flex; flex-direction: column; gap: var(--sp-3); max-height: 24rem; overflow-y: auto; padding: var(--sp-1); }
+[data-owner-page="voice-studio"] .vs-pod-turn { padding: var(--sp-3); border: 1px solid var(--owner-border); border-radius: var(--r-lg); background: var(--color-surface-2); }
+[data-owner-page="voice-studio"] .vs-pod-turn-head { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+[data-owner-page="voice-studio"] .vs-pod-turn-speaker { font-size: .8rem; font-weight: 700; color: var(--color-accent); }
+[data-owner-page="voice-studio"] .vs-pod-turn-text { width: 100%; min-height: 3.5rem; line-height: 1.8; background: transparent; border: none; color: var(--color-text); resize: vertical; }
+[data-owner-page="voice-studio"] .vs-pod-turn-text:focus { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* ── التفريغ ── */
+[data-owner-page="voice-studio"] .vs-tr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
+@media (max-width: 48rem) {
+    [data-owner-page="voice-studio"] .vs-tr-grid { grid-template-columns: 1fr; }
+}
+[data-owner-page="voice-studio"] .vs-tr-side { display: flex; flex-direction: column; gap: var(--sp-3); justify-content: flex-end; }
+[data-owner-page="voice-studio"] .vs-tr-toggle { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--owner-border); border-radius: var(--r-lg); background: var(--color-surface); font-weight: 700; font-size: .9rem; }
+[data-owner-page="voice-studio"] .vs-switch {
+    width: 3rem; height: 1.5rem; flex: none;
+    border-radius: var(--r-pill);
+    border: none;
+    background: var(--color-surface-2);
+    position: relative;
+    cursor: pointer;
+    padding: 0;
+}
+[data-owner-page="voice-studio"] .vs-switch-knob {
+    position: absolute; top: .15rem; right: .15rem;
+    width: 1.2rem; height: 1.2rem; border-radius: 50%;
+    background: var(--color-text);
+    transition: right .2s ease;
+}
+[data-owner-page="voice-studio"] .vs-switch[aria-checked="true"] { background: var(--color-accent); }
+[data-owner-page="voice-studio"] .vs-switch[aria-checked="true"] .vs-switch-knob { right: 1.65rem; }
+[data-owner-page="voice-studio"] .vs-tr-result { margin-top: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); }
+[data-owner-page="voice-studio"] .vs-tr-result-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+[data-owner-page="voice-studio"] .vs-tr-export { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+[data-owner-page="voice-studio"] .vs-tr-textarea { min-height: 20rem; }
+[data-owner-page="voice-studio"] .vs-tr-send { display: flex; flex-wrap: wrap; gap: var(--sp-3); justify-content: center; }
+
+/* ── الخطأ ── */
+[data-owner-page="voice-studio"] .vs-error {
+    position: fixed;
+    bottom: var(--sp-5);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    max-width: min(90vw, 36rem);
+    padding: var(--sp-3) var(--sp-5);
+    border: 1px solid var(--color-danger);
+    border-radius: var(--r-lg);
+    background: var(--color-surface);
+    color: var(--color-danger);
+    font-weight: 700;
+    text-align: center;
+}
