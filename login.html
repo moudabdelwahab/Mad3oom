@@ -1268,7 +1268,7 @@
     waitlistSuccessText
   } from '/assets/js/registration-mode.js';
   import { reportLoginFailure } from '/assets/js/security/login-report.js';
-  import { getTurnstileToken, resetTurnstile } from './turnstile-config.js';
+  import { resetTurnstile, verifyTurnstileBeforeLogin } from './turnstile-config.js';
   import {
     createAuthStorage,
     getRememberMeChoice,
@@ -1625,66 +1625,6 @@
     btn.textContent  = loading ? 'جاري التحميل...' : label;
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // Turnstile (Cloudflare) — التحقق الأمني قبل تسجيل الدخول.
-  // الويدجت في النموذج (cf-turnstile)؛ هنا نأخذ التوكن ونرسله إلى
-  // دالة الحافة verify-turnstile التي تتحقق بالسرّ من الخادم وحده.
-  // التوكن لمرة واحدة وقصير العمر، فبعد أي تحقق ناجح يجب إعادة
-  // تعيين الويدجت قبل المحاولة التالية (يتم في finally للمعالِج).
-  // ══════════════════════════════════════════════════════════════
-  async function waitForTurnstileToken(timeoutMs = 8000) {
-    const started = Date.now();
-    for (;;) {
-      if (window.turnstile) {
-        const token = await getTurnstileToken();
-        if (token) return { token, loaded: true };
-      }
-      if (Date.now() - started > timeoutMs) return { token: null, loaded: !!window.turnstile };
-      await new Promise((r) => setTimeout(r, 250));
-    }
-  }
-
-  async function verifyTurnstileBeforeLogin() {
-    const { token, loaded } = await waitForTurnstileToken();
-    if (!loaded) {
-      showToast('تعذّر تحميل التحقق الأمني — تحقق من الاتصال وأعد تحميل الصفحة');
-      return false;
-    }
-    if (!token) {
-      showToast('أكمل التحقق الأمني أولاً ثم حاول مرة أخرى');
-      return false;
-    }
-    try {
-      const { data, error } = await withTimeout(
-        supabase.functions.invoke('verify-turnstile', { body: { token } }),
-        10000,
-        'التحقق الأمني'
-      );
-      if (error) {
-        console.error('Turnstile verify invoke error:', error);
-        showToast('تعذّر التحقق الأمني الآن — حاول مرة أخرى');
-        resetTurnstile();
-        return false;
-      }
-      if (data?.success) return true;
-      if (data?.error === 'secret_not_configured') {
-        // السرّ غير مضبوط في Supabase بعد: تنبيه ظاهر والمتابعة
-        // مؤقتًا حتى يُضبط (انظر تعليق الدالة). أي فشل آخر يمنع.
-        console.warn('Turnstile secret is not configured on the server; continuing with a warning.');
-        showToast('تنبيه: التحقق الأمني غير مفعّل على الخادم بعد — تمت المتابعة مؤقتًا، أبلغ المسؤول');
-        return true;
-      }
-      showToast('فشل التحقق الأمني — حاول مرة أخرى');
-      resetTurnstile();
-      return false;
-    } catch (err) {
-      console.error('Turnstile verify error:', err);
-      showToast(err.message || 'تعذّر التحقق الأمني — حاول مرة أخرى');
-      resetTurnstile();
-      return false;
-    }
-  }
-
   function getOrCreateDeviceFingerprint() {
     let fp = localStorage.getItem('device_fingerprint');
     if (!fp) {
@@ -1884,8 +1824,8 @@
 
     try {
       // Turnstile أولًا: لا بحث عن الحساب ولا محاولة دخول قبل تحقق
-      // ناجح من الخادم.
-      if (!(await verifyTurnstileBeforeLogin())) return;
+      // ناجح من الخادم (البوابة في turnstile-config.js).
+      if (!(await verifyTurnstileBeforeLogin({ supabase, withTimeout, showToast }))) return;
       turnstileConsumed = true;
 
       // ── تحديد نوع المُدخل (إيميل / رقم هاتف / اسم مستخدم) وتحويله

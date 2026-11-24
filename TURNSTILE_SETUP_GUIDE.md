@@ -2,7 +2,11 @@
 
 > **الوضع الحالي (2026-11-24):** الكابتشا مفعّلة على نموذج كلمة المرور في
 > `login.html` (ويدجت `cf-turnstile` + دالة الحافة `verify-turnstile` التي
-> تتحقق بالسرّ من الخادم). الويدجت في Cloudflare اسمه `mad3oom.online`
+> تتحقق بالسرّ من الخادم). منطق البوابة (الانتظار للتوكن، استدعاء الدالة،
+> قراءة رمز خطأ invoke) في `turnstile-config.js` — دالة `invoke` في
+> supabase-js تحوّل أي رد غير 2xx إلى FunctionsHttpError، فرمز
+> `secret_not_configured` يُقرأ من جسم الخطأ لا من data (إصلاح
+> 2026-11-24 بعد أن حجب الـ 503 الدخول كله برسالة عامة). الويدجت في Cloudflare اسمه `mad3oom.online`
 > والمفتاح العام `0x4AAAAAADnzinuKMCVrMqHi`، ونطاقاته تشمل `mad3oom.com`
 > و`www.mad3oom.com` و`mainnet.mad3oom.com` و`mad3oom.online` ونطاقي العملاء
 > الحاليين. السرّ (`TURNSTILE_SECRET_KEY`) يجب أن يكون مضبوطًا في بيئة

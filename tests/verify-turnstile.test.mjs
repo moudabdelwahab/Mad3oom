@@ -132,3 +132,155 @@ test('malformed JSON is a 400', async () => {
   assert.equal(res.status, 400);
   assert.equal((await res.json()).error, 'invalid_json');
 });
+
+// ── The login gate (turnstile-config.js) ────────────────────────────────────
+// Regression for the 2026-11-24 incident: the function answered 503
+// secret_not_configured, but supabase-js turns any non-2xx into a
+// FunctionsHttpError, so the login page's `data?.error` check never ran
+// and every login was blocked with a generic message. The gate must read
+// the error body (error.context) and fail open ONLY for that one code.
+import { after as _after } from 'node:test';
+
+const gate = await import('../turnstile-config.js');
+
+const _warn = console.warn;
+const _error = console.error;
+console.warn = () => {};
+console.error = () => {};
+_after(() => {
+  console.warn = _warn;
+  console.error = _error;
+});
+
+let currentToken = 'widget-token';
+let resetCalls = 0;
+let invokeCalls = 0;
+let invokeBehaviour = null;
+const toasts = [];
+
+globalThis.window = {
+  turnstile: {
+    getResponse: () => currentToken,
+    reset: () => { resetCalls++; },
+  },
+};
+
+const stubSupabase = {
+  functions: {
+    invoke: async () => {
+      invokeCalls++;
+      if (typeof invokeBehaviour === 'function') return invokeBehaviour();
+      throw new Error('invoke stub not configured');
+    },
+  },
+};
+
+function gateCall(over = {}) {
+  return gate.verifyTurnstileBeforeLogin({
+    supabase: stubSupabase,
+    withTimeout: (p) => p,
+    showToast: (msg) => { toasts.push(msg); },
+    tokenTimeoutMs: 30,
+    ...over,
+  });
+}
+
+function resetGate(over = {}) {
+  currentToken = 'widget-token';
+  resetCalls = 0;
+  invokeCalls = 0;
+  toasts.length = 0;
+  invokeBehaviour = over.invokeBehaviour ?? null;
+  if (over.token !== undefined) currentToken = over.token;
+  if (over.noWidget) delete globalThis.window.turnstile;
+  else globalThis.window.turnstile = { getResponse: () => currentToken, reset: () => { resetCalls++; } };
+}
+
+function httpError(body, status = 503) {
+  return {
+    message: 'Edge Function returned a non-2xx status code',
+    context: new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  };
+}
+
+test('gate: successful verification lets the login proceed', async () => {
+  resetGate({ invokeBehaviour: async () => ({ data: { success: true }, error: null }) });
+  assert.equal(await gateCall(), true);
+  assert.equal(invokeCalls, 1);
+  assert.equal(resetCalls, 0);
+});
+
+test('gate: 503 secret_not_configured (Response context) warns and proceeds — the incident case', async () => {
+  resetGate({
+    invokeBehaviour: async () => ({
+      data: null,
+      error: httpError({ success: false, error: 'secret_not_configured' }, 503),
+    }),
+  });
+  assert.equal(await gateCall(), true, 'missing server secret must not lock everyone out');
+  assert.ok(toasts.some((m) => m.includes('غير مفعّل')), 'a visible warning must be shown');
+  assert.equal(resetCalls, 0, 'the token was never consumed by Cloudflare');
+});
+
+test('gate: secret_not_configured as an already-parsed context object also proceeds', async () => {
+  resetGate({
+    invokeBehaviour: async () => ({
+      data: null,
+      error: { message: 'non-2xx', context: { error: 'secret_not_configured' } },
+    }),
+  });
+  assert.equal(await gateCall(), true);
+});
+
+test('gate: any other verification failure blocks the login and resets the widget', async () => {
+  resetGate({ invokeBehaviour: async () => ({ data: { success: false }, error: null }) });
+  assert.equal(await gateCall(), false);
+  assert.equal(resetCalls, 1);
+});
+
+test('gate: a non-2xx with a different error code blocks the login', async () => {
+  resetGate({
+    invokeBehaviour: async () => ({
+      data: null,
+      error: httpError({ success: false, 'error-codes': ['invalid-input-response'] }, 200),
+    }),
+  });
+  assert.equal(await gateCall(), false);
+  assert.equal(resetCalls, 1);
+});
+
+test('gate: no token yet means no invoke call at all', async () => {
+  resetGate({ token: '' });
+  assert.equal(await gateCall(), false);
+  assert.equal(invokeCalls, 0);
+});
+
+test('gate: Turnstile script not loaded blocks with a reload hint, no invoke', async () => {
+  resetGate({ noWidget: true });
+  assert.equal(await gateCall(), false);
+  assert.ok(toasts.some((m) => m.includes('أعد تحميل الصفحة')));
+  assert.equal(invokeCalls, 0);
+});
+
+test('gate: an invoke that throws (network) blocks and resets', async () => {
+  resetGate({
+    invokeBehaviour: async () => { throw new Error('network down'); },
+  });
+  assert.equal(await gateCall(), false);
+  assert.equal(resetCalls, 1);
+});
+
+test('readFunctionErrorCode: Response, parsed object, string, and unreadable bodies', async () => {
+  assert.equal(
+    await gate.readFunctionErrorCode({ context: new Response(JSON.stringify({ error: 'missing_token' }), { status: 400 }) }),
+    'missing_token',
+  );
+  assert.equal(await gate.readFunctionErrorCode({ context: { error: 'x' } }), 'x');
+  assert.equal(await gate.readFunctionErrorCode({ context: '{"error":"y"}' }), 'y');
+  assert.equal(await gate.readFunctionErrorCode({ context: new Response('not json', { status: 500 }) }), null);
+  assert.equal(await gate.readFunctionErrorCode({}), null);
+  assert.equal(await gate.readFunctionErrorCode(null), null);
+});
