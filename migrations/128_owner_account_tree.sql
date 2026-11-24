@@ -217,11 +217,10 @@ begin
   select jsonb_build_object(
     'delegation_enabled', public._feature_on('delegation_enabled'),
     'units', (select coalesce(jsonb_agg(j order by j ->> 'name'), '[]'::jsonb) from unit_json),
-    'unassigned_companies', (select coalesce(jsonb_agg(cj.j order by cj.j ->> 'name')
+    'unassigned_companies', (select coalesce(jsonb_agg(cj.j order by cj.j ->> 'name'), '[]'::jsonb)
                                                from company_json cj
                                               where not exists (select 1 from public.admin_unit_companies uc
                                                                  where uc.company_id = cj.id and uc.ended_at is null)),
-                             '[]'::jsonb),
     'direct_customers', (select j from direct_json),
     'counts', jsonb_build_object(
       'units', (select count(*) from public.admin_units where archived_at is null),
