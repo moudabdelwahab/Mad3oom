@@ -7,11 +7,17 @@
  * العلوي) فلا يختلف الرقمان.
  *
  * لا أسعار ولا فواتير هنا: لا يوجد مصدر بيانات لقائمة فواتير الشركة (الفاتورة
- * مرفقة بتذكرة طلب الاشتراك نفسها)، فلا نخترع سجلًا.
+ * مرفقة بتذكرة طلب الاشتراك نفسها)، فلا نخترع سجلًا. التحقق موثّق في
+ * company-invoices-model.js: جدول accounting_invoices (005) بلا عمود
+ * company_id، وسياسة قراءته فردية (user_id = auth.uid())، وحمولة اللوحة
+ * (016) بلا ticket_id فلا ربط اشتراك↔تذكرة من الواجهة — فيُعرض أسفل رصيد
+ * التذاكر قسم «فواتير الشركة» بحالة فراغ صريحة ورابط إلى تذاكر الشركة مع
+ * مدعوم حيث تعيش تذاكر طلبات الاشتراك وفواتيرها المرفقة.
  */
 import { fetchCompanyTicketWallet } from '/assets/js/company/company-data.js';
 import { walletView, resetText } from '/assets/js/plan-pricing-model.js';
 import { escapeHtml, formatDate, renderSkeletonLines } from '/assets/js/customer/portal-ui.js';
+import { invoiceEmptyState } from '/assets/js/company/company-invoices-model.js';
 
 export async function loadCompanyUsage() {
     const box = document.getElementById('companyUsage');
@@ -28,6 +34,7 @@ export async function loadCompanyUsage() {
                 <button type="button" class="btn btn-primary" id="companyUsageRetry">إعادة المحاولة</button>
             </div>`;
         document.getElementById('companyUsageRetry')?.addEventListener('click', loadCompanyUsage);
+        renderCompanyInvoices(box);
         return;
     }
 
@@ -80,4 +87,33 @@ export async function loadCompanyUsage() {
 
             ${view.shared ? '<p class="company-notice">الرصيد مشترك لحساب الشركة كله: أنت وباقي أعضاء الفريق.</p>' : ''}
         </section>`;
+
+    renderCompanyInvoices(box);
+}
+
+/**
+ * قسم «فواتير الشركة» — قراءة فقط، وحالة فراغ صريحة لا سجل مخترع.
+ * يُلحَق بعد رصيد التذاكر سواء نجحت قراءته أم فشلت: محتواه ثابت لا يعتمد
+ * على المحفظة. الرابط إلى قسم التذاكر مع مدعوم داخل اللوحة نفسها
+ * (data-tab يبدّل الصفحة عبر معالِج النقر في company-dashboard.js،
+ * والهاش #tickets بديله).
+ */
+function renderCompanyInvoices(box) {
+    const state = invoiceEmptyState();
+    box.insertAdjacentHTML('beforeend', `
+        <section class="panel" aria-labelledby="companyInvoicesHeading">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title" id="companyInvoicesHeading">فواتير الشركة</h2>
+                    <p class="panel-subtitle">سجل الفواتير والمدفوعات — قراءة فقط</p>
+                </div>
+            </div>
+            <div class="state-block">
+                <p class="state-title">${escapeHtml(state.title)}</p>
+                <p class="state-text">${escapeHtml(state.text)}</p>
+                <p class="state-text">${escapeHtml(state.ticketHint)}</p>
+                <a class="btn btn-primary" href="#${escapeHtml(state.ticketTab)}"
+                   data-tab="${escapeHtml(state.ticketTab)}">${escapeHtml(state.ticketLabel)}</a>
+            </div>
+        </section>`);
 }

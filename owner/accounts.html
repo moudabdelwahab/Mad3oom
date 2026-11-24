@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>شجرة الحسابات - لوحة المالك - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-workspace.css">
+    <link rel="stylesheet" href="/assets/css/portal-notifications.css">
+    <link rel="stylesheet" href="/assets/css/owner-pages.css">
+    <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في لوحة المالك — الثيم وحالة الطي قبل أول رسم. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body class="customer-shell owner-shell dash-layout" data-owner-page="accounts">
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main" id="ownerMain">
+        <!-- بوابة العرض: سبب المنع بدل صفحة فارغة. القرار الحقيقي في القاعدة؛ هذه رسالة. -->
+        <section class="panel" id="ownerGate" hidden>
+            <div class="state-block" id="ownerGateBody"></div>
+        </section>
+
+        <div id="ownerContent" hidden>
+            <header class="owner-banner owner-page-banner">
+                <div class="owner-banner-main">
+                    <span class="owner-level-tag">لوحة المالك · الإدارة</span>
+                    <h1 class="owner-title">شجرة الحسابات</h1>
+                    <p class="owner-meta">كل حسابات المنصة في شجرة واحدة من owner_account_tree(): مالك المنصة ← الوحدات الإدارية ← شركات كل وحدة ← أعضاؤها وعملاؤها، وفرع العملاء المباشرين، وشركات بلا وحدة. قراءة فقط.</p>
+                </div>
+                <div class="owner-banner-side">
+                    <a class="btn btn-outline btn-sm owner-crumb" href="/owner-dashboard.html#overview">لوحة المالك</a>
+                    <button type="button" class="btn btn-outline btn-sm" id="acctRefresh">تحديث</button>
+                </div>
+            </header>
+            <div class="kpi-grid" id="acctKpis" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+
+            <form class="toolbar owner-filters" id="acctFilters" role="search" novalidate>
+                <label class="visually-hidden" for="acctSearch">ابحث بالاسم أو البريد أو الجوال أو الشركة</label>
+                <input type="search" class="form-control owner-filter-search" id="acctSearch" placeholder="ابحث بالاسم أو البريد أو الجوال أو الشركة…" autocomplete="off" maxlength="100">
+                <label class="visually-hidden" for="acctType">النوع</label>
+                <select class="form-control owner-filter-select" id="acctType">
+                    <option value="">كل الأنواع</option>
+                    <option value="unit">وحدة إدارية</option>
+                    <option value="company">شركة</option>
+                    <option value="person">حساب (عضو أو عميل)</option>
+                    <option value="direct">عميل مباشر</option>
+                </select>
+                <label class="visually-hidden" for="acctStatus">الحالة</label>
+                <select class="form-control owner-filter-select" id="acctStatus">
+                    <option value="">كل الحالات</option>
+                    <option value="active">نشط</option>
+                    <option value="suspended">موقوف</option>
+                    <option value="frozen">رصيد مجمّد</option>
+                </select>
+                <label class="visually-hidden" for="acctUnit">الوحدة</label>
+                <select class="form-control owner-filter-select" id="acctUnit">
+                    <option value="">كل الوحدات</option>
+                </select>
+                <label class="acct-check"><input type="checkbox" id="acctNoManager"> بلا مدير حساب</label>
+            </form>
+
+            <div class="accounts-layout">
+                <section class="panel accounts-tree-panel" aria-labelledby="acctTreeHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="acctTreeHeading">الشجرة</h2>
+                        <p class="panel-subtitle"><span id="acctTreeCount"></span> · الطي/الفتح يُحفظ في متصفحك.</p>
+                    </div>
+                    <div class="owner-row-actions">
+                        <button type="button" class="btn btn-outline btn-sm" id="acctExpandAll">توسيع الكل</button>
+                        <button type="button" class="btn btn-outline btn-sm" id="acctCollapseAll">طي الكل</button>
+                    </div></div>
+                    <div id="acctTree" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                </section>
+
+                <section class="panel accounts-detail-panel" aria-labelledby="acctDetailTitle">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="acctDetailTitle">التفاصيل</h2>
+                        <p class="panel-subtitle">اختر عقدة من الشجرة لعرض تفاصيلها — كلها قراءة فقط.</p>
+                    </div></div>
+                    <div id="acctDetail" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                </section>
+            </div>
+
+            <details class="owner-limits">
+                <summary>ما يبقى خارج هذه الصفحة</summary>
+                <ul>
+                    <li>إنشاء وحدة أو إسناد شركة إلى وحدة أو منح تفويض أو سحبه: في <a href="/owner-dashboard.html#governance">حوكمة الشركات</a> بلوحة المالك، حيث تُسجَّل الأسباب وتُطبَّق القواعد.</li>
+                    <li>إسناد مدير حساب أو تنفيذ طلب حساب أو نقل عميل: في مساراتها القائمة (دليل العملاء وطلبات الحسابات) — لا من شجرة القراءة هذه.</li>
+                    <li>تعديل الباقة أو النقاط أو الرصيد أو حظر حساب: في <a href="/admin/users.html">إدارة المستخدمين</a> وصفحة تفاصيل الاشتراك، حيث تعمل عمليات الإدارة اليومية.</li>
+                </ul>
+            </details>
+            <p class="owner-sie-status ows-toast" id="pageStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
+        </div>
+    </main>
+
+    <script type="module" src="/assets/js/owner/pages/accounts.js"></script>
+</body>
+</html>

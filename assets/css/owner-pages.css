@@ -198,3 +198,113 @@ body.owner-modal-open { overflow: hidden; }
 .owner-shell .kpi-grid .kpi { border-inline-start: 3px solid var(--owner-border); }
 
 .owner-shell .kpi-grid .kpi:hover { border-color: var(--owner-border); }
+
+/* ── شجرة الحسابات (owner/accounts.html) ──────────────────────────────────
+   عمود الشجرة يمينًا (أول عنصر في RTL) ولوحة التفاصيل يسارًا؛ عمود واحد على الجوال. */
+.accounts-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: var(--sp-5);
+    align-items: start;
+    margin-bottom: var(--sp-5);
+}
+
+.accounts-layout > .panel { margin: 0; min-width: 0; }
+
+@media (max-width: 900px) {
+    .accounts-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+.acct-check {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-sm);
+    color: var(--color-text);
+    white-space: nowrap;
+}
+
+.acct-tree,
+.acct-children { list-style: none; margin: 0; padding: 0; }
+
+.acct-children { padding-inline-start: 1.25rem; }
+
+.acct-node { margin: 0; }
+
+.acct-row { display: flex; align-items: flex-start; gap: .15rem; }
+
+.acct-toggle {
+    flex: 0 0 1.5rem;
+    width: 1.5rem;
+    height: 1.9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+}
+
+.acct-toggle svg { transition: transform .15s ease; }
+
+.acct-toggle[aria-expanded="false"] svg { transform: rotate(90deg); }
+
+.acct-toggle--leaf { cursor: default; }
+
+.acct-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .3rem .5rem;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--r-sm);
+    padding: .3rem .45rem;
+    font: inherit;
+    font-size: var(--fs-sm);
+    color: var(--color-text);
+    text-align: start;
+    cursor: pointer;
+}
+
+.acct-name:hover { background: var(--color-muted); }
+
+.acct-node.is-selected > .acct-row > .acct-name {
+    background: var(--owner-tint);
+    border-color: var(--owner-border);
+}
+
+.acct-icon { flex: 0 0 auto; display: inline-flex; color: var(--color-text-secondary); }
+
+.acct-label { display: inline-flex; align-items: baseline; gap: .45rem; min-width: 0; }
+
+.acct-title { font-weight: 700; overflow-wrap: anywhere; }
+
+.acct-kind { font-size: var(--fs-xs); color: var(--color-text-secondary); }
+
+.acct-counts { font-size: var(--fs-xs); color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+
+.acct-sub { font-size: var(--fs-xs); color: var(--color-text-secondary); }
+
+.acct-flag {
+    font-size: var(--fs-xs);
+    color: var(--color-text-secondary);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--r-sm);
+    padding: 0 .35rem;
+}
+
+.acct-node.is-match > .acct-row > .acct-name .acct-title mark,
+.acct-name mark {
+    background: var(--owner-tint);
+    color: var(--color-text);
+    outline: 1px solid var(--owner-border);
+    border-radius: 2px;
+    padding: 0 .1rem;
+}
+
+.accounts-detail-panel .owner-detail-grid { margin-bottom: var(--sp-4); }

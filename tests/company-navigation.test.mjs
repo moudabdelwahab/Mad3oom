@@ -684,7 +684,22 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         RLS بلا سياسات للعموم (ذاكرة خادم بمفتاح الخدمة فقط).
     //         مقيسٌ في tests/sql/fx-rates-cache.test.sql و
     //         tests/fx-rate-function-static.test.mjs.
-    assert.equal(migrations[migrations.length - 1], '126_fx_rates_cache.sql',
+    //   127 — إصلاح ثغرة عزل في company_of()، بطلب صاحب المنتج ضمن خطة
+    //         2026-11-24 («نفذ الخطة: شجرة هرمية + تجهيز لوحة الشركة»):
+    //         الدالة SECURITY DEFINER كانت تعيد شركة أي UUID يُمرَّر لها،
+    //         فأي مستخدم موثَّق يستكشف شركة غيره. صارت عن غير المتصل NULL
+    //         بصمت ما لم يكن مالك المنصة أو إداريًا أو service_role؛
+    //         الاستدعاء عن النفس وبلا مُعامل كما كان، ومسار التذاكر (097)
+    //         لا يناديها أصلًا فلا مسار قائم ينكسر. مقيسٌ في
+    //         tests/sql/company-of-auth-check.test.sql.
+    //   128 — شجرة الحسابات للمالك، بطلب صاحب المنتج ضمن الخطة نفسها:
+    //         دالة owner_account_tree() قراءة فقط تعيد الشجرة كاملة في نداء
+    //         واحد (وحدات ≤6 وشركاتها وأعضاؤها، فرع العملاء المباشرين،
+    //         شركات بلا وحدة) مع العدّادات والاشتراك والرصيد ومدير الحساب؛
+    //         الحارس owner_only؛ بلا جداول جديدة وبلا كتابة. مقيسٌ في
+    //         tests/sql/owner-account-tree.test.sql و
+    //         tests/owner-accounts-tree.test.mjs.
+    assert.equal(migrations[migrations.length - 1], '128_owner_account_tree.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

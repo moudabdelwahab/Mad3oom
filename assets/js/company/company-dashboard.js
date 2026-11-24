@@ -22,8 +22,9 @@ import { initCompanyApi, setCompanyApiMembers, setCompanyApiEntitlement, loadCom
 import { initApiTokenModal, openApiTokenModal } from '/assets/js/company/api-token-modal.js';
 import { renderCompanyReports } from '/assets/js/company/company-reports.js';
 import {
-    analyzeSubscriptions, ANOMALY_NOTES, SUBSCRIPTION_STATES
+    analyzeSubscriptions, renewalContext, ANOMALY_NOTES, SUBSCRIPTION_STATES
 } from '/assets/js/company/subscription-model.js';
+import { piCompanyLimitation } from '/assets/js/company/company-invoices-model.js';
 import { initCompanyActivity, loadCompanyActivity } from '/assets/js/company/company-activity.js';
 import { initCompanyIntegrations, loadCompanyIntegrations, oauthCompletion } from '/assets/js/company/company-integrations.js';
 // 118/119: صفحات المتجر (تظهر لحساب ecommerce_store وحده)
@@ -1621,6 +1622,9 @@ function renderSubscriptions() {
             text: 'اشترك في إحدى الباقات لتفعيل خدمات الشركة.',
             action: { label: 'استعراض الباقات', goto: '/subscriptions.html', variant: 'btn-primary' }
         });
+        // قيد Pi قبل خطوة الدفع: من يذهب للاشتراك من هنا يعلم به قبل أن يصل
+        // إلى مودال وسيلة الدفع في صفحة الاشتراكات.
+        container.insertAdjacentHTML('beforeend', piNoticeHtml());
         return;
     }
 
@@ -1628,6 +1632,8 @@ function renderSubscriptions() {
 
     container.innerHTML = `
         ${subscriptionSummary(report)}
+        ${piNoticeHtml()}
+        ${renewalPanelHtml(renewalContext(report))}
         ${report.hasAnomalies ? anomalyPanel(report) : ''}
         <ul class="company-sub-list">
             ${report.rows.map(subscriptionRow).join('')}
@@ -1689,6 +1695,47 @@ function subscriptionSummary(report) {
                    report.pending ? 'kpi--warning' : '')}
             ${cell('منتهية', report.expired, 'اشتراكات انقضت مدّتها')}
         </div>`;
+}
+
+/**
+ * تنبيه قيد Pi مبكرًا: كان يظهر عند خطوة الدفع وحدها في صفحة الاشتراكات
+ * (subscriptions-script.js:736 و754)، فعميل الشركة لا يعلم به إلا بعد
+ * وصوله هناك. هنا يظهر في قسم الاشتراكات نفسه قبل أي تجديد أو اشتراك.
+ */
+function piNoticeHtml() {
+    return `
+        <p class="company-notice company-notice--warning">${escapeHtml(piCompanyLimitation().text)}</p>`;
+}
+
+/**
+ * زر «جدّد الآن» بسياق الباقة الحالية: اسم الباقة وتاريخ انتهائها وأيامها
+ * المتبقية من النموذج الموجود، رابطًا إلى مسار التجديد الموجود في صفحة
+ * الاشتراكات — لا مسار دفع جديد، ولا معامل خطة في الرابط (الصفحة لا تقرأ
+ * أي معامل؛ زر التجديد فيها يظهر بجانب الاشتراك النشط نفسه).
+ * بلا سياق تجديد (قيد المراجعة أو لم يبدأ بعد أو بلا اشتراكات) لا شيء.
+ */
+function renewalPanelHtml(context) {
+    if (!context) return '';
+
+    const endText = context.endDate ? ` — تنتهي في ${escapeHtml(formatDate(context.endDate))}` : '';
+    const daysText = context.daysRemaining != null
+        ? ` (${escapeHtml(String(context.daysRemaining))} يومًا متبقيًا)` : '';
+    const heading = context.kind === 'renew' ? 'تجديد الاشتراك' : 'الاشتراكات منتهية';
+    const note = context.kind === 'renew'
+        ? 'زر التجديد موجود في صفحة الاشتراكات بجانب اشتراكك النشط.'
+        : 'انتهت مدة الاشتراك. الاشتراك مجددًا يتم من صفحة الاشتراكات نفسها.';
+
+    return `
+        <section class="panel" aria-labelledby="companyRenewHeading">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title" id="companyRenewHeading">${heading}</h2>
+                    <p class="panel-subtitle">${escapeHtml(context.planName)}${endText}${daysText}</p>
+                </div>
+                <a class="btn btn-primary" href="${escapeHtml(context.href)}">${escapeHtml(context.label)}</a>
+            </div>
+            <p class="company-notice">${escapeHtml(note)}</p>
+        </section>`;
 }
 
 /** لوحة التضاربات — تشرح الأثر لا الرمز التقني. */

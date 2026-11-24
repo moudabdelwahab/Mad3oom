@@ -219,6 +219,57 @@ export function analyzeSubscriptions(subscriptions, { now = Date.now() } = {}) {
 }
 
 /**
+ * سياق زر «جدّد الآن» في لوحة الشركة.
+ *
+ * مسار التجديد الموجود هو صفحة الاشتراكات (/subscriptions.html): زر
+ * «تجديد الاشتراك الحالي» يُولَّد هناك بجانب الاشتراك النشط نفسه
+ * (subscriptions-script.js: updateSubscriptionDisplay) وhandleRenew يرسل
+ * طلب التجديد. الصفحة لا تقرأ أي معامل من الرابط، فلا نمرّر خطة في الرابط —
+ * الرابط إلى الصفحة كما هي، والسياق (اسم الباقة وتاريخ الانتهاء) معروض هنا.
+ *
+ * القواعد — من التقرير المحسوب أصلًا، بلا قراءة جديدة:
+ *   - أقرب اشتراك نشط أو ينتهي قريبًا ⇒ «جدّد الآن» بسياقه.
+ *   - بلا فعّال، مع منتهٍ واحد على الأقل ⇒ «اشترك مجددًا» بسياق أحدث منتهٍ.
+ *   - قيد المراجعة وحده أو لم يبدأ بعد وحده ⇒ لا زر: الطلب يُراجَع،
+ *     والمجدول لا يحتاج تجديدًا (التمييز الذي يحرسه analyzeSubscription).
+ *   - بلا اشتراكات ⇒ لا زر (حالة الفراغ لها «استعراض الباقات» أصلًا).
+ */
+export function renewalContext(report) {
+    if (!report) return null;
+
+    const nearest = report.nearest;
+    if (nearest) {
+        return {
+            kind: 'renew',
+            planKey: nearest.sub.plan,
+            planName: nearest.sub.plan_name_ar || nearest.sub.plan,
+            endDate: nearest.sub.end_date || null,
+            daysRemaining: nearest.daysRemaining ?? null,
+            href: '/subscriptions.html',
+            label: 'جدّد الآن'
+        };
+    }
+
+    const expiredRows = (report.rows || [])
+        .filter(r => r.state.key === 'expired')
+        .sort((a, b) => String(b.sub.end_date || '').localeCompare(String(a.sub.end_date || '')));
+    if (expiredRows.length) {
+        const last = expiredRows[0];
+        return {
+            kind: 'resubscribe',
+            planKey: last.sub.plan,
+            planName: last.sub.plan_name_ar || last.sub.plan,
+            endDate: last.sub.end_date || null,
+            daysRemaining: null,
+            href: '/subscriptions.html',
+            label: 'اشترك مجددًا'
+        };
+    }
+
+    return null;
+}
+
+/**
  * ما الذي تحصل عليه الشركة فعلًا الآن؟
  * الاستحقاقات تأتي محسوبة من القاعدة (اتحاد امتيازات الباقات الفعّالة)،
  * فنعرضها كما هي ولا نشتقّها من أسماء الباقات.
