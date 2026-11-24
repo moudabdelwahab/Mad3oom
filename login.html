@@ -1269,6 +1269,7 @@
   } from '/assets/js/registration-mode.js';
   import { reportLoginFailure } from '/assets/js/security/login-report.js';
   import { resetTurnstile, verifyTurnstileBeforeLogin } from './turnstile-config.js';
+  import { captureLoginLocation } from './login-location.js';
   import {
     createAuthStorage,
     getRememberMeChoice,
@@ -1921,6 +1922,12 @@
       // قديمة من التخزين الآخر (مثال: جلسة دائمة قديمة + دخول دون «تذكرني»).
       rememberApplied = true;
       purgeSessionFromInactiveStorage();
+
+      // موقع تسجيل الدخول الدقيق (لحساب المالك وحده — الدالة نفسها
+      // تتجاهل أي حساب آخر فلا يظهر طلب الإذن لغيره): يُطلب من المتصفح
+      // في الخلفية بلا await عمدًا، فالدخول لا ينتظر الموقع أبدًا. إن
+      // رُفض الإذن أو لم يكتمل قبل الانتقال، يرجع التقرير لموقع الـ IP.
+      captureLoginLocation(supabase, data.user);
 
       const { data: profile, error: profileError } = await withTimeout(
         supabase

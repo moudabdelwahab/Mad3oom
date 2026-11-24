@@ -710,7 +710,16 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         owner_critical_ok؛ بلا جداول جديدة وبلا تغيير مفاتيح. مقيسٌ في
     //         tests/sql/owner-account-transfer-details.test.sql و
     //         tests/owner-accounts-tree.test.mjs.
-    assert.equal(migrations[migrations.length - 1], '129_owner_account_transfer_details.sql',
+    //   131 — مواقع تسجيل الدخول الدقيقة لحساب المالك وحده، بطلب صاحب
+    //         المنتج (2026-11-24): جدول login_locations يسجّل موقع المتصفح
+    //         الذي تلتقطه صفحة الدخول بعد نجاح الدخول (بإذن المتصفح)،
+    //         والجسر يضمّه لتقرير تسجيل الدخول في شات Muse؛ وإن غاب يرجع
+    //         التقرير لموقع الـ IP. الالتقاط لحساب mahmoud@mad3oom.com
+    //         وحده (login-location.js)، والجدول إلحاقي بلا UPDATE/DELETE،
+    //         وRLS صف صاحبه. الرقم 130 محجوز لفرع حارس owns/belongs غير
+    //         المدموج. مقيسٌ في tests/sql/login-locations.test.sql و
+    //         tests/login-location.test.mjs.
+    assert.equal(migrations[migrations.length - 1], '131_login_locations.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
