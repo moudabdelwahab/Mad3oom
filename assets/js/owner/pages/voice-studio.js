@@ -584,13 +584,19 @@ const selectedDialect = () => DIALECTS.find((d) => d.id === state.dialectId) || 
 const selectedField = () => VOICE_FIELDS.find((f) => f.id === state.fieldId) || VOICE_FIELDS[0];
 const allVoicesFlattened = () => DIALECTS.flatMap((d) => d.profiles);
 
+/* نوع الصوت (بالغ/كبار السن/شخصية كارتونية) ضبط prosody فقط وليس
+   صوتًا مختلفًا: كل لهجة تعرض صوتي Edge الحقيقيين (أنثى وذكر)،
+   فالمعرض يُصفّى باللهجة والجنس فقط — ولا يُفرغ أبدًا عند اختيار
+   «كبار السن» أو «شخصية كارتونية»، ولا حاجة لحالة خاصة تجمع كل
+   اللهجات. نوع الصوت المختار يُمرَّر للخادم كـ prosody عند التوليد
+   والمعاينة (انظر handleVoicePreview وhandleStartTTSSynthesis). */
 function filteredProfiles() {
-    const source = state.type === 'كبار السن' ? allVoicesFlattened() : selectedDialect().profiles;
+    const source = selectedDialect().profiles;
     const seen = new Set();
     return source.filter((p) => {
         if (seen.has(p.id)) return false;
         seen.add(p.id);
-        return p.voiceType === state.type && p.gender === (state.gender === 'ذكر' ? 'male' : 'female');
+        return p.gender === (state.gender === 'ذكر' ? 'male' : 'female');
     });
 }
 
@@ -706,7 +712,9 @@ function renderGallery() {
         });
         card.querySelector('.vs-voice-preview').addEventListener('click', (e) => {
             e.stopPropagation();
-            if (!state.generating) handleVoicePreview(profile);
+            /* نوع الصوت المختار في الأقراص ضبط prosody يُمرَّر مع البروفايل
+               للخادم كما كان — البروفايلات نفسها كلها voiceType «بالغ». */
+            if (!state.generating) handleVoicePreview({ ...profile, voiceType: state.type });
         });
         box.appendChild(card);
     }
@@ -998,6 +1006,10 @@ async function handleStartTTSSynthesis() {
     const frozenControls = { ...state.controls };
     const frozenDialectId = state.dialectId;
     const frozenVoiceType = state.type;
+    /* نوع الصوت المختار ضبط prosody يُمرَّر للخادم مع البروفايل كما كان —
+       البروفايلات نفسها كلها voiceType «بالغ»، فيؤخذ النوع من أقراص
+       الاختيار لا من بيانات الصوت. */
+    frozenVoiceProfile.voiceType = frozenVoiceType;
     const frozenBaseVoice = getBaseVoiceForType(frozenVoiceType, frozenVoiceProfile.gender);
     let performanceNote = 'Manual Studio Session (Synthesis Mode)';
     if (state.fingerprint.isActive) {

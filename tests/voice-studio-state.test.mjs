@@ -41,7 +41,7 @@ const FORBIDDEN = [
 
 /* ─────────────────── البيانات كاملة ─────────────────── */
 
-test('البيانات: 12 لهجة و110 أصوات بالأعداد نفسها في الأصل', () => {
+test('البيانات: 12 لهجة بصوتين حقيقيين لكل لهجة (24 صوتًا)', () => {
     assert.equal(DIALECTS.length, 12);
     assert.deepEqual(DIALECTS.map((d) => d.id), [
         'egyptian', 'saudi', 'levantine', 'iraqi', 'algerian', 'moroccan',
@@ -49,26 +49,26 @@ test('البيانات: 12 لهجة و110 أصوات بالأعداد نفسها
     ]);
     assert.deepEqual(
         DIALECTS.map((d) => d.profiles.length),
-        [14, 12, 9, 7, 7, 7, 7, 7, 7, 7, 7, 19],
+        [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
     );
-    assert.equal(DIALECTS.reduce((n, d) => n + d.profiles.length, 0), 110);
+    assert.equal(DIALECTS.reduce((n, d) => n + d.profiles.length, 0), 24);
 });
 
-test('البيانات: كل صوت له معرّف واسم وجنس ونوع وفئة ووصف', () => {
-    // استثناء واحد منقول حرفيًا من الأصل: mor_mahdi نوعه «تقديم معلوماتي»
-    // وهو خارج VOICE_TYPES، فلا يظهر في أي مرشّح — في الأصل وفي هذه
-    // النسخة معًا. يُوثَّق هنا بدل إخفائه بتعديل البيانات.
-    const knownOutliers = new Set(['mor_mahdi']);
+test('البيانات: كل صوت له معرّف واسم وجنس ونوع وفئة ووصف وصوت Edge حقيقي', () => {
     for (const dialect of DIALECTS) {
         assert.ok(dialect.title && dialect.description, dialect.id);
+        assert.equal(dialect.profiles.length, 2, dialect.id);
+        assert.deepEqual(dialect.profiles.map((p) => p.gender).sort(), ['female', 'male'], dialect.id);
         for (const profile of dialect.profiles) {
             assert.ok(profile.id && profile.name, dialect.id);
             assert.ok(['male', 'female'].includes(profile.gender), profile.id);
-            if (!knownOutliers.has(profile.id)) {
-                assert.ok(VOICE_TYPES.includes(profile.voiceType), profile.id);
-            }
+            assert.ok(VOICE_TYPES.includes(profile.voiceType), profile.id);
             assert.ok(CATEGORY_STYLES[profile.categoryKey], profile.id);
             assert.ok(profile.category && profile.description, profile.id);
+            // صوت Edge الحقيقي: يطابق خريطة اللهجة والجنس حرفيًا
+            assert.match(profile.edgeVoice, EDGE_VOICE_NAME_PATTERN, profile.id);
+            assert.equal(profile.edgeVoice, EDGE_VOICE_MAP[dialect.id][profile.gender], profile.id);
+            assert.match(profile.description, /Edge TTS/);
         }
     }
     const ids = DIALECTS.flatMap((d) => d.profiles.map((p) => p.id));
@@ -93,16 +93,16 @@ test('الصوت الأساسي حسب النوع والجنس كما في ال�
 /* ─────────────────── بصمة الصوت وبرومبت TTS ─────────────────── */
 
 test('بصمة الصوت: نفس دالة التجزئة في الخادم، 8 خانات مستقرة', () => {
-    assert.equal(generateVoiceFingerprint('يوسف'), '49559596');
-    assert.equal(generateVoiceFingerprint('يوسف'), generateVoiceFingerprint('يوسف'));
-    assert.match(generateVoiceFingerprint('نورا'), /^\d{1,8}$/);
-    assert.notEqual(generateVoiceFingerprint('يوسف'), generateVoiceFingerprint('نورا'));
+    assert.equal(generateVoiceFingerprint('سلمى'), '48871125');
+    assert.equal(generateVoiceFingerprint('سلمى'), generateVoiceFingerprint('سلمى'));
+    assert.match(generateVoiceFingerprint('شاكر'), /^\d{1,8}$/);
+    assert.notEqual(generateVoiceFingerprint('سلمى'), generateVoiceFingerprint('شاكر'));
 });
 
 test('استنتاج اللهجة من بادئة معرّف الصوت', () => {
-    assert.equal(resolveDialectId('egy_youssef'), 'egyptian');
-    assert.equal(resolveDialectId('sau_nasser'), 'saudi');
-    assert.equal(resolveDialectId('fus_tariq'), 'fusha');
+    assert.equal(resolveDialectId('egy_salma'), 'egyptian');
+    assert.equal(resolveDialectId('sau_zariyah'), 'saudi');
+    assert.equal(resolveDialectId('fus_zariyah'), 'fusha');
     assert.equal(resolveDialectId('xyz_1', 'levantine'), 'levantine');
     assert.equal(resolveDialectId(undefined), 'fusha');
 });
@@ -123,14 +123,14 @@ test('قفل اللهجة موجود للهجات الثماني في الخاد
 test('برومبت TTS يحمل الهوية والبصمة والقفل والغرض والنص', () => {
     const prompt = buildTtsPrompt({
         text: 'مرحباً بالعالم',
-        profile: { id: 'egy_youssef', name: 'يوسف', description: 'صوت وثائقي' },
+        profile: { id: 'egy_salma', name: 'سلمى', description: 'صوت Edge TTS متاح' },
         controls: { speed: 'متوسطة', pitch: 'متوسطة', emotion: 'متوسط', purpose: 'إعلان' },
         performanceNote: 'Pilot Lock',
         dialectId: 'egyptian',
     });
     assert.match(prompt, /MODE: READY_FOR_TTS/);
-    assert.match(prompt, /IDENTITY: يوسف \(صوت وثائقي\)/);
-    assert.match(prompt, /FINGERPRINT: 49559596/);
+    assert.match(prompt, /IDENTITY: سلمى \(صوت Edge TTS متاح\)/);
+    assert.match(prompt, /FINGERPRINT: 48871125/);
     assert.match(prompt, /DIALECT: egyptian/);
     assert.match(prompt, /EGYPTIAN PHONETIC LOCK/);
     assert.match(prompt, /Advertisement - energetic/);
@@ -305,7 +305,7 @@ test('حلّ صوت Edge من الملف الشخصي: لهجة وجنس، وا�
         { voice: 'ar-SA-HamedNeural', dialectId: 'saudi', gender: 'male', isFallback: false },
     );
     assert.deepEqual(
-        resolveEdgeVoice({ id: 'egy_youssef', gender: 'male' }),
+        resolveEdgeVoice({ id: 'egy_salma', gender: 'male' }),
         { voice: 'ar-EG-ShakirNeural', dialectId: 'egyptian', gender: 'male', isFallback: false },
     );
     const sudanese = resolveEdgeVoice({ gender: 'female' }, 'sudanese');
@@ -313,6 +313,62 @@ test('حلّ صوت Edge من الملف الشخصي: لهجة وجنس، وا�
     assert.equal(sudanese.isFallback, true);
     assert.equal(resolveEdgeVoice({ gender: 'male' }, 'unknown').voice, 'ar-SA-HamedNeural');
     assert.equal(resolveEdgeVoice({ gender: 'male' }, 'unknown').dialectId, 'fusha');
+});
+
+test('المعرض يعرض أصوات Edge الحقيقية فقط: المصرية سلمى وشاكر، ولا أسماء Gemini', () => {
+    const byDialect = Object.fromEntries(
+        DIALECTS.map((d) => [d.id, d.profiles.map((p) => p.name)]),
+    );
+    assert.deepEqual(byDialect.egyptian, ['سلمى', 'شاكر']);
+    assert.deepEqual(byDialect.sudanese, ['سلمى', 'شاكر']);
+    assert.deepEqual(byDialect.saudi, ['زارية', 'حامد']);
+    assert.deepEqual(byDialect.fusha, ['زارية', 'حامد']);
+    assert.deepEqual(byDialect.levantine, ['أماني', 'ليث']);
+    assert.deepEqual(byDialect.iraqi, ['رنا', 'باسل']);
+    assert.deepEqual(byDialect.algerian, ['أمينة', 'إسماعيل']);
+    assert.deepEqual(byDialect.moroccan, ['منى', 'جمال']);
+    assert.deepEqual(byDialect.tunisian, ['ريم', 'هادي']);
+    assert.deepEqual(byDialect.khaleeji, ['فاطمة', 'حمدان']);
+    assert.deepEqual(byDialect.yemeni, ['مريم', 'صالح']);
+    assert.deepEqual(byDialect.lebanese, ['ليلى', 'رامي']);
+    // الأسماء المميزة كلها أسماء أصوات Edge حقيقية (20 اسمًا؛ سلمى/شاكر/
+    // زارية/حامد تتكرر بين لهجتين لأن الصوت نفسه).
+    const names = new Set(DIALECTS.flatMap((d) => d.profiles.map((p) => p.name)));
+    assert.equal(names.size, 20);
+    for (const name of ['سلمى', 'شاكر', 'زارية', 'حامد', 'أماني', 'ليث', 'رنا', 'باسل',
+        'أمينة', 'إسماعيل', 'منى', 'جمال', 'ريم', 'هادي', 'فاطمة', 'حمدان',
+        'مريم', 'صالح', 'ليلى', 'رامي']) {
+        assert.ok(names.has(name), name);
+    }
+    // لا أسماء شخصيات Gemini الوهمية في أي بروفايل (رامي/منى/ريم/مريم/
+    // ليلى مستثناة هنا لأنها أسماء أصوات Edge حقيقية في لهجاتها).
+    for (const fake of ['يوسف', 'مالك', 'سيف', 'زيد', 'لوجين', 'نورا', 'جمانة', 'فارس',
+        'زيدان', 'مؤمن', 'سما', 'ناصر', 'راكان', 'فهد', 'محسن', 'الجوهرة', 'أفنان',
+        'هيا', 'بدور', 'لولو', 'فواز', 'ربيع', 'جاد', 'ميلاد', 'لين', 'رهف', 'نور',
+        'بيبو', 'ليليا', 'علي', 'مهند', 'حيدر', 'سمر', 'زهراء', 'ميمو', 'لولي',
+        'أنور', 'قيس', 'حكيم', 'عايدة', 'هاجر', 'سيليا', 'المهدي', 'طارق', 'أمين',
+        'سارة', 'ميمون', 'ليما', 'كريم', 'نادر', 'حسام', 'يسرى', 'ميمي', 'بولينو',
+        'جاسم', 'راشد', 'مي', 'لمياء', 'لؤلان', 'إدريس', 'مازن', 'عثمان', 'الصادق',
+        'إيثار', 'ريان', 'تسنيم', 'حمزة', 'وضاح', 'معاذ', 'بلقيس', 'أروى', 'مآب',
+        'فؤاد', 'زياد', 'نادين', 'يارا', 'لانا', 'سامر', 'نديم', 'جود',
+        'بطل كرتون', 'بطلة كرتون', 'عبد الرحمن', 'حسان', 'فاروق', 'صلاح', 'عدنان',
+        'خديجة', 'عائشة', 'شريفة', 'نجلاء', 'رجاء', 'عبد العزيز']) {
+        assert.ok(!names.has(fake), `اسم وهمي ما زال في المعرض: ${fake}`);
+    }
+});
+
+test('المعرض لا يُفرغ لأي توليفة لهجة × نوع × جنس', () => {
+    // filteredProfiles في الصفحة يُصفّى باللهجة والجنس فقط (لا voiceType)،
+    // وهنا نتحقق على البيانات نفسها أن كل توليفة لها صوت واحد على الأقل —
+    // نوع الصوت ضبط prosody لا يغيّر المعروض.
+    for (const dialect of DIALECTS) {
+        for (const type of VOICE_TYPES) {
+            for (const gender of ['male', 'female']) {
+                const shown = dialect.profiles.filter((p) => p.gender === gender);
+                assert.ok(shown.length >= 1, `${dialect.id} / ${type} / ${gender}`);
+            }
+        }
+    }
 });
 
 test('بناء SSML: الصيغة الطويلة للصوت و prosody والهروب', () => {

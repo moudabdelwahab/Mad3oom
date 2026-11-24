@@ -156,6 +156,20 @@ test('الصفحة تمرر المحرك وتستخدم صوت Edge وتدمج �
     assert.match(js, /audio\/mpeg/);
 });
 
+test('المعرض يعرض أصوات Edge الحقيقية ولا يُصفّى بنوع الصوت', () => {
+    const js = pageJs();
+    // لا فلتر voiceType ولا حالة خاصة تجمع كل اللهجات عند «كبار السن»
+    assert.doesNotMatch(js, /p\.voiceType === state\.type/);
+    assert.doesNotMatch(js, /state\.type === 'كبار السن' \? allVoicesFlattened\(\)/);
+    assert.match(js, /function filteredProfiles\(\)/);
+    assert.match(js, /const source = selectedDialect\(\)\.profiles;/);
+    // نوع الصوت المختار ما زال يُمرَّر للخادم كـ prosody عند التوليد والمعاينة
+    assert.match(js, /frozenVoiceProfile\.voiceType = frozenVoiceType/);
+    assert.match(js, /handleVoicePreview\(\{ \.\.\.profile, voiceType: state\.type \}\)/);
+    // مسار Gemini لم يتغير: الصوت الأساسي حسب النوع والجنس ما زال يُحسب
+    assert.match(js, /getBaseVoiceForType\(frozenVoiceType, frozenVoiceProfile\.gender\)/);
+});
+
 test('مفاتيح التخزين بالاسم الجديد لا القديم', () => {
     assert.match(dataJs(), /mad3oom_voice_gemini_key/);
     assert.match(dataJs(), /mad3oom_voice_intro_played/);
