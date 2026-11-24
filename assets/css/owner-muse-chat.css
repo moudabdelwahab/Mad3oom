@@ -165,6 +165,34 @@
     50% { filter: drop-shadow(0 0 10px rgba(77, 163, 255, 0.55)); }
 }
 
+/* نقاط التفكير فوق رأس الأفاتار — مخفية إلا في حالة التفكير، وتنبض بتتابع.
+   الـ SVG نفسه يُستخدم أيضًا كعلامة صغيرة ثابتة بجانب رسائل المساعد،
+   فالنقاط لا تظهر هناك أبدًا: لا حالة تفكير على تلك العلامة. */
+.muse-avatar-thinking-dots {
+    opacity: 0;
+}
+
+.muse-avatar--thinking .muse-avatar-thinking-dots {
+    opacity: 1;
+}
+
+.muse-avatar--thinking .muse-avatar-thinking-dots circle {
+    animation: muse-avatar-think-dot 1.2s ease-in-out infinite;
+}
+
+.muse-avatar--thinking .muse-avatar-thinking-dots circle:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.muse-avatar--thinking .muse-avatar-thinking-dots circle:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes muse-avatar-think-dot {
+    0%, 100% { opacity: 0.25; }
+    50% { opacity: 1; }
+}
+
 .muse-avatar-eyes {
     transform-box: fill-box;
     transform-origin: center;
@@ -197,6 +225,14 @@
 
 .muse-avatar--off .muse-avatar-mouth {
     transform: scaleY(0) !important;
+}
+
+.muse-avatar--off .muse-avatar-thinking-dots {
+    opacity: 0 !important;
+}
+
+.muse-avatar--off .muse-avatar-thinking-dots circle {
+    animation: none !important;
 }
 
 /* ── الرسائل ── */
@@ -262,6 +298,93 @@
     margin-top: 4px;
     font-size: 12px;
     color: var(--color-muted);
+}
+
+/* مدة الرد تحت فقاعة المساعد — من طابعي الإرسال والرد الحقيقيين. */
+.muse-msg-took {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+}
+
+/* فاصل التاريخ بين رسائل أيام مختلفة — خط ووسطه التاريخ. */
+.muse-date-separator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 4px 0;
+    color: var(--color-muted);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.muse-date-separator::before,
+.muse-date-separator::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--color-border);
+}
+
+/* فقاعة الانتظار: أفاتار صغير + 3 نقاط نابضة + مرحلة + عدّاد ثوانٍ.
+   تظهر فقط أثناء انتظار رد حقيقي، وتختفي بوصوله. */
+.muse-thinking {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    align-self: flex-start;
+    max-width: 78%;
+    padding: 10px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    background: var(--color-surface-2);
+    color: var(--color-text);
+}
+
+.muse-thinking-text {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.muse-thinking-stage {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+}
+
+.muse-thinking-timer {
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.muse-thinking-dots {
+    display: inline-flex;
+    gap: 3px;
+}
+
+.muse-thinking-dots i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    animation: muse-thinking-bounce 1.2s ease-in-out infinite;
+}
+
+.muse-thinking-dots i:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.muse-thinking-dots i:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes muse-thinking-bounce {
+    0%, 100% { transform: translateY(0); opacity: 0.4; }
+    50% { transform: translateY(-4px); opacity: 1; }
 }
 
 .muse-chat-load-retry {
@@ -555,6 +678,62 @@
     white-space: nowrap;
     font-size: 14px;
     font-weight: 700;
+}
+
+/* صف العنوان: نقطة الحالة ثم العنوان — النقطة وحدها لا تحمل المعنى،
+   فـ title/aria-label عليها نص الحالة كاملًا. */
+.muse-session-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+}
+
+.muse-session-dot {
+    width: 8px;
+    height: 8px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--color-muted);
+}
+
+.muse-session-dot--waiting {
+    background: var(--color-warning, #f5a623);
+}
+
+.muse-session-dot--answered {
+    background: var(--color-success, #28a745);
+}
+
+/* معاينة آخر رسالة — سطر واحد مقصوص، بلا نص مخترع: من رسالة حقيقية فقط. */
+.muse-session-preview {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+}
+
+.muse-session-foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+    width: 100%;
+}
+
+/* عنوان مجموعة التاريخ داخل القائمة — اليوم / أمس / هذا الأسبوع / أقدم. */
+.muse-session-group {
+    list-style: none;
+    padding: 6px 4px 0;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--color-muted);
+}
+
+.muse-session-search {
+    width: 100%;
 }
 
 .muse-session-badge {

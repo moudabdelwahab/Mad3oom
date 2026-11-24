@@ -288,7 +288,7 @@ test('إعادة التسمية حقل تحرير داخل القائمة: Enter
     assert.match(js, /e\.key === 'Enter'/);
     assert.match(js, /e\.key === 'Escape'/);
     assert.match(js, /withRenamed\(renamedIds, id\)/);
-    assert.match(js, /deriveTitle\(text\)/);
+    assert.match(js, /deriveSmartTitle\(text\)/);
     assert.match(js, /shouldAutoTitle\(activeSession, renamedIds\)/);
 });
 

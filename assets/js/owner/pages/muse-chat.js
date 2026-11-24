@@ -12,17 +12,24 @@
  * الجلسات يبدّل الرسائل والعدّاد معها، فتوقيت الرد يتبع آخر رسالة بلا رد
  * في الجلسة النشطة.
  *
- * العناوين: عنوان أول رسالة للمستخدم (مقصوصًا) يصبح عنوان الجلسة عند
- * إرسالها، إلا إن أعاد المستخدم تسميتها يدويًا — فتُحفظ معرّفات الجلسات
- * المُعاد تسميتها في localStorage ولا تكتب التسمية التلقائية فوقها أبدًا.
+ * العناوين: عنوان ذكي من أول رسالة للمستخدم — تُحذف التحية والطلب المهذب
+ * ويُقصّ عند أول نهاية جملة — يصبح عنوان الجلسة عند إرسالها، إلا إن أعاد
+ * المستخدم تسميتها يدويًا — فتُحفظ معرّفات الجلسات المُعاد تسميتها في
+ * localStorage ولا تكتب التسمية التلقائية فوقها أبدًا. بطاقة الجلسة تعرض
+ * أيضًا معاينة آخر رسالة حقيقية ووقتًا نسبيًا ونقطة حالة (بانتظار رد أم
+ * تم الرد)، والمحادثات مجمّعة تحت عناوين اليوم وأمس وهذا الأسبوع وأقدم،
+ * مع بحث يصفّي العنوان والمعاينة.
  * الحذف يطلب تأكيدًا، ويحذف رسائل الجلسة صراحةً ثم الجلسة نفسها (وإن كان
  * المفتاح الخارجي ON DELETE CASCADE يحذفها تلقائيًا أيضًا).
  *
  * الإرسال: insert واحد في ai_session_messages فقط (role=user، وموديل
  * الجلسة النشطة)، وتظهر الرسالة فورًا من نتيجة الـ insert. الرد يصل عبر
  * الجسر الدائم الذي يفحص الجلسة كل 15 ثانية؛ الصفحة تستطلع الرسائل الجديدة كل 5
- * ثوانٍ فتظهر بلا تحديث يدوي. لا Realtime، ولا مؤشر كتابة، ولا حالة
- * حضور — لا شيء منها حقيقي هنا.
+ * ثوانٍ فتظهر بلا تحديث يدوي. لا Realtime ولا حالة حضور — لا شيء منهما
+ * حقيقي هنا. فقاعة الانتظار حقيقية: تظهر من طابع إرسال رسالة بلا رد،
+ * وتختفي بوصول الرد — ومراحلها («يقرأ رسالتك…» ثم «يراجع…» ثم «يجهّز
+ * الرد…») تسميات زمنية من الثواني المنصرمة، لا قياس لخطوات الجسر
+ * الداخلية ولا ادعاء أن Muse يكتب حرفًا حرفًا.
  *
  * قائمة سياق الرسالة: كليك يمين (أو ضغطة طويلة على اللمس) على أي فقاعة
  * يفتح قائمة فيها تفاعلات وردّ ونسخ. التفاعل يُحفظ في reactions (jsonb،
@@ -47,16 +54,20 @@
  * من أي مصدر آخر، ولا رقم مخترع — والجسر هو من يحدّث quota في extensions.
  */
 import {
-    supabase, bootOwnerPage, announce, esc, when, friendlyError, errorBlock, loadingBlock,
+    supabase, bootOwnerPage, announce, esc, friendlyError, errorBlock, loadingBlock,
 } from '/assets/js/owner/owner-page.js';
 import {
     MUSE_MODEL_ID,
     POLL_MS, MESSAGES_LIMIT, mergeMessages,
     formatWaitSeconds, formatReplyTook, secondsBetween, waitingSince,
     agentForModelId, agentModelIds, sortSessions, pickActiveSession,
-    deriveTitle, isRenamed, withRenamed, withoutRenamed, shouldAutoTitle,
+    deriveSmartTitle, isRenamed, withRenamed, withoutRenamed, shouldAutoTitle,
     hasUserMessage, parseQuota, formatQuotaDate, RENAMED_SESSIONS_KEY, ACTIVE_SESSION_KEY,
     REACTION_EMOJIS, toggleReaction, reactionsOf, clampMenuPosition, quotePreview,
+    formatRelativeTime, groupSessionsByDate, previewOfLastMessage,
+    sessionStatus, SESSION_STATUS_LABEL, dateSeparatorLabel, shouldShowDateSeparator,
+    replyTookFor, formatReplyDuration, formatMessageTime, formatMessageTimestamp,
+    thinkingStage,
 } from '/assets/js/owner/muse-chat-state.js';
 import { createMuseAvatar, museAvatarSvg } from '/assets/js/owner/muse-avatar.js';
 
@@ -93,6 +104,17 @@ let avatar = null;
 let waitTimer = null;
 let waitingSinceAt = null;
 
+/* معاينات القائمة الجانبية: آخر رسالة لكل جلسة (دور ونص وطابع)، تُقرأ مرة
+   عند التحميل وتُحدَّث محليًا من رسائل الجلسة النشطة — لا تُعاد قراءتها
+   مع كل استطلاع حتى لا تتحول كل 5 ثوانٍ إلى استعلام لكل جلسة. */
+let sessionPreviews = new Map();
+
+/* نص البحث في القائمة الجانبية — يصفّي العنوان والمعاينة معًا. */
+let searchQuery = '';
+
+/* فقاعة الانتظار: عنصر واحد يُعاد استخدامه، لا عنصر جديد كل ثانية. */
+let thinkingEl = null;
+
 const say = (text, tone = 'info') => announce($('pageStatus'), text, tone);
 
 /** هل المستخدم قريب من أسفل القائمة؟ يُحفظ التمرير ولا يُقفز به أثناء القراءة. */
@@ -121,18 +143,22 @@ function reactionsHtml(m) {
     return `<div class="muse-msg-reactions" role="group" aria-label="تفاعلات الرسالة">${chips}</div>`;
 }
 
-function messageNode(m) {
+function messageNode(m, tookSeconds = null) {
     const el = document.createElement('article');
     el.className = `muse-msg muse-msg--${m.role === 'user' ? 'user' : 'assistant'}`;
     el.dataset.messageId = m.id;
     el.dataset.reactions = JSON.stringify(reactionsOf(m));
     el.dataset.replyTo = m.reply_to || '';
+    // مدة الرد — من طابعي رسالة المستخدم السابقة والرد نفسه، لا رقم ثابت.
+    const took = m.role === 'assistant' && tookSeconds !== null
+        ? `<span class="muse-msg-took">${esc(formatReplyDuration(tookSeconds))}</span>` : '';
     const body = `
         <div class="muse-msg-body">
             ${quoteHtml(m)}
             <p class="muse-msg-text">${esc(m.content)}</p>
             ${reactionsHtml(m)}
-            <time class="muse-msg-time" datetime="${esc(m.created_at || '')}">${esc(when(m.created_at))}</time>
+            <time class="muse-msg-time" datetime="${esc(m.created_at || '')}" title="${esc(formatMessageTimestamp(m.created_at))}">${esc(formatMessageTime(m.created_at))}</time>
+            ${took}
         </div>`;
     // رسائل المساعد تحمل علامة الأفاتار الصغيرة الثابتة — نفس الـ SVG بلا حركة.
     el.innerHTML = m.role === 'user'
@@ -177,8 +203,18 @@ function refreshMessageExtras(box, m) {
     }
 }
 
+function dateSeparatorNode(label) {
+    const el = document.createElement('div');
+    el.className = 'muse-date-separator';
+    el.innerHTML = `<span>${esc(label)}</span>`;
+    return el;
+}
+
 function appendNew(box, incoming) {
     const stick = nearBottom(box);
+    // فقاعة الانتظار تبقى آخر عنصر دائمًا: تُرفع مؤقتًا وتُعاد بعد الإلحاق.
+    const thinking = thinkingEl;
+    if (thinking && thinking.parentNode === box) box.removeChild(thinking);
     let added = 0;
     for (const m of incoming) {
         if (renderedIds.has(m.id)) {
@@ -186,9 +222,15 @@ function appendNew(box, incoming) {
             continue;
         }
         renderedIds.add(m.id);
-        box.appendChild(messageNode(m));
+        const idx = messages.findIndex((x) => x && x.id === m.id);
+        const prev = idx > 0 ? messages[idx - 1] : null;
+        if (shouldShowDateSeparator(prev, m)) {
+            box.appendChild(dateSeparatorNode(dateSeparatorLabel(m.created_at)));
+        }
+        box.appendChild(messageNode(m, replyTookFor(messages, m)));
         added++;
     }
+    if (thinking) box.appendChild(thinking);
     if (added && stick) box.scrollTop = box.scrollHeight;
     return added;
 }
@@ -196,6 +238,7 @@ function appendNew(box, incoming) {
 function renderMessages(box) {
     box.innerHTML = '';
     renderedIds.clear();
+    thinkingEl = null;
     if (!messages.length) {
         box.innerHTML = `<div class="state-block state-block--compact">
             <p class="state-text">لا رسائل بعد — اكتب أول رسالة لـ ${esc(agentForModelId(activeModelId).shortLabel)} بالأسفل.</p></div>`;
@@ -203,6 +246,7 @@ function renderMessages(box) {
     }
     appendNew(box, messages);
     box.scrollTop = box.scrollHeight;
+    if (waitingSinceAt) showThinking(box);
 }
 
 /* ─────────────────── قائمة سياق الرسالة: تفاعل وردّ ونسخ ─────────────────── */
@@ -419,6 +463,37 @@ async function loadSessionsList() {
     if (error) throw error;
     sessions = sortSessions(data || []);
     renderSessionList();
+    await loadSessionPreviews();
+}
+
+/**
+ * آخر رسالة لكل جلسة — استعلام واحد لكل جلسة بالتوازي عند التحميل فقط،
+ * لمعاينة البطاقة وحالتها (بانتظار رد أم تم الرد). فشل جلسة لا يوقف
+ * الباقيات، وغياب الرسائل يعني جلسة بلا رسائل لا خطأ.
+ */
+async function loadSessionPreviews() {
+    const results = await Promise.allSettled(sessions.map(async (session) => {
+        const { data, error } = await supabase.from('ai_session_messages')
+            .select('role, content, created_at')
+            .eq('session_id', session.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        if (error) throw error;
+        return [session.id, data || null];
+    }));
+    for (const result of results) {
+        if (result.status === 'fulfilled' && result.value[1]) {
+            sessionPreviews.set(result.value[0], result.value[1]);
+        }
+    }
+    renderSessionList();
+}
+
+/** آخر رسالة لجلسة: من رسائل الجلسة النشطة المحملة، أو من المعاينة المخزنة. */
+function lastMessageFor(session) {
+    if (session.id === sessionId && messages.length) return messages[messages.length - 1];
+    return sessionPreviews.get(session.id) || null;
 }
 
 /** إنشاء جلسة جديدة للوكيل — بتوجيهه المتخصص وعنوانه وترحيبه. */
@@ -600,6 +675,10 @@ function sessionItemNode(session) {
     if (session.id === sessionId) li.classList.add('is-active');
     li.dataset.sessionId = session.id;
 
+    const last = lastMessageFor(session);
+    const status = sessionStatus(last);
+    const statusLabel = SESSION_STATUS_LABEL[status];
+    const preview = previewOfLastMessage(last);
     const openBtn = document.createElement('button');
     openBtn.type = 'button';
     openBtn.className = 'muse-session-open';
@@ -607,9 +686,15 @@ function sessionItemNode(session) {
     const badge = agent.specialty
         ? `<span class="muse-session-badge">${esc(agent.specialty)}</span>` : '';
     openBtn.innerHTML = `
-        <span class="muse-session-title">${esc(session.title || 'جلسة جديدة')}</span>
-        ${badge}
-        <span class="muse-session-time">${esc(when(session.last_active_at || session.created_at))}</span>`;
+        <span class="muse-session-title-row">
+            <span class="muse-session-dot muse-session-dot--${status}" title="${esc(statusLabel)}" aria-label="${esc(statusLabel)}"></span>
+            <span class="muse-session-title">${esc(session.title || 'جلسة جديدة')}</span>
+        </span>
+        ${preview ? `<span class="muse-session-preview">${esc(preview)}</span>` : ''}
+        <span class="muse-session-foot">
+            <span class="muse-session-time">${esc(formatRelativeTime(session.last_active_at || session.created_at))}</span>
+            ${badge}
+        </span>`;
     openBtn.addEventListener('click', () => { switchSession(session.id); });
 
     const renameBtn = document.createElement('button');
@@ -639,8 +724,23 @@ function sessionItemNode(session) {
 function renderSessionList() {
     const list = $('museSessionList');
     list.innerHTML = '';
-    for (const session of sessions) list.appendChild(sessionItemNode(session));
-    $('museSessionsEmpty').hidden = sessions.length > 0;
+    const query = searchQuery.trim().toLowerCase();
+    const visible = !query ? sessions : sessions.filter((session) => {
+        const haystack = `${session.title || ''} ${previewOfLastMessage(lastMessageFor(session))}`.toLowerCase();
+        return haystack.includes(query);
+    });
+    for (const group of groupSessionsByDate(visible)) {
+        const heading = document.createElement('li');
+        heading.className = 'muse-session-group';
+        heading.textContent = group.label;
+        list.appendChild(heading);
+        for (const session of group.sessions) list.appendChild(sessionItemNode(session));
+    }
+    const empty = $('museSessionsEmpty');
+    empty.hidden = visible.length > 0;
+    empty.textContent = query
+        ? 'لا نتائج مطابقة للبحث.'
+        : 'لا محادثات بعد — ابدأ محادثة جديدة.';
 }
 
 /* ─────────────────── إعادة التسمية والحذف ─────────────────── */
@@ -727,6 +827,7 @@ async function deleteSession() {
         if (error) throw error;
         const wasActive = id === sessionId;
         sessions = sessions.filter((s) => s.id !== id);
+        sessionPreviews.delete(id);
         renamedIds = withoutRenamed(renamedIds, id);
         saveRenamedIds();
         if (wasActive) {
@@ -775,6 +876,12 @@ async function pollMessages() {
             appendNew($('museChatMessages'), messages);
             // رسائل جديدة تعني نشاطًا للجسر — قد يكون حدّث الكوتة معها.
             refreshQuota();
+            // حدّث معاينة الجلسة النشطة وحالتها من آخر رسالة فعلية.
+            const last = messages[messages.length - 1];
+            if (last) {
+                sessionPreviews.set(sessionId, last);
+                renderSessionList();
+            }
         }
         // الكوتة قد تتحدّث بلا رسائل جديدة (لقطة الجسر) — حدّثها كل 30 ثانية.
         if (Date.now() - lastQuotaRefreshAt > QUOTA_REFRESH_MS) refreshQuota();
@@ -795,22 +902,67 @@ function setReplyStatus(text, waiting) {
     el.classList.toggle('is-waiting', !!waiting);
 }
 
+/* ─────────────────── فقاعة الانتظار: نقاط ومرحلة وعدّاد ─────────────────── */
+
+/**
+ * فقاعة الانتظار — ثلاث نقاط نابضة + مرحلة زمنية + عدّاد ثوانٍ حي.
+ * تظهر فقط من طابع إرسال حقيقي (رسالة مستخدم بلا رد)، وتُبنى مرة واحدة
+ * وتُحدَّث نصًا كل ثانية — لا عنصر جديد مع كل نبضة.
+ */
+function showThinking(box) {
+    if (thinkingEl) {
+        if (thinkingEl.parentNode !== box) box.appendChild(thinkingEl);
+        return;
+    }
+    const el = document.createElement('div');
+    el.className = 'muse-thinking';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    el.innerHTML = `
+        <span class="muse-msg-avatar" aria-hidden="true">${museAvatarSvg()}</span>
+        <span class="muse-thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="muse-thinking-text">Muse يفكر…</span>
+        <span class="muse-thinking-stage"></span>
+        <span class="muse-thinking-timer">0 ث</span>`;
+    thinkingEl = el;
+    box.appendChild(el);
+    box.scrollTop = box.scrollHeight;
+}
+
+/** تحديث نص الفقاعة كل ثانية: المرحلة من الثواني المنصرمة والعدّاد. */
+function updateThinking(seconds) {
+    if (!thinkingEl) return;
+    const stage = thinkingEl.querySelector('.muse-thinking-stage');
+    const timer = thinkingEl.querySelector('.muse-thinking-timer');
+    if (stage) stage.textContent = thinkingStage(seconds);
+    if (timer) timer.textContent = `${Math.max(0, Math.floor(seconds))} ث`;
+}
+
+function hideThinking() {
+    if (thinkingEl) thinkingEl.remove();
+    thinkingEl = null;
+}
+
 /** من لحظة الإرسال: الأفاتار يفكّر، والعدّاد يحسب ثوانٍ حقيقية كل ثانية. */
 function startWaiting(sentAt) {
     stopWaitTimer();
     waitingSinceAt = sentAt || new Date().toISOString();
     if (avatar) avatar.setState('thinking');
     setReplyStatus(formatWaitSeconds(0), true);
+    showThinking($('museChatMessages'));
+    updateThinking(0);
     waitTimer = setInterval(() => {
         if (!waitingSinceAt) return;
-        setReplyStatus(
-            formatWaitSeconds(secondsBetween(waitingSinceAt, new Date().toISOString())), true);
+        const seconds = secondsBetween(waitingSinceAt, new Date().toISOString());
+        setReplyStatus(formatWaitSeconds(seconds), true);
+        updateThinking(seconds);
     }, 1000);
 }
 
 function stopWaitTimer() {
     if (waitTimer) clearInterval(waitTimer);
     waitTimer = null;
+    hideThinking();
 }
 
 /** وصل رد مساعد بعد طابع الإرسال: أوقف العدّاد واعرض كم ثانية استغرق. */
@@ -874,23 +1026,23 @@ async function sendMessage() {
         input.value = '';
         cancelReply();
         input.focus();
-        // أول رسالة في الجلسة تسمّيها — إلا إن أعاد المستخدم تسميتها يدويًا.
-        // تحديث آخر نشاط أيضًا حتى تبقى الجلسة في أعلى القائمة.
+        // أول رسالة في الجلسة تسمّيها بعنوان ذكي من محتواها — إلا إن أعاد
+        // المستخدم تسميتها يدويًا. تحديث آخر نشاط أيضًا حتى تبقى الجلسة
+        // في أعلى القائمة، ومعاينتها من الرسالة المرسلة فعلًا.
         try {
             const patch = { last_active_at: new Date().toISOString() };
             const title = isFirstUserMessage && shouldAutoTitle(activeSession, renamedIds)
-                ? deriveTitle(text) : '';
+                ? deriveSmartTitle(text) : '';
             if (title) patch.title = title;
             const { error: patchError } = await supabase.from('ai_sessions')
                 .update(patch)
                 .eq('id', sessionId)
                 .eq('owner_id', ownerId);
             if (patchError) throw patchError;
-            if (title) {
-                sessions = sessions.map((s) => (s.id === sessionId
-                    ? { ...s, title, last_active_at: patch.last_active_at } : s));
-                renderSessionList();
-            }
+            sessions = sessions.map((s) => (s.id === sessionId
+                ? { ...s, ...(title ? { title } : {}), last_active_at: patch.last_active_at } : s));
+            sessionPreviews.set(sessionId, data);
+            renderSessionList();
         } catch (err) {
             console.error('[MuseChat] auto-title failed:', err?.message || err);
         }
@@ -943,6 +1095,10 @@ async function init() {
         loadChat(booted.session.user.id);
     });
     $('museNewChatBtn').addEventListener('click', () => { newChat(); });
+    $('museSessionSearch').addEventListener('input', (e) => {
+        searchQuery = e.target.value;
+        renderSessionList();
+    });
     document.querySelectorAll('.muse-agent-chip').forEach((chip) => {
         chip.addEventListener('click', () => { openAgent(chip.dataset.modelId); });
     });

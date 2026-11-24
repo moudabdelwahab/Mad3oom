@@ -21,7 +21,7 @@
 import {
     AVATAR_STATES, AVATAR_STATE_MS, AVATAR_PACE, BLINK_MS,
     nextBlinkDelayMs, nextCycleMs, breathWave, floatWave, tiltWave,
-    speakingWave, bodyTransform,
+    speakingWave, bodyTransform, thinkingEyeOffset,
 } from './muse-avatar-state.js';
 
 export const AVATAR_STORAGE_MOTION = 'muse-avatar-motion';
@@ -43,6 +43,11 @@ export function museAvatarSvg() {
         </linearGradient>
     </defs>
     <rect class="muse-avatar-body-shape" x="16" y="20" width="88" height="84" rx="32" fill="url(#museAvGrad)" />
+    <g class="muse-avatar-thinking-dots" aria-hidden="true">
+        <circle cx="48" cy="10" r="3.5" fill="#4DA3FF" />
+        <circle cx="60" cy="7" r="3.5" fill="#4DA3FF" />
+        <circle cx="72" cy="10" r="3.5" fill="#4DA3FF" />
+    </g>
     <ellipse cx="44" cy="38" rx="20" ry="12" fill="#FFFFFF" opacity="0.18" />
     <g class="muse-avatar-eyes-glance">
         <g class="muse-avatar-eyes">
@@ -226,6 +231,8 @@ export function createMuseAvatar(root, opts = {}) {
         let floatY = t.translateY;
         if (state === 'thinking') {
             floatY = -2 + 2.5 * floatWave(floatPhase);
+            // ميلان تأمل خفيف أثناء التفكير — رأس مائل قليلًا لا دوران.
+            rotate -= 2;
         }
         if (state === 'attention') {
             // يقظة 2.4 ث: يرتفع ويميل قليلًا ثم يعود — مغلف جيبي بلا قفزة.
@@ -240,8 +247,11 @@ export function createMuseAvatar(root, opts = {}) {
                 `translateY(${floatY.toFixed(2)}px) rotate(${rotate.toFixed(2)}deg) scale(${scale.toFixed(4)})`;
         }
         if (eyesGlance) {
-            const glance = state === 'thinking' ? 3 * Math.sin(2 * Math.PI * floatPhase) : 0;
-            eyesGlance.style.transform = `translateX(${glance.toFixed(2)}px)`;
+            // أثناء التفكير العينان مرفوعتان للأعلى وتتنقلان يمينًا ويسارًا؛
+            // في غيره نظرة مستقيمة بلا إزاحة.
+            const glance = state === 'thinking' ? thinkingEyeOffset(floatPhase) : { x: 0, y: 0 };
+            eyesGlance.style.transform =
+                `translate(${glance.x.toFixed(2)}px, ${glance.y.toFixed(2)}px)`;
         }
         if (mouth) {
             const open = state === 'speaking' ? speakingWave(now - speakingStartedAt) : 0;

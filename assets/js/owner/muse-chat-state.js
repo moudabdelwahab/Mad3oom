@@ -144,6 +144,43 @@ export function hasUserMessage(messages) {
     return (messages || []).some((m) => m && m.role === 'user');
 }
 
+/** أقصى طول لعنوان ذكي من رسالة المستخدم — أطول قليلًا من القصّ الخام. */
+export const SMART_TITLE_MAX = 48;
+
+/**
+ * بدايات تُحذف من عنوان الجلسة التلقائي لأنها لا تصف الموضوع: تحية أو
+ * طلب مهذب أو مخاطبة للوكيل. تُحذف تكرارًا حتى يبقى لبّ الطلب فقط؛
+ * نص كان كله بدايةً (مثل «مرحبا» وحدها) يرجع كما هو بلا حذف.
+ */
+const TITLE_FILLERS = [
+    /^(السلام عليكم|صباح الخير|مساء الخير|أهلاً|أهلا|مرحباً|مرحبا)\s*[,،]?\s*/i,
+    /^(لو سمحت|من فضلك|إذا سمحت|بعد إذنك)\s*[,،]?\s*/i,
+    /^(ممكن تساعدني في|ممكن تساعدني|ساعدني في|ساعدني)\s+/i,
+    /^(ممكن أن|ممكن|أريد أن|أريد|عايزة|عايز|عاوز)\s+/i,
+    /^(يا Muse|Muse|يا موسى)\s*[,،]?\s*/i,
+];
+
+/**
+ * عنوان ذكي من رسالة المستخدم: تُحذف البدايات المهذبة، ويُقصّ عند أول
+ * نهاية جملة (. أو ؟ أو !) إن كانت الجملة الأولى وافية (8 أحرف فأكثر)،
+ * ثم يُقصّ عند الحد مع «…». فراغ يرجع ''؛ وبلا لبّ بعد الحذف يرجع
+ * القصّ الخام deriveTitle للنص الأصلي.
+ */
+export function deriveSmartTitle(text, max = SMART_TITLE_MAX) {
+    const clean = (text || '').replace(/\s+/g, ' ').trim();
+    if (!clean) return '';
+    let core = clean;
+    for (const pattern of TITLE_FILLERS) {
+        const next = core.replace(pattern, '');
+        if (next.trim()) core = next.trim();
+    }
+    if (!core) return deriveTitle(clean, max);
+    const end = core.search(/[.!؟\n]/);
+    if (end >= 8) core = core.slice(0, end).trim();
+    if (core.length <= max) return core;
+    return `${core.slice(0, max - 1).trimEnd()}…`;
+}
+
 /* ─────────────────── الكوتة: تحليل لقطة extensions.quota وعرضها ─────────────────── */
 
 /**
@@ -395,4 +432,237 @@ export function waitingSince(messages) {
     if (!rows.length) return null;
     const last = rows[rows.length - 1];
     return last.role === 'user' ? (last.created_at || null) : null;
+}
+
+/* ─────────────────── الوقت النسبي وتجميع الجلسات بالتاريخ ─────────────────── */
+
+/** كل الأوقات في الصفحة بتوقيت القاهرة، وأرقامها لاتينية كالكوتة. */
+export const CAIRO_TZ = 'Africa/Cairo';
+
+/** مفتاح يوم «YYYY-MM-DD» بتوقيت القاهرة، أو null عند تاريخ فاسد. */
+export function cairoDayKey(value) {
+    const d = new Date(value);
+    if (Number.isNaN(d)) return null;
+    try {
+        return new Intl.DateTimeFormat('en-CA', {
+            timeZone: CAIRO_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+        }).format(d);
+    } catch (err) {
+        return null;
+    }
+}
+
+/** فرق الأيام التقويمية بين قيمتين بتوقيت القاهرة — سالب عند قيمة لاحقة. */
+export function cairoDayDiff(value, now = new Date()) {
+    const a = cairoDayKey(value);
+    const b = cairoDayKey(now);
+    if (!a || !b) return null;
+    return Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+}
+
+/** وقت «11:15 ص» بتوقيت القاهرة وأرقام لاتينية، أو '—' عند تاريخ فاسد. */
+export function formatTimeCairo(value) {
+    const d = new Date(value);
+    if (Number.isNaN(d)) return '—';
+    try {
+        return new Intl.DateTimeFormat('ar-EG-u-nu-latn', {
+            timeZone: CAIRO_TZ, hour: 'numeric', minute: '2-digit',
+        }).format(d);
+    } catch (err) {
+        return '—';
+    }
+}
+
+/** طابع كامل بالثواني لخاصية title: «24 نوفمبر 2026 في 11:15:00 ص». */
+export function formatMessageTimestamp(value) {
+    const d = new Date(value);
+    if (Number.isNaN(d)) return '—';
+    try {
+        return new Intl.DateTimeFormat('ar-EG-u-nu-latn', {
+            timeZone: CAIRO_TZ, day: 'numeric', month: 'long', year: 'numeric',
+            hour: 'numeric', minute: '2-digit', second: '2-digit',
+        }).format(d);
+    } catch (err) {
+        return '—';
+    }
+}
+
+/** جمع عربي: 1 مفرد، 2 مثنى، 3–10 جمع، 11+ مفرد منصوب. */
+function arabicCount(n, singular, dual, few) {
+    if (n === 1) return singular;
+    if (n === 2) return dual;
+    if (n >= 3 && n <= 10) return `${n} ${few}`;
+    return `${n} ${singular}`;
+}
+
+/**
+ * وقت نسبي من طابع زمني: «الآن» ثم «منذ 5 دقائق»، ثم «اليوم 11:15 ص»
+ * و«أمس 08:32 م» و«الثلاثاء 10:04 ص»، ثم التاريخ وحده بعد أسبوع.
+ * طابع مستقبلي (انحراف ساعة) يُعامل كـ «الآن».
+ */
+export function formatRelativeTime(value, now = new Date()) {
+    const d = new Date(value);
+    if (Number.isNaN(d)) return '—';
+    const ref = new Date(now);
+    const diffMs = ref - d;
+    if (diffMs < 0) return 'الآن';
+    if (diffMs < 60000) return 'الآن';
+    const minutes = Math.floor(diffMs / 60000);
+    if (minutes < 60) return `منذ ${arabicCount(minutes, 'دقيقة', 'دقيقتين', 'دقائق')}`;
+    const days = cairoDayDiff(value, ref);
+    const time = formatTimeCairo(d);
+    if (days === 0) return `اليوم ${time}`;
+    if (days === 1) return `أمس ${time}`;
+    if (days !== null && days >= 2 && days <= 6) {
+        try {
+            const weekday = new Intl.DateTimeFormat('ar-EG-u-nu-latn', {
+                timeZone: CAIRO_TZ, weekday: 'long',
+            }).format(d);
+            return `${weekday} ${time}`;
+        } catch (err) {
+            return formatQuotaDate(d, false) || '—';
+        }
+    }
+    return formatQuotaDate(d, false) || '—';
+}
+
+/** وقت فقاعة الرسالة: اليوم وقت فقط، أمس «أمس + وقت»، والأقدم تاريخ ووقت. */
+export function formatMessageTime(value, now = new Date()) {
+    const d = new Date(value);
+    if (Number.isNaN(d)) return '—';
+    const days = cairoDayDiff(value, now);
+    if (days === 0) return formatTimeCairo(d);
+    if (days === 1) return `أمس ${formatTimeCairo(d)}`;
+    return formatQuotaDate(d, true) || '—';
+}
+
+/** مجموعات القائمة الجانبية بالترتيب: اليوم، أمس، هذا الأسبوع، أقدم. */
+export const SESSION_DATE_GROUPS = Object.freeze([
+    { key: 'today', label: 'اليوم' },
+    { key: 'yesterday', label: 'أمس' },
+    { key: 'week', label: 'هذا الأسبوع' },
+    { key: 'older', label: 'أقدم' },
+]);
+
+/** مجموعة جلسة واحدة من آخر نشاط (أو إنشائها): today/yesterday/week/older. */
+export function sessionDateGroup(session, now = new Date()) {
+    const days = cairoDayDiff(session?.last_active_at || session?.created_at, now);
+    if (days === 0) return 'today';
+    if (days === 1) return 'yesterday';
+    if (days !== null && days >= 2 && days <= 6) return 'week';
+    return 'older';
+}
+
+/**
+ * تجميع الجلسات (بالترتيب الوارد — الأحدث أولًا) تحت عناوين التاريخ،
+ * والمجموعات الفارغة تُحذف. لا يعيد الترتيب داخل المجموعة.
+ */
+export function groupSessionsByDate(sessions, now = new Date()) {
+    const groups = SESSION_DATE_GROUPS.map((g) => ({ ...g, sessions: [] }));
+    for (const session of sessions || []) {
+        const group = groups.find((g) => g.key === sessionDateGroup(session, now));
+        if (group) group.sessions.push(session);
+    }
+    return groups.filter((g) => g.sessions.length > 0);
+}
+
+/* ─────────────────── معاينة الجلسة وحالتها ─────────────────── */
+
+/** أقصى طول لمعاينة آخر رسالة في بطاقة الجلسة — سطر واحد قصير. */
+export const SESSION_PREVIEW_MAX = 60;
+
+/**
+ * معاينة آخر رسالة: تطبيع المسافات وقصّ عند الحد مع «…». فراغ أو رسالة
+ * بلا نص ترجع '' فلا تُعرض معاينة فارغة.
+ */
+export function previewOfLastMessage(message, max = SESSION_PREVIEW_MAX) {
+    const clean = (message?.content || '').replace(/\s+/g, ' ').trim();
+    if (!clean) return '';
+    if (clean.length <= max) return clean;
+    return `${clean.slice(0, max - 1).trimEnd()}…`;
+}
+
+/**
+ * حالة الجلسة من آخر رسالة حقيقية فقط: بانتظار رد إن كانت آخر رسالة من
+ * المستخدم، تم الرد إن كانت من المساعد، وبلا رسائل عند غيابها. لا عدد
+ * «غير مقروء» مخترعًا — لا علامة قراءة في القاعدة أصلًا.
+ */
+export function sessionStatus(lastMessage) {
+    if (!lastMessage) return 'empty';
+    return lastMessage.role === 'user' ? 'waiting' : 'answered';
+}
+
+/** نص حالة الجلسة بالعربية — النقطة وحدها لا تحمل المعنى. */
+export const SESSION_STATUS_LABEL = Object.freeze({
+    waiting: 'بانتظار رد',
+    answered: 'تم الرد',
+    empty: 'بلا رسائل',
+});
+
+/* ─────────────────── فواصل التاريخ ومدة الرد ─────────────────── */
+
+/**
+ * نص فاصل التاريخ بين الرسائل: «اليوم — 24 نوفمبر 2026» و«أمس — …»،
+ * والأقدم التاريخ وحده. تاريخ فاسد يرجع '—'.
+ */
+export function dateSeparatorLabel(value, now = new Date()) {
+    const d = new Date(value);
+    if (Number.isNaN(d)) return '—';
+    const date = formatQuotaDate(d, false) || '—';
+    const days = cairoDayDiff(value, now);
+    if (days === 0) return `اليوم — ${date}`;
+    if (days === 1) return `أمس — ${date}`;
+    return date;
+}
+
+/**
+ * هل يظهر فاصل تاريخ قبل هذه الرسالة؟ نعم عند أول رسالة، أو عند تغيّر
+ * اليوم التقويمي (بتوقيت القاهرة) عن الرسالة السابقة.
+ */
+export function shouldShowDateSeparator(prev, curr) {
+    if (!curr?.created_at) return false;
+    if (!prev?.created_at) return true;
+    return cairoDayKey(prev.created_at) !== cairoDayKey(curr.created_at);
+}
+
+/**
+ * ثواني رد المساعد: من أحدث رسالة مستخدم قبل طابع الرد. بلا رسالة
+ * مستخدم سابقة، أو رد ليس من المساعد، ترجع null فلا يُعرض رقم.
+ */
+export function replyTookFor(messages, reply) {
+    if (!reply || reply.role !== 'assistant' || !reply.created_at) return null;
+    const replyAt = new Date(reply.created_at);
+    let prevUser = null;
+    for (const m of messages || []) {
+        if (m?.role === 'user' && m.created_at && new Date(m.created_at) < replyAt) {
+            if (!prevUser || new Date(m.created_at) > new Date(prevUser.created_at)) prevUser = m;
+        }
+    }
+    if (!prevUser) return null;
+    return secondsBetween(prevUser.created_at, reply.created_at);
+}
+
+/** نص مدة الرد تحت فقاعة المساعد: «تم الرد خلال 47 ثانية». */
+export function formatReplyDuration(seconds) {
+    const n = Math.max(0, Math.round(seconds));
+    return `تم الرد خلال ${n} ثانية`;
+}
+
+/* ─────────────────── مراحل الانتظار ─────────────────── */
+
+/**
+ * مراحل فقاعة الانتظار من الثواني المنصرمة فقط — تسميات زمنية، لا قياس
+ * لخطوات الجسر الداخلية (الجسر معتم من هذه الصفحة): قراءة، ثم مراجعة،
+ * ثم تجهيز الرد.
+ */
+export const THINKING_STAGES = Object.freeze([
+    { until: 5, label: 'يقرأ رسالتك…' },
+    { until: 15, label: 'يراجع التذاكر والبيانات…' },
+    { until: Infinity, label: 'يجهّز الرد…' },
+]);
+
+/** مرحلة الانتظار الحالية من ثوانٍ منصرمة — سالبة تُقصّ إلى صفر. */
+export function thinkingStage(elapsedSeconds) {
+    const s = Math.max(0, Math.floor(elapsedSeconds));
+    return THINKING_STAGES.find((stage) => s < stage.until).label;
 }
