@@ -30,7 +30,10 @@ import {
     PERSON_KIND_LABELS, statusInfo, subscriptionInfo, normalizeSearch,
     TRANSFER_MIN_REASON, validateTransferReason, newIdempotencyKey,
     canTransferPerson, transferTargets, buildTransferPayload, buildFullAccountDetails,
-    validateProfileEdit, profileEditRequiresStepUp, READONLY_PROFILE_FIELDS
+    validateProfileEdit, profileEditRequiresStepUp, READONLY_PROFILE_FIELDS,
+    auditActionLabel, auditSourceLabel, usageEventLabel, usageCounterLabel, usageSourceLabel,
+    transferStatusLabel, transferInitiatedLabel, accountRequestTypeLabel, accountRequestStatusLabel,
+    joinedViaLabel, membershipStatusLabel, managerEndCauseLabel
 } from '/assets/js/owner/accounts-tree-model.js';
 import { TICKET_STATUS_LABELS, TICKET_STATUS_TONES } from '/assets/js/owner/owner-labels.js';
 import { ensureStepUp } from '/assets/js/security/step-up-modal.js';
@@ -173,7 +176,7 @@ function kv(pairs) {
 function eventsList(events) {
     if (!events?.length) return '<p class="panel-subtitle">لا أحداث مسجّلة على هذه العقدة.</p>';
     return `<ul class="owner-thread">${events.map(e => `<li>
-        <div class="owner-thread-head"><span>${esc(e.action || '')}</span><span>${esc(when(e.at))}</span></div>
+        <div class="owner-thread-head"><span title="${esc(e.action || '')}">${esc(auditActionLabel(e.action))}</span><span>${esc(when(e.at))}</span></div>
         <p class="state-text">الفاعل: ${esc(e.actor_name || '—')}</p>
     </li>`).join('')}</ul>`;
 }
@@ -251,14 +254,14 @@ function renderDetail() {
         ]);
         if (d.memberships.length) {
             html += detailSection('عضويات الشركات', `<ul class="owner-thread">${d.memberships.map(m => `<li>
-                <div class="owner-thread-head"><span>${esc(m.company_name || '')}</span><span>${esc(m.status || '')}${m.is_primary ? ' · أساسية' : ''}</span></div>
-                <p class="state-text">انضم ${esc(day(m.joined_at))}${m.joined_via ? ` · عبر ${esc(m.joined_via)}` : ''}${m.ended_at ? ` · انتهت ${esc(day(m.ended_at))}` : ''}</p>
+                <div class="owner-thread-head"><span>${esc(m.company_name || '')}</span><span>${esc(membershipStatusLabel(m.status))}${m.is_primary ? ' · أساسية' : ''}</span></div>
+                <p class="state-text">انضم ${esc(day(m.joined_at))}${m.joined_via ? ` · ${esc(joinedViaLabel(m.joined_via))}` : ''}${m.ended_at ? ` · انتهت ${esc(day(m.ended_at))}` : ''}</p>
             </li>`).join('')}</ul>`);
         }
         if (d.managerHistory.length) {
             html += detailSection('سجل مديري الحساب', `<ul class="owner-thread">${d.managerHistory.map(h => `<li>
                 <div class="owner-thread-head"><span>${esc(h.manager_name || '')}</span><span>${esc(day(h.assigned_at))}</span></div>
-                <p class="state-text">أسندها ${esc(h.assigned_by_name || '—')}${h.reason ? ` · ${esc(h.reason)}` : ''}${h.ended_at ? ` · انتهت (${esc(h.end_cause || '')})` : ''}</p>
+                <p class="state-text">أسندها ${esc(h.assigned_by_name || '—')}${h.reason ? ` · ${esc(h.reason)}` : ''}${h.ended_at ? ` · انتهت (${esc(managerEndCauseLabel(h.end_cause))})` : ''}</p>
             </li>`).join('')}</ul>`);
         }
         html += '<div id="acctFullDetail"><p class="panel-subtitle">جارٍ إكمال التفاصيل الكاملة…</p></div>';
@@ -354,8 +357,8 @@ function renderFullDetail(slot, raw) {
         ['التجميد', w ? (w.is_frozen ? 'مجمّد' : 'غير مجمّد') : '—']
     ]) + (full.usage.length
         ? `<ul class="owner-thread">${full.usage.map(u => `<li>
-            <div class="owner-thread-head"><span>${esc(u.event || '')} · ${esc(u.counter || '')} · ${num(u.units)}</span><span>${esc(when(u.recorded_at))}</span></div>
-            <p class="state-text">الفترة: ${esc(day(u.period))}${u.source ? ` · المصدر: ${esc(u.source)}` : ''}</p>
+            <div class="owner-thread-head"><span>${esc(usageEventLabel(u.event))} · ${esc(usageCounterLabel(u.counter))} · ${num(u.units)}</span><span>${esc(when(u.recorded_at))}</span></div>
+            <p class="state-text">الفترة: ${esc(day(u.period))}${u.source ? ` · المصدر: ${esc(usageSourceLabel(u.source))}` : ''}</p>
         </li>`).join('')}</ul>`
         : '<p class="panel-subtitle">لا قيود استهلاك مسجّلة.</p>'));
     const counts = Object.entries(full.tickets.counts)
@@ -370,14 +373,14 @@ function renderFullDetail(slot, raw) {
         html += detailSection('النقل بين الشركات', (full.transfers.pending
             ? `<p class="state-text">طلبات معلّقة: ${num(full.transfers.pending)}</p>` : '')
             + `<ul class="owner-thread">${full.transfers.latest.map(tr => `<li>
-                <div class="owner-thread-head"><span>${esc(tr.from_company || '')} ← ${esc(tr.to_company || '')}</span><span>${esc(tr.status || '')}</span></div>
-                <p class="state-text">بادر به: ${esc(tr.initiated_as || '—')} · ${esc(when(tr.created_at))}${tr.completed_at ? ` · اكتمل ${esc(when(tr.completed_at))}` : ''}</p>
+                <div class="owner-thread-head"><span>${esc(tr.from_company || '')} ← ${esc(tr.to_company || '')}</span><span>${esc(transferStatusLabel(tr.status))}</span></div>
+                <p class="state-text">بادر به: ${esc(transferInitiatedLabel(tr.initiated_as) || '—')} · ${esc(when(tr.created_at))}${tr.completed_at ? ` · اكتمل ${esc(when(tr.completed_at))}` : ''}</p>
             </li>`).join('')}</ul>`);
     }
     html += detailSection('سجل التدقيق الكامل', full.audit.length
         ? `<ul class="owner-thread">${full.audit.slice(0, 20).map(a => `<li>
-            <div class="owner-thread-head"><span>${esc(a.action || '')}</span><span>${esc(when(a.at))}</span></div>
-            <p class="state-text">الفاعل: ${esc(a.actor_name || '—')}${a.source ? ` · المصدر: ${esc(a.source)}` : ''}${a.company_name ? ` · ${esc(a.company_name)}` : ''}</p>
+            <div class="owner-thread-head"><span title="${esc(a.action || '')}">${esc(auditActionLabel(a.action))}</span><span>${esc(when(a.at))}</span></div>
+            <p class="state-text">الفاعل: ${esc(a.actor_name || '—')}${a.source ? ` · المصدر: ${esc(auditSourceLabel(a.source))}` : ''}${a.company_name ? ` · ${esc(a.company_name)}` : ''}</p>
         </li>`).join('')}</ul><p class="panel-subtitle">${esc(full.historyNote || '')}</p>`
         : '<p class="panel-subtitle">لا أحداث مسجّلة على هذا الحساب.</p>');
     slot.innerHTML = html;
@@ -388,12 +391,12 @@ function renderExtraDetail(slot, data) {
     const requests = Array.isArray(data.requests) ? data.requests : [];
     slot.innerHTML = detailSection('سجل تدقيق الحساب', history.length
         ? `<ul class="owner-thread">${history.slice(0, 20).map(h => `<li>
-            <div class="owner-thread-head"><span>${esc(h.action || '')}${h.company_name ? ` · ${esc(h.company_name)}` : ''}</span><span>${esc(when(h.at))}</span></div>
-            <p class="state-text">الفاعل: ${esc(h.actor_name || '—')}${h.source ? ` · المصدر: ${esc(h.source)}` : ''}</p>
+            <div class="owner-thread-head"><span title="${esc(h.action || '')}">${esc(auditActionLabel(h.action))}${h.company_name ? ` · ${esc(h.company_name)}` : ''}</span><span>${esc(when(h.at))}</span></div>
+            <p class="state-text">الفاعل: ${esc(h.actor_name || '—')}${h.source ? ` · المصدر: ${esc(auditSourceLabel(h.source))}` : ''}</p>
         </li>`).join('')}</ul><p class="panel-subtitle">${esc(data.history_note || '')}</p>`
         : '<p class="panel-subtitle">لا أحداث مسجّلة على هذا الحساب.</p>')
         + (requests.length ? detailSection('طلبات الحساب', `<ul class="owner-thread">${requests.map(r => `<li>
-            <div class="owner-thread-head"><span>${esc(r.request_type || '')}</span><span>${esc(r.status || '')}</span></div>
+            <div class="owner-thread-head"><span>${esc(accountRequestTypeLabel(r.request_type))}</span><span>${esc(accountRequestStatusLabel(r.status))}</span></div>
             <p class="state-text">${esc(r.company_name || '')} · ${esc(when(r.requested_at))}</p>
         </li>`).join('')}</ul>`) : '');
 }

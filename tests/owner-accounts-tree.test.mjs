@@ -16,7 +16,10 @@ const {
     TRANSFER_MIN_REASON, validateTransferReason, newIdempotencyKey, isIdempotencyKey,
     primaryMembership, canTransferPerson, ownedCompanyIds, transferTargets, buildTransferPayload,
     buildFullAccountDetails, validateProfileEdit, profileEditRequiresStepUp,
-    EDITABLE_PROFILE_FIELDS, READONLY_PROFILE_FIELDS, SENSITIVE_PROFILE_ROLES
+    EDITABLE_PROFILE_FIELDS, READONLY_PROFILE_FIELDS, SENSITIVE_PROFILE_ROLES,
+    auditActionLabel, auditSourceLabel, usageEventLabel, usageCounterLabel, usageSourceLabel,
+    transferStatusLabel, transferInitiatedLabel, accountRequestTypeLabel, accountRequestStatusLabel,
+    joinedViaLabel, membershipStatusLabel, managerEndCauseLabel
 } = await import('../assets/js/owner/accounts-tree-model.js');
 
 function person(over = {}) {
@@ -489,4 +492,72 @@ test('اشتراك حالته active لكن تاريخه فات يُعرض من�
     assert.equal(subscriptionInfo({ status: 'active', is_active: true }).label, 'فعّال');
     assert.equal(subscriptionInfo(null).label, 'بلا اشتراك');
     assert.equal(subscriptionInfo({ status: 'nope', is_active: false }).label, 'غير محددة');
+});
+
+test('تسمية إجراء التدقيق: رفض نقل العضو بالعربية نفسها في صفحة العضو', () => {
+    assert.equal(auditActionLabel('member_transfer_rejected'), 'رفضت المنصة نقله');
+    assert.equal(auditActionLabel('member_transfer_approved'), 'وافقت المنصة على نقله');
+    assert.equal(auditActionLabel('transferred_in'), 'نُقل إلى الشركة');
+    assert.equal(auditActionLabel('joined'), 'انضم للشركة');
+});
+
+test('تسمية إجراء التدقيق: امتيازات وهرمية واشتراكات', () => {
+    assert.equal(auditActionLabel('customer.transfer.owner'), 'نقل المالك عميلًا بين شركتين');
+    assert.equal(auditActionLabel('company.member_transfer.rejected'), 'رفضت المنصة نقل عضو');
+    assert.equal(auditActionLabel('profile.update.owner'), 'عدّل المالك بيانات حساب');
+    assert.equal(auditActionLabel('step_up.verified'), 'تم التحقق بخطوتين');
+    assert.equal(auditActionLabel('customer.transferred'), 'نُقل عميل من الشركة');
+    assert.equal(auditActionLabel('customer.transferred_in'), 'نُقل عميل إلى الشركة');
+    assert.equal(auditActionLabel('company.assigned'), 'أُسندت شركة إلى وحدة');
+    assert.equal(auditActionLabel('update'), 'حُدّث الاشتراك');
+    assert.equal(auditActionLabel('upgrade'), 'رُقّي الاشتراك');
+    assert.equal(auditActionLabel('deactivate'), 'أُلغي تفعيل الاشتراك');
+});
+
+test('تسمية إجراء التدقيق: بادئات ديناميكية، والمجهول يُعرض كما هو لا يُخفى', () => {
+    assert.equal(auditActionLabel('company.status.suspended'), 'تغيّرت حالة الشركة');
+    assert.equal(auditActionLabel('feature_switch.customer_transfers_enabled'), 'تغيّر مفتاح ميزة');
+    assert.equal(auditActionLabel('data_access.rule.foo'), 'تغيّرت قاعدة وصول للبيانات');
+    assert.equal(auditActionLabel('some_future_action'), 'some_future_action');
+    assert.equal(auditActionLabel(''), '');
+    assert.equal(auditActionLabel(null), '');
+});
+
+test('تسمية مصدر سجل التدقيق: المصدر نفسه يشرح المعنى بالعربية', () => {
+    assert.equal(auditSourceLabel('membership'), 'عضويات الشركات');
+    assert.equal(auditSourceLabel('privileged'), 'إجراءات المالك المميزة');
+    assert.equal(auditSourceLabel('hierarchy'), 'هيكل الحسابات');
+    assert.equal(auditSourceLabel('subscription'), 'الاشتراكات');
+    assert.equal(auditSourceLabel('unknown_source'), 'unknown_source');
+    assert.equal(auditSourceLabel(''), '');
+});
+
+test('تسميات قيود الاستهلاك والنقل والطلبات في لوحة التفاصيل', () => {
+    assert.equal(usageEventLabel('ticket_created'), 'أُنشئت تذكرة');
+    assert.equal(usageEventLabel('billing_linked'), 'رُبطت بالفوترة');
+    assert.equal(usageCounterLabel('used'), 'مستخدَمة');
+    assert.equal(usageCounterLabel('none'), 'بلا احتساب');
+    assert.equal(usageSourceLabel('trigger'), 'تلقائي');
+    assert.equal(usageSourceLabel('backfill'), 'تعبئة تاريخية');
+    assert.equal(transferStatusLabel('pending'), 'معلّق');
+    assert.equal(transferStatusLabel('completed'), 'مكتمل');
+    assert.equal(transferStatusLabel('expired'), 'منتهٍ');
+    assert.equal(transferInitiatedLabel('customer'), 'بطلب العميل');
+    assert.equal(transferInitiatedLabel('owner'), 'بقرار المالك');
+    assert.equal(accountRequestTypeLabel('add_to_company'), 'إضافة عميل إلى شركة');
+    assert.equal(accountRequestTypeLabel('transfer_direct_to_company'), 'نقل عميل مباشر إلى شركة');
+    assert.equal(accountRequestStatusLabel('pending'), 'بانتظار القرار');
+    assert.equal(accountRequestStatusLabel('approved'), 'موافَق عليه');
+});
+
+test('طريقة الانضمام وحالة العضوية وسبب انتهاء المدير بالعربية', () => {
+    assert.equal(joinedViaLabel('backfill'), 'منذ إنشاء الحساب');
+    assert.equal(joinedViaLabel('invitation'), 'دعوة');
+    assert.equal(joinedViaLabel('transfer'), 'نقل من شركة أخرى');
+    assert.equal(joinedViaLabel('account_request'), 'طلب حساب');
+    assert.equal(membershipStatusLabel('active'), 'نشطة');
+    assert.equal(membershipStatusLabel('ended'), 'منتهية');
+    assert.equal(managerEndCauseLabel('reassigned'), 'أُعيد إسناده');
+    assert.equal(managerEndCauseLabel('manager_deleted'), 'حُذف المدير');
+    assert.equal(joinedViaLabel('future_via'), 'future_via');
 });

@@ -41,6 +41,190 @@ export const PERSON_KIND_LABELS = Object.freeze({
     direct: 'عميل مباشر'
 });
 
+/**
+ * تسميات سجل التدقيق بالعربية — الإجراء والمصدر.
+ *
+ * السجل المدمج في owner_account_details() (129) يجمع أربعة مصادر بأكواد
+ * إنجليزية خام: عضويات (096) + امتيازات (053) + هرمية (099) + اشتراكات
+ * (018)، وأحداث العقدة في الشجرة من hierarchy_events نفسها. كل خريطة هنا
+ * مطابقة لقيم القاعدة حرفيًا (قيود CHECK والمناداة في الترحيلات)؛ وصياغة
+ * أفعال العضويات مطابقة لـ member-admin-model.js حتى لا يقرأ المالك
+ * الحدث نفسه بصياغتين مختلفتين في صفحتين. والمجهول يُعرض كما هو لا يُخفى،
+ * على نمط statusInfo — فلا يختفي حدث من السجل بسبب غياب ترجمته.
+ */
+export const MEMBERSHIP_ACTION_LABELS = Object.freeze({
+    joined: 'انضم للشركة', ended: 'انتهت العضوية', primary_set: 'صارت الشركة الأساسية', primary_unset: 'لم تعد الشركة الأساسية',
+    invited: 'دُعي', invitation_accepted: 'قبل الدعوة', invitation_declined: 'رفض الدعوة', invitation_cancelled: 'أُلغيت الدعوة',
+    context_set: 'اختار سياق الشركة', transfer_requested: 'طلب نقلًا', transferred_out: 'نُقل من الشركة', transferred_in: 'نُقل إلى الشركة',
+    member_profile_updated: 'حُدّث ملفه لدى الشركة', member_account_updated: 'حُدّثت بيانات حسابه',
+    member_password_reset: 'أُرسل له رابط إعادة كلمة المرور', member_suspended: 'أُوقف مؤقتًا', member_reactivated: 'أُعيد تفعيله',
+    member_transfer_requested: 'طُلب نقله لشركة أخرى', member_transfer_cancelled: 'أُلغي طلب نقله',
+    member_transfer_approved: 'وافقت المنصة على نقله', member_transfer_rejected: 'رفضت المنصة نقله'
+});
+
+export const PRIVILEGED_ACTION_LABELS = Object.freeze({
+    'step_up.verified': 'تم التحقق بخطوتين', 'step_up.failed': 'فشل التحقق بخطوتين',
+    'delegation.granted': 'مُنح تفويض', 'delegation.revoked': 'أُلغي تفويض',
+    'account_request.approved': 'وُوفق على طلب حساب', 'account_request.rejected': 'رُفض طلب حساب',
+    'security_policy.set': 'عُيّنت سياسة أمان', 'role.change': 'تغيّرت رتبة',
+    'profile.update.owner': 'عدّل المالك بيانات حساب', 'profile.delete': 'حُذف حساب',
+    'permission.set': 'عُيّنت صلاحية', 'documents.requirement': 'تغيّر شرط مستند',
+    'data_access.revoked': 'أُلغي وصول للبيانات', 'data_access.rejected': 'رُفض وصول للبيانات', 'data_access.approved': 'وُوفق على وصول للبيانات',
+    'customer.transfer.owner': 'نقل المالك عميلًا بين شركتين', 'customer.transfer.exceptional': 'نُقل عميل نقلًا استثنائيًا',
+    'customer.account_manager.set': 'عُيّن مدير حساب', 'company.member_transfer.rejected': 'رفضت المنصة نقل عضو',
+    'company.account_kind': 'تغيّر نوع حساب شركة', 'authority.revoked': 'أُلغيت سلطة', elevated_admin: 'رُقّي إلى إداري مميز',
+    'store.test_management.granted': 'مُنح اختبار إدارة المتاجر', 'store.test_management.revoked': 'أُلغي اختبار إدارة المتاجر',
+    'store.test_entitlements.granted': 'مُنح اختبار استحقاقات المتاجر', 'store.test_entitlements.revoked': 'أُلغي اختبار استحقاقات المتاجر'
+});
+
+export const HIERARCHY_ACTION_LABELS = Object.freeze({
+    'unit.created': 'أُنشئت وحدة', 'unit.archived': 'أُرشفت وحدة',
+    'company.assigned': 'أُسندت شركة إلى وحدة', 'company.unassigned': 'أُزيل إسناد شركة من وحدة',
+    'company.suspended': 'أُوقفت شركة', 'company.reactivated': 'أُعيد تفعيل شركة', 'company.deleted': 'حُذفت شركة',
+    'member.added': 'أُضيف عضو إلى وحدة', 'member.ended': 'انتهت عضوية عضو في وحدة',
+    'delegation.granted': 'مُنح تفويض', 'delegation.revoked': 'أُلغي تفويض', 'delegation.expired_closed': 'انتهى تفويض وأُغلق',
+    'customer.transferred': 'نُقل عميل من الشركة', 'customer.transferred_in': 'نُقل عميل إلى الشركة',
+    'review.decided': 'حُسمت مراجعة', 'review.applied': 'طُبّقت مراجعة',
+    'account.profile_updated': 'حُدّثت بيانات حساب', 'work.reassigned': 'أُعيد إسناد عمل', 'eligibility.lost': 'فُقدت الأهلية'
+});
+
+export const SUBSCRIPTION_ACTION_LABELS = Object.freeze({
+    update: 'حُدّث الاشتراك', deactivate: 'أُلغي تفعيل الاشتراك', reactivate: 'أُعيد تفعيل الاشتراك',
+    upgrade: 'رُقّي الاشتراك', create: 'أُنشئ الاشتراك', cancel: 'أُلغي الاشتراك'
+});
+
+/** أكواد ديناميكية بلاحقة (اسم مفتاح أو حالة): التسمية على البادئة، والكود الخام يبقى في title. */
+const AUDIT_ACTION_PREFIX_LABELS = Object.freeze([
+    ['company.status.', 'تغيّرت حالة الشركة'],
+    ['feature_switch.', 'تغيّر مفتاح ميزة'],
+    ['sie.setting.', 'تغيّر إعداد SIE'],
+    ['historical_access.', 'تغيّر الوصول التاريخي'],
+    ['data_access.rule.', 'تغيّرت قاعدة وصول للبيانات']
+]);
+
+/** مصدر سطر التدقيق — التسمية نفسها تشرح المعنى: من أين جاء هذا السطر. */
+export const AUDIT_SOURCE_LABELS = Object.freeze({
+    membership: 'عضويات الشركات',
+    privileged: 'إجراءات المالك المميزة',
+    hierarchy: 'هيكل الحسابات',
+    subscription: 'الاشتراكات'
+});
+
+export const USAGE_EVENT_LABELS = Object.freeze({
+    ticket_created: 'أُنشئت تذكرة', billing_linked: 'رُبطت بالفوترة', ticket_deleted: 'حُذفت تذكرة'
+});
+
+export const USAGE_COUNTER_LABELS = Object.freeze({
+    used: 'مستخدَمة', billing: 'فوترة', none: 'بلا احتساب'
+});
+
+export const USAGE_SOURCE_LABELS = Object.freeze({
+    trigger: 'تلقائي', backfill: 'تعبئة تاريخية'
+});
+
+export const TRANSFER_STATUS_LABELS = Object.freeze({
+    pending: 'معلّق', completed: 'مكتمل', rejected: 'مرفوض', cancelled: 'ملغى', expired: 'منتهٍ'
+});
+
+export const TRANSFER_INITIATED_LABELS = Object.freeze({
+    customer: 'بطلب العميل', owner: 'بقرار المالك'
+});
+
+export const ACCOUNT_REQUEST_TYPE_LABELS = Object.freeze({
+    add_to_company: 'إضافة عميل إلى شركة', transfer_direct_to_company: 'نقل عميل مباشر إلى شركة'
+});
+
+export const ACCOUNT_REQUEST_STATUS_LABELS = Object.freeze({
+    pending: 'بانتظار القرار', approved: 'موافَق عليه', rejected: 'مرفوض', cancelled: 'ملغى'
+});
+
+/** كيف انضم العضو للشركة — نفس صياغة member-admin-model.js. */
+export const JOINED_VIA_LABELS = Object.freeze({
+    backfill: 'منذ إنشاء الحساب', legacy: 'أضافته الشركة', invitation: 'دعوة', transfer: 'نقل من شركة أخرى',
+    account_request: 'طلب حساب', reactivated: 'أُعيد تفعيله'
+});
+
+export const MEMBERSHIP_STATUS_LABELS = Object.freeze({
+    active: 'نشطة', ended: 'منتهية', suspended: 'موقوفة'
+});
+
+export const MANAGER_END_CAUSE_LABELS = Object.freeze({
+    reassigned: 'أُعيد إسناده', unassigned: 'أُلغي إسناده', manager_ineligible: 'صار المدير غير مؤهل',
+    customer_deleted: 'حُذف العميل', manager_deleted: 'حُذف المدير'
+});
+
+/** تسمية إجراء في سجل التدقيق: مطابقة دقيقة أولًا، ثم بادئة ديناميكية، ثم الكود الخام. */
+export function auditActionLabel(action) {
+    if (action === null || action === undefined || action === '') return '';
+    const code = String(action);
+    const exact = MEMBERSHIP_ACTION_LABELS[code] || HIERARCHY_ACTION_LABELS[code]
+        || PRIVILEGED_ACTION_LABELS[code] || SUBSCRIPTION_ACTION_LABELS[code];
+    if (exact) return exact;
+    for (const [prefix, label] of AUDIT_ACTION_PREFIX_LABELS) {
+        if (code.startsWith(prefix)) return label;
+    }
+    return code;
+}
+
+/** تسمية مصدر سطر التدقيق. */
+export function auditSourceLabel(source) {
+    if (source === null || source === undefined || source === '') return '';
+    return AUDIT_SOURCE_LABELS[String(source)] || String(source);
+}
+
+/** تسميات قيود الاستهلاك: الحدث والعدّاد والمصدر. */
+export function usageEventLabel(event) {
+    if (event === null || event === undefined || event === '') return '';
+    return USAGE_EVENT_LABELS[String(event)] || String(event);
+}
+
+export function usageCounterLabel(counter) {
+    if (counter === null || counter === undefined || counter === '') return '';
+    return USAGE_COUNTER_LABELS[String(counter)] || String(counter);
+}
+
+export function usageSourceLabel(source) {
+    if (source === null || source === undefined || source === '') return '';
+    return USAGE_SOURCE_LABELS[String(source)] || String(source);
+}
+
+/** تسميات النقل والطلبات في لوحة التفاصيل. */
+export function transferStatusLabel(status) {
+    if (status === null || status === undefined || status === '') return '';
+    return TRANSFER_STATUS_LABELS[String(status)] || String(status);
+}
+
+export function transferInitiatedLabel(initiatedAs) {
+    if (initiatedAs === null || initiatedAs === undefined || initiatedAs === '') return '';
+    return TRANSFER_INITIATED_LABELS[String(initiatedAs)] || String(initiatedAs);
+}
+
+export function accountRequestTypeLabel(type) {
+    if (type === null || type === undefined || type === '') return '';
+    return ACCOUNT_REQUEST_TYPE_LABELS[String(type)] || String(type);
+}
+
+export function accountRequestStatusLabel(status) {
+    if (status === null || status === undefined || status === '') return '';
+    return ACCOUNT_REQUEST_STATUS_LABELS[String(status)] || String(status);
+}
+
+/** تسميات صف العضوية وسجل مديري الحساب في لوحة التفاصيل. */
+export function joinedViaLabel(joinedVia) {
+    if (joinedVia === null || joinedVia === undefined || joinedVia === '') return '';
+    return JOINED_VIA_LABELS[String(joinedVia)] || String(joinedVia);
+}
+
+export function membershipStatusLabel(status) {
+    if (status === null || status === undefined || status === '') return '';
+    return MEMBERSHIP_STATUS_LABELS[String(status)] || String(status);
+}
+
+export function managerEndCauseLabel(endCause) {
+    if (endCause === null || endCause === undefined || endCause === '') return '';
+    return MANAGER_END_CAUSE_LABELS[String(endCause)] || String(endCause);
+}
+
 /** حالة العقدة للعرض: القيم نفس قيود القاعدة، والمجهول يُعرض كما هو لا يُخفى. */
 export function statusInfo(status, walletFrozen = false) {
     if (walletFrozen) return { label: 'رصيد مجمّد', tone: 'status-pending' };
