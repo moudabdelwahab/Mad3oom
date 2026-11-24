@@ -1,5 +1,17 @@
 # دليل إعداد Cloudflare Turnstile CAPTCHA
 
+> **الوضع الحالي (2026-11-24):** الكابتشا مفعّلة على نموذج كلمة المرور في
+> `login.html` (ويدجت `cf-turnstile` + دالة الحافة `verify-turnstile` التي
+> تتحقق بالسرّ من الخادم). الويدجت في Cloudflare اسمه `mad3oom.online`
+> والمفتاح العام `0x4AAAAAADnzinuKMCVrMqHi`، ونطاقاته تشمل `mad3oom.com`
+> و`www.mad3oom.com` و`mainnet.mad3oom.com` و`mad3oom.online` ونطاقي العملاء
+> الحاليين. السرّ (`TURNSTILE_SECRET_KEY`) يجب أن يكون مضبوطًا في بيئة
+> Supabase — الدالة ترجع `secret_not_configured` (503) إن لم يكن كذلك.
+> ما تبقّى من هذا الدليل يشير لملفات قديمة (`sign-in.html` و`sign-up-new.html`
+> ومفاتيح الاختبار) ولم يُحدَّث بالكامل — اقرأه كخلفية تاريخية لا كخطة تنفيذ.
+> تنبيه: السرّ القديم ظهر في تاريخ Git (H-08) ولم يُدوَّر بعد؛ عند تدويره من
+> لوحة Cloudflare حدّث `TURNSTILE_SECRET_KEY` في Supabase في الجلسة نفسها.
+
 ## 📋 نظرة عامة
 
 تم إضافة Cloudflare Turnstile CAPTCHA إلى صفحتي تسجيل الدخول وإنشاء الحساب في مشروع mad3oom.com. حالياً، يتم استخدام **مفاتيح الاختبار** (Testing Keys) التي تسمح بالاختبار المحلي دون الحاجة إلى تفاعل حقيقي.
