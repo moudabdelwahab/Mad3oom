@@ -710,14 +710,27 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         owner_critical_ok؛ بلا جداول جديدة وبلا تغيير مفاتيح. مقيسٌ في
     //         tests/sql/owner-account-transfer-details.test.sql و
     //         tests/owner-accounts-tree.test.mjs.
+    //   130 — إغلاق ثغرة UUID في owns_a_company() وbelongs_to_a_company()
+    //         (035)، بقرار صريح من صاحب المنتج (2026-11-24) كمتابعة منفصلة
+    //         نصّ عليها 127: الدالتان SECURITY DEFINER كانتا تعيدان علاقة
+    //         أي UUID يُمرَّر لهما، فأي مستخدم موثَّق يستكشف هل حساب ما يملك
+    //         شركة أو ينتمي لواحدة. نسخ حارس 127 حرفيًا كان هيكسر خمسة
+    //         مستدعين خادميين يمرّرون معرّف مستخدم آخر عن قصد، فأُضيفت
+    //         دالتان داخليتان _owns_a_company و_belongs_to_a_company بالمنطق
+    //         الأصلي للمستدعين الخمسة (محفّزا مزامنة الأدوار، و
+    //         guard_profile_role_change، وcompany_invite_customer، و
+    //         _hierarchy_eligible)، والدالتان العامتان بنفس حارس 127
+    //         (النفس أو مالك المنصة أو إداري أو service_role، وإلا false
+    //         بصمت)؛ ومستدعو النفس بلا تغيير. مقيسٌ في
+    //         tests/sql/uuid-guard-owns-belongs.test.sql.
     //   131 — مواقع تسجيل الدخول الدقيقة لحساب المالك وحده، بطلب صاحب
     //         المنتج (2026-11-24): جدول login_locations يسجّل موقع المتصفح
     //         الذي تلتقطه صفحة الدخول بعد نجاح الدخول (بإذن المتصفح)،
     //         والجسر يضمّه لتقرير تسجيل الدخول في شات Muse؛ وإن غاب يرجع
     //         التقرير لموقع الـ IP. الالتقاط لحساب mahmoud@mad3oom.com
     //         وحده (login-location.js)، والجدول إلحاقي بلا UPDATE/DELETE،
-    //         وRLS صف صاحبه. الرقم 130 محجوز لفرع حارس owns/belongs غير
-    //         المدموج. مقيسٌ في tests/sql/login-locations.test.sql و
+    //         وRLS صف صاحبه. الرقم 130 محجوز لحارس owns/belongs (المدخل
+    //         أعلاه، دُمج بقرار صريح). مقيسٌ في tests/sql/login-locations.test.sql و
     //         tests/login-location.test.mjs.
     assert.equal(migrations[migrations.length - 1], '131_login_locations.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
