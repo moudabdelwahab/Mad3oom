@@ -1,0 +1,66 @@
+name: Deploy Voice Studio Function
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-voice-studio
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy voice-studio
+    runs-on: ubuntu-latest
+
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+
+    steps:
+      - name: Download repository archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            https://github.com/moudabdelwahab/Mad3oom/archive/refs/heads/main.tar.gz \
+            -o /tmp/mad3oom-main.tar.gz
+          mkdir -p "$GITHUB_WORKSPACE/source"
+          tar -xzf /tmp/mad3oom-main.tar.gz \
+            --strip-components=1 \
+            -C "$GITHUB_WORKSPACE/source"
+
+      - name: Validate deployment configuration
+        shell: bash
+        working-directory: source
+        run: |
+          set -euo pipefail
+
+          test -n "$SUPABASE_ACCESS_TOKEN" || {
+            echo "::error::Missing SUPABASE_ACCESS_TOKEN"
+            exit 1
+          }
+
+          test -n "$SUPABASE_PROJECT_REF" || {
+            echo "::error::Missing SUPABASE_PROJECT_REF"
+            exit 1
+          }
+
+          test -f supabase/functions/voice-studio/index.ts
+
+          echo "Function file verified."
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy voice-studio function
+        working-directory: source
+        run: |
+          supabase functions deploy voice-studio \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --use-api \
+            --yes
