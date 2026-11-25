@@ -9,16 +9,21 @@
  *    التجريبية وتوجيهها وترحيبها حرفيًا، حتى لا تنشأ جلسة بسلوك مختلف.
  *  • الإرسال: insert واحد في ai_session_messages فقط (role=user)، ولا يلمس
  *    أي جدول آخر؛ والرسالة تُعرض من نتيجة الـ insert لا من الاستطلاع.
- *  • الاستطلاع: آخر 50 رسالة تُدمج بالمعرّف كل 5 ثوانٍ، فلا تفوت رسالة
- *    تشارك أخرى نفس الطابع الزمني، ولا يتكرر عرض رسالة.
+ *  • الاستطلاع: آخر 50 رسالة تُدمج بالمعرّف؛ وهو شبكة أمان فقط — يتوقف
+ *    تمامًا أثناء اتصال Realtime السليم، ويعود عند انقطاعه بمهلة backoff
+ *    تتضاعف مع الفشل حتى دقيقة، فلا تفوت رسالة تشارك أخرى نفس الطابع
+ *    الزمني، ولا يتكرر عرض رسالة، ولا تبقى قراءات مضاعفة دائمة.
  *  • المربع: الشات كله داخل مربع واحد في المنتصف — ترويسة بالأفاتار
  *    والتحكم، ورسائل، وإدخال — بلا بانر عريض بعرض الصفحة.
  *  • الأفاتار والتوقيت: حالات الأفاتار موصولة بأحداث حقيقية (تفكير من
  *    الإرسال حتى الرد، كلام لحظة وصوله، انتباه عند تركيز الإدخال)،
  *    والعدّاد يعرض ثوانٍ حقيقية ويعلن كم ثانية استغرق الرد.
- *  • لا مزايا مخترعة: لا Realtime، ولا حالة «متصل»، ولا نداء
- *    لـ ai-session / ai-gateway (مسار SIE) — الصفحة تقرأ الجدولين مباشرة.
- *    فقاعة الانتظار حقيقية: من طابع إرسال بلا رد، وتختفي بوصوله.
+ *  • لا مزايا مخترعة: لا حالة «متصل»، ولا نداء لـ ai-session / ai-gateway
+ *    (مسار SIE) — الصفحة تقرأ الجدولين مباشرة، وRealtime على رسائل
+ *    الجلسة النشطة فقط. فقاعة الانتظار حقيقية: من طابع إرسال بلا رد،
+ *    وتختفي بوصوله.
+ *  • الكوتة: لقطة الجسر في extensions.quota وحدها، بلا رقم مخترع؛ غيابها
+ *    رسالة صريحة لا تلميح صامت، وقدمها عن آخر رد مساعد تحذير صريح.
  *  • كل id يقرأه الـ JS موجود فعلًا في الـ HTML.
  */
 import test from 'node:test';
@@ -111,12 +116,27 @@ test('الإرسال insert واحد بدور user وموديل الجلسة ا�
     assert.match(js, /\.select\(MESSAGE_COLUMNS\)\s*\.single\(\)/);
 });
 
-test('الاستطلاع كل 5 ثوانٍ ويدمج آخر 50 رسالة بالمعرّف', () => {
+test('الاستطلاع شبكة أمان فقط: يتوقف مع Realtime السليم ويعود بـ backoff عند انقطاعه', () => {
     const js = chatJs();
-    assert.match(js, /setInterval\(pollMessages, POLL_MS\)/);
+    // لا استطلاع دوري دائم: لا setInterval على pollMessages أبدًا.
+    assert.doesNotMatch(js, /setInterval\(pollMessages/);
+    // دورة واحدة تُجدول نفسها بـ setTimeout، وتتوقف عند SUBSCRIBED.
+    assert.match(js, /setTimeout\(pollCycle, delay\)/);
+    assert.match(js, /armPollTimer\(pollRetryDelay\(pollFailures\)\)/);
+    assert.match(js, /if \(isRealtimeLive\(status\)\) \{\s*realtimeLive = true;\s*stopPolling\(\);/);
+    // آخر 50 رسالة تُدمج بالمعرّف كما قبل.
     assert.match(js, /\.order\('created_at', \{ ascending: false \}\)/);
     assert.match(js, /\.limit\(50\)/);
     assert.match(js, /mergeMessages\(messages,/);
+});
+
+test('الكوتة: غياب اللقطة رسالة صريحة، وقدمها عن آخر رد تحذير صريح', () => {
+    const js = chatJs();
+    assert.match(js, /quotaMissingText\(/);
+    assert.match(js, /quotaSnapshotState\(quota, lastAssistantAt\(\)\)/);
+    assert.match(js, /QUOTA_STALE_TEXT/);
+    assert.match(js, /muse-quota-stale/);
+    assert.match(js, /lastAssistantAt\(\)/);
 });
 
 test('لا حالة حضور مزيفة؛ فقاعة الانتظار حقيقية فقط', () => {

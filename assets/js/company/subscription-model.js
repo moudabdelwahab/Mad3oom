@@ -117,7 +117,10 @@ export function analyzeSubscription(sub, { now = Date.now() } = {}) {
         daysRemaining: serverDays,
         localDaysRemaining,
         daysUntilStart,
-        isActive: sub.is_active === true
+        isActive: sub.is_active === true,
+        // 136: علَم الإلغاء في نهاية المدة كما رجّعته حمولة اللوحة. الحالة
+        // تبقى «نشط» حتى الانتهاء — العلَم ليس حالة جديدة ولا تضاربًا.
+        cancelAtPeriodEnd: sub.cancel_at_period_end === true
     };
 }
 
@@ -211,6 +214,9 @@ export function analyzeSubscriptions(subscriptions, { now = Date.now() } = {}) {
         scheduled: scheduled.length,
         pending: rows.filter(r => r.state.key === 'pending').length,
         expired: rows.filter(r => r.state.key === 'expired').length,
+        // 136: اشتراكات فعّالة ألغاها صاحبها في نهاية مدّتها — ما زالت نشطة
+        // حتى الانتهاء، لكنها لا تُجدَّد.
+        cancelling: rows.filter(r => r.cancelAtPeriodEnd).length,
         nearest,
         daysToNearestExpiry: nearest ? nearest.daysRemaining : null,
         anomalies: anomalous,
@@ -245,6 +251,9 @@ export function renewalContext(report) {
             planName: nearest.sub.plan_name_ar || nearest.sub.plan,
             endDate: nearest.sub.end_date || null,
             daysRemaining: nearest.daysRemaining ?? null,
+            // 136: دورة الفوترة الحالية — التجديد داخل اللوحة يبدأ منها،
+            // ويمكن تغييرها في نافذة التجديد نفسها.
+            billingCycle: nearest.sub.billing_cycle || 'monthly',
             href: '/subscriptions.html',
             label: 'جدّد الآن'
         };
@@ -261,6 +270,7 @@ export function renewalContext(report) {
             planName: last.sub.plan_name_ar || last.sub.plan,
             endDate: last.sub.end_date || null,
             daysRemaining: null,
+            billingCycle: last.sub.billing_cycle || 'monthly',
             href: '/subscriptions.html',
             label: 'اشترك مجددًا'
         };
@@ -283,4 +293,57 @@ export function upgradeCandidates(plans, dashboard) {
             name: plan.name_ar || plan.name || plan.key,
             requiresCompany: plan.requires_company === true
         }));
+}
+
+/**
+ * رسائل عربية لأكواد عدم أهلية عروض تغيير الباقة — نفس الأكواد التي ترجّعها
+ * subscription_upgrade_quote (019) و subscription_downgrade_quote (136).
+ * الواجهة تعرض رسالة القاعدة كما هي؛ هذا التحويل لعرض السبب قبل إرسال أي
+ * طلب، لا لحساب أهلية من المتصفح.
+ */
+export const QUOTE_CODE_MESSAGES = {
+    not_authenticated: 'يجب تسجيل الدخول أولًا.',
+    unknown_plan: 'باقة غير معروفة أو غير مفعّلة.',
+    no_active_subscription: 'لا يوجد اشتراك فعّال يمكن تغييره.',
+    duplicate_plan: 'هذه هي باقتك الحالية.',
+    price_missing: 'سعر هذه الباقة غير مسجّل بعد. راجع الدعم.',
+    not_an_upgrade: 'هذه الباقة ليست أغلى من باقتك الحالية — الترقية للباقات الأغلى فقط.',
+    not_a_downgrade: 'هذه الباقة ليست أرخص من باقتك الحالية — التخفيض للباقات الأرخص فقط.',
+    redundant: 'هذه الباقة لا تضيف خدمات جديدة إلى اشتراكك الحالي.',
+    quote_failed: 'تعذّر حساب عرض تغيير الباقة. تحقق من اتصالك ثم أعد المحاولة.'
+};
+
+export function quoteCodeMessage(code) {
+    return QUOTE_CODE_MESSAGES[code] || null;
+}
+
+/**
+ * طلب معلّق على باقة بعينها — تجديدها مثلًا مرفوض في القاعدة ما دام هذا
+ * الطلب قيد المراجعة (023)، فنعطّل الزر هنا برسالة واضحة بدل خطأ لاحق.
+ */
+export function pendingRequestFor(report, planKey) {
+    if (!report || !planKey) return null;
+    return (report.rows || []).find(r => r.state.key === 'pending' && r.sub?.plan === planKey) || null;
+}
+
+/**
+ * إجراءات الإدارة الذاتية المتاحة على صفّ اشتراك واحد (136).
+ *
+ *   - فعّال/ينتهي قريبًا + مالك الشركة: تجديد، وتغيير باقة (ترقية/تخفيض
+ *     حسب عرض القاعدة)، وإلغاء في نهاية المدة — أو التراجع عنه إن كان
+ *     ملغى أصلًا. الخدمة تبقى حتى الانتهاء في كل الأحوال.
+ *   - قيد المراجعة + مالك: إلغاء الطلب نفسه (023) فقط.
+ *   - غير المالك، أو لم يبدأ بعد، أو منتهٍ، أو مرفوض: لا إجراء من هنا —
+ *     دوال القاعدة ترفض غير المالك أصلًا، فلا نعرض زرًا يفشل حتمًا.
+ */
+export function subscriptionActions(row, { isOwner = false } = {}) {
+    if (!row || !isOwner) return [];
+    const state = row.state?.key;
+    if (state === 'pending') return ['cancel-request'];
+    if (state === 'active' || state === 'expiring') {
+        return row.cancelAtPeriodEnd
+            ? ['renew', 'change-plan', 'resume']
+            : ['renew', 'change-plan', 'cancel'];
+    }
+    return [];
 }

@@ -425,6 +425,78 @@ export async function getUpgradeQuote(plan) {
 }
 
 /**
+ * عرض التخفيض كما تحسبه القاعدة (136): الباقة الجديدة أرخص، فلا مبلغ
+ * يُدفع الآن، ويسري التخفيض من نهاية الدورة الحالية، ويدفع العميل عند
+ * التجديد التالي السعر الكامل للباقة الجديدة. الواجهة تعرضه ولا تحسب شيئًا.
+ * @param {string} plan
+ * @returns {Promise<Object|null>}
+ */
+export async function getDowngradeQuote(plan) {
+    try {
+        const { data, error } = await supabase.rpc('subscription_downgrade_quote', { p_plan: plan });
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('Error fetching downgrade quote:', error);
+        return null;
+    }
+}
+
+/**
+ * عرض تغيير الباقة في اتجاهه الصحيح كما تقرّره القاعدة وحدها: ترقية إن
+ * كانت الباقة الجديدة أغلى، وتخفيض إن كانت أرخص. الواجهة لا تقارن الأسعار
+ * بنفسها — تسأل العرضين وتأخذ المؤهل منهما، فإن لم يؤهَّل أيٌّ منهما رجّعت
+ * سبب الرفض الأول.
+ * @param {string} plan
+ * @returns {Promise<{kind: 'upgrade'|'downgrade', quote: Object}|{eligible: false, code: string}>}
+ */
+export async function getChangeQuote(plan) {
+    const [upgrade, downgrade] = await Promise.all([getUpgradeQuote(plan), getDowngradeQuote(plan)]);
+    if (upgrade && upgrade.eligible === true) return { kind: 'upgrade', quote: upgrade };
+    if (downgrade && downgrade.eligible === true) return { kind: 'downgrade', quote: downgrade };
+    if (!upgrade && !downgrade) return { eligible: false, code: 'quote_failed' };
+    return { eligible: false, code: (upgrade && upgrade.code) || (downgrade && downgrade.code) || 'unknown_plan' };
+}
+
+/**
+ * طلب تخفيض بتذكرته (136): ذرّي كطلب الاشتراك (069) — التذكرة والصف
+ * pending في نداء واحد، ولا مبلغ يُدفع الآن ولا امتياز يتغيّر قبل تأكيد
+ * الدفع. التخفيض نفسه يسري من نهاية الدورة الحالية عند تأكيد الأدمن.
+ * @param {string} plan
+ * @returns {Promise<{success: boolean, ticket: Object, subscription: Object}>}
+ */
+export async function submitDowngradeRequest(plan) {
+    const quote = await getDowngradeQuote(plan);
+    if (!quote || quote.eligible !== true) {
+        throw new Error(quote && quote.code ? `لا يمكن تخفيض اشتراكك إلى هذه الباقة (${quote.code}).` : 'تعذّر حساب عرض التخفيض.');
+    }
+
+    const cur = quote.current;
+    const tgt = quote.target;
+    const fmtDate = (d) => new Date(d).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
+    const removed = (quote.removed_features || []).join('، ');
+    const description = `طلب تخفيض اشتراك\n\nالباقة الحالية: ${cur.plan_name_ar}\nالباقة الجديدة: ${tgt.plan_name_ar}\nدورة الفوترة: ${BILLING_LABELS[cur.billing_cycle] || cur.billing_cycle}\nيسري التخفيض من: ${fmtDate(quote.effective_date)}\nسعر التجديد القادم: ${tgt.price} ${quote.currency || ''}\n${removed ? `الميزات التي ستُزال عند السريان: ${removed}\n` : ''}لن يتغيّر اشتراكك الحالي قبل نهاية مدّته، ولن يُدفع أي مبلغ الآن.`;
+    const ticketTitle = `طلب تخفيض اشتراك - ${tgt.plan_name_ar}`;
+
+    const { data: created, error: submitError } = await supabase.rpc('submit_subscription_downgrade', {
+        p_plan: plan,
+        p_ticket_title: ticketTitle,
+        p_ticket_description: description,
+        p_payment_method: null,
+        p_payment_reference: null
+    });
+    if (submitError) throw submitError;
+
+    const { data: subscription } = await supabase
+        .from('whatsapp_subscriptions')
+        .select('*')
+        .eq('id', created.subscription_id)
+        .maybeSingle();
+
+    return { success: true, ticket: created.ticket, subscription };
+}
+
+/**
  * أسعار الباقات من قاعدة البيانات — المصدر الوحيد.
  * صفحات الأسعار تملأ منها بدل الاعتماد على قيم مكتوبة في HTML.
  * @returns {Promise<Array<{key,name_ar,price_monthly,price_yearly,currency}>>}

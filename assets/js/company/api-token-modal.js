@@ -12,7 +12,7 @@
 
 import {
     SCOPE_CATALOG, CREDENTIAL_TYPES, EXPIRY_PRESETS, DEFAULT_EXPIRY_PRESET, DEFAULT_SCOPES,
-    validateTokenForm, toCreatePayload, credentialsFromResponse,
+    TOKEN_ENVIRONMENTS, DEFAULT_ENVIRONMENT, validateTokenForm, toCreatePayload, credentialsFromResponse,
     expiryFromPreset, minCustomExpiryDate, maxCustomExpiryDate
 } from '/assets/js/company/api-token-model.js';
 import { createCompanyApiToken } from '/assets/js/company/company-data.js';
@@ -33,6 +33,7 @@ export function initApiTokenModal({ onCreated: handler } = {}) {
     wired = true;
 
     renderCredentialTypes();
+    renderEnvironments();
     renderScopes();
     renderExpiryPresets();
 
@@ -87,6 +88,7 @@ function resetForm() {
     // الافتراضات: نوع الاعتماد الموصى به، صلاحيات الدالة الافتراضية،
     // ومدّة محدودة. القيم دي هي اللي بيختارها أغلب الناس فعلًا.
     setCredentialType(CREDENTIAL_TYPES.find(t => t.recommended)?.key || CREDENTIAL_TYPES[0].key);
+    setEnvironment(DEFAULT_ENVIRONMENT);
     setScopes(DEFAULT_SCOPES);
     setExpiryPreset(DEFAULT_EXPIRY_PRESET);
 
@@ -112,6 +114,37 @@ function renderCredentialTypes() {
                 <span class="choice-hint">${type.hint}</span>
             </span>
         </label>`).join('');
+}
+
+/**
+ * بيئة المفتاح (141 — ساندبوكس API).
+ * اختيار «اختبار» يُظهر التنبيه الصريح: ساندبوكس API فقط، وليس بيئة
+ * تجريبية للتجربة المجانية — ولا بيانات حية ولا إجراءات حقيقية.
+ */
+function renderEnvironments() {
+    const box = document.getElementById('apiTokenEnvironments');
+    if (!box) return;
+
+    box.innerHTML = TOKEN_ENVIRONMENTS.map(env => `
+        <label class="choice-card">
+            <input type="radio" name="environment" value="${escapeHtml(env.key)}">
+            <span class="choice-body">
+                <span class="choice-title">
+                    ${escapeHtml(env.label)}
+                    ${env.recommended ? '<span class="choice-badge">موصى به</span>' : ''}
+                </span>
+                <span class="choice-hint">${escapeHtml(env.hint)}</span>
+            </span>
+        </label>`).join('');
+
+    box.addEventListener('change', updateSandboxNote);
+    updateSandboxNote();
+}
+
+function updateSandboxNote() {
+    const note = document.getElementById('apiTokenSandboxNote');
+    if (!note) return;
+    note.hidden = currentEnvironment() !== 'test';
 }
 
 function renderScopes() {
@@ -187,6 +220,17 @@ function setCredentialType(key) {
 function currentCredentialType() {
     return document.querySelector('#apiTokenCredentialTypes input[name="credentialType"]:checked')?.value
         || CREDENTIAL_TYPES[0].key;
+}
+
+function setEnvironment(key) {
+    document.querySelectorAll('#apiTokenEnvironments input[name="environment"]')
+        .forEach(input => { input.checked = input.value === key; });
+    updateSandboxNote();
+}
+
+function currentEnvironment() {
+    return document.querySelector('#apiTokenEnvironments input[name="environment"]:checked')?.value
+        || DEFAULT_ENVIRONMENT;
 }
 
 function setScopes(keys) {
@@ -296,6 +340,7 @@ async function onSubmit(event) {
         name: document.getElementById('fTokenName').value,
         description: document.getElementById('fTokenDescription').value,
         credentialType: currentCredentialType(),
+        environment: currentEnvironment(),
         scopes: currentScopes(),
         expiryPreset: currentExpiryPreset(),
         customExpiry: document.getElementById('fTokenExpiry')?.value || ''

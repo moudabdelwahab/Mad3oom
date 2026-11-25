@@ -77,7 +77,8 @@ export async function fetchSuggestions() {
     const { data, error } = await supabase
         .from('suggestions')
         .select('*, profiles(full_name, email)')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(200); // قائمة مراجعة إدارية — لا تُجلب بلا حد.
 
     if (error) throw error;
     return data;

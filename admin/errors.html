@@ -444,6 +444,13 @@
     <script type="module">
         import { initSidebar } from '/assets/js/admin/sidebar.js';
         import { errorService } from '/error-service.js';
+        import { checkAdminAuth } from '/assets/js/admin/auth.js';
+
+        // حارس دخول الأدمن: بلا جلسة أدمن لا تُعرض أي أخطاء — checkAdminAuth
+        // يحوّل للدخول أو يرسم لوحة الرفض، والرمي هنا يوقف بقية الوحدة
+        // قبل تسجيل مستمع DOMContentLoaded الذي يحمّل الأخطاء.
+        const adminUser = await checkAdminAuth();
+        if (!adminUser) throw new Error('Admin access required — errors page load stopped after guard.');
 
         let currentErrors = [];
         let stackAllOpen = false;

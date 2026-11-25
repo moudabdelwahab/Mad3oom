@@ -58,6 +58,8 @@
 [data-owner-page="voice-studio"] .vs-key-row .form-control { flex: 1; min-width: 0; }
 [data-owner-page="voice-studio"] .vs-key-status { font-size: .8rem; color: var(--color-text-secondary); margin: var(--sp-2) 0 0; }
 [data-owner-page="voice-studio"] .vs-key-status.is-saved { color: var(--color-success); }
+/* تحذير المفتاح الشخصي: ذاكرة الصفحة فقط، بلا حفظ في المتصفح. */
+[data-owner-page="voice-studio"] .vs-key-warning { font-size: .8rem; font-weight: 700; color: var(--color-warning); margin: var(--sp-2) 0 0; }
 
 /* ── شارة المحرك واختياره ── */
 [data-owner-page="voice-studio"] .vs-engine-badge {

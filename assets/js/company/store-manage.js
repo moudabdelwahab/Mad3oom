@@ -1,6 +1,8 @@
 /**
  * store-manage.js — صفحة «إدارة المتجر» (120): المنتجات والمجموعات والطلبات والمسودات والعملاء
  * والمخزون والخصومات والتنفيذ والإرجاع في Shopify من لوحة الشركة.
+ * (139): تنبيهات مخزون (حد أدنى لكل متجر/متغير + فحص من بيانات Shopify الحية + إشعار
+ * لمالك الشركة)، وقسما «طلبات مهملة» و«الشحن» بحالة صادقة — لا عملية لهما في كتالوج 120.
  *
  * لا قرار هنا: الأزرار من ihub_shopify_manage_status (صلاحية المستخدم ونطاقات Shopify الممنوحة)،
  * والخادم يتحقق من كل حقل، والقاعدة تفرض الصلاحية والتأكيد والحد وتسجّل كل عملية.
@@ -8,11 +10,15 @@
  * لا مبالغ تُحصَّل ولا تُسترد من هنا، ولا رسائل للعميل إلا باختيار صريح.
  */
 
-import { fetchStoreOverview, fetchManageStatus, fetchOpsLog, shopifyAdmin } from '/assets/js/company/store-data.js';
+import { fetchStoreOverview, fetchManageStatus, fetchOpsLog, shopifyAdmin,
+    fetchThresholds, saveThreshold, deleteThreshold, fetchOpenAlerts, reportInventoryAlerts } from '/assets/js/company/store-data.js';
 import {
     MANAGE_SECTIONS, OP_LABELS, CONSEQUENCES, FORMS, formErrors, formFieldFor, paymentLabel, fulfillmentLabel, productStatusLabel,
     DISCOUNT_STATUS, RETURN_STATUS_LABELS, OP_STATUS, INVENTORY_REASON_LABELS, opAvailability, sectionVisible, MANAGE_REASONS,
-    manageErrorText, previewView, isDestructive
+    manageErrorText, previewView, isDestructive,
+    ABANDONED_CHECKOUTS_UNAVAILABLE, SHIPPING_UNAVAILABLE, ALERT_STATUS_LABELS,
+    validateThreshold, resolveThreshold, availableOf, evaluateInventoryAlerts, buildAlertReportItems,
+    storeThresholdReportItem
 } from '/assets/js/company/store-manage-model.js';
 import { escapeHtml as esc, formatDateTime, renderState, renderSkeletonLines } from '/assets/js/customer/portal-ui.js';
 import { ui } from '/ui-service.js';
@@ -26,7 +32,7 @@ const when = (v) => (v ? formatDateTime(v) : '—');
 const table = (head, rows) => (rows.length ? `<div class="table-container"><table class="admin-table"><thead><tr>${head.map((h) => `<th scope="col">${esc(h)}</th>`).join('')}</tr></thead>
     <tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : '<p class="panel-subtitle">لا عناصر.</p>');
 
-let state = { conn: null, status: null, role: 'agent', section: 'products', locations: null };
+let state = { conn: null, status: null, role: 'agent', section: 'products', locations: null, thresholds: null };
 const actions = new Map();
 let seq = 0;
 
@@ -50,7 +56,7 @@ export async function loadStoreManage() {
                                   : { variant: 'error', title: 'تعذّر التحميل', text: manageErrorText({ error: st.code }) });
         return;
     }
-    state = { ...state, conn, status: st.data, locations: null };
+    state = { ...state, conn, status: st.data, locations: null, thresholds: null };
     if (!st.data.enabled) {
         renderState(c, { variant: 'empty', title: 'إدارة المتجر غير مفعّلة', text: MANAGE_REASONS[st.data.reason] || '' });
         return;
@@ -81,8 +87,9 @@ export async function loadStoreManage() {
 }
 
 const RENDER = {
-    shop: renderShop, products: renderProducts, collections: renderCollections, orders: renderOrders, drafts: renderDrafts,
-    customers: renderCustomers, inventory: renderInventory, discounts: renderDiscounts, log: renderLog
+    shop: renderShop, products: renderProducts, collections: renderCollections, orders: renderOrders, abandoned: renderAbandoned,
+    drafts: renderDrafts, customers: renderCustomers, inventory: renderInventory, alerts: renderAlerts, discounts: renderDiscounts,
+    shipping: renderShipping, log: renderLog
 };
 function renderSection() {
     actions.clear();
@@ -100,6 +107,30 @@ async function read(op, input, box) {
         return null;
     }
     return r.data.result;
+}
+
+/** قراءة صامتة (لخلايا الجداول): فشلها يعني «غير معروف» لا صفحة خطأ. */
+async function readQuiet(op, input) {
+    const r = await shopifyAdmin(state.conn.id, op, input);
+    return r.ok ? r.data.result : null;
+}
+
+/** حدود المخزون المحفوظة (139)، مخزّنة في الجلسة. */
+async function ensureThresholds() {
+    if (!state.thresholds) {
+        const r = await fetchThresholds(state.conn.id);
+        state.thresholds = r.ok && Array.isArray(r.data) ? r.data : [];
+    }
+    return state.thresholds;
+}
+/** مستويات Shopify الحية لحدود المتغيرات: {inventory_item_id: levels[]}. */
+async function loadAlertLevels(thresholds) {
+    const byItem = {};
+    await Promise.all((thresholds || []).filter((t) => t?.scope === 'variant').map(async (t) => {
+        const r = await readQuiet('inventory.levels', { variant_id: t.variant_id });
+        if (r) byItem[t.inventory_item_id] = r.levels || [];
+    }));
+    return byItem;
 }
 
 /** زر عملية كتابة: يظهر حسب الخادم؛ معطّل مع السبب إن نقص نطاق Shopify. */
@@ -358,7 +389,24 @@ async function showLevels(variantId, box) {
     const again = () => showLevels(variantId, box);
     const locs = await ensureLocations();
     const stocked = new Set(r.levels.map((l) => l.location_id));
+    // (139) الحد الفعّال لهذا المتغير: حدّه أولًا، ثم حد المتجر.
+    const ths = await ensureThresholds();
+    const eff = r.inventory_item_id ? resolveThreshold(ths, r.inventory_item_id) : { threshold: null, min_quantity: null, scope: null };
+    const avail = availableOf(r.levels);
+    const below = eff.min_quantity !== null && avail !== null && avail < eff.min_quantity;
+    // (139) حد المتجر بلا مسح كامل للمنتجات: يُبلَّغ عنه من هنا عند عرض مخزون
+    // متغير يسري عليه — تحت الحد يفتح تنبيهًا ويُشعَر المالك مرة واحدة، وفوقه
+    // يحلّ التنبيه المفتوح. حد المتغير لا يُبلَّغ من هنا (مساره «فحص الآن»).
+    // الإبلاغ صامت: التحذير ظاهر في الصفحة أصلًا، والخادم يمنع تكرار الإشعار.
+    const storeItem = storeThresholdReportItem(eff, r.inventory_item_id,
+        `${r.product_title || ''} — ${r.title || ''}`.trim() || null, avail);
+    if (storeItem) void reportInventoryAlerts(state.conn.id, [storeItem]);
     box.innerHTML = `<h3 class="panel-title">المخزون: ${esc(r.product_title || '')} — ${esc(r.title || '')}</h3>
+        ${eff.min_quantity !== null ? `<p class="panel-subtitle">الحد الأدنى للتنبيه: ${esc(eff.min_quantity)} (${esc(eff.scope === 'variant' ? 'حد هذا المتغير' : 'حد المتجر كله')})${avail !== null ? ` · المتاح الآن ${esc(avail)}` : ''}</p>
+        ${below ? `<p class="field-error" role="alert">${eff.scope === 'store'
+            ? 'وصل المخزون للحد الأدنى لحد المتجر — يُسجَّل تنبيه واحد لحد المتجر ويُرسل إشعار لمالك الشركة.'
+            : 'وصل المخزون للحد الأدنى — يظهر في «تنبيهات المخزون» ويُرسل إشعار لمالك الشركة عند الفحص.'}</p>` : ''}` : ''}
+        ${r.inventory_item_id ? bar(`<button type="button" class="btn btn-secondary btn-sm" id="smSetThreshold">تعيين حد أدنى للتنبيه</button>`) : ''}
         ${r.tracked ? '' : '<p class="field-hint">المخزون غير مُتتبَّع لهذا المتغير في Shopify.</p>'}
         ${table(['الموقع', 'المتاح', 'في المخزن', 'محجوز للطلبات', 'وارد', ''], r.levels.map((l) => {
             const ctx = { inventory_item_id: r.inventory_item_id, location_id: l.location_id };
@@ -368,6 +416,62 @@ async function showLevels(variantId, box) {
         }))}
         ${bar(actionButton('inventory.activate', { inventory_item_id: r.inventory_item_id }, { extra: { locations: locs.filter((l) => !stocked.has(l.id)).map((l) => ({ id: l.id, name: l.name })) }, onDone: again }))}`;
     wireActions(box);
+    box.querySelector('#smSetThreshold')?.addEventListener('click', () => openThresholdDialog({
+        scope: 'variant', inventory_item_id: r.inventory_item_id, variant_id: r.variant_id,
+        product_title: `${r.product_title || ''} — ${r.title || ''}`.trim(), min_quantity: eff.min_quantity ?? ''
+    }, again));
+}
+
+/** نافذة حد مخزون (139): ليست عملية Shopify، فلا تأكيد ولا معاينة — حفظ مباشر في مدعوم. */
+function openThresholdDialog(prefill, onDone) {
+    const opener = document.activeElement;
+    const wrap = document.createElement('div');
+    wrap.className = 'modal active';
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.setAttribute('aria-labelledby', 'smThTitle');
+    wrap.innerHTML = `<div class="modal-content modal-sm">
+        <div class="modal-head"><div><h2 id="smThTitle">حد أدنى للتنبيه</h2>
+            <p class="panel-subtitle">${esc(prefill.product_title || '')}</p></div>
+            <button type="button" class="modal-close" data-close aria-label="إغلاق">&times;</button></div>
+        <form class="company-form" id="smThForm" novalidate>
+            <div class="form-grid"><div class="form-field"><label for="smThMin">الحد الأدنى (المتاح)</label>
+                <input type="number" min="0" max="999999" step="1" id="smThMin" name="min_quantity" class="form-control" value="${esc(prefill.min_quantity ?? '')}" autocomplete="off">
+                <p class="field-hint">الحد 0 يعني «نبّه عند النفاد». يُفحص من بيانات Shopify الحية.</p>
+                <p class="field-error" id="smThError" role="alert" hidden></p></div></div>
+            <div class="company-form-actions"><button type="submit" class="btn btn-primary" id="smThSave">حفظ الحد</button>
+                <button type="button" class="btn btn-ghost" data-close>إلغاء</button></div>
+        </form></div>`;
+    document.body.appendChild(wrap);
+    const close = () => { wrap.remove(); opener?.focus?.(); };
+    wrap.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', close));
+    wrap.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    wrap.querySelector('#smThMin')?.focus();
+    wrap.querySelector('#smThForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const values = { scope: prefill.scope, inventory_item_id: prefill.inventory_item_id, variant_id: prefill.variant_id,
+                         product_title: prefill.product_title, min_quantity: wrap.querySelector('#smThMin').value };
+        const errs = validateThreshold(values);
+        const errBox = wrap.querySelector('#smThError');
+        if (errs.min_quantity) { errBox.textContent = errs.min_quantity; errBox.hidden = false; return; }
+        const btn = wrap.querySelector('#smThSave');
+        btn.disabled = true; btn.textContent = 'جارٍ الحفظ…';
+        const r = await saveThreshold(state.conn.id, {
+            scope: prefill.scope, inventoryItemId: prefill.inventory_item_id || null, variantId: prefill.variant_id || null,
+            productTitle: prefill.product_title || null, minQuantity: Number(values.min_quantity)
+        });
+        btn.disabled = false; btn.textContent = 'حفظ الحد';
+        if (!r.ok) {
+            errBox.textContent = r.missing ? 'تنبيهات المخزون غير متاحة بعد — لم تُطبَّق على قاعدة البيانات.'
+                                           : manageErrorText({ error: r.code });
+            errBox.hidden = false;
+            return;
+        }
+        state.thresholds = null;
+        close();
+        toast('حُفظ الحد الأدنى للتنبيه.', 'success');
+        onDone?.();
+    });
 }
 
 function renderInventory(box) {
@@ -491,6 +595,173 @@ async function showReturns(orderId) {
              ['OPEN', 'REQUESTED'].includes(x.status) ? actionButton('return.cancel', { id: x.id }, { label: 'إلغاء', onDone: again }) : ''].join(' ')]))}
         <p class="field-hint">المرتجع لا يرد مالًا؛ الاسترداد من لوحة Shopify.</p>`;
     wireActions(box);
+}
+
+function renderAbandoned(box) {
+    const u = ABANDONED_CHECKOUTS_UNAVAILABLE;
+    box.innerHTML = `<section class="panel"><h3 class="panel-title">${esc(u.title)}</h3>
+        <p class="panel-subtitle">${esc(u.text)}</p>
+        <p class="field-hint">العمليات غير الموجودة في الكتالوج: <span dir="ltr">${esc(u.missingOps.join('، '))}</span>.</p>
+        ${bar(`<button type="button" class="btn btn-secondary btn-sm" id="smGoDrafts">مسودات الطلبات</button>`)}
+        <p class="field-hint">المسودات طلبات بدأها فريقك يدويًا — ليست طلبات مهملة من العملاء.</p></section>`;
+    $('smGoDrafts').addEventListener('click', () => document.querySelector('[data-section="drafts"]')?.click());
+}
+
+async function renderShipping(box) {
+    const u = SHIPPING_UNAVAILABLE;
+    const shop = await read('shop.info', {}, box);
+    if (!shop) return;
+    const adminUrl = shop.domain ? `https://${shop.domain}/admin/settings/shipping` : null;
+    box.innerHTML = `<section class="panel"><h3 class="panel-title">${esc(u.title)}</h3>
+        <p class="panel-subtitle">${esc(u.text)}</p>
+        <p class="field-hint">العمليات غير الموجودة في الكتالوج: <span dir="ltr">${esc(u.missingOps.join('، '))}</span>.</p>
+        ${adminUrl ? `<a class="btn btn-primary btn-sm" href="${esc(adminUrl)}" target="_blank" rel="noopener noreferrer">فتح إعدادات الشحن في Shopify</a>` : '<p class="field-hint">تعذّر بناء رابط لوحة Shopify.</p>'}
+        <p class="field-hint">شحن طلب بعينه وتحديث تتبّعه من قسم «الطلبات».</p></section>`;
+}
+
+async function renderAlerts(box) {
+    renderSkeletonLines(box, 3);
+    const [th, open] = await Promise.all([fetchThresholds(state.conn.id), fetchOpenAlerts(state.conn.id)]);
+    if (!th.ok) {
+        renderState(box, th.missing ? { variant: 'empty', title: 'تنبيهات المخزون غير متاحة بعد', text: 'لم تُطبَّق بعد على قاعدة البيانات.' }
+                                    : { variant: 'error', title: 'تعذّر تحميل الحدود', text: manageErrorText({ error: th.code }) });
+        return;
+    }
+    state.thresholds = Array.isArray(th.data) ? th.data : [];
+    const openAlerts = open.ok && Array.isArray(open.data) ? open.data : [];
+    const storeTh = state.thresholds.find((t) => t.scope === 'store');
+    const variants = state.thresholds.filter((t) => t.scope === 'variant');
+    box.innerHTML = `<section class="panel"><h3 class="panel-title">تنبيهات المخزون</h3>
+        <p class="panel-subtitle">حد أدنى لكل متجر ولكل متغير. الفحص يقرأ المخزون الحي من Shopify (inventory.levels)؛
+            عند أول وصول للحد يُسجَّل تنبيه ويُرسل إشعار واحد لمالك الشركة، ويُحلّ التنبيه حين يعود المخزون فوق الحد.</p>
+        <div id="smAlertSummary" aria-live="polite"></div>
+        <form class="toolbar owner-filters" id="smStoreThForm" novalidate>
+            <label for="smStoreThMin">حد المتجر كله (المتاح)</label>
+            <input type="number" id="smStoreThMin" class="form-control" min="0" max="999999" step="1" value="${esc(storeTh?.min_quantity ?? '')}" autocomplete="off">
+            <button type="submit" class="btn btn-primary btn-sm">حفظ حد المتجر</button></form>
+        <p class="field-hint">حد المتجر يسري على أي متغير بلا حد خاص، ويُطبَّق عند عرض مخزون المتغير: فإذا وُجد تحت الحد سُجّل تنبيه واحد لحد المتجر وأُرسل إشعار لمالك الشركة، ويُحلّ حين يُعرض متغير فوق الحد. الحد 0 يعني «نبّه عند النفاد». حدود المتغيرات تُفحص من زر «فحص الآن» أدناه.</p>
+        <div class="company-form-actions sm-actions"><button type="button" class="btn btn-primary btn-sm" id="smCheckNow">فحص الآن</button></div>
+        <h3 class="panel-title">حدود المتغيرات</h3>
+        <div id="smThRows" aria-live="polite"></div>
+        <form class="toolbar owner-filters" id="smAddThForm" novalidate>
+            <label for="smAddVariant">معرّف المتغير</label>
+            <input id="smAddVariant" class="form-control" inputmode="numeric" maxlength="60" autocomplete="off" placeholder="مثل 201 أو من صفحة المنتج">
+            <label for="smAddMin">الحد الأدنى</label>
+            <input type="number" id="smAddMin" class="form-control" min="0" max="999999" step="1" autocomplete="off">
+            <button type="submit" class="btn btn-secondary btn-sm">إضافة حد</button></form>
+        <p class="field-error" id="smThFormError" role="alert" hidden></p>
+        <h3 class="panel-title">تنبيهات مفتوحة</h3>
+        ${openAlerts.length ? table(['المنتج', 'المتاح', 'الحد الأدنى', 'منذ'], openAlerts.map((a) => [esc(a.product_title || '—'),
+            esc(a.available ?? '—'), esc(a.min_quantity ?? '—'), esc(when(a.notified_at || a.created_at))])) : '<p class="panel-subtitle">لا تنبيهات مفتوحة.</p>'}
+        <p class="field-hint">التنبيه يُحلّ تلقائيًا حين يعود المخزون فوق الحد عند الفحص التالي.</p></section>`;
+    $('smStoreThForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const min = $('smStoreThMin').value;
+        const errs = validateThreshold({ scope: 'store', min_quantity: min });
+        if (errs.min_quantity) { toast(errs.min_quantity, 'error'); return; }
+        const r = await saveThreshold(state.conn.id, { scope: 'store', minQuantity: Number(min) });
+        if (!r.ok) { toast(r.missing ? 'تنبيهات المخزون غير متاحة بعد.' : manageErrorText({ error: r.code }), 'error'); return; }
+        state.thresholds = null;
+        toast('حُفظ حد المتجر.', 'success');
+        renderAlerts(box);
+    });
+    $('smAddThForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const errBox = $('smThFormError');
+        const variantId = $('smAddVariant').value.trim();
+        const min = $('smAddMin').value;
+        if (!variantId) { errBox.textContent = 'معرّف المتغير مطلوب.'; errBox.hidden = false; return; }
+        errBox.hidden = true;
+        const levels = await readQuiet('inventory.levels', { variant_id: variantId });
+        if (!levels || !levels.inventory_item_id) { errBox.textContent = 'تعذّرت قراءة هذا المتغير من Shopify.'; errBox.hidden = false; return; }
+        const errs = validateThreshold({ scope: 'variant', inventory_item_id: levels.inventory_item_id, variant_id: levels.variant_id, min_quantity: min });
+        if (Object.keys(errs).length) { errBox.textContent = Object.values(errs).join(' — '); errBox.hidden = false; return; }
+        const title = `${levels.product_title || ''} — ${levels.title || ''}`.trim();
+        const r = await saveThreshold(state.conn.id, {
+            scope: 'variant', inventoryItemId: levels.inventory_item_id, variantId: levels.variant_id,
+            productTitle: title || null, minQuantity: Number(min)
+        });
+        if (!r.ok) { errBox.textContent = r.missing ? 'تنبيهات المخزون غير متاحة بعد.' : manageErrorText({ error: r.code }); errBox.hidden = false; return; }
+        state.thresholds = null;
+        toast('حُفظ حد المتغير.', 'success');
+        renderAlerts(box);
+    });
+    $('smCheckNow').addEventListener('click', () => runAlertCheck(box));
+    renderAlertRows();
+}
+
+function renderAlertRows(evaluated = null) {
+    const host = $('smThRows');
+    if (!host) return;
+    const variants = (state.thresholds || []).filter((t) => t.scope === 'variant');
+    if (!variants.length) { host.innerHTML = '<p class="panel-subtitle">لا حدود لمتغيرات بعد — أضف حدًا من هنا أو من زر «تعيين حد أدنى» في صفحة مخزون المتغير.</p>'; return; }
+    const byId = new Map((evaluated || []).map((e) => [e.threshold.id, e]));
+    host.innerHTML = table(['المنتج', 'الحد الأدنى', 'المتاح الآن', 'الحالة', ''], variants.map((t) => {
+        const ev = byId.get(t.id);
+        const avail = ev ? (ev.available === null ? 'تعذّرت القراءة' : String(ev.available)) : '…';
+        const status = ev ? pill(ev.status === 'below' ? 'danger' : ev.status === 'ok' ? 'success' : 'warning', ALERT_STATUS_LABELS[ev.status]) : '—';
+        return [esc(t.product_title || t.variant_id), esc(t.min_quantity),
+            `<span data-avail-for="${esc(t.id)}">${esc(avail)}</span>`, `<span data-status-for="${esc(t.id)}">${status}</span>`,
+            `<button type="button" class="btn btn-ghost btn-sm" data-th-edit="${esc(t.id)}">تعديل</button>
+             <button type="button" class="btn btn-ghost btn-sm" data-th-del="${esc(t.id)}">حذف</button>`];
+    }));
+    host.querySelectorAll('[data-th-del]').forEach((b) => b.addEventListener('click', async () => {
+        if (b.dataset.armed) {
+            const r = await deleteThreshold(state.conn.id, b.dataset.thDel);
+            if (!r.ok) { toast(manageErrorText({ error: r.code }), 'error'); return; }
+            state.thresholds = null;
+            toast('حُذف الحد.', 'success');
+            renderAlerts($('smSection'));
+            return;
+        }
+        b.dataset.armed = '1';
+        b.textContent = 'تأكيد الحذف؟';
+    }));
+    host.querySelectorAll('[data-th-edit]').forEach((b) => b.addEventListener('click', () => {
+        const t = (state.thresholds || []).find((x) => x.id === b.dataset.thEdit);
+        if (t) openThresholdDialog({ scope: 'variant', inventory_item_id: t.inventory_item_id, variant_id: t.variant_id,
+                                     product_title: t.product_title, min_quantity: t.min_quantity }, () => renderAlerts($('smSection')));
+    }));
+    if (!evaluated) refreshAlertLevels();
+}
+
+/** قراءة المتاح الحالي لكل حد متغير وتحديث خلايا الجدول (بلا تسجيل ولا إشعار). */
+async function refreshAlertLevels() {
+    const variants = (state.thresholds || []).filter((t) => t.scope === 'variant');
+    if (!variants.length) return;
+    const byItem = await loadAlertLevels(variants);
+    const evaluated = evaluateInventoryAlerts(state.thresholds, byItem);
+    for (const ev of evaluated) {
+        const a = document.querySelector(`[data-avail-for="${CSS.escape(ev.threshold.id)}"]`);
+        if (a) a.textContent = ev.available === null ? 'تعذّرت القراءة' : String(ev.available);
+        const s = document.querySelector(`[data-status-for="${CSS.escape(ev.threshold.id)}"]`);
+        if (s) s.innerHTML = pill(ev.status === 'below' ? 'danger' : ev.status === 'ok' ? 'success' : 'warning', ALERT_STATUS_LABELS[ev.status]);
+    }
+}
+
+/** «فحص الآن»: تقييم من Shopify الحي + تسجيل + إشعار مالك الشركة عن الجديد فقط. */
+async function runAlertCheck(box) {
+    const btn = $('smCheckNow');
+    if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الفحص…'; }
+    const byItem = await loadAlertLevels(state.thresholds);
+    const evaluated = evaluateInventoryAlerts(state.thresholds, byItem);
+    renderAlertRows(evaluated);
+    const items = buildAlertReportItems(evaluated);
+    const summary = $('smAlertSummary');
+    if (!items.length) {
+        if (summary) summary.innerHTML = '<p class="field-hint">لا حدود قابلة للفحص الآن (تعذّرت قراءة المخزون).</p>';
+        if (btn) { btn.disabled = false; btn.textContent = 'فحص الآن'; }
+        return;
+    }
+    const r = await reportInventoryAlerts(state.conn.id, items);
+    const below = evaluated.filter((e) => e.status === 'below').length;
+    if (summary) {
+        summary.innerHTML = r.ok
+            ? `<div class="state-block state-block--compact" role="status"><p class="state-title">نتيجة الفحص</p>
+               <p class="state-text">فُحص ${esc(items.length)} حدًا: ${esc(below)} تحت الحد. ${r.data.notified ? `أُرسل إشعار لمالك الشركة عن ${esc(r.data.notified)} منتجًا وصل للحد لأول مرة.` : 'لا إشعارات جديدة.'}${r.data.resolved ? ` وحُلّ ${esc(r.data.resolved)} تنبيهًا بعد عودة المخزون فوق الحد.` : ''}</p></div>`
+            : `<p class="field-error" role="alert">${esc(r.missing ? 'تنبيهات المخزون غير متاحة بعد.' : manageErrorText({ error: r.code }))}</p>`;
+    }
+    if (btn) { btn.disabled = false; btn.textContent = 'فحص الآن'; }
 }
 
 function renderDrafts(box) {

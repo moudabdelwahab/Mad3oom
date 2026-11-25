@@ -118,11 +118,23 @@ function fixtures({ context = 'owner', owner = true } = {}) {
                 price_snapshot: { amount: 0, exception: true, cycle_price: 500 }, effective: true },
             owner_store_grant_exception: { id: 'sub1', plan: 'store', billing_cycle: 'monthly', status: 'active',
                 start_date: '2026-10-26T00:00:00Z', end_date: future, duration_days: 30, payment_method: 'owner_exception', effective: true },
+            // 137: طلبات التجربة المجانية 3 أيام — معلّقة أولًا
+            owner_list_saas_trial_requests: [
+                { id: 'tr1', company_id: 'c9', company_name: 'متجر الورد', account_kind: 'ecommerce_store', plan_key: 'store',
+                  plan_name_ar: 'باقة المتاجر الإلكترونية', status: 'pending', requested_by: CUSTOMER, requested_by_email: 'rq@x.test',
+                  requested_at: '2026-10-25T00:00:00Z', decided_at: null, decided_by: null, decision_reason: null,
+                  trial_starts_at: null, trial_ends_at: null, subscription_id: null, is_trial_active: false, days_remaining: 0 },
+                { id: 'tr2', company_id: 'c1', company_name: 'شركة أ', account_kind: 'company', plan_key: 'ultimate',
+                  plan_name_ar: 'الخطة الفائقة', status: 'approved', requested_by: CUSTOMER, requested_by_email: 'a@x.test',
+                  requested_at: '2026-10-24T00:00:00Z', decided_at: '2026-10-24T01:00:00Z', decided_by: OWNER, decision_reason: null,
+                  trial_starts_at: '2026-10-24T01:00:00Z', trial_ends_at: future, subscription_id: 'sub-trial', is_trial_active: true, days_remaining: 3 }],
             owner_store_set_end_date: { id: 'sub1', plan: 'store', billing_cycle: 'monthly', status: 'active', end_date: future, effective: true },
             owner_store_pause: { id: 'sub1', plan: 'store', billing_cycle: 'monthly', status: 'paused', effective: false },
             owner_store_resume: { id: 'sub1', plan: 'store', billing_cycle: 'monthly', status: 'active', effective: true },
             owner_store_change_cycle: { id: 'sub1', plan: 'store', billing_cycle: 'yearly', status: 'active', effective: true },
-            owner_store_plan_config: { plan: 'store', quota_defined: false, ticket_quota: null, features: [
+            // 135: إعداد الباقة يعيد التفعيل والسعرين أيضًا (لنموذج السعر)
+            owner_store_plan_config: { plan: 'store', quota_defined: false, ticket_quota: null,
+                is_active: false, price_monthly: null, price_yearly: null, currency: 'EGP', features: [
                 { feature_key: 'integrations_hub', enabled: true, limits: null },
                 { feature_key: 'shopify_integration', enabled: true, limits: null },
                 { feature_key: 'store_support', enabled: false, limits: null },
@@ -215,6 +227,7 @@ const PAGES = {
     security: '#secKpis .kpi',
     tickets: '#ticketsTable table',
     subscriptions: '#subsTable table',
+    trials: '#trialRequests table',
     blog: '#blogRows tr',
     activity: '#activityTable table',
     integrations: '#tokensTable table',
@@ -675,6 +688,115 @@ test('المتاجر: إدارة اشتراك متجر — منح كاستثنا
     assert.equal(grant.p_reason, 'منح استثناء للاختبار');
     assert.ok(Math.abs(new Date(grant.p_end_date) - grantEnd) < 864e5, 'تاريخ الانتهاء المرسل هو المدخل');
     await second.context.close();
+});
+
+test('المتاجر (135): فشل التشخيص لا يُسقط نموذجي السعر والحصة', { skip: !chromiumPath }, async () => {
+    const fx = fixtures();
+    fx.rpc.owner_security_status = { ...fx.rpc.owner_security_status, step_up_fresh: true, step_up_expires_at: '2099-01-01T00:00:00Z' };
+    fx.rpcErrors = { owner_entitlement_diagnostics: { code: 'P0001', message: 'تعذّر التشخيص للاختبار' } };
+    const { page, context, errors } = await openPage(browser, baseUrl, 'stores', fx);
+    await page.waitForSelector('#storePriceForm');
+    await page.waitForSelector('#storeQuotaForm');
+    assert.match(await page.textContent('#storeDiagnostics'), /تعذّرت القراءة/);
+    assert.match(await page.textContent('#storeDiagnostics'), /تعذّر التشخيص للاختبار/);
+    // نموذج السعر يعمل من إعداد الباقة: القيم الافتراضية المعتمدة ثم الحفظ
+    assert.equal(await page.inputValue('#planMonthly'), '500');
+    assert.equal(await page.inputValue('#planYearly'), '5000');
+    await page.check('#planActivate');
+    await page.click('#storePriceForm button[type=submit]');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_set_store_plan_price'));
+    assert.deepEqual(await rpcCalls(page, 'owner_set_store_plan_price'),
+        [{ p_monthly: 500, p_yearly: 5000, p_activate: true }]);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('المتاجر (135): إلغاء تفعيل الباقة بتأكيد وسبب، والأسعار المحفوظة لا تتغيّر', { skip: !chromiumPath }, async () => {
+    const fx = fixtures();
+    fx.rpc.owner_security_status = { ...fx.rpc.owner_security_status, step_up_fresh: true, step_up_expires_at: '2099-01-01T00:00:00Z' };
+    fx.rpc.owner_store_plan_config = { ...fx.rpc.owner_store_plan_config,
+        is_active: true, price_monthly: 500, price_yearly: 5000, currency: 'EGP' };
+    const { page, context, errors } = await openPage(browser, baseUrl, 'stores', fx);
+    await page.waitForSelector('#planDeactivate');
+    assert.match(await page.textContent('#storeDiagnostics'), /مفعّلة/);
+    await page.click('#planDeactivate');
+    await page.waitForSelector('#subReasonForm');
+    assert.match(await page.textContent('#subReasonForm'), /سيتوقف بيع باقة المتاجر/);
+    await page.fill('#subReason', 'قصير');
+    await page.click('#subReasonForm button[type=submit]');
+    assert.match(await page.textContent('#subReasonStatus'), /10 أحرف/);
+    assert.deepEqual(await rpcCalls(page, 'owner_set_store_plan_price'), []);
+    await page.fill('#subReason', 'إلغاء تفعيل الباقة للاختبار');
+    await page.click('#subReasonForm button[type=submit]');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_set_store_plan_price'));
+    assert.deepEqual(await rpcCalls(page, 'owner_set_store_plan_price'),
+        [{ p_monthly: 500, p_yearly: 5000, p_activate: false, p_deactivate: true, p_reason: 'إلغاء تفعيل الباقة للاختبار' }]);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('المتاجر (135): تعطيل تكامل Shopify أو إلغاء كل المزايا يطلب تأكيدًا صريحًا', { skip: !chromiumPath }, async () => {
+    const fx = fixtures();
+    fx.rpc.owner_security_status = { ...fx.rpc.owner_security_status, step_up_fresh: true, step_up_expires_at: '2099-01-01T00:00:00Z' };
+    const { page, context, errors } = await openPage(browser, baseUrl, 'stores', fx);
+    await page.waitForSelector('#storeQuotaForm');
+    // تعطيل شوبيفاي وحده: تأكيد يظهر، والإلغاء لا يرسل، والتأكيد يرسل
+    await page.uncheck('.planFeature[value="shopify_integration"]');
+    await page.fill('#planQuotaReason', 'تعطيل تكامل شوبيفاي للاختبار');
+    await page.click('#storeQuotaForm button[type=submit]');
+    await page.waitForSelector('#quotaDisableConfirm');
+    assert.match(await page.textContent('.owner-modal-body'), /تكامل Shopify/);
+    await page.click('#quotaDisableCancel');
+    assert.deepEqual(await rpcCalls(page, 'owner_set_store_plan_quota_features'), []);
+    await page.click('#storeQuotaForm button[type=submit]');
+    await page.waitForSelector('#quotaDisableConfirm');
+    await page.click('#quotaDisableConfirm');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_set_store_plan_quota_features'));
+    assert.deepEqual(await rpcCalls(page, 'owner_set_store_plan_quota_features'),
+        [{ p_monthly_quota: null, p_features: ['integrations_hub'], p_reason: 'تعطيل تكامل شوبيفاي للاختبار' }]);
+    // إلغاء الكل: تأكيد يظهر أيضًا بعد إعادة الرسم
+    await page.waitForSelector('#storeQuotaForm');
+    await page.uncheck('.planFeature[value="integrations_hub"]');
+    await page.uncheck('.planFeature[value="shopify_integration"]');
+    await page.fill('#planQuotaReason', 'إلغاء كل مزايا الباقة للاختبار');
+    await page.click('#storeQuotaForm button[type=submit]');
+    await page.waitForSelector('#quotaDisableConfirm');
+    assert.match(await page.textContent('.owner-modal-body'), /إلغاء كل مزايا/);
+    await page.click('#quotaDisableConfirm');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).filter(([n]) => n === 'owner_set_store_plan_quota_features').length === 2);
+    assert.deepEqual((await rpcCalls(page, 'owner_set_store_plan_quota_features')).at(-1),
+        { p_monthly_quota: null, p_features: [], p_reason: 'إلغاء كل مزايا الباقة للاختبار' });
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('المتاجر (135): تعديل الانتهاء أثناء الإيقاف تاريخ نهائي عند الاستئناف', { skip: !chromiumPath }, async () => {
+    const fx = fixtures();
+    fx.rpc.owner_security_status = { ...fx.rpc.owner_security_status, step_up_fresh: true, step_up_expires_at: '2099-01-01T00:00:00Z' };
+    const future = new Date(Date.now() + 20 * 864e5).toISOString();
+    const past = new Date(Date.now() - 2 * 3600e3).toISOString();
+    fx.rpc.owner_store_subscription = { id: 'sub1', plan: 'store', billing_cycle: 'monthly', status: 'paused',
+        start_date: '2026-10-01T00:00:00Z', end_date: future, duration_days: 30, payment_method: 'owner_exception',
+        price_snapshot: { amount: 0, exception: true, cycle_price: 500 }, paused_at: past,
+        end_date_set_while_paused: true, cycle_changed_while_paused: false, days_remaining: 5, effective: false };
+    const { page, context, errors } = await openPage(browser, baseUrl, 'stores', fx);
+    await page.waitForSelector('[data-manage-sub="c9"]');
+    await page.click('[data-manage-sub="c9"]');
+    await page.waitForSelector('#subEndForm');
+    assert.match(await page.textContent('#manageSubBody'), /متوقف مؤقتًا/);
+    assert.match(await page.textContent('#manageSubBody'), /باقٍ [5٥] يوم/);
+    assert.match(await page.textContent('#manageSubBody'), /النهائي بعد الاستئناف/);
+    await page.waitForSelector('#subResume');
+    await page.click('#subResume');
+    await page.waitForSelector('#subReasonForm');
+    assert.match(await page.textContent('#subReasonForm'), /دون تمديد إضافي/);
+    await page.fill('#subReason', 'استئناف الاشتراك للاختبار');
+    await page.click('#subReasonForm button[type=submit]');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_store_resume'));
+    assert.deepEqual(await rpcCalls(page, 'owner_store_resume'),
+        [{ p_subscription: 'sub1', p_reason: 'استئناف الاشتراك للاختبار' }]);
+    assert.deepEqual(errors, []);
+    await context.close();
 });
 
 test('سجل النشاط: الحمولة نصّ لا HTML، والتصفية بالحدث تُرسل للخادم', { skip: !chromiumPath }, async () => {

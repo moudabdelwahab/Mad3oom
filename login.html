@@ -919,6 +919,15 @@
           ليس لديك حساب؟ <a href="#" id="go-register">إنشاء حساب جديد</a>
         </p>
 
+        <!-- 138: مدخل مستقل لطلب حساب شركة — من خارج مسار الشراء.
+             لحساب مسجَّل: يفتح نموذج الطلب. بلا جلسة: النافذة نفسها تطلب
+             تسجيل الدخول أو إنشاء حساب أولًا. -->
+        <p class="register-row" data-company-request-entry>
+          لديك شركة أو متجر أو منصة؟
+          <a href="#" data-standalone-company-request>اطلب إنشاء حساب شركة</a>
+          — يُراجَع قبل أي تفعيل.
+        </p>
+
       </div>
 
       <!-- ══ STEP 2: 2FA CODE ══ -->
@@ -2386,6 +2395,13 @@
   document.getElementById('go-login').addEventListener('click',    (e) => { e.preventDefault(); swapToLogin();    });
   document.getElementById('unavailable-go-login').addEventListener('click', (e) => { e.preventDefault(); swapToLogin(); });
 
+  // 138: رابط مباشر للوحة التسجيل (#register) — من نافذة طلب حساب الشركة
+  // لزائر بلا حساب، ومن أي رابط خارجي. يفتح لوحة التسجيل عند التحميل أو
+  // عند تغيير الهاش أثناء البقاء في الصفحة.
+  const openRegisterFromHash = () => { if (window.location.hash === '#register') swapToRegister(); };
+  window.addEventListener('hashchange', openRegisterFromHash);
+  openRegisterFromHash();
+
   // ══════════════════════════════════════════════════════════════
   // PASSWORD TOGGLES
   // ══════════════════════════════════════════════════════════════
@@ -2584,6 +2600,12 @@
   })();
 
 </script>
+
+  <!-- 138: مدخل مستقل لطلب حساب شركة (زر في بطاقة الدخول + ?company_request=1) -->
+  <script type="module">
+    import { initStandaloneCompanyRequestEntry } from '/assets/js/company/company-request-standalone.js';
+    initStandaloneCompanyRequestEntry();
+  </script>
 
 </body>
 </html>

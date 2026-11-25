@@ -138,9 +138,16 @@
     <script type="module">
         import { initSidebar } from '/assets/js/admin/sidebar.js';
         import { supabase } from '/api-config.js';
+        import { checkAdminAuth } from '/assets/js/admin/auth.js';
 
         // Initialize Admin Sidebar
         initSidebar();
+
+        // حارس دخول الأدمن: بلا جلسة أدمن لا تُعرض أي مقالات — checkAdminAuth
+        // يحوّل للدخول أو يرسم لوحة الرفض، والرمي هنا يوقف بقية الوحدة
+        // قبل أي قراءة من knowledge_base.
+        const adminUser = await checkAdminAuth();
+        if (!adminUser) throw new Error('Admin access required — knowledge-base-admin page load stopped after guard.');
 
         const tableBody = document.getElementById('articlesTableBody');
         const articleModal = document.getElementById('articleModal');

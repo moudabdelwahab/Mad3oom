@@ -252,6 +252,11 @@ export const WORKFLOW_STEPS = [
 ];
 
 export const VOICE_STUDIO_FUNCTION = 'voice-studio';
+/**
+ * مفتاح localStorage القديم لمفتاح Gemini الشخصي — لم يعد يُكتب إطلاقًا
+ * (المفتاح في ذاكرة الصفحة فقط). يُستخدم اسمه هنا لمرة واحدة: حذف أي
+ * قيمة قديمة محفوظة به عند فتح الصفحة (migrateLegacyKey).
+ */
 export const GEMINI_KEY_STORAGE = 'mad3oom_voice_gemini_key';
 export const INTRO_STORAGE = 'mad3oom_voice_intro_played';
 export const HISTORY_STORAGE = 'mad3oom_voice_history';

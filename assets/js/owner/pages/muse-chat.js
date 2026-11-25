@@ -27,7 +27,9 @@
  * المسار السريع (الترحيل 132: trigger ينادي Edge Function ‏muse-chat-reply‏
  * فور الإدخال) أو عبر الجسر الدائم كاحتياطي؛ الصفحة تشترك في Realtime
  * على رسائل الجلسة النشطة فيستدعي كل إدخال جديد الاستطلاع فورًا،
- * والاستطلاع كل 5 ثوانٍ يبقى كشبكة أمان إن فشل الاشتراك أو انقطع.
+ * والاستطلاع كل 5 ثوانٍ شبكة أمان فقط — يتوقف تمامًا أثناء اتصال
+ * Realtime السليم، ويعود عند انقطاعه بمهلة تتضاعف مع كل فشل متتالٍ
+ * حتى دقيقة (pollRetryDelay)، فلا تبقى قراءات مضاعفة دائمة.
  * لا حالة حضور — لا شيء منها حقيقي هنا. فقاعة الانتظار حقيقية: تظهر من طابع إرسال رسالة بلا رد،
  * وتختفي بوصول الرد — ومراحلها («يقرأ رسالتك…» ثم «يراجع…» ثم «يجهّز
  * الرد…») تسميات زمنية من الثواني المنصرمة، لا قياس لخطوات الجسر
@@ -52,15 +54,20 @@
  * الكوتة: بطاقة صغيرة في الترويسة — شريط تقدّم بالنسبة المتبقية ونص
  * المستخدَم والخطة وتاريخ التجديد بالعربية وآخر تحديث، من الجلسة
  * النشطة extensions.quota فقط (parseQuota يحلّل صيغتي اللقطة الحيّتين
- * إلى أرقام عربية). عند غياب quota يظهر تلميح صامت بلا أي رقم. لا رقم
- * من أي مصدر آخر، ولا رقم مخترع — والجسر هو من يحدّث quota في extensions.
+ * إلى أرقام عربية). اللقطة مصدرها الجسر وحده — لا مصدر كوتة آخر
+ * موثوق في القاعدة (ai_usage_events أحداث نداءات مزوّدين بلا حد
+ * اشتراك) — فلا رقم من أي مصدر آخر ولا رقم مخترع. عند غياب اللقطة
+ * تظهر رسالة صريحة بذلك (لا تلميح صامت)، وإن كانت اللقطة أقدم من
+ * آخر رد مساعد تُعرض أرقامها الأخيرة مع تحذير صريح بقدمها
+ * (quotaSnapshotState) — فتوقف الجسر عن تحديث الكوتة لا يختفي بصمت.
  */
 import {
     supabase, bootOwnerPage, announce, esc, friendlyError, errorBlock, loadingBlock,
 } from '/assets/js/owner/owner-page.js';
 import {
     MUSE_MODEL_ID,
-    POLL_MS, MESSAGES_LIMIT, mergeMessages,
+    POLL_MS, MESSAGES_LIMIT, mergeMessages, pollRetryDelay, isRealtimeLive,
+    quotaSnapshotState, quotaMissingText, QUOTA_STALE_TEXT,
     formatWaitSeconds, formatReplyTook, secondsBetween, waitingSince,
     agentForModelId, agentModelIds, sortSessions, pickActiveSession,
     deriveSmartTitle, isRenamed, withRenamed, withoutRenamed, shouldAutoTitle,
@@ -89,8 +96,10 @@ let sessions = [];
 let messages = [];
 const renderedIds = new Set();
 let sending = false;
-let pollTimer = null;
+let pollTimeout = null;
 let pollFailures = 0;
+/** هل اتصال Realtime حي؟ أثناء حياته يتوقف الاستطلاع تمامًا. */
+let realtimeLive = false;
 let realtimeChannel = null;
 let lastQuotaRefreshAt = 0;
 let switchToken = 0;
@@ -565,6 +574,8 @@ async function switchSession(id) {
     try {
         await loadMessages();
         if (token !== switchToken) return;
+        // حداثة لقطة الكوتة تُحسب من رسائل هذه الجلسة — حدّث البطاقة بعد تحميلها.
+        updateQuotaDisplay(target);
         // رسالة بلا رد في هذه الجلسة؟ استأنف العدّاد من طابع إرسالها الحقيقي.
         const pending = waitingSince(messages);
         if (pending) startWaiting(pending);
@@ -613,17 +624,32 @@ function updateSquareHeader() {
 
 /**
  * عرض الكوتة من الجلسة النشطة: بطاقة بشريط تقدّم ونسبة وتجديد وآخر
- * تحديث — أو تلميح صامت عند غياب quota، بلا أي رقم مخترع. كل نص
- * ديناميكي يمر عبر esc، والنسبة للشريط رقم محلَّل لا نص خام.
+ * تحديث — أو رسالة صريحة عند غياب اللقطة، وتحذير صريح بقدمها إن كانت
+ * أقدم من آخر رد مساعد. حداثة اللقطة من طابع آخر رد مساعد في الرسائل
+ * المحمّلة نفسها (قراءة مباشرة من ai_session_messages) — لا رقم
+ * مخترع ولا إخفاء صامت لتوقف الجسر. كل نص ديناميكي يمر عبر esc،
+ * والنسبة للشريط رقم محلَّل لا نص خام.
  */
+function lastAssistantAt() {
+    let last = null;
+    for (const m of messages) {
+        if (m?.role === 'assistant' && m.created_at) {
+            if (!last || new Date(m.created_at) > new Date(last)) last = m.created_at;
+        }
+    }
+    return last;
+}
+
 function updateQuotaDisplay(session) {
     const el = $('museQuota');
     if (!el) return;
+    const quota = session?.extensions?.quota;
     const parsed = parseQuota(session?.extensions?.quota);
+    const snapshotState = quotaSnapshotState(quota, lastAssistantAt());
     el.hidden = false;
     if (!parsed) {
         el.classList.remove('is-low');
-        el.innerHTML = '<span class="muse-quota-empty">الكوتة ستظهر هنا بعد أول رد من الوكيل.</span>';
+        el.innerHTML = `<span class="muse-quota-empty">${esc(quotaMissingText(!!lastAssistantAt()))}</span>`;
         return;
     }
     const bar = parsed.pct !== null
@@ -643,7 +669,8 @@ function updateQuotaDisplay(session) {
         </div>
         ${bar}
         ${meta ? `<div class="muse-quota-meta">${meta}</div>` : ''}
-        ${parsed.low ? '<div class="muse-quota-low">الكوتة أوشكت على النفاد — أقل من 20% متبقٍ.</div>' : ''}`;
+        ${parsed.low ? '<div class="muse-quota-low">الكوتة أوشكت على النفاد — أقل من 20% متبقٍ.</div>' : ''}
+        ${snapshotState === 'stale' ? `<div class="muse-quota-stale">${esc(QUOTA_STALE_TEXT)}</div>` : ''}`;
 }
 
 /** إعادة قراءة extensions للجلسة النشطة — الجسر يحدّث quota فيها. */
@@ -902,9 +929,33 @@ async function pollMessages() {
 /* ── Realtime: إدخال جديد في الجلسة النشطة يستدعي الاستطلاع فورًا ──
  * الترحيل 132 يضيف ai_session_messages إلى publication ‏supabase_realtime‏،
  * فيصل الرد (أو الإقرار الفوري) لحظة إدخاله بدل انتظار دورة الاستطلاع.
- * الاستطلاع كل 5 ثوانٍ يبقى كشبكة أمان — إن فشل الاشتراك أو انقطع،
- * يبقى الرد ظاهرًا خلال 5 ثوانٍ. عند تبديل الجلسة تُستبدل القناة بقناة
- * الجلسة الجديدة؛ وعند مغادرة الصفحة تُزال القناة مع المؤقت. */
+ * الاستطلاع شبكة أمان فقط: يتوقف تمامًا أثناء اتصال Realtime السليم
+ * (SUBSCRIBED)، ويعود عند انقطاعه بمهلة backoff — فلا تبقى قراءتان
+ * متوازيتان دائمًا. عند تبديل الجلسة تُستبدل القناة بقناة الجلسة
+ * الجديدة؛ وعند مغادرة الصفحة تُزال القناة مع المؤقت. */
+
+/** إيقاف مؤقت الاستطلاع — يُستدعى عند حياة Realtime وعند مغادرة الصفحة. */
+function stopPolling() {
+    if (pollTimeout) clearTimeout(pollTimeout);
+    pollTimeout = null;
+}
+
+/**
+ * جدولة دورة الاستطلاع التالية — لا شيء يُجدول أثناء اتصال Realtime
+ * سليم؛ النداء آمن التكرار (يلغي المؤقت السابق أولًا).
+ */
+function armPollTimer(delay = POLL_MS) {
+    stopPolling();
+    if (realtimeLive) return;
+    pollTimeout = setTimeout(pollCycle, delay);
+}
+
+/** دورة استطلاع واحدة ثم إعادة الجدولة بمهلة backoff عند الفشل المتتالي. */
+async function pollCycle() {
+    await pollMessages();
+    armPollTimer(pollRetryDelay(pollFailures));
+}
+
 function subscribeRealtime() {
     try {
         if (realtimeChannel) {
@@ -912,18 +963,29 @@ function subscribeRealtime() {
             realtimeChannel = null;
         }
         if (!sessionId) return;
+        // حتى يكتمل الاشتراك يبقى الاستطلاع يعمل؛ SUBSCRIBED يوقفه.
+        realtimeLive = false;
+        armPollTimer(POLL_MS);
         realtimeChannel = supabase.channel(`muse-chat-${sessionId}`)
             .on('postgres_changes', {
                 event: 'INSERT', schema: 'public', table: 'ai_session_messages',
                 filter: `session_id=eq.${sessionId}`,
             }, () => { pollMessages(); })
             .subscribe((status) => {
-                if (status !== 'SUBSCRIBED') {
-                    console.warn('[MuseChat] realtime not subscribed:', status);
+                if (isRealtimeLive(status)) {
+                    realtimeLive = true;
+                    stopPolling();
+                    return;
                 }
+                console.warn('[MuseChat] realtime not subscribed:', status);
+                // انقطاع أو فشل اشتراك: عودة الاستطلاع كشبكة أمان بمهلة backoff.
+                realtimeLive = false;
+                armPollTimer(pollRetryDelay(pollFailures));
             });
     } catch (err) {
         console.error('[MuseChat] realtime subscribe failed:', err?.message || err);
+        realtimeLive = false;
+        armPollTimer(pollRetryDelay(pollFailures));
     }
 }
 
@@ -1097,8 +1159,7 @@ async function loadChat(userId) {
         activeModelId = session.model_id;
         await switchSession(session.id);
         $('museChatLoadRetry').hidden = true;
-        if (pollTimer) clearInterval(pollTimer);
-        pollTimer = setInterval(pollMessages, POLL_MS);
+        armPollTimer(POLL_MS);
     } catch (err) {
         box.innerHTML = errorBlock(friendlyError(err));
         $('museChatLoadRetry').hidden = false;
@@ -1155,7 +1216,7 @@ init().catch((err) => {
 
 // إيقاف الاستطلاع والقناة والعدّاد والأفاتار عند مغادرة الصفحة حتى لا يبقى مؤقت معلّق.
 window.addEventListener('pagehide', () => {
-    if (pollTimer) clearInterval(pollTimer);
+    stopPolling();
     if (realtimeChannel) supabase.removeChannel(realtimeChannel);
     stopWaitTimer();
     if (avatar) avatar.destroy();

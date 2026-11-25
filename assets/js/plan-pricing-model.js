@@ -102,7 +102,7 @@ const FEATURE_ROWS = [
     { key: 'api', label: 'مفاتيح API', values: { free: false, support: true, ultimate: true, bundle: true, whatsapp: false } },
     { key: 'stats', label: 'الإحصائيات المتقدمة وسجل النشاط', values: { free: false, support: true, ultimate: true, bundle: true, whatsapp: false } },
     { key: 'priority', label: 'الدعم الأولوي', values: { free: false, support: true, ultimate: '24/7', bundle: '24/7', whatsapp: false } },
-    { key: 'whatsapp', label: 'واتساب بيزنس', values: { free: false, support: false, ultimate: false, bundle: true, whatsapp: true }, onlyIfIncluded: true }
+    { key: 'whatsapp', label: 'واتساب بيزنس', values: { free: false, support: false, ultimate: 'مشمول — حتى إشعار آخر', bundle: true, whatsapp: true }, onlyIfIncluded: true }
 ];
 
 /** @returns {Array<{label, included:boolean, value:string|null}>} */

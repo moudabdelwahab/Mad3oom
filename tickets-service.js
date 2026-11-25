@@ -25,17 +25,25 @@ supabase.auth.onAuthStateChange(() => {
 
 /**
  * جلب التذاكر
+ *
+ * بلا ترقيم يرجع مصفوفة كما كان (مسارات العميل تعرض تذاكره هو، وهي
+ * محدودة بطبيعتها). مع pagination={page, pageSize} يرجع
+ * ‏{tickets, total, page, pageSize}‏ بصفحة واحدة من الخادم بـ .range()
+ * وعدد دقيق — ولا يُجلب كل الجدول أبدًا.
  */
-export async function fetchUserTickets(filters = {}) {
+export async function fetchUserTickets(filters = {}, pagination = null) {
     const user = await getCurrentUser();
     if (!user) throw new Error('User not authenticated');
 
     // is_admin() من القاعدة — نفس شرط RLS على tickets: الأدمن، أو مالك المنصة في سياقه
     const { isAdmin } = await platformAuthority();
 
+    const page = pagination?.page ? Math.max(1, Math.floor(pagination.page)) : null;
+    const pageSize = pagination?.pageSize ? Math.max(1, Math.min(100, Math.floor(pagination.pageSize))) : 20;
+
     let query = supabase
         .from('tickets')
-        .select('*, profiles!tickets_user_profile_fk(full_name, email, role), last_updated_by_profile:profiles!tickets_last_updated_by_fkey(full_name)')
+        .select('*, profiles!tickets_user_profile_fk(full_name, email, role), last_updated_by_profile:profiles!tickets_last_updated_by_fkey(full_name)', page ? { count: 'exact' } : undefined)
         .order('created_at', { ascending: false });
 
     // إذا كان المستخدم عميلاً (أو لا يوجد بروفايل بعد)، نفلتر التذاكر الخاصة به فقط
@@ -63,8 +71,11 @@ export async function fetchUserTickets(filters = {}) {
         }
     }
 
-    const { data, error } = await query;
+    const { data, error, count } = page
+        ? await query.range((page - 1) * pageSize, page * pageSize - 1)
+        : await query;
     if (error) throw error;
+    if (page) return { tickets: data || [], total: count ?? 0, page, pageSize };
     return data;
 }
 
@@ -77,9 +88,12 @@ export async function fetchUserTickets(filters = {}) {
  * tickets_select_policy، فحساب الشركة لا يرى تذاكر شركة أخرى ولا عملاءها
  * مهما عُدِّل الطلب.
  *
+ * مع pagination={page, pageSize} يرجع ‏{tickets, total, page, pageSize}‏
+ * بصفحة واحدة من الخادم بـ .range()؛ بلا ترقيم يرجع مصفوفة كما كان.
+ *
  * @returns {Promise<Array>} تذاكر التابعين، مرتّبة بالأحدث
  */
-export async function fetchMemberTickets() {
+export async function fetchMemberTickets(pagination = null) {
     const user = await getCurrentUser();
     if (!user) throw new Error('User not authenticated');
 
@@ -91,15 +105,23 @@ export async function fetchMemberTickets() {
         .eq('super_user_id', user.id);
 
     if (membersError) throw membersError;
-    if (!members || members.length === 0) return [];
+    if (!members || members.length === 0) return pagination?.page ? { tickets: [], total: 0, page: pagination.page, pageSize: pagination.pageSize || 20 } : [];
 
-    const { data, error } = await supabase
+    const page = pagination?.page ? Math.max(1, Math.floor(pagination.page)) : null;
+    const pageSize = pagination?.pageSize ? Math.max(1, Math.min(100, Math.floor(pagination.pageSize))) : 20;
+
+    let memberQuery = supabase
         .from('tickets')
-        .select('*, profiles!tickets_user_profile_fk(full_name, email, role), last_updated_by_profile:profiles!tickets_last_updated_by_fkey(full_name)')
+        .select('*, profiles!tickets_user_profile_fk(full_name, email, role), last_updated_by_profile:profiles!tickets_last_updated_by_fkey(full_name)', page ? { count: 'exact' } : undefined)
         .in('user_id', members.map(m => m.id))
         .order('created_at', { ascending: false });
 
+    const { data, error, count } = page
+        ? await memberQuery.range((page - 1) * pageSize, page * pageSize - 1)
+        : await memberQuery;
+
     if (error) throw error;
+    if (page) return { tickets: data || [], total: count ?? 0, page, pageSize };
     return data || [];
 }
 
@@ -184,25 +206,26 @@ export async function fetchTicketStats() {
     // is_admin() من القاعدة — نفس شرط RLS على tickets: الأدمن، أو مالك المنصة في سياقه
     const { isAdmin } = await platformAuthority();
 
-    let query = supabase.from('tickets').select('status', { count: 'exact' });
-
-    // إذا كان المستخدم عميلاً، نفلتر التذاكر الخاصة به فقط
-    // ونستثني التذاكر المؤرشفة من قبله (نفس منطق fetchUserTickets)
-    if (!isAdmin) {
-        query = query.eq('user_id', user.id).eq('archived_by_customer', false);
+    // عدّادات فقط (count دقيق بلا صفوف) — لا يُجلب الجدول كاملًا.
+    // «المغلقة» حالة مستقلة (closed) لا مرادف لـ resolved.
+    async function countByStatus(status) {
+        let q = supabase.from('tickets').select('id', { count: 'exact', head: true });
+        if (!isAdmin) q = q.eq('user_id', user.id).eq('archived_by_customer', false);
+        if (status) q = q.eq('status', status);
+        const { count, error } = await q;
+        if (error) throw error;
+        return count ?? 0;
     }
 
-    const { data, error } = await query;
-    if (error) throw error;
+    const [total, open, inProgress, resolved, closed] = await Promise.all([
+        countByStatus(null),
+        countByStatus('open'),
+        countByStatus('in-progress'),
+        countByStatus('resolved'),
+        countByStatus('closed'),
+    ]);
 
-    const stats = {
-        total: data.length,
-        open: data.filter(t => t.status === 'open').length,
-        inProgress: data.filter(t => t.status === 'in-progress').length,
-        resolved: data.filter(t => t.status === 'resolved').length
-    };
-
-    return stats;
+    return { total, open, inProgress, resolved, closed };
 }
 
 /**

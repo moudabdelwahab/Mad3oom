@@ -119,6 +119,14 @@
     color: var(--color-danger);
 }
 
+/* تحذير اللقطة القديمة: الجسر ردّ دون تحديث الكوتة — يُعرض مع الأرقام الأخيرة. */
+.muse-quota-stale {
+    margin-top: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--color-warning);
+}
+
 .muse-quota.is-low .muse-quota-bar-fill {
     background: var(--color-danger);
 }

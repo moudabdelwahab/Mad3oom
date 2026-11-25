@@ -72,7 +72,20 @@ function builder(table, mode = 'select') {
             rows = rows.filter(r => String(r[col]) !== String(value));
         }
         for (const [col, value] of state.gtFilters) {
-            rows = rows.filter(r => Number(r[col]) > Number(value));
+            rows = rows.filter(r => {
+                const a = Number(r[col]);
+                const b = Number(value);
+                if (Number.isFinite(a) && Number.isFinite(b)) return a > b;
+                // تواريخ ISO: قارن زمنيًا لا رقميًا (Number('2026-…') = NaN).
+                const da = Date.parse(r[col]);
+                const db = Date.parse(value);
+                if (Number.isFinite(da) && Number.isFinite(db)) return da > db;
+                return String(r[col]) > String(value);
+            });
+        }
+        for (const [col, op, value] of state.notFilters) {
+            if (op === 'is' && value === null) rows = rows.filter(r => r[col] !== null && r[col] !== undefined);
+            else rows = rows.filter(r => String(r[col]) !== String(value));
         }
         if (state.isNull) rows = rows.filter(r => r[state.isNull] === null || r[state.isNull] === undefined);
 
@@ -135,7 +148,8 @@ function builder(table, mode = 'select') {
             return api;
         },
         eq(col, value) { state.filters.push([col, value]); return api; },
-        neq(col, value) { state.notFilters.push([col, value]); return api; },
+        neq(col, value) { state.notFilters.push([col, 'neq', value]); return api; },
+        not(col, op, value) { state.notFilters.push([col, op, value]); return api; },
         gt(col, value) { state.gtFilters.push([col, value]); return api; },
         gte() { return api; },
         lte() { return api; },

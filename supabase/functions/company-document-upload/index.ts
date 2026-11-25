@@ -3,6 +3,9 @@
 //   • begin/commit بهوية المستخدم (مفتاح anon + رأسه): كل قرار صلاحية في القاعدة.
 //   • مفتاح الخدمة للرفع إلى المسار الذي ولّدته القاعدة فقط، ولحذف ملف فشل تأكيده، وللتأكيد
 //     (document_upload_commit_server، 104): البصمة تُحسب هنا ولا يرسلها المستخدم.
+//   • 138 — وضع إثبات طلب شركة مستقل (X-Proof-Token): البدء بهوية المتقدم
+//     (company_account_request_proof_begin) والتأكيد بمفتاح الخدمة
+//     (company_account_request_proof_commit_server)؛ نفس المستودع الخاص.
 // النشر يحتاج موافقة صريحة، والمفتاح company_documents_enabled يبقى مطفأً حتى قرار منفصل.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -27,6 +30,8 @@ Deno.serve((req: Request) => handleUpload(req, {
   rpc: (token: string, fn: string, args: Record<string, unknown>) => asUser(token).rpc(fn, args),
   commit: (version: string, actor: string, sha256: string | null) =>
     admin.rpc("document_upload_commit_server", { p_version: version, p_actor: actor, p_sha256: sha256 }),
+  commitRequest: (proofToken: string, actor: string, sha256: string | null) =>
+    admin.rpc("company_account_request_proof_commit_server", { p_proof_token: proofToken, p_actor: actor, p_sha256: sha256 }),
   upload: (path: string, bytes: Uint8Array, contentType: string) =>
     admin.storage.from(BUCKET).upload(path, bytes, { contentType, upsert: false, cacheControl: "private, max-age=0" }),
   download: async (path: string) => {

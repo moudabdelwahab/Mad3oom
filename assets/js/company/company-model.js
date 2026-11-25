@@ -473,3 +473,157 @@ export function validateInviteEmail(value) {
 export function planRequiresCompany(plans, planKey) {
     return (plans || []).some(p => p.key === planKey && p.requires_company === true);
 }
+
+/* ── الاستيراد الجماعي للعملاء من CSV ──────────────────────────────────────
+ *
+ * المسار المناسب لكل صف هو **دعوة العميل** عبر company-invite-customer
+ * (inviteCompanyCustomer في company-data.js) — نفس مسار الدعوة الفردية،
+ * بالبريد وحده. أما create-sub-user فيُنشئ **عضوًا** في الشركة (مستخدمًا
+ * فرعيًا بكلمة مرور)، لا عميلًا، فلا يصلح لصفوف استيراد العملاء إطلاقًا.
+ *
+ * الاسم في الملف اختياري وللعرض فقط في المعاينة والتقرير — الدعوة نفسها
+ * لا تقبل اسمًا (POST { email, resend? })، فلا يُرسَل الاسم إلى الخادم.
+ * كل ما هنا دوال خالصة: التحقق عرضٌ يوفّر رحلة فاشلة؛ الرفض النهائي يظل
+ * عند الدالة والقاعدة (بريد غير صالح 22023، الحد اليومي، المهلة…).
+ */
+
+/** الحد الأقصى لصفوف الاستيراد في العملية الواحدة. */
+export const BULK_INVITE_MAX_ROWS = 100;
+
+/** الحد الأقصى لحجم ملف CSV المقبول (ملف 100 صف أصغر من هذا بكثير). */
+export const BULK_INVITE_MAX_FILE_BYTES = 1024 * 1024;
+
+const BULK_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const BULK_EMAIL_HEADERS = new Set(['email', 'email address', 'البريد', 'البريد الإلكتروني', 'البريد الالكتروني']);
+const BULK_NAME_HEADERS = new Set(['name', 'full name', 'full_name', 'الاسم', 'اسم العميل']);
+
+/** يفكّ سطر CSV واحد: حقول مقتبسة ("…")، وفاصلة داخل الاقتباس، و"" هروبًا. */
+function parseCsvLine(line) {
+    const fields = [];
+    let field = '';
+    let quoted = false;
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (quoted) {
+            if (ch === '"') {
+                if (line[i + 1] === '"') { field += '"'; i++; }
+                else quoted = false;
+            } else field += ch;
+        } else if (ch === '"') {
+            quoted = true;
+        } else if (ch === ',') {
+            fields.push(field);
+            field = '';
+        } else field += ch;
+    }
+    if (quoted) return null; // اقتباس غير مغلق — السطر كله غير صالح
+    fields.push(field);
+    return fields;
+}
+
+function isHeaderCell(cell) {
+    return BULK_EMAIL_HEADERS.has(String(cell || '').trim().toLowerCase())
+        || BULK_NAME_HEADERS.has(String(cell || '').trim().toLowerCase());
+}
+
+/**
+ * يحوّل نص ملف CSV إلى صفوف { line, email, name }.
+ *  • يقبل سطر عناوين (email,name أو «البريد الإلكتروني،الاسم») أو بلا عناوين
+ *    (العمود الأول بريد، والثاني اسم اختياري).
+ *  • يتجاهل الأسطر الفارغة، ويقبل CRLF وBOM.
+ *  • يرجع { rows, errors }: errors أسطر لم يُفكّ ترميزها (اقتباس غير مغلق)
+ *    مع رقم السطر وسبب عربي — ولا يُرسَل أيٌّ منها.
+ */
+export function parseCustomersCsv(text) {
+    const rows = [];
+    const errors = [];
+    const clean = String(text || '').replace(/^\uFEFF/, '');
+    const lines = clean.split(/\r\n|\r|\n/);
+    let emailCol = 0;
+    let nameCol = 1;
+    let started = false;
+    for (let idx = 0; idx < lines.length; idx++) {
+        const raw = lines[idx];
+        if (!raw.trim()) continue;
+        const fields = parseCsvLine(raw);
+        if (fields === null) {
+            errors.push({ line: idx + 1, reason: 'سطر غير صالح: علامة اقتباس غير مغلقة' });
+            continue;
+        }
+        if (!started) {
+            started = true;
+            if (fields.some(isHeaderCell)) {
+                const lower = fields.map(f => String(f || '').trim().toLowerCase());
+                const e = lower.findIndex(c => BULK_EMAIL_HEADERS.has(c));
+                const n = lower.findIndex(c => BULK_NAME_HEADERS.has(c));
+                if (e >= 0) emailCol = e;
+                if (n >= 0) nameCol = n;
+                continue; // سطر العناوين نفسه ليس صفًا
+            }
+        }
+        const email = String(fields[emailCol] ?? '').trim().toLowerCase();
+        const name = String(fields[nameCol] ?? '').trim();
+        if (!email && !name) continue;
+        rows.push({ line: idx + 1, email, name });
+    }
+    return { rows, errors };
+}
+
+/**
+ * حدّ الصفوف قبل أي تحقّق: بلا صفوف، أو فوق الحد الأقصى.
+ * يُفحص عدد الصفوف + الأسطر غير الصالحة معًا — ملف فوق الحد يُرفض كاملًا
+ * ولا يُعايَن جزئيًا.
+ */
+export function checkBulkInviteLimit(count) {
+    if (!count || count <= 0) return { ok: false, error: 'الملف لا يحتوي على أي صفوف' };
+    if (count > BULK_INVITE_MAX_ROWS) {
+        return { ok: false, error: `الملف يحتوي على ${count} صفًا — الحد الأقصى ${BULK_INVITE_MAX_ROWS} صفوف في كل عملية استيراد` };
+    }
+    return { ok: true, error: null };
+}
+
+/**
+ * يتحقق من صفوف الاستيراد بنفس قواعد الدعوة الفردية (validateInviteEmail):
+ * البريد إلزامي وصالح (320 حرفًا حدًا أقصى)، والمكرر داخل الملف مرفوض،
+ * والعميل الموجود في الشركة أو صاحب الدعوة المعلّقة مرفوض — فلا تُستهلَك
+ * محاولات إرسال ولا الحد اليومي في صفوف معروفة النتيجة سلفًا.
+ * existingEmails / pendingEmails بريدان صغيرا الأحرف كما ترجعهما القاعدة.
+ */
+export function validateBulkInviteRows(rows, { existingEmails = [], pendingEmails = [] } = {}) {
+    const existing = new Set((existingEmails || []).map(e => String(e || '').trim().toLowerCase()).filter(Boolean));
+    const pending = new Set((pendingEmails || []).map(e => String(e || '').trim().toLowerCase()).filter(Boolean));
+    const seen = new Set();
+    const valid = [];
+    const invalid = [];
+    for (const row of rows || []) {
+        const entry = { line: row.line, email: String(row.email || '').trim().toLowerCase(), name: row.name || '' };
+        if (!entry.email) {
+            invalid.push({ ...entry, reason: 'البريد الإلكتروني مطلوب' });
+        } else if (entry.email.length > 320 || !BULK_EMAIL_RE.test(entry.email)) {
+            invalid.push({ ...entry, reason: 'بريد إلكتروني غير صالح' });
+        } else if (seen.has(entry.email)) {
+            invalid.push({ ...entry, reason: 'البريد مكرر داخل الملف' });
+        } else if (existing.has(entry.email)) {
+            invalid.push({ ...entry, reason: 'عميل في الشركة بالفعل' });
+        } else if (pending.has(entry.email)) {
+            invalid.push({ ...entry, reason: 'دعوة معلّقة لهذا البريد بالفعل' });
+        } else {
+            valid.push(entry);
+        }
+        if (entry.email) seen.add(entry.email);
+    }
+    return { valid, invalid };
+}
+
+/**
+ * ملخّص تقرير التنفيذ صفًا صفًا: كل نتيجة { ok, status } كما ترجعها
+ * inviteCompanyCustomer. already_sent نجاح (الدعوة سارية من قبل)،
+ * وما عداه فشل برسالة الخادم العربية.
+ */
+export function summarizeBulkInviteResults(results) {
+    const list = Array.isArray(results) ? results : [];
+    const sent = list.filter(r => r?.ok && r?.status === 'sent').length;
+    const alreadySent = list.filter(r => r?.ok && r?.status === 'already_sent').length;
+    const failed = list.filter(r => !r?.ok).length;
+    return { total: list.length, sent, alreadySent, failed, succeeded: sent + alreadySent };
+}

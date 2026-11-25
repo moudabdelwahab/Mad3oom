@@ -332,6 +332,27 @@
                             <button type="submit" class="btn btn-primary" id="companyInviteSubmit">إرسال دعوة</button>
                         </div>
                     </form>
+                    <!-- الاستيراد الجماعي للعملاء من CSV: دعوة بالبريد لكل صف صالح،
+                         بعد معاينة ترفض الصفوف غير الصالحة ولا ترسلها. الاسم في الملف
+                         اختياري وللعرض فقط — الدعوة نفسها بالبريد وحده. -->
+                    <div id="companyBulkInvite" hidden>
+                        <h3 class="panel-title">استيراد جماعي للعملاء</h3>
+                        <p class="panel-subtitle">ارفع ملف CSV بعمود للبريد وعمود اختياري للاسم، بحد أقصى 100 صف. راجع المعاينة قبل التنفيذ — الصفوف غير الصالحة تُرفض ولا تُرسل.</p>
+                        <div class="form-field">
+                            <label for="companyBulkInviteFile">ملف CSV</label>
+                            <input id="companyBulkInviteFile" type="file" accept=".csv,text/csv" class="form-control">
+                        </div>
+                        <div class="company-form-actions">
+                            <button type="button" class="btn" id="companyBulkInviteTemplate">تنزيل نموذج CSV</button>
+                        </div>
+                        <p class="field-error" id="companyBulkInviteError" role="alert" hidden></p>
+                        <div id="companyBulkInvitePreview"></div>
+                        <div class="company-form-actions" id="companyBulkInviteActions" hidden>
+                            <button type="button" class="btn btn-primary" id="companyBulkInviteSubmit" disabled>تنفيذ الاستيراد</button>
+                            <button type="button" class="btn" id="companyBulkInviteCancel">إلغاء</button>
+                        </div>
+                        <div id="companyBulkInviteReport"></div>
+                    </div>
                     <div id="companyInvitations"></div>
                     <div id="companyCustomers"></div>
                 </section>
@@ -385,10 +406,10 @@
             </section>
 
             <!-- ═══ الاشتراكات والخدمات ════════════════════════════════════
-                 «استعراض الباقات» يذهب إلى /subscriptions.html — صفحة الأسعار
-                 العامة، لا صفحة بوابة العميل. هي نفسها التي تعالج باقات
-                 الشركات (requires_company) بالمنطق المشترك في
-                 subscriptions-script.js. -->
+                 التجديد والترقية والتخفيض والإلغاء تتم داخل اللوحة (136):
+                 نوافذ في company-dashboard.js تنادي مسار طلب الاشتراك الموجود
+                 وعروض الترقية/التخفيض. «استعراض الباقات» يذهب إلى
+                 /subscriptions.html — صفحة الأسعار العامة — للتصفح فقط. -->
             <section class="tab-content" id="subscriptionsTabContent">
                 <section class="panel" aria-labelledby="companySubsHeading">
                     <div class="panel-header">
@@ -704,6 +725,20 @@
                     <legend>نوع الاعتماد</legend>
                     <div class="choice-grid" id="apiTokenCredentialTypes"></div>
                     <p class="field-error" data-token-error-for="credentialType" hidden></p>
+                </fieldset>
+
+                <!-- بيئة المفتاح (141 — ساندبوكس API): مفتاح الاختبار للاختبار
+                     فقط، وتُرفَض نداءاته على كل نقطة حية. هذا ساندبوكس API
+                     فقط، وليس بيئة تجريبية للتجربة المجانية. -->
+                <fieldset class="form-fieldset">
+                    <legend>بيئة المفتاح</legend>
+                    <div class="choice-grid" id="apiTokenEnvironments"></div>
+                    <p class="company-notice company-notice--warning" id="apiTokenSandboxNote" hidden>
+                        مفتاح اختبار (ساندبوكس API) — للاختبار فقط: لا يصل إلى بياناتك الحية
+                        ولا ينفّذ أي إجراء حقيقي. هذا ساندبوكس API فقط، وليس بيئة تجريبية
+                        للتجربة المجانية.
+                    </p>
+                    <p class="field-error" data-token-error-for="environment" hidden></p>
                 </fieldset>
 
                 <fieldset class="form-fieldset">

@@ -10,7 +10,8 @@ import assert from 'node:assert/strict';
 
 const {
     analyzeSubscription, analyzeSubscriptions, upgradeCandidates,
-    SUBSCRIPTION_STATES, EXPIRY_WARNING_DAYS, ANOMALY_NOTES
+    SUBSCRIPTION_STATES, EXPIRY_WARNING_DAYS, ANOMALY_NOTES,
+    quoteCodeMessage, subscriptionActions, pendingRequestFor
 } = await import('../assets/js/company/subscription-model.js');
 
 const NOW = Date.parse('2026-09-14T12:00:00Z');
@@ -28,7 +29,8 @@ function sub(over = {}) {
         start_date: 'start_date' in over ? over.start_date : iso(-30),
         end_date: 'end_date' in over ? over.end_date : iso(60),
         is_active: 'is_active' in over ? over.is_active : true,
-        days_remaining: 'days_remaining' in over ? over.days_remaining : 60
+        days_remaining: 'days_remaining' in over ? over.days_remaining : 60,
+        cancel_at_period_end: 'cancel_at_period_end' in over ? over.cancel_at_period_end : undefined
     };
 }
 
@@ -211,4 +213,79 @@ test('الترقيات المتاحة تستثني الباقات الفعّال
     const dashboard = { access: { active_plans: ['bundle'] } };
     const out = upgradeCandidates(plans, dashboard);
     assert.deepEqual(out.map(p => p.key), ['support'], 'الباقة الفعّالة أو المعطّلة ظهرت كترقية');
+});
+
+/* ── الإدارة الذاتية (136) ─────────────────────────────────────────────── */
+
+test('علَم الإلغاء في نهاية المدة يُقرأ بلا تغيير الحالة', () => {
+    const r = analyzeSubscription(sub({ cancel_at_period_end: true }), { now: NOW });
+    assert.equal(r.state.key, 'active', 'الملغى في نهاية المدة ما زال نشطًا حتى الانتهاء');
+    assert.equal(r.cancelAtPeriodEnd, true);
+    assert.deepEqual(r.anomalies, [], 'العلَم ليس تضاربًا');
+
+    const plain = analyzeSubscription(sub({}), { now: NOW });
+    assert.equal(plain.cancelAtPeriodEnd, false, 'الصفوف القديمة بلا العلَم تُقرأ false');
+    const missing = analyzeSubscription(sub({ cancel_at_period_end: undefined }), { now: NOW });
+    assert.equal(missing.cancelAtPeriodEnd, false);
+});
+
+test('الملخّص يعدّ الملغى في نهاية مدّته', () => {
+    const out = analyzeSubscriptions([
+        sub({ id: 'a', cancel_at_period_end: true }),
+        sub({ id: 'b' })
+    ], { now: NOW });
+    assert.equal(out.cancelling, 1);
+    assert.equal(out.active, 2, 'الملغى ما زال يُحسب نشطًا');
+});
+
+test('أكواد عدم أهلية عروض تغيير الباقة كلها عربية', () => {
+    for (const code of ['not_authenticated', 'unknown_plan', 'no_active_subscription',
+                        'duplicate_plan', 'price_missing', 'not_an_upgrade',
+                        'not_a_downgrade', 'redundant', 'quote_failed']) {
+        const msg = quoteCodeMessage(code);
+        assert.ok(typeof msg === 'string' && msg.length > 5, `رسالة ناقصة لـ${code}`);
+    }
+    assert.equal(quoteCodeMessage('weird_code'), null, 'كود مجهول لا يُخترع له نص');
+    assert.match(quoteCodeMessage('not_a_downgrade'), /أرخص/);
+    assert.match(quoteCodeMessage('not_an_upgrade'), /أغلى/);
+});
+
+test('إجراءات الصف: المالك على الفعّال يجدّد ويغيّر الباقة ويلغي', () => {
+    const row = analyzeSubscription(sub({}), { now: NOW });
+    assert.deepEqual(subscriptionActions(row, { isOwner: true }), ['renew', 'change-plan', 'cancel']);
+});
+
+test('إجراءات الصف: الملغى في نهاية المدة يُتاح التراجع بدل الإلغاء', () => {
+    const row = analyzeSubscription(sub({ cancel_at_period_end: true }), { now: NOW });
+    assert.deepEqual(subscriptionActions(row, { isOwner: true }), ['renew', 'change-plan', 'resume']);
+});
+
+test('إجراءات الصف: غير المالك والمجدول والمنتهي بلا إجراء', () => {
+    const active = analyzeSubscription(sub({}), { now: NOW });
+    assert.deepEqual(subscriptionActions(active, { isOwner: false }), []);
+    assert.deepEqual(subscriptionActions(active, {}), []);
+    const scheduled = analyzeSubscription(
+        sub({ start_date: iso(2), end_date: iso(1500), is_active: false, days_remaining: 1500 }), { now: NOW });
+    assert.deepEqual(subscriptionActions(scheduled, { isOwner: true }), []);
+    const expired = analyzeSubscription(
+        sub({ status: 'expired', is_active: false, start_date: iso(-90), end_date: iso(-1), days_remaining: 0 }),
+        { now: NOW });
+    assert.deepEqual(subscriptionActions(expired, { isOwner: true }), []);
+});
+
+test('إجراءات الصف: قيد المراجعة للمالك إلغاء الطلب وحده', () => {
+    const row = analyzeSubscription(sub({ status: 'pending', is_active: false }), { now: NOW });
+    assert.deepEqual(subscriptionActions(row, { isOwner: true }), ['cancel-request']);
+    assert.deepEqual(subscriptionActions(row, { isOwner: false }), []);
+});
+
+test('طلب معلّق على باقة يُوجد بدقّة ويُعطَّل تجديدها', () => {
+    const report = analyzeSubscriptions([
+        sub({ id: 'a', plan: 'bundle', status: 'pending', is_active: false }),
+        sub({ id: 'b', plan: 'support' })
+    ], { now: NOW });
+    assert.equal(pendingRequestFor(report, 'bundle')?.sub.id, 'a');
+    assert.equal(pendingRequestFor(report, 'support'), null);
+    assert.equal(pendingRequestFor(report, 'whatsapp'), null);
+    assert.equal(pendingRequestFor(null, 'bundle'), null);
 });

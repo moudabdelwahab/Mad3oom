@@ -1,7 +1,14 @@
 import { supabase } from '/api-config.js';
 import { initSidebar } from './sidebar.js';
+import { checkAdminAuth } from './auth.js';
 
 initSidebar();
+
+// حارس دخول الأدمن: بلا جلسة أدمن لا تُعرض أي رسائل — checkAdminAuth
+// يحوّل للدخول أو يرسم لوحة الرفض، والرمي هنا يوقف بقية الوحدة قبل
+// أي قراءة (منها التحديث التلقائي كل 30 ثانية).
+const adminUser = await checkAdminAuth();
+if (!adminUser) throw new Error('Admin access required — mailbox page load stopped after guard.');
 
 const mailList = document.getElementById('mailList');
 const mailDetail = document.getElementById('mailDetail');

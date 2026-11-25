@@ -40,6 +40,13 @@
 // السرّ: يُعاد **مرة واحدة** في هذا الرد وحده. المخزَّن في القاعدة بصمة
 // مشفَّرة (secret_hash / bearer_token_hash) لا القيمة، فلا الخادم نفسه يقدر
 // على عرضه لاحقًا. ولا يُسجَّل في أي console.
+//
+// بيئة المفتاح (الترحيل 141 — ساندبوكس API):
+//   • environment: 'live' (الافتراضي) أو 'test'.
+//   • مفتاح الاختبار ببادئة مميزة (mad3oom_pk_test_ / mad3oom_bt_test_)
+//     وتُرفَض نداءاته من verifyApiToken على كل نقطة حية، فلا يصل إلى
+//     بيانات حية ولا ينفّذ أي إجراء حقيقي.
+//   • هذا ساندبوكس API فقط، وليس بيئة تجريبية للتجربة المجانية.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -129,13 +136,20 @@ Deno.serve(async (req: Request) => {
     // ── المدخلات ──────────────────────────────────────────────────────────
     let body: {
       name?: string; description?: string; credential_type?: string;
-      scopes?: string[]; expires_at?: string | null;
+      environment?: string; scopes?: string[]; expires_at?: string | null;
     };
     try { body = await req.json(); } catch { return jsonResponse({ error: "Invalid JSON body" }, 400); }
 
     const name = (body.name || "").trim();
     const description = (body.description || "").trim();
     const credentialType = body.credential_type || "api_key_secret";
+    // بيئة المفتاح: 'live' افتراضيًا. أي قيمة غير 'test'/'live' تُرفَض صراحةً
+    // بدل أن تُفسَّر ضمنيًا — مفتاح اختبار بالخطأ أسوأ من رفض صريح.
+    const environment = body.environment === undefined ? "live" : body.environment;
+    if (environment !== "live" && environment !== "test") {
+      return jsonResponse({ error: "environment غير صالح (live أو test)" }, 400);
+    }
+    const isTest = environment === "test";
 
     if (!name) return jsonResponse({ error: "الاسم مطلوب" }, 400);
     if (name.length > 80) return jsonResponse({ error: "الاسم طويل جدًا (الحد الأقصى 80 حرفًا)" }, 400);
@@ -184,14 +198,16 @@ Deno.serve(async (req: Request) => {
     const groupId = credentialType === "both" ? crypto.randomUUID() : null;
 
     async function insertApiKeySecretRow() {
-      const apiKey = `mad3oom_pk_${randomHex(16)}`;
+      // مفتاح الاختبار ببادئة مميزة لا تُخطئها العين ولا الأدوات.
+      const apiKey = isTest ? `mad3oom_pk_test_${randomHex(16)}` : `mad3oom_pk_${randomHex(16)}`;
       const apiSecret = `mad3oom_sk_${randomBase62(40)}`;
       const secretHash = await sha256Hex(apiSecret);
       const { data, error } = await adminClient.from("api_tokens").insert({
         user_id: userId, name, description: description || null, scopes, expires_at: expiresAt,
+        environment,
         credential_type: "api_key_secret", credential_group_id: groupId,
         api_key: apiKey, secret_hash: secretHash, secret_last_four: apiSecret.slice(-4),
-      }).select("id, name, description, api_key, is_active, created_at, scopes, expires_at, credential_type").single();
+      }).select("id, name, description, api_key, is_active, created_at, scopes, expires_at, credential_type, environment").single();
       if (error || !data) throw new Error("فشل إنشاء بيانات اعتماد API Key + Secret" + (error ? `: ${error.message}` : ""));
       return { token: data, secret: apiSecret };
     }
@@ -203,15 +219,16 @@ Deno.serve(async (req: Request) => {
       const internalSecret = randomHex(32);
       const internalSecretHash = await sha256Hex(internalSecret);
 
-      const bearerToken = `mad3oom_bt_${randomHex(32)}`;
+      const bearerToken = isTest ? `mad3oom_bt_test_${randomHex(32)}` : `mad3oom_bt_${randomHex(32)}`;
       const bearerHash = await sha256Hex(bearerToken);
 
       const { data, error } = await adminClient.from("api_tokens").insert({
         user_id: userId, name, description: description || null, scopes, expires_at: expiresAt,
+        environment,
         credential_type: "bearer", credential_group_id: groupId,
         api_key: internalApiKey, secret_hash: internalSecretHash, secret_last_four: internalSecret.slice(-4),
         bearer_token_hash: bearerHash, bearer_last_four: bearerToken.slice(-4),
-      }).select("id, name, description, is_active, created_at, scopes, expires_at, credential_type").single();
+      }).select("id, name, description, is_active, created_at, scopes, expires_at, credential_type, environment").single();
       if (error || !data) throw new Error("فشل إنشاء Bearer Token" + (error ? `: ${error.message}` : ""));
       return { token: data, secret: bearerToken };
     }

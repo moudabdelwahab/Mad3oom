@@ -15,8 +15,11 @@
  *
  * البوابة: bootOwnerPage من owner-page.js (مالك المنصة وحده، لا SIE،
  * ولا تفعيل حسابات أخرى). المفتاح الشخصي للمالك اختياري ويُحفظ في
- * localStorage ويُرسل كهيدر x-gemini-api-key فقط — لمحرك Gemini
- * الصوتي البديل حصرًا (وظائف النص لا تحتاجه إطلاقًا).
+ * ذاكرة الصفحة فقط (in-memory) — لا localStorage ولا sessionStorage —
+ * ويُنسى بإغلاق الصفحة أو بزر المسح، ويُرسل كهيدر x-gemini-api-key
+ * لمسار tts في Edge Function «voice-studio» حصرًا (وظائف النص لا
+ * تحتاجه إطلاقًا، ولا يُرسل لها). أي مفتاح قديم محفوظ في localStorage
+ * من نسخة سابقة يُحذف فور فتح الصفحة (ترحيل لمرة واحدة).
  */
 import { supabase, bootOwnerPage, esc, announce } from '/assets/js/owner/owner-page.js';
 import {
@@ -51,30 +54,60 @@ const MAMMOTH_CDN = 'https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.
 const AI_GATEWAY_FUNCTION = 'ai-gateway';
 
 class Mad3oomVoiceService {
+    /** المفتاح الشخصي في ذاكرة الصفحة فقط — لا يُكتب في أي تخزين متصفح. */
+    _geminiKey = '';
+
     setUserApiKey(key) {
-        try {
-            if (key && key.trim()) localStorage.setItem(GEMINI_KEY_STORAGE, key.trim());
-            else localStorage.removeItem(GEMINI_KEY_STORAGE);
-        } catch (e) { /* التخزين غير متاح */ }
+        this._geminiKey = key && key.trim() ? key.trim() : '';
     }
 
     getUserApiKey() {
+        return this._geminiKey;
+    }
+
+    hasUserApiKey() {
+        return this._geminiKey.trim().length > 10;
+    }
+
+    /** مسح صريح: من الذاكرة، ومن localStorage القديم إن وُجد. */
+    clearUserApiKey() {
+        this._geminiKey = '';
+        try { localStorage.removeItem(GEMINI_KEY_STORAGE); } catch (e) { /* التخزين غير متاح */ }
+    }
+
+    /**
+     * ترحيل لمرة واحدة: مفتاح قديم محفوظ نصًا صريحًا في localStorage من
+     * نسخة سابقة يُحذف فورًا ولا يُعاد تحميله أبدًا — فلا يبقى مفتاح
+     * صريح في المتصفح بعد هذا الإصلاح. ترجع true إن وُجد مفتاح وحُذف.
+     */
+    migrateLegacyKey() {
         try {
-            return localStorage.getItem(GEMINI_KEY_STORAGE) || '';
-        } catch (e) {
-            return '';
-        }
+            if (localStorage.getItem(GEMINI_KEY_STORAGE)) {
+                localStorage.removeItem(GEMINI_KEY_STORAGE);
+                return true;
+            }
+        } catch (e) { /* التخزين غير متاح */ }
+        return false;
+    }
+
+    /**
+     * هيدر المفتاح لمسار tts حصرًا — لا يُرفق بأي نداء آخر (وظائف النص
+     * عبر ai-gateway بمفاتيح المنصة الخادمية، ولا ترى هذا المفتاح).
+     */
+    headersFor(action) {
+        const key = this.getUserApiKey();
+        return action === 'tts' && key && key.trim().length > 10
+            ? { 'x-gemini-api-key': key.trim() } : {};
     }
 
     headers() {
-        const key = this.getUserApiKey();
-        return key && key.trim().length > 10 ? { 'x-gemini-api-key': key.trim() } : {};
+        return this.headersFor('tts');
     }
 
     async call(action, payload = {}) {
         const { data, error } = await supabase.functions.invoke(VOICE_STUDIO_FUNCTION, {
             body: { action, ...payload },
-            headers: this.headers(),
+            headers: this.headersFor(action),
         });
         if (error) throw new Error(error.message || 'تعذّر الاتصال بالاستوديو الصوتي.');
         if (data && data.error) throw new Error(data.error);
@@ -569,27 +602,49 @@ function initIntro() {
     }
 }
 
+/**
+ * مفتاح Gemini الشخصي — ذاكرة الصفحة فقط، بلا حفظ في المتصفح:
+ *  • لا يُملأ الحقل أبدًا بمفتاح محفوظ (لا قيمة سابقة تُعرض).
+ *  • «حفظ» يضعه في ذاكرة الخدمة ويمسح الحقل فورًا، فيبقى في الذاكرة
+ *    حتى إغلاق الصفحة أو زر المسح.
+ *  • مفتاح قديم في localStorage من نسخة سابقة يُحذف عند الفتح، مع
+ *    تنبيه صريح بذلك — فلا يبقى مفتاح صريح في المتصفح.
+ */
 function initGeminiKey() {
     const input = $('vsGeminiKey');
     const status = $('vsKeyStatus');
-    const saved = voiceService.getUserApiKey();
-    if (saved) {
-        input.value = saved;
-        status.textContent = 'مفتاح شخصي محفوظ — محرك Gemini متاح كخيار بديل للتوليد الصوتي.';
-        status.classList.add('is-saved');
-    }
-    $('vsSaveKeyBtn').addEventListener('click', () => {
-        voiceService.setUserApiKey(input.value);
-        if (input.value.trim()) {
-            status.textContent = 'مفتاح شخصي محفوظ — محرك Gemini متاح كخيار بديل للتوليد الصوتي.';
+    const clearBtn = $('vsClearKeyBtn');
+    const setStatus = (saved) => {
+        if (saved) {
+            status.textContent = 'مفتاح شخصي محفوظ في ذاكرة هذه الصفحة فقط — يُنسى بإغلاق الصفحة أو بزر المسح. محرك Gemini متاح كخيار بديل للتوليد الصوتي.';
             status.classList.add('is-saved');
         } else {
             status.textContent = 'بلا مفتاح شخصي — التوليد الصوتي يعمل عبر Edge TTS المجاني، ووظائف النص تعمل عبر مفاتيح المنصة. محرك Gemini يحتاج مفتاحًا شخصيًا.';
             status.classList.remove('is-saved');
         }
+    };
+    if (voiceService.migrateLegacyKey()) {
+        setStatus(false);
+        status.textContent = 'حُذف مفتاح قديم كان محفوظًا في المتصفح — أدخل مفتاحك من جديد إن أردت محرك Gemini؛ سيُحفظ في ذاكرة الصفحة فقط.';
+        announceOk('حُذف مفتاح Gemini قديم كان محفوظًا في المتصفح.');
+    }
+    $('vsSaveKeyBtn').addEventListener('click', () => {
+        voiceService.setUserApiKey(input.value);
+        const saved = voiceService.hasUserApiKey();
+        input.value = '';
+        setStatus(saved);
         updateEnginePills();
-        announceOk('تم حفظ إعداد المفتاح.');
+        announceOk(saved ? 'تم حفظ المفتاح في ذاكرة الصفحة فقط.' : 'لا مفتاح محفوظ.');
     });
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            voiceService.clearUserApiKey();
+            input.value = '';
+            setStatus(false);
+            updateEnginePills();
+            announceOk('تم مسح المفتاح الشخصي.');
+        });
+    }
 }
 
 /* ── شارة المحرك واختياره ────────────────────────────────────────────
@@ -618,7 +673,7 @@ function updateEngineBadge() {
 }
 
 function updateEnginePills() {
-    const hasKey = !!voiceService.getUserApiKey();
+    const hasKey = voiceService.hasUserApiKey();
     const geminiBtn = $('vsEngineGemini');
     if (geminiBtn) {
         geminiBtn.disabled = !hasKey;

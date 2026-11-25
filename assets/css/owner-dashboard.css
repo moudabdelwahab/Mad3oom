@@ -652,7 +652,7 @@ a.context-card { text-decoration: none; }
 
 .owner-shell .owner-staff-add {
     display: grid;
-    grid-template-columns: minmax(0, 1.6fr) minmax(0, .8fr) auto;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.4fr) minmax(0, .7fr) auto auto;
     align-items: end;
     gap: var(--sp-3);
     margin-top: var(--sp-4);

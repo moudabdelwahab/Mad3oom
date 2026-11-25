@@ -246,8 +246,15 @@
                         <div id="staffBody"><div class="skeleton skeleton-card"></div></div>
                         <form class="owner-staff-add" id="staffAddForm" hidden novalidate>
                             <div class="form-field">
+                                <label for="staffAddSearch">ابحث عن حساب بالبريد أو الاسم</label>
+                                <input class="form-control" id="staffAddSearch" type="search"
+                                       placeholder="name@example.com" autocomplete="off" dir="ltr">
+                            </div>
+                            <div class="form-field">
                                 <label for="staffAddUser">إضافة عضو للفريق</label>
-                                <select class="form-control" id="staffAddUser"></select>
+                                <select class="form-control" id="staffAddUser">
+                                    <option value="">ابحث عن حساب أولًا…</option>
+                                </select>
                             </div>
                             <div class="form-field">
                                 <label for="staffAddRole">الرتبة</label>
@@ -256,6 +263,7 @@
                                     <option value="admin">إداري</option>
                                 </select>
                             </div>
+                            <button type="button" class="btn btn-outline btn-sm" id="staffAddSearchBtn">بحث</button>
                             <button type="submit" class="btn btn-primary" data-critical>إضافة</button>
                         </form>
                         <p class="owner-sie-status ows-toast" id="staffStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
@@ -589,6 +597,7 @@ import { createWorkspaceTabs, announce } from '/assets/js/owner/owner-workspace.
 import { ownerDestinationFor, createOwnerNotifications } from '/assets/js/owner/owner-notifications.js';
 import * as notificationsService from '/notifications-service.js';
 import { initPiIntegration } from '/assets/js/owner/pi-integration.js';
+import { createProfileDirectory } from '/assets/js/owner/profile-directory.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -771,19 +780,37 @@ function gate(title, text) {
 
     // التحميل الأول: أي انقطاع شبكة كان يرمي هنا بلا التقاط، فتبقى الهياكل
     // العظمية في المؤشرات والسجل إلى الأبد. الآن خطأ صريح مع زر إعادة محاولة.
-    let audit, profiles, companies, subs;
+    //
+    // الحسابات: لا سحب لجدول profiles كاملًا بعد الآن. العدّادات عدّ دقيق
+    // head-count بلا صفوف؛ والصفوف المجلبة فريق المنصة وحده (مالك/إداري/
+    // دعم — مجموعة صغيرة بطبيعتها) وتُزرع في دليل الحسابات، وأي اسم آخر
+    // يُجلب عند الحاجة فقط (دفعة .in('id', …) أو بحث مقيّد).
+    let audit, staffProfiles, companies, subs, counts, piLinked;
     let loadFailed = null;
     try {
-        [audit, profiles, companies, subs] = await Promise.all([
+        [audit, staffProfiles, companies, subs, counts, piLinked] = await Promise.all([
             supabase.from('owner_context_audit')
                     .select('event, from_context, to_context, at, detail')
                     .order('at', { ascending: false }).limit(50),
-            supabase.from('profiles').select('id, email, full_name, role, pi_uid'),
+            supabase.from('profiles').select('id, email, full_name, role, pi_uid')
+                    .in('role', ['platform_owner', 'admin', 'support']).order('email'),
             // companies لا تقرؤها سياسة المالك كاملة (صاحب الشركة وأعضاؤها) — فكان العدّ شركته وحدها.
             // دليل العملاء (is_support_user ← owner_capability('staff')) يعيد كل الشركات.
             supabase.rpc('admin_customer_filter_options'),
+            // «اشتراكات المنصة الفعّالة»: whatsapp_subscriptions هو جدول اشتراكات
+            // المنصة الوحيد (باقات واتساب والمتجر معًا — admin_list_subscriptions
+            // في الترحيل 018 يقرؤه نفسه)، والفعّال تعريف المنصة نفسه
+            // (الترحيلان 016/017): status='active' AND end_date > now() —
+            // فلا تُعدّ منتهية بقيت حالتها 'active'.
             supabase.from('whatsapp_subscriptions').select('id', { count: 'exact', head: true })
-                    .eq('status', 'active')
+                    .eq('status', 'active').gt('end_date', new Date().toISOString()),
+            Promise.all([
+                supabase.from('profiles').select('id', { count: 'exact', head: true }),
+                supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'admin'),
+                supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'company_admin'),
+                supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'company_user'),
+            ]),
+            supabase.from('profiles').select('id', { count: 'exact', head: true }).not('pi_uid', 'is', null)
         ]);
     } catch (err) {
         loadFailed = err;
@@ -799,24 +826,23 @@ function gate(title, text) {
         return;
     }
 
-    const rows = profiles.data || [];
-    const byId = new Map(rows.map(p => [p.id, p]));
-    const count = (r) => rows.filter(p => p.role === r).length;
+    const directory = createProfileDirectory(supabase, staffProfiles.data || []);
+    const countError = counts.find((c) => c.error)?.error;
     const denied = (audit.data || []).filter(a => a.event === 'denied').length;
 
     // قراءة الحسابات فشلت: أصفار كاذبة أسوأ من خطأ صريح — المؤشرات تعرض الخطأ
     // مع زر إعادة محاولة، وباقي اللوحة يعرض ما أمكنه.
-    if (profiles.error) {
-        $('ownerKpis').innerHTML = errorBlock(profiles.error.message)
+    if (staffProfiles.error) {
+        $('ownerKpis').innerHTML = errorBlock(staffProfiles.error.message)
             + '<p><button type="button" class="btn btn-outline btn-sm" data-owner-retry>إعادة المحاولة</button></p>';
         $('ownerKpis').querySelector('[data-owner-retry]').addEventListener('click', () => location.reload());
     } else {
     $('ownerKpis').innerHTML = [
-        ['الحسابات', rows.length, ''],
-        ['أدمن', count('admin'), 'kpi--info'],
-        ['حسابات شركات', count('company_admin') + count('company_user'), ''],
+        ['الحسابات', countError ? '—' : (counts[0].count ?? '—'), ''],
+        ['أدمن', countError ? '—' : (counts[1].count ?? '—'), 'kpi--info'],
+        ['حسابات شركات', countError ? '—' : ((counts[2].count ?? 0) + (counts[3].count ?? 0)), ''],
         ['الشركات', Array.isArray(companies.data?.companies) ? companies.data.companies.length : '—', ''],
-        ['اشتراكات فعّالة', subs.count ?? '—', 'kpi--success'],
+        ['اشتراكات المنصة الفعّالة', subs.count ?? '—', 'kpi--success'],
         ['محاولات واجهة مرفوضة', denied, denied > 0 ? 'kpi--warning' : '']
     ].map(([label, value, tone]) => `
         <div class="kpi ${tone}">
@@ -826,7 +852,7 @@ function gate(title, text) {
     }
 
     const accountCell = (userId) => {
-        const u = byId.get(userId);
+        const u = directory.get(userId);
         return `<div class="owner-account">
                     <span class="owner-account-name">${esc(u?.full_name || u?.email || userId)}</span>
                     ${u?.full_name && u?.email ? `<span class="owner-account-email" dir="ltr">${esc(u.email)}</span>` : ''}
@@ -851,19 +877,31 @@ function gate(title, text) {
             </tr>`;
         });
 
-    // هوية المالك في الشريط — من is_platform_owner() (status أعلاه)، لا من البريد
-    const me = rows.find(p => p.id === session.user.id);
+    // هوية المالك في الشريط — من is_platform_owner() (status أعلاه)، لا من البريد.
+    // المالك في فريق المنصة عادةً؛ وإن غاب عنها يُجلب صفّه وحده عند الحاجة.
+    let me = directory.get(session.user.id);
+    if (!me) {
+        try {
+            const { data } = await supabase.from('profiles')
+                .select('id, email, full_name, role, pi_uid').eq('id', session.user.id).maybeSingle();
+            if (data) {
+                await directory.ensure([data.id]);
+                me = directory.get(data.id);
+            }
+        } catch (err) { /* الاسم من الجلسة بديلًا */ }
+    }
     $('ownerIdentityName').textContent = me?.full_name || me?.email || session.user.email || '';
     $('ownerIdentity').hidden = false;
 
-    const center = initAuthorityCenter({ supabase, $, esc, when, table, td, byId, rows, accountCell, errorBlock,
+    const center = initAuthorityCenter({ supabase, $, esc, when, table, td, directory, accountCell, errorBlock,
                                          badge: authorityTabs.setBadge });
-    initSieAuthority({ byId, rows, accountCell, errorBlock, center, badge: authorityTabs.setBadge });
+    initSieAuthority({ directory, accountCell, errorBlock, center, badge: authorityTabs.setBadge });
     // 096–099: حوكمة الشركات والوصول — المرشحون للتفويض من طاقم المنصة وحده
     initTenancyGovernance({ supabase, $, esc, when, table, td, badge: governanceTabs.setBadge,
-                            staff: rows.filter(p => p.role === 'admin' || p.role === 'support') }).render();
+                            staff: directory.staff().filter(p => p.role === 'admin' || p.role === 'support') }).render();
     // شبكة باي: يُحمَّل عند فتح قسمه أول مرة، لا مع الدخول
-    piSection = initPiIntegration({ supabase, $, esc, when, table, td, errorBlock, rows });
+    piSection = initPiIntegration({ supabase, $, esc, when, table, td, errorBlock,
+                                    piLinkedCount: piLinked.count ?? 0, directory });
     if (sectionFromHash() === 'pi') piSection.load();
 })();
 
@@ -873,7 +911,7 @@ function gate(title, text) {
      • منح/سحب مدير SIE     → owner_grant_sie_admin / owner_revoke_sie_admin
                                (ترفض بـ42501 لغير المالك)
    فإخفاء زر أو إظهاره من devtools لا يغيّر شيئًا. */
-function initSieAuthority({ byId, rows, accountCell, errorBlock, center, badge = () => {} }) {
+function initSieAuthority({ directory, accountCell, errorBlock, center, badge = () => {} }) {
     const say = (text, tone = 'info') => announce($('sieStatus'), text, tone);
     const friendly = (error) => {
         if (!error) return '';
@@ -889,7 +927,8 @@ function initSieAuthority({ byId, rows, accountCell, errorBlock, center, badge =
         if (error) { row.innerHTML = errorBlock(error.message); badge('sie', null); return; }
         const on = data?.value === true;
         badge('sie', on ? 'يعمل' : 'متوقف', on ? 'success' : 'danger');
-        const by = data?.updated_by ? byId.get(data.updated_by) : null;
+        if (data?.updated_by) await directory.ensure([data.updated_by]);
+        const by = data?.updated_by ? directory.get(data.updated_by) : null;
         row.innerHTML = `
             <div class="owner-sie-engine-text">
                 <span class="owner-sie-engine-title">حالة المحرك</span>
@@ -941,7 +980,7 @@ function initSieAuthority({ byId, rows, accountCell, errorBlock, center, badge =
         if (grants.error) { body.innerHTML = errorBlock(grants.error.message); return; }
 
         const granted = grants.data || [];
-        const ownerRow = rows.find(p => p.role === 'platform_owner');
+        const ownerRow = directory.staff().find(p => p.role === 'platform_owner');
         const list = [
             ...(ownerRow ? [{ user_id: ownerRow.id, owner: true }] : []),
             ...granted
@@ -957,7 +996,7 @@ function initSieAuthority({ byId, rows, accountCell, errorBlock, center, badge =
         </tr>`);
 
         body.querySelectorAll('[data-revoke]').forEach(btn => btn.addEventListener('click', async () => {
-            const target = byId.get(btn.dataset.revoke);
+            const target = directory.get(btn.dataset.revoke);
             if (!window.confirm(`سحب إدارة محرك الدعم الذكي من ${target?.full_name || target?.email || 'هذا الحساب'}؟`)) return;
             btn.disabled = true;
             say('جارٍ سحب الصلاحية…');
@@ -974,7 +1013,7 @@ function initSieAuthority({ byId, rows, accountCell, errorBlock, center, badge =
 
         // المرشّحون: فريق المنصة ممن لا يملكون المنح بعد. القاعدة ترفض غيرهم أصلًا.
         const has = new Set(granted.map(g => g.user_id));
-        const candidates = rows.filter(p => ['admin', 'support'].includes(p.role) && !has.has(p.id));
+        const candidates = directory.staff().filter(p => ['admin', 'support'].includes(p.role) && !has.has(p.id));
         const select = $('sieGrantUser');
         select.innerHTML = candidates.length
             ? `<option value="">اختر حسابًا…</option>` + candidates
@@ -987,12 +1026,14 @@ function initSieAuthority({ byId, rows, accountCell, errorBlock, center, badge =
         if (!candidates.length) $('sieGrantBtn').disabled = true;
 
         if (!log.error && log.data?.length) {
+            // أسماء السجل عند الحاجة فقط — دفعة واحدة بالمعرّفات الظاهرة.
+            await directory.ensure(log.data.flatMap(l => [l.target_user_id, l.actor_id]));
             body.insertAdjacentHTML('beforeend', `
                 <details class="owner-sie-log">
                     <summary>آخر التغييرات (${log.data.length})</summary>
                     <ul>${log.data.map(l => {
-                        const t = byId.get(l.target_user_id);
-                        const a = byId.get(l.actor_id);
+                        const t = directory.get(l.target_user_id);
+                        const a = directory.get(l.actor_id);
                         return `<li><span class="pill ${l.action === 'grant' ? 'status-resolved' : 'status-neutral'}">${l.action === 'grant' ? 'منح' : 'سحب'}</span>
                             ${esc(t?.full_name || t?.email || l.target_user_id)}
                             <span class="owner-cell-muted">— ${esc(a?.full_name || a?.email || 'ترحيل')} · ${esc(when(l.at))}</span></li>`;

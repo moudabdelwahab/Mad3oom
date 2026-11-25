@@ -230,9 +230,16 @@
         import { initSidebar } from '/assets/js/admin/sidebar.js';
         import { serviceStatusManager } from '/service-status.js';
         import { supabase } from '/api-config.js';
+        import { checkAdminAuth } from '/assets/js/admin/auth.js';
 
         // Initialize Admin Sidebar
         initSidebar();
+
+        // حارس دخول الأدمن: بلا جلسة أدمن لا تُعرض أي حالة خدمة — checkAdminAuth
+        // يحوّل للدخول أو يرسم لوحة الرفض، والرمي هنا يوقف بقية الوحدة
+        // قبل أي قراءة لحالة الخدمات أو بلاغات العملاء.
+        const adminUser = await checkAdminAuth();
+        if (!adminUser) throw new Error('Admin access required — status-page load stopped after guard.');
 
         let currentFilter = 'all';
 

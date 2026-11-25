@@ -641,7 +641,12 @@ function renderCard(item){
 }
 
 /* ==================== Full refresh ==================== */
+/* حارس دخول الأدمن: السكربت الكلاسيكي لا يستطيع استيراد checkAdminAuth،
+   فالتحقق يتم في سكربت الوحدة أدناه، ولا يُستدعى refreshAll() إلا بعد
+   نجاحه (window.__adminSubscriptionsGuardOk). أي استدعاء قبل ذلك —
+   مثل زر التحديث — يخرج صامتًا بلا أي قراءة بيانات. */
 async function refreshAll(){
+    if (!window.__adminSubscriptionsGuardOk) return;
     const refreshBtn = document.getElementById('refreshBtn');
     refreshBtn.classList.add('spinning');
     document.getElementById('content').innerHTML = `
@@ -680,7 +685,8 @@ document.getElementById('themeToggle').addEventListener('click', () => {
 });
 
 /* ==================== Init ==================== */
-refreshAll();
+/* لا استدعاء لـ refreshAll() هنا: سكربت الوحدة أدناه يتحقق أولًا من
+   جلسة الأدمن (checkAdminAuth) ثم يستدعيه. */
 </script>
 
 <script type="module">
@@ -695,6 +701,14 @@ refreshAll();
    تستخدم نفس الوحدة، فلا يوجد منطق إدارة مكرر في مكانين.
    ==================================================================== */
 import { openSubscriptionModal } from '/assets/js/admin/subscription-details-view.js';
+import { checkAdminAuth } from '/assets/js/admin/auth.js';
+
+// حارس دخول الأدمن: بلا جلسة أدمن لا تُعرض أي بيانات — checkAdminAuth
+// يحوّل للدخول أو يرسم لوحة الرفض، ونوقف هنا قبل أي قراءة.
+const adminUser = await checkAdminAuth();
+if (!adminUser) throw new Error('Admin access required — subscriptions page load stopped after guard.');
+window.__adminSubscriptionsGuardOk = true;
+window.refreshAll?.();
 
 document.addEventListener('click', (event) => {
     const trigger = event.target.closest('[data-details-id]');

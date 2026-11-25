@@ -149,7 +149,7 @@ function featuresCard(planKey, plans) {
     const next = nextPlanKey(planKey);
     const nextPrice = next ? priceOf(plans, next, 'monthly') : null;
     const nextLine = next === 'ultimate'
-        ? 'تذاكر غير محدودة ودعم أولوية 24/7'
+        ? 'تذاكر غير محدودة ودعم أولوية 24/7 وواتساب بيزنس مشمول حتى إشعار آخر'
         : '300 تذكرة شهريًا، ونطاق فرعي، وأعضاء فريق، ومفاتيح API';
     return `
         <section class="ms-card">
