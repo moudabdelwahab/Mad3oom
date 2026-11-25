@@ -57,7 +57,7 @@
                 <div class="vs-intro" id="vsIntro" hidden>
                     <div class="vs-intro-main">
                         <p class="vs-intro-title">أهلاً بك في الاستوديو الصوتي — مدعوم</p>
-                        <p class="vs-intro-text">تعليق صوتي عربي باثنتي عشرة لهجة، وكتب صوتية، وبودكاست، وتفريغ نصي — كلها من لوحة المالك.</p>
+                        <p class="vs-intro-text">تعليق صوتي عربي باثنتي عشرة لهجة، وكتب صوتية، وبودكاست — كلها من لوحة المالك.</p>
                     </div>
                     <button type="button" class="btn btn-outline btn-sm" id="vsIntroClose">فهمت، ابدأ</button>
                 </div>
@@ -75,12 +75,12 @@
                             <p class="vs-engine-note">Edge TTS خدمة غير رسمية من مايكروسوفت، بلا عقد ولا مفتاح — قد تتوقف أو تتغير دون إشعار، وليست خدمة مضمونة.</p>
                         </div>
                         <div class="vs-key-box">
-                            <label class="vs-key-label" for="vsGeminiKey">مفتاح Gemini الشخصي (اختياري — لمحرك Gemini ووظائف النص فقط)</label>
+                            <label class="vs-key-label" for="vsGeminiKey">مفتاح Gemini الشخصي (اختياري — لمحرك Gemini الصوتي فقط)</label>
                             <div class="vs-key-row">
                                 <input type="password" class="form-control" id="vsGeminiKey" placeholder="AIza…" autocomplete="off" spellcheck="false">
                                 <button type="button" class="btn btn-outline btn-sm" id="vsSaveKeyBtn">حفظ المفتاح</button>
                             </div>
-                            <p class="vs-key-status" id="vsKeyStatus" role="status">بلا مفتاح شخصي — التوليد الصوتي يعمل عبر Edge TTS المجاني؛ وظائف النص (تحسين، تفريغ…) تحتاج مفتاح Gemini.</p>
+                            <p class="vs-key-status" id="vsKeyStatus" role="status">بلا مفتاح شخصي — التوليد الصوتي يعمل عبر Edge TTS المجاني، ووظائف النص تعمل عبر مفاتيح المنصة. محرك Gemini يحتاج مفتاحًا شخصيًا.</p>
                         </div>
                     </div>
                 </section>
@@ -89,7 +89,6 @@
                     <button type="button" class="vs-mode-tab is-active" data-vs-mode="voice" aria-pressed="true">تعليق صوتي</button>
                     <button type="button" class="vs-mode-tab" data-vs-mode="audiobook" aria-pressed="false">كتب صوتية</button>
                     <button type="button" class="vs-mode-tab" data-vs-mode="podcast" aria-pressed="false">بودكاست</button>
-                    <button type="button" class="vs-mode-tab" data-vs-mode="transcript" aria-pressed="false">تفريغ نصي</button>
                 </nav>
 
                 <!-- ── وضع التعليق الصوتي ── -->
@@ -103,14 +102,11 @@
 
                         <section class="panel vs-panel">
                             <h2 class="vs-step-title">٢. الفئة العمرية والنمط الأدائي</h2>
+                            <p class="vs-dialect-note">الفئة العمرية تقريب لإيقاع الصوت وطبقته (prosody) وليست صوتًا مختلفًا — الصوت نفسه يتغير إيقاعه وطبقته فقط.</p>
                             <div class="vs-types" id="vsTypes" role="group" aria-label="الفئة العمرية"></div>
                             <div class="vs-genders" id="vsGenders" role="group" aria-label="الجنس">
                                 <button type="button" class="vs-pill is-active" data-vs-gender="ذكر">ذكر</button>
                                 <button type="button" class="vs-pill" data-vs-gender="أنثى">أنثى</button>
-                            </div>
-                            <div class="vs-field-row">
-                                <label class="vs-field-label" for="vsField">المجال</label>
-                                <select class="form-control vs-field-select" id="vsField"></select>
                             </div>
                             <h3 class="vs-gallery-title">معرض النخب الصوتية</h3>
                             <div class="vs-gallery" id="vsGallery"></div>
@@ -120,41 +116,10 @@
                         <section class="panel vs-panel">
                             <h2 class="vs-step-title">٣. غرفة التحكم والمعالجة</h2>
                             <div class="vs-controls" id="vsControls"></div>
-                            <div class="vs-purpose">
-                                <span class="vs-purpose-label">الغرض من الصوت (اختياري)</span>
-                                <div class="vs-purpose-list" id="vsPurpose"></div>
-                                <p class="vs-purpose-note" id="vsPurposeNote" hidden></p>
-                            </div>
                             <div class="vs-lock-row">
                                 <button type="button" class="btn btn-primary" id="vsLockBtn">تثبيت الصوت</button>
-                                <button type="button" class="btn btn-outline" id="vsFingerprintBtn">بصمة الصوت</button>
                             </div>
                             <p class="vs-lock-note">تثبيت الصوت يمنع تغيير اللهجة أو المؤدي أو الإعدادات أثناء جلسات الإنتاج الطويلة لضمان الاتساق الكامل.</p>
-                            <div class="vs-fingerprint" id="vsFingerprintPanel" hidden>
-                                <div class="vs-fingerprint-head">
-                                    <h3 class="vs-fingerprint-title">تخصيص بصمة الصوت</h3>
-                                    <button type="button" class="vs-fingerprint-close" id="vsFpCancel" aria-label="إغلاق">✕</button>
-                                </div>
-                                <label class="vs-fp-label" for="vsFpName">اسم الهوية الصوتية (اختياري)</label>
-                                <input type="text" class="form-control" id="vsFpName" placeholder="مثل: صوت البودكاست، صوت القناة…">
-                                <div class="vs-fp-grid">
-                                    <div>
-                                        <span class="vs-fp-label">الأسلوب</span>
-                                        <div class="vs-fp-opts" id="vsFpStyle" role="group" aria-label="الأسلوب"></div>
-                                    </div>
-                                    <div>
-                                        <span class="vs-fp-label">الإيقاع</span>
-                                        <div class="vs-fp-opts" id="vsFpRhythm" role="group" aria-label="الإيقاع"></div>
-                                    </div>
-                                    <div>
-                                        <span class="vs-fp-label">طريقة السرد</span>
-                                        <div class="vs-fp-opts" id="vsFpNarrative" role="group" aria-label="طريقة السرد"></div>
-                                    </div>
-                                </div>
-                                <button type="button" class="btn btn-primary" id="vsFpSave">حفظ بصمة الصوت</button>
-                                <button type="button" class="btn btn-outline btn-sm" id="vsFpDeactivate" hidden>إلغاء تفعيل البصمة</button>
-                                <p class="vs-fp-confirm" id="vsFpConfirm" role="status" hidden>تم حفظ بصمة الصوت بنجاح.</p>
-                            </div>
                         </section>
 
                         <section class="panel vs-panel">
@@ -167,7 +132,7 @@
                                         <button type="button" class="btn btn-outline" id="vsPreprocessBtn">تحسين النص ذكياً</button>
                                         <button type="button" class="btn btn-outline" id="vsKeySentencesBtn" title="تحليل الجمل المحورية">الجمل المحورية</button>
                                         <button type="button" class="btn btn-outline" id="vsImportTextBtn">استيراد من ملف</button>
-                                        <input type="file" id="vsImportFile" accept=".txt,.doc,.docx,.pdf" hidden>
+                                        <input type="file" id="vsImportFile" accept=".txt,.docx" hidden>
                                     </div>
                                     <p class="vs-import-name" id="vsImportName" hidden></p>
                                 </div>
@@ -234,8 +199,8 @@
                                 <textarea class="form-control vs-textarea" id="vsPodText" placeholder="اكتب فكرة البودكاست أو السيناريو الأولي هنا…"></textarea>
                             </div>
                             <div id="vsPodUploadBox" hidden>
-                                <label class="vs-field-label" for="vsPodFile">رفع ملف نصي أو مستند (TXT / DOCX / PDF)</label>
-                                <input type="file" class="form-control" id="vsPodFile" accept=".txt,.doc,.docx,.pdf">
+                                <label class="vs-field-label" for="vsPodFile">رفع ملف نصي أو مستند (TXT / DOCX)</label>
+                                <input type="file" class="form-control" id="vsPodFile" accept=".txt,.docx">
                                 <p class="vs-import-name" id="vsPodFileName" hidden></p>
                             </div>
                             <button type="button" class="btn btn-primary vs-generate" id="vsPodAnalyzeBtn">تحليل المحتوى وصياغة المسودة</button>
@@ -266,50 +231,6 @@
                                 </div>
                             </div>
                             <div class="vs-result" id="vsPodResult" hidden></div>
-                        </section>
-                    </div>
-                </section>
-
-                <!-- ── وضع التفريغ النصي ── -->
-                <section id="vsSectionTranscript" aria-label="التفريغ النصي" hidden>
-                    <div class="vs-stack">
-                        <section class="panel vs-panel">
-                            <h2 class="vs-step-title">استوديو التفريغ النصي</h2>
-                            <p class="vs-head-sub">تفريغ صوتي احترافي — استخراج النص كاملاً بدون اختصار أو تعديل.</p>
-                            <div class="vs-tr-grid">
-                                <div>
-                                    <label class="vs-field-label" for="vsTrFile">رفع ملف وسائط (صوت أو فيديو)</label>
-                                    <input type="file" class="form-control" id="vsTrFile" accept="audio/*,video/*">
-                                    <p class="vs-import-name" id="vsTrFileName" hidden></p>
-                                </div>
-                                <div class="vs-tr-side">
-                                    <div class="vs-tr-toggle">
-                                        <span>تقسيم النص حسب التوقيت</span>
-                                        <button type="button" class="vs-switch" id="vsTrTimestamps" role="switch" aria-checked="false" aria-label="تقسيم النص حسب التوقيت"><span class="vs-switch-knob"></span></button>
-                                    </div>
-                                    <button type="button" class="btn btn-primary vs-generate" id="vsTrStartBtn">بدء التفريغ النصي</button>
-                                </div>
-                            </div>
-                            <div class="vs-tr-result" id="vsTrResultBox" hidden>
-                                <div class="vs-tr-result-head">
-                                    <h3 class="vs-step-title">محرر النص المستخرج</h3>
-                                    <div class="vs-tr-export">
-                                        <button type="button" class="btn btn-outline btn-sm" id="vsTrCopy">نسخ النص</button>
-                                        <label class="vs-field-label" for="vsTrFormat">صيغة الإخراج</label>
-                                        <select class="form-control vs-field-select" id="vsTrFormat">
-                                            <option value="txt">TXT</option>
-                                            <option value="docx">DOCX</option>
-                                            <option value="srt">SRT</option>
-                                        </select>
-                                        <button type="button" class="btn btn-outline btn-sm" id="vsTrDownload">تحميل</button>
-                                    </div>
-                                </div>
-                                <textarea class="form-control vs-textarea vs-tr-textarea" id="vsTrResult" aria-label="النص المستخرج"></textarea>
-                                <div class="vs-tr-send">
-                                    <button type="button" class="btn btn-outline" id="vsTrToPodcast">إرسال إلى استوديو البودكاست</button>
-                                    <button type="button" class="btn btn-outline" id="vsTrToAudiobook">إرسال إلى استوديو الكتب الصوتية</button>
-                                </div>
-                            </div>
                         </section>
                     </div>
                 </section>
