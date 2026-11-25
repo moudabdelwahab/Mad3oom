@@ -4,7 +4,8 @@
  *  • كل id يقرأه الـ JS معرّف في الـ HTML أو في قالب يرسمه الـ JS.
  *  • لا أثر للاسم القديم أو الألوان المحظورة في أي ملف جديد.
  *  • التنسيق مقصور على الصفحة وبلا ألوان ثابتة — توكنز فقط.
- *  • الـ Edge Function تحمل الإجراءات الثمانية بلا WebSocket.
+ *  • الـ Edge Function توليد صوتي فقط (tts) بلا WebSocket وبلا
+ *    إجراءات ميتة؛ والإجراءات النصية عبر ai-gateway من الصفحة.
  *
  * ملاحظة: سلاسل الاسم القديم والألوان المحظورة مبنية من مقاطع هنا
  * حتى يبقى ملف الاختبار نفسه نظيفًا عند فحص grep.
@@ -81,11 +82,14 @@ test('الصفحة بنفس قشرة لوحة المالك وتربط أصوله
     assert.doesNotMatch(page, /Montserrat|Tajawal|Amiri/);
 });
 
-test('الصفحة فيها تبويبات الأوضاع الأربعة وحقول المفتاح والتلميح', () => {
+test('الصفحة فيها تبويبات الأوضاع الثلاثة وحقول المفتاح والتلميح', () => {
     const page = html();
-    for (const mode of ['voice', 'audiobook', 'podcast', 'transcript']) {
+    // تدقيق 2026-11-25: حُذف وضع التفريغ النصي كاملًا — بقيت ثلاثة أوضاع.
+    for (const mode of ['voice', 'audiobook', 'podcast']) {
         assert.match(page, new RegExp(`data-vs-mode="${mode}"`), mode);
     }
+    assert.doesNotMatch(page, /data-vs-mode="transcript"/);
+    assert.doesNotMatch(page, /id="vsSectionTranscript"/);
     assert.match(page, /id="vsIntro"/);
     assert.match(page, /id="vsIntroClose"/);
     assert.match(page, /id="vsGeminiKey"/);
@@ -93,7 +97,6 @@ test('الصفحة فيها تبويبات الأوضاع الأربعة وحق�
     assert.match(page, /id="vsSectionVoice"/);
     assert.match(page, /id="vsSectionAudiobook"/);
     assert.match(page, /id="vsSectionPodcast"/);
-    assert.match(page, /id="vsSectionTranscript"/);
 });
 
 test('الصفحة فيها شارة المحرك واختياره وملاحظة الخدمة غير الرسمية', () => {
@@ -106,8 +109,13 @@ test('الصفحة فيها شارة المحرك واختياره وملاحظ�
     assert.match(page, /ليست خدمة مضمونة/);
     assert.match(page, /id="vsDialectNote"/);
     assert.match(page, /لا يوجد صوت سوداني أصلي في Edge TTS/);
-    assert.match(page, /مفتاح Gemini الشخصي \(اختياري — لمحرك Gemini ووظائف النص فقط\)/);
+    // المفتاح الشخصي الآن لمحرك Gemini الصوتي فقط — وظائف النص تعمل
+    // عبر مفاتيح المنصة (ai-gateway) ولا تحتاج مفتاحًا شخصيًا.
+    assert.match(page, /مفتاح Gemini الشخصي \(اختياري — لمحرك Gemini الصوتي فقط\)/);
+    assert.match(page, /وظائف النص تعمل عبر مفاتيح المنصة/);
     assert.match(page, /التوليد الصوتي يعمل عبر Edge TTS المجاني/);
+    // وسم الفئة العمرية: تقريب prosody لا صوت مختلف.
+    assert.match(page, /الفئة العمرية تقريب لإيقاع الصوت وطبقته/);
 });
 
 test('القائمة الجانبية: رابط الاستوديو بعد رابط شات Muse مباشرة، ولا رابط آخر تغيّر', () => {
@@ -137,8 +145,11 @@ test('الصفحة تستورد بوابة المالك وبيانات الاس�
     assert.match(js, /supabase\.functions\.invoke\(VOICE_STUDIO_FUNCTION/);
     assert.match(js, /Mad3oomVoiceService/);
     assert.match(js, /x-gemini-api-key/);
+    // الإجراءات النصية عبر ai-gateway (JWT جلسة المالك، مفاتيح خادمية)
+    assert.match(js, /supabase\.functions\.invoke\(AI_GATEWAY_FUNCTION/);
+    assert.match(js, /action: 'generate'/);
+    assert.match(js, /callAiGateway/);
     assert.doesNotMatch(js, /functions\.invoke\('ai-session'/);
-    assert.doesNotMatch(js, /ai-gateway/);
     assert.doesNotMatch(js, /WebSocket/);
 });
 
@@ -174,10 +185,7 @@ test('مفاتيح التخزين بالاسم الجديد لا القديم', 
     assert.match(dataJs(), /mad3oom_voice_gemini_key/);
     assert.match(dataJs(), /mad3oom_voice_intro_played/);
     assert.match(dataJs(), /mad3oom_voice_history/);
-    assert.match(stateJs(), /mad3oom_transcript_/);
-    assert.match(stateJs(), /mad3oom_audio/);
     assert.match(pageJs(), /audioFileName\(/);
-    assert.match(pageJs(), /transcriptFileName\(/);
 });
 
 /* ─────────────────── إعادة التسمية والألوان ─────────────────── */
@@ -220,30 +228,39 @@ test('التنسيق بلا أي لون hex ثابت، ومقصور على ال�
     assert.deepEqual(unscoped, []);
 });
 
-test('التنسيق يعرف المشغّل وخطوات الكتاب والتفريغ والبودكاست', () => {
+test('التنسيق يعرف المشغّل وخطوات الكتاب والبودكاست', () => {
     const style = css();
-    for (const cls of ['.vs-player', '.vs-book-steps', '.vs-pod-speakers', '.vs-tr-toggle', '.vs-mode-tab', '.vs-voice-card', '.vs-fingerprint', '.vs-error', '.vs-engine-badge', '.vs-engine-pills', '.vs-engine-note', '.vs-dialect-note']) {
+    for (const cls of ['.vs-player', '.vs-book-steps', '.vs-pod-speakers', '.vs-mode-tab', '.vs-voice-card', '.vs-error', '.vs-engine-badge', '.vs-engine-pills', '.vs-engine-note', '.vs-dialect-note']) {
         assert.ok(style.includes(cls), cls);
+    }
+    // قواعد المحذوفات (تفريغ/بصمة/غرض) لا أثر لها في التنسيق.
+    for (const cls of ['.vs-tr-toggle', '.vs-tr-result', '.vs-switch', '.vs-fingerprint', '.vs-fp-opt', '.vs-purpose']) {
+        assert.ok(!style.includes(cls), cls);
     }
     assert.match(style, /\[hidden\]\s*\{\s*display:\s*none !important;\s*\}/);
 });
 
 /* ─────────────────── الـ Edge Function ─────────────────── */
 
-test('الدالة تحمل الإجراءات الثمانية وتقرأ المفتاح من البيئة أو الهيدر', () => {
+test('الدالة توليد صوتي فقط (tts) — لا إجراءات ميتة فيها', () => {
     const fn = fnTs();
-    for (const action of ['preprocess-text', 'identify-key-sentences', 'analyze-and-segment', 'transcribe-media', 'extract-text', 'generate-podcast-script', 'tts', 'generate-stream']) {
-        assert.ok(fn.includes(`"${action}"`), action);
-    }
     assert.match(fn, /Deno\.env\.get\("GEMINI_API_KEY"\)/);
     assert.match(fn, /x-gemini-api-key/);
     assert.match(fn, /generativelanguage\.googleapis\.com/);
     assert.match(fn, /gemini-3\.1-flash-tts-preview/);
     assert.match(fn, /gemini-2\.5-flash-preview-tts/);
-    assert.match(fn, /gemini-3\.5-transcribe/);
     assert.match(fn, /تم استنفاد الحصة المجانية المؤقتة/);
     assert.match(fn, /النموذج يواجه ضغطاً مؤقتاً/);
-    assert.match(fn, /data: \[DONE\]/);
+    assert.match(fn, /الدالة تدعم tts فقط/);
+    // الإجراءات السبعة المحذوفة: لا أثر لها خارج تعليق الترويسة
+    // الذي يوثّق الحذف (لذا الفحص على الصيغ المقتبسة).
+    for (const action of ['"preprocess-text"', '"identify-key-sentences"', '"analyze-and-segment"', '"transcribe-media"', '"extract-text"', '"generate-podcast-script"', '"generate-stream"']) {
+        assert.ok(!fn.includes(action), action);
+    }
+    assert.doesNotMatch(fn, /gemini-3\.5-transcribe/);
+    assert.doesNotMatch(fn, /handleStream/);
+    assert.doesNotMatch(fn, /data: \[DONE\]/);
+    assert.doesNotMatch(fn, /هذه الوظيفة تحتاج مفتاح Gemini/);
     // بلا أي خادم WebSocket حي: التلميح في الترويسة يوثّق الإسقاط فقط،
     // فالفحص على كود فعلي لا على كلمة في تعليق.
     assert.doesNotMatch(fn, /new WebSocket\(|WebSocketServer|wss\.on\(/);
@@ -261,7 +278,9 @@ test('إجراء tts بمحركين: edge افتراضي بلا مفتاح وgem
     assert.match(fn, /fallbackFrom: "edge"/);
     assert.match(fn, /فشل محرك Edge TTS/);
     assert.match(fn, /محرك Gemini يحتاج مفتاحًا/);
-    assert.match(fn, /هذه الوظيفة تحتاج مفتاح Gemini/);
+    // بوابة 503 العامة («هذه الوظيفة تحتاج مفتاح Gemini») حُذفت مع
+    // الإجراءات النصية — الدالة tts فقط، وغيرها 400 صريح.
+    assert.match(fn, /الدالة تدعم tts فقط/);
     assert.match(fn, /من supabase\/functions\/voice-studio\/edge-tts\.ts|from "\.\/edge-tts\.ts"/);
 });
 

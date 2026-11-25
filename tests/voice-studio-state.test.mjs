@@ -1,8 +1,12 @@
 /**
  * اختبارات المنطق النقي للاستوديو الصوتي (voice-studio-state.js):
- * بصمة الصوت، وتغليف WAV، ودمج المقاطع، وتنسيق الوقت، وبناء SRT،
- * وأسماء الملفات، وأقفال اللهجات وبرومبت TTS، والتوزيع الذكي،
- * وفحص إعادة التسمية على البيانات.
+ * بصمة الصوت، وتغليف WAV، ودمج المقاطع، وتنسيق الوقت، وأسماء
+ * ملفات الصوت، وأقفال اللهجات وبرومبت TTS، والتوزيع الذكي،
+ * وبرومبتات ai-gateway واستخراج JSON، وفحص إعادة التسمية على البيانات.
+ *
+ * حُذف في تدقيق 2026-11-25: بناء SRT وتغليف DOCX وأسماء ملفات
+ * التفريغ (حُذف وضع التفريغ كاملًا)، والمجال وأدوات الاستوديو
+ * المتجاهلة (حرارة/دراما/انفعال).
  *
  * ملاحظة: سلاسل الاسم القديم والألوان المحظورة مبنية من مقاطع هنا
  * حتى يبقى ملف الاختبار نفسه نظيفًا عند فحص grep.
@@ -11,19 +15,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-    DIALECTS, VOICE_FIELDS, STUDIO_CONTROLS, CATEGORY_STYLES, PREVIEW_SCRIPTS,
+    DIALECTS, STUDIO_CONTROLS, CATEGORY_STYLES, PREVIEW_SCRIPTS,
     WORKFLOW_STEPS, VOICE_TYPES, getBaseVoiceForType,
     EDGE_VOICE_MAP, SUDANESE_EDGE_FALLBACK_NOTE, TTS_ENGINES, TTS_ENGINE_DEFAULT,
 } from '../assets/js/owner/voice-studio-data.js';
 import {
     EDGE_ACTIONS, DIALECT_PHONETIC_LOCKS, PURPOSE_DIRECTIVES,
     resolveDialectId, phoneticLockForDialect, generateVoiceFingerprint,
-    buildTtsPrompt, formatTime, formatSrtTime, ensureWavBuffer, concatWavBuffers,
-    splitTextByParagraphs, buildSrt, buildDocxHtml, transcriptFileName, audioFileName,
+    buildTtsPrompt, formatTime, ensureWavBuffer, concatWavBuffers,
+    splitTextByParagraphs, audioFileName,
     mapRoleToVoice, smartDistributeSpeakers, hasForbiddenBrand, findForbiddenBrandInData,
     resolveEdgeVoice, resolveTtsEngine, edgeProsodyForControls, EDGE_IGNORED_CONTROLS,
     buildEdgeSsml, edgeVoiceSsmlName, edgeDateString, generateSecMsGec,
     encodePcmToWav, mergeDecodedAudio, EDGE_VOICE_NAME_PATTERN, EDGE_TTS_ENGINE_DEFAULT,
+    DIALECT_PREPROCESS_INSTRUCTIONS, PODCAST_STYLE_GUIDES, extractJsonObject,
 } from '../assets/js/owner/voice-studio-state.js';
 
 /* سلاسل محظورة مبنية من مقاطع — لا تظهر حرفيًا في هذا الملف. */
@@ -75,9 +80,11 @@ test('البيانات: كل صوت له معرّف واسم وجنس ونوع �
     assert.equal(new Set(ids).size, ids.length, 'معرّفات الأصوات فريدة');
 });
 
-test('البيانات: 9 مجالات و6 أدوات استوديو و9 نصوص معاينة و6 خطوات', () => {
-    assert.equal(VOICE_FIELDS.length, 9);
-    assert.deepEqual(Object.keys(STUDIO_CONTROLS), ['temp', 'emotion', 'speed', 'depth', 'pitch', 'drama']);
+test('البيانات: 3 أدوات استوديو مؤثرة فعلًا و9 نصوص معاينة و6 خطوات', () => {
+    // تدقيق 2026-11-25: حُذفت حرارة الصوت وشدة الدراما (متجاهلتان
+    // في كلا المحركين) والانفعال (برومبت Gemini فقط) — فلا يبقى إلا
+    // ما يؤثر في محرك Edge الافتراضي. وحُذف المجال (9 حقول) كاملًا.
+    assert.deepEqual(Object.keys(STUDIO_CONTROLS), ['speed', 'depth', 'pitch']);
     assert.equal(Object.keys(PREVIEW_SCRIPTS).length, 9);
     assert.deepEqual(WORKFLOW_STEPS.map((s) => s.id), ['new', 'import', 'script', 'multi', 'pilot', 'production']);
 });
@@ -191,37 +198,8 @@ test('تنسيق الوقت د:ثث', () => {
     assert.equal(formatTime(600), '10:00');
 });
 
-test('طابع SRT بصيغة HH:MM:SS,mmm', () => {
-    assert.equal(formatSrtTime(5), '00:00:05,000');
-    assert.equal(formatSrtTime(65.25), '00:01:05,250');
-    assert.equal(formatSrtTime(3661.5), '01:01:01,500');
-});
 
-test('بناء SRT من طوابع [MM:SS] في النص', () => {
-    const srt = buildSrt('[00:05] مرحبا بالعالم\n[00:09] جملة ثانية');
-    assert.equal(srt,
-        '1\n00:00:05,000 --> 00:00:09,000\nمرحبا بالعالم\n\n'
-        + '2\n00:00:09,000 --> 00:00:13,000\nجملة ثانية\n');
-});
-
-test('بناء SRT من نص بلا طوابع: جمل متتالية كل 4 ثوانٍ', () => {
-    const srt = buildSrt('جملة أولى. جملة ثانية.');
-    assert.match(srt, /1\n00:00:00,000 --> 00:00:04,000\nجملة أولى\./);
-    assert.match(srt, /2\n00:00:04,000 --> 00:00:08,000\nجملة ثانية\./);
-    assert.equal(buildSrt(''), '');
-});
-
-test('غلاف DOCX عربي RTL بخط Cairo ويهرّب HTML', () => {
-    const html = buildDocxHtml('نص <b>مهم</b>\nسطر ثانٍ');
-    assert.match(html, /direction:rtl/);
-    assert.match(html, /Cairo/);
-    assert.match(html, /نص &lt;b&gt;مهم&lt;\/b&gt;<br>سطر ثانٍ/);
-});
-
-test('أسماء ملفات الإخراج بالبادئة الجديدة', () => {
-    assert.equal(transcriptFileName('txt', 'lecture.mp3'), 'mad3oom_transcript_lecture.txt');
-    assert.equal(transcriptFileName('srt', 'a b.wav'), 'mad3oom_transcript_a b.srt');
-    assert.equal(transcriptFileName('docx', 'result'), 'mad3oom_transcript_result.docx');
+test('أسماء ملفات الصوت: تعقيم وافتراضي wav', () => {
     assert.equal(audioFileName('جلسة: مصر'), 'جلسة_ مصر.wav');
     assert.equal(audioFileName(''), 'mad3oom_audio.wav');
     assert.equal(audioFileName(), 'mad3oom_audio.wav');
@@ -506,19 +484,53 @@ test('فحص العلامة المحظورة يكشف الاسم القديم و
 
 test('لا أثر للاسم القديم أو الألوان المحظورة في أي بيانات', () => {
     const hits = findForbiddenBrandInData({
-        DIALECTS, VOICE_FIELDS, STUDIO_CONTROLS, CATEGORY_STYLES, PREVIEW_SCRIPTS, WORKFLOW_STEPS,
+        DIALECTS, STUDIO_CONTROLS, CATEGORY_STYLES, PREVIEW_SCRIPTS, WORKFLOW_STEPS,
         EDGE_VOICE_MAP,
     });
     assert.deepEqual(hits, []);
-    const joined = JSON.stringify({ DIALECTS, VOICE_FIELDS, STUDIO_CONTROLS, EDGE_VOICE_MAP });
+    const joined = JSON.stringify({ DIALECTS, STUDIO_CONTROLS, EDGE_VOICE_MAP });
     for (const forbidden of FORBIDDEN) {
         assert.ok(!joined.includes(forbidden), `ظهرت السلسلة المحظورة: ${forbidden}`);
     }
 });
 
-test('أسماء إجراءات الـ Edge Function ثمانية كما في الخادم الأصلي', () => {
-    assert.deepEqual(EDGE_ACTIONS, [
-        'preprocess-text', 'identify-key-sentences', 'analyze-and-segment',
-        'transcribe-media', 'extract-text', 'generate-podcast-script', 'tts', 'generate-stream',
+test('أسماء إجراءات الـ Edge Function: توليد صوتي فقط', () => {
+    // تدقيق 2026-11-25: الدالة tts فقط؛ الإجراءات النصية الأربعة
+    // تُوجَّه إلى ai-gateway، والتفريغ والاستخراج والبث حُذفوا.
+    assert.deepEqual(EDGE_ACTIONS, ['tts']);
+});
+
+/* ─────────────────── برومبتات ai-gateway واستخراج JSON ─────────────────── */
+
+test('تعليمات تحويل اللهجة: سودانية ويمنية ولبنانية فقط', () => {
+    assert.deepEqual(Object.keys(DIALECT_PREPROCESS_INSTRUCTIONS).sort(), ['lebanese', 'sudanese', 'yemeni']);
+    assert.match(DIALECT_PREPROCESS_INSTRUCTIONS.sudanese, /سودانية/);
+    assert.match(DIALECT_PREPROCESS_INSTRUCTIONS.yemeni, /يمنية/);
+    assert.match(DIALECT_PREPROCESS_INSTRUCTIONS.lebanese, /لبنانية/);
+});
+
+test('إرشاد لهجة البودكاست: اللهجات الثماني في الخادم سابقًا', () => {
+    assert.deepEqual(Object.keys(PODCAST_STYLE_GUIDES).sort(), [
+        'egyptian', 'fusha', 'khaleeji', 'lebanese', 'levantine', 'saudi', 'sudanese', 'yemeni',
     ]);
+    assert.match(PODCAST_STYLE_GUIDES.egyptian, /مصرية/);
+    assert.match(PODCAST_STYLE_GUIDES.fusha, /فصحى/);
+});
+
+test('استخراج JSON من رد نصي حر: عادٍ ومسيّج ومحاط بنص', () => {
+    assert.deepEqual(extractJsonObject('{"sentences":["أ","ب"]}'), { sentences: ['أ', 'ب'] });
+    assert.deepEqual(
+        extractJsonObject('```json\n{"segments":[{"label":"م","role":"الراوي","text":"ن"}]}\n```'),
+        { segments: [{ label: 'م', role: 'الراوي', text: 'ن' }] },
+    );
+    assert.deepEqual(
+        extractJsonObject('إليك النتيجة:\n{"turns":[],"speakers":[]}\nانتهى.'),
+        { turns: [], speakers: [] },
+    );
+});
+
+test('استخراج JSON يرمي عند الرد الفارغ أو غير JSON — لا بديل صامت', () => {
+    assert.throws(() => extractJsonObject(''), /رد فارغ/);
+    assert.throws(() => extractJsonObject('لا يوجد JSON هنا'), /تعذّر تحليل/);
+    assert.throws(() => extractJsonObject('{ليس JSON}'), /JSON/);
 });
