@@ -24,9 +24,11 @@
  *
  * الإرسال: insert واحد في ai_session_messages فقط (role=user، وموديل
  * الجلسة النشطة)، وتظهر الرسالة فورًا من نتيجة الـ insert. الرد يصل عبر
- * الجسر الدائم الذي يفحص الجلسة كل 15 ثانية؛ الصفحة تستطلع الرسائل الجديدة كل 5
- * ثوانٍ فتظهر بلا تحديث يدوي. لا Realtime ولا حالة حضور — لا شيء منهما
- * حقيقي هنا. فقاعة الانتظار حقيقية: تظهر من طابع إرسال رسالة بلا رد،
+ * المسار السريع (الترحيل 132: trigger ينادي Edge Function ‏muse-chat-reply‏
+ * فور الإدخال) أو عبر الجسر الدائم كاحتياطي؛ الصفحة تشترك في Realtime
+ * على رسائل الجلسة النشطة فيستدعي كل إدخال جديد الاستطلاع فورًا،
+ * والاستطلاع كل 5 ثوانٍ يبقى كشبكة أمان إن فشل الاشتراك أو انقطع.
+ * لا حالة حضور — لا شيء منها حقيقي هنا. فقاعة الانتظار حقيقية: تظهر من طابع إرسال رسالة بلا رد،
  * وتختفي بوصول الرد — ومراحلها («يقرأ رسالتك…» ثم «يراجع…» ثم «يجهّز
  * الرد…») تسميات زمنية من الثواني المنصرمة، لا قياس لخطوات الجسر
  * الداخلية ولا ادعاء أن Muse يكتب حرفًا حرفًا.
@@ -89,6 +91,7 @@ const renderedIds = new Set();
 let sending = false;
 let pollTimer = null;
 let pollFailures = 0;
+let realtimeChannel = null;
 let lastQuotaRefreshAt = 0;
 let switchToken = 0;
 let renamedIds = new Set();
@@ -555,6 +558,7 @@ async function switchSession(id) {
     sessionId = target.id;
     activeModelId = target.model_id;
     storeActiveSession(sessionId);
+    subscribeRealtime();
     updateSquareHeader();
     renderAgentPicker();
     renderSessionList();
@@ -895,6 +899,34 @@ async function pollMessages() {
     }
 }
 
+/* ── Realtime: إدخال جديد في الجلسة النشطة يستدعي الاستطلاع فورًا ──
+ * الترحيل 132 يضيف ai_session_messages إلى publication ‏supabase_realtime‏،
+ * فيصل الرد (أو الإقرار الفوري) لحظة إدخاله بدل انتظار دورة الاستطلاع.
+ * الاستطلاع كل 5 ثوانٍ يبقى كشبكة أمان — إن فشل الاشتراك أو انقطع،
+ * يبقى الرد ظاهرًا خلال 5 ثوانٍ. عند تبديل الجلسة تُستبدل القناة بقناة
+ * الجلسة الجديدة؛ وعند مغادرة الصفحة تُزال القناة مع المؤقت. */
+function subscribeRealtime() {
+    try {
+        if (realtimeChannel) {
+            supabase.removeChannel(realtimeChannel);
+            realtimeChannel = null;
+        }
+        if (!sessionId) return;
+        realtimeChannel = supabase.channel(`muse-chat-${sessionId}`)
+            .on('postgres_changes', {
+                event: 'INSERT', schema: 'public', table: 'ai_session_messages',
+                filter: `session_id=eq.${sessionId}`,
+            }, () => { pollMessages(); })
+            .subscribe((status) => {
+                if (status !== 'SUBSCRIBED') {
+                    console.warn('[MuseChat] realtime not subscribed:', status);
+                }
+            });
+    } catch (err) {
+        console.error('[MuseChat] realtime subscribe failed:', err?.message || err);
+    }
+}
+
 function setReplyStatus(text, waiting) {
     const el = $('museReplyStatus');
     if (!el) return;
@@ -1121,9 +1153,10 @@ init().catch((err) => {
     console.error('[MuseChat] init failed:', err?.message || err);
 });
 
-// إيقاف الاستطلاع والعدّاد والأفاتار عند مغادرة الصفحة حتى لا يبقى مؤقت معلّق.
+// إيقاف الاستطلاع والقناة والعدّاد والأفاتار عند مغادرة الصفحة حتى لا يبقى مؤقت معلّق.
 window.addEventListener('pagehide', () => {
     if (pollTimer) clearInterval(pollTimer);
+    if (realtimeChannel) supabase.removeChannel(realtimeChannel);
     stopWaitTimer();
     if (avatar) avatar.destroy();
 });
