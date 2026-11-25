@@ -2,31 +2,53 @@
  * voice-studio.js — ربط صفحة الاستوديو الصوتي (مدعوم) في لوحة المالك.
  *
  * إعادة بناء أصلية بأسلوب Mad3oom لصفحة واحدة من مشروع الاستوديو
- * الصوتي (React + Express): تبويبات داخلية للأوضاع الأربعة — تعليق
- * صوتي، وكتب صوتية (6 خطوات)، وبودكاست، وتفريغ نصي — وكل النداءات
- * تمر عبر Edge Function «voice-studio» (بلا خادم Express وبلا React).
+ * الصوتي (React + Express): تبويبات داخلية للأوضاع الثلاثة — تعليق
+ * صوتي، وكتب صوتية (6 خطوات)، وبودكاست — ونداءات التوليد الصوتي
+ * تمر عبر Edge Function «voice-studio»، بينما الإجراءات النصية
+ * الأربعة (تحسين/جمل محورية/توزيع ذكي/سكربت بودكاست) تمر عبر
+ * «ai-gateway» بمفاتيح المنصة الخادمية (بلا مفتاح Gemini شخصي).
+ *
+ * حُذف في تدقيق 2026-11-25: وضع التفريغ النصي كاملًا (لا يمكن عبر
+ * ai-gateway النصية، ومساره بـ Gemini ميت بالمفتاح الحالي ولا يمكن
+ * التحقق منه حيًا)، واستخراج النص من PDF/صورة، والبث النصي، وبصمة
+ * الصوت، والمجال، والغرض، وحرارة الصوت وشدة الدراما والانفعال.
  *
  * البوابة: bootOwnerPage من owner-page.js (مالك المنصة وحده، لا SIE،
  * ولا تفعيل حسابات أخرى). المفتاح الشخصي للمالك اختياري ويُحفظ في
- * localStorage ويُرسل كهيدر x-gemini-api-key فقط.
+ * localStorage ويُرسل كهيدر x-gemini-api-key فقط — لمحرك Gemini
+ * الصوتي البديل حصرًا (وظائف النص لا تحتاجه إطلاقًا).
  */
 import { supabase, bootOwnerPage, esc, announce } from '/assets/js/owner/owner-page.js';
 import {
-    DIALECTS, VOICE_TYPES, VOICE_FIELDS, STUDIO_CONTROLS, CATEGORY_STYLES,
-    PREVIEW_SCRIPTS, PREVIEW_FALLBACK_TEXT, WORKFLOW_STEPS, VOICE_PURPOSES,
+    DIALECTS, VOICE_TYPES, STUDIO_CONTROLS, CATEGORY_STYLES,
+    PREVIEW_SCRIPTS, PREVIEW_FALLBACK_TEXT, WORKFLOW_STEPS,
     VOICE_STUDIO_FUNCTION, GEMINI_KEY_STORAGE, INTRO_STORAGE, HISTORY_STORAGE,
     AUDIOBOOK_STORAGE, HISTORY_LIMIT, getBaseVoiceForType,
 } from '/assets/js/owner/voice-studio-data.js';
 import {
     formatTime, mergeDecodedAudio, splitTextByParagraphs,
-    mapRoleToVoice, smartDistributeSpeakers, buildSrt, buildDocxHtml,
-    transcriptFileName, audioFileName, resolveEdgeVoice,
+    mapRoleToVoice, smartDistributeSpeakers,
+    audioFileName, resolveEdgeVoice,
+    DIALECT_PREPROCESS_INSTRUCTIONS, PODCAST_STYLE_GUIDES, extractJsonObject,
 } from '/assets/js/owner/voice-studio-state.js';
 
 const $ = (id) => document.getElementById(id);
 const MAMMOTH_CDN = 'https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js';
 
 /* ───────────────────────── خدمة الاستوديو ───────────────────────── */
+
+/* ───────────────────────── خدمة الاستوديو ─────────────────────────
+   مساران منفصلان، بلا مفتاح شخصي لوظائف النص:
+   • التوليد الصوتي (tts) عبر Edge Function «voice-studio» — محرك
+     Edge بلا مفتاح، ومحرك Gemini بمفتاحك الشخصي فقط.
+   • الإجراءات النصية الأربعة عبر «ai-gateway» (action: generate)
+     بمفاتيح المنصة الخادمية: supabase.functions.invoke يرفق JWT
+     جلسة المالك تلقائيًا، والبوابة تشترط JWT + is_admin() — فلا
+     مفتاح يُرسَل من المتصفح إطلاقًا. أي فشل في البوابة يُرمى
+     كخطأ صريح: لا بديل صامت (إعادة المدخل أو مقطع افتراضي) أبدًا —
+     ذلك كان عيب التدقيق الأخطر. */
+
+const AI_GATEWAY_FUNCTION = 'ai-gateway';
 
 class Mad3oomVoiceService {
     setUserApiKey(key) {
@@ -59,34 +81,129 @@ class Mad3oomVoiceService {
         return data || {};
     }
 
-    preprocessText(text, options) {
-        return this.call('preprocess-text', { text, options }).then((d) => d.text ?? text);
+    /** يقرأ رسالة خطأ ai-gateway من جسم الرد (400/502) بدل رسالة
+     *  supabase-js العامة — البوابة تشرح السبب (لا مزوّد فعّال،
+     *  فشل المزوّد…) فتستحق أن تصل للمستخدم كما هي. */
+    async gatewayErrorMessage(error) {
+        try {
+            const payload = await error?.context?.json?.();
+            if (payload?.error) return String(payload.error);
+        } catch (e) { /* الرد ليس JSON */ }
+        return error?.message || 'تعذّر الاتصال بخدمة الذكاء الاصطناعي.';
     }
 
-    identifyKeySentences(text) {
-        if (!text || text.length < 20) return Promise.resolve([]);
-        return this.call('identify-key-sentences', { text }).then((d) => d.sentences || []);
+    /** نداء نصي واحد إلى ai-gateway. يرمي عند أي فشل أو رد فارغ —
+     *  لا يعيد المدخل ولا قيمة افتراضية أبدًا. */
+    async callAiGateway({ system, userText, temperature }) {
+        const { data, error } = await supabase.functions.invoke(AI_GATEWAY_FUNCTION, {
+            body: {
+                action: 'generate',
+                system,
+                messages: [{ role: 'user', content: userText }],
+                temperature,
+                source: 'voice-studio',
+            },
+        });
+        if (error) throw new Error(await this.gatewayErrorMessage(error));
+        if (!data || data.success === false) {
+            throw new Error(data?.error || 'تعذّر الاتصال بخدمة الذكاء الاصطناعي.');
+        }
+        const text = data.reply ?? data.text ?? '';
+        if (!String(text).trim()) throw new Error('خدمة الذكاء الاصطناعي أعادت ردًا فارغًا.');
+        return String(text);
     }
 
-    analyzeAndSegmentText(text) {
-        return this.call('analyze-and-segment', { text })
-            .then((d) => d.segments || [{ label: 'مقطع افتراضي', role: 'الراوي', text }])
-            .catch(() => [{ label: 'مقطع افتراضي', role: 'الراوي', text }]);
+    async preprocessText(text, options) {
+        const dialectTitle = options?.dialect || 'فصحى';
+        const key = String(options?.dialectId || '').toLowerCase();
+        const dialectInstruction = DIALECT_PREPROCESS_INSTRUCTIONS[key]
+            || `الالتزام بنمط وروح اللهجة: ${dialectTitle}.`;
+        const system = `
+أنت خبير معالجة نصوص في استوديو "مدعوم". مهمتك هي إعادة صياغة النص العربي التالي ليناسب الأداء الصوتي المحترف.
+${dialectInstruction}
+أخرج النص المعالج فقط بالعربية.
+        `.trim();
+        return this.callAiGateway({ system, userText: `"${text}"` });
     }
 
-    async transcribeMedia(base64, mimeType, includeTimestamps, language = 'Auto') {
-        const data = await this.call('transcribe-media', { base64, mimeType, includeTimestamps, language });
-        return data.text || '';
+    async identifyKeySentences(text) {
+        if (!text || text.length < 20) return [];
+        const system = `
+أنت خبير تحليل محتوى عربي. قم بتحليل النص المرفق واستخرج أهم جملة أو جملتين (الجمل المحورية) فقط.
+الجمل المحورية هي التي تمثل:
+1. الفكرة الأساسية (Main Idea).
+2. الرسالة المركزية (Key Message).
+3. رؤية عميقة (Central Insight).
+4. دعوة واضحة لاتخاذ إجراء (Call-to-Action).
+
+القواعد الصارمة:
+- استخرج الجمل كما هي حرفياً من النص الأصلي بدون أي تعديل أو إعادة صياغة.
+- لا تضف أي شرح أو تعليق.
+- أخرج النتائج بتنسيق JSON حصراً ككائن تحت مفتاح "sentences" يحمل مصفوفة نصوص.
+- إذا كان النص لا يحتوي على جمل واضحة، أخرج مصفوفة فارغة.
+        `.trim();
+        const reply = await this.callAiGateway({ system, userText: `النص المرفق: "${text}"`, temperature: 0.2 });
+        const parsed = extractJsonObject(reply);
+        return Array.isArray(parsed.sentences) ? parsed.sentences.filter((s) => String(s || '').trim()) : [];
     }
 
-    async extractTextFromFile(base64, mimeType) {
-        const data = await this.call('extract-text', { base64, mimeType });
-        if (!data.text || !data.text.trim()) throw new Error('تعذر تحليل المحتوى.');
-        return data.text;
+    async analyzeAndSegmentText(text) {
+        const system = `
+أنت مخرج كتب صوتية خبير في استوديو "مدعوم". مهمتك هي تحليل النص العربي المرفق وتقسيمه إلى مقاطع سردية منطقية لتوزيع الأصوات.
+القواعد:
+1. ميز بين السرد (الراوي) والحوار (الشخصيات).
+2. قسم النص إلى فقرات أو حوارات مترابطة.
+3. اقترح "دور" (Role) لكل مقطع (مثلاً: الراوي، البطل، شخصية عابرة).
+4. أخرج النتائج بتنسيق JSON حصراً ككائن تحت مفتاح "segments" يحمل مصفوفة من الكائنات (label, role, text).
+5. الالتزام باللغة العربية في المخرجات.
+        `.trim();
+        const reply = await this.callAiGateway({ system, userText: `قم بتحليل وتقسيم النص التالي: "${text}"`, temperature: 0.2 });
+        const parsed = extractJsonObject(reply);
+        const segments = Array.isArray(parsed.segments) ? parsed.segments : [];
+        const clean = segments.filter((s) => s && String(s.text || '').trim());
+        if (!clean.length) throw new Error('تعذّر تحليل النص وتقسيمه — لم يُنتَج أي مقطع.');
+        return clean;
     }
 
-    generatePodcastScript(content, dialect, dialectId, existingSpeakers = []) {
-        return this.call('generate-podcast-script', { content, dialect, dialectId, existingSpeakers });
+    async generatePodcastScript(content, dialect, dialectId, existingSpeakers = []) {
+        const styleGuide = PODCAST_STYLE_GUIDES[dialectId]
+            || `الالتزام بنمط الحديث الخاص بـ ${dialect}.`;
+        let speakersInstruction = '';
+        if (existingSpeakers.length > 0) {
+            speakersInstruction = `
+STRICT REQUIREMENT: The user has manually defined the following speakers. You MUST include ALL of them in the generated script turns:
+${existingSpeakers.map((s) => `- ID: ${s.id}, Role: ${s.role}, Tone: ${s.tone}`).join("\n")}
+
+INSTRUCTIONS:
+1. Re-analyze the content balance to include all these defined speakers naturally.
+2. DO NOT delete, rename, or overwrite any of the IDs or Roles provided above.
+3. If the script was previously two speakers and now there are more, expand the narrative turns to give the new characters significant presence.
+4. Return all speakers (including the ones provided above) in the "speakers" array.
+            `;
+        }
+        const system = `
+أنت خبير صياغة حوارات بودكاست ومخرج فني في استوديو "مدعوم".
+المهمة: تحليل النص المرفق وتنفيذ معالجة ذكية للسيناريو والشخصيات:
+1. تحليل الشخصيات: تحديد كافة المتحدثين المذكورين أو المستنبطين من النص بدقة. استخرج العدد الحقيقي للمتحدثين الذين يثرون الحوار بناءً على تعقيد المحتوى.
+2. تصنيف الأدوار: حدد الدور لكل شخصية ونبرة الحديث (هادئ، متحمس، رسمي).
+3. ذكاء التوزيع: اقترح أفضل فئة صوتية (categoryHint) من الخيارات التالية لكل شخصية جديدة: [doc, ads, cartoon, podcast, novels, youtube, drama, edu, corporate].
+4. صياغة السيناريو: تحويل المحتوى إلى حوار منساب طبيعي بين الشخصيات.
+
+${speakersInstruction}
+
+إرشاد اللهجة:
+${styleGuide}
+
+المخرجات المطلوبة بتنسيق JSON حصراً ككائن:
+- "speakers": مصفوفة من الكائنات تحتوي على (id, role, tone, style, gender ['male', 'female', 'any'], categoryHint, description, reasoning).
+- "turns": مصفوفة من الكائنات (speakerId, text).
+        `.trim();
+        const reply = await this.callAiGateway({ system, userText: `المحتوى المراد تحليله: "${content}"`, temperature: 0.2 });
+        const parsed = extractJsonObject(reply);
+        const turns = Array.isArray(parsed.turns) ? parsed.turns : [];
+        const speakers = Array.isArray(parsed.speakers) ? parsed.speakers : [];
+        if (!turns.length) throw new Error('تعذّر تحليل المحتوى — لم يُنتَج أي سكربت.');
+        return { turns, speakers };
     }
 
     async generateVoiceOver(text, voiceName, profile, controls, performanceNote, dialectId, engine = 'edge') {
@@ -106,50 +223,13 @@ class Mad3oomVoiceService {
         const blob = new Blob([bytes], { type: mimeType });
         return {
             url: URL.createObjectURL(blob),
+            // رابط بيانات دائم للسجل: روابط blob تموت بعد إعادة التحميل،
+            // أما data URL فينجو في localStorage ويُشغَّل بعدها.
+            dataUrl: `data:${mimeType};base64,${data.audioBase64}`,
             engine: data.engine || engine,
             mimeType,
             fallbackFrom: data.fallbackFrom || null,
         };
-    }
-
-    // بث نصي (SSE) — غير مستخدم في واجهة الأوضاع الأربعة؛ متاح للاستخدام
-    // البرمجي. يقرأ عنوان الدالة من عميل Supabase مباشرة.
-    async streamText(prompt, onChunk, systemInstruction) {
-        const base = supabase?.supabaseUrl;
-        const anonKey = supabase?.supabaseKey;
-        if (!base || !anonKey) throw new Error('البث المباشر غير متاح من هذه الصفحة.');
-        const response = await fetch(`${base}/functions/v1/${VOICE_STUDIO_FUNCTION}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                apikey: anonKey,
-                Authorization: `Bearer ${anonKey}`,
-                ...this.headers(),
-            },
-            body: JSON.stringify({ action: 'generate-stream', prompt, systemInstruction }),
-        });
-        if (!response.ok || !response.body) throw new Error('فشل بدء البث المباشر.');
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let fullText = '';
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            const chunk = decoder.decode(value, { stream: true });
-            for (const line of chunk.split('\n')) {
-                if (!line.startsWith('data: ')) continue;
-                const raw = line.slice(6).trim();
-                if (raw === '[DONE]') break;
-                try {
-                    const parsed = JSON.parse(raw);
-                    if (parsed.text) {
-                        fullText += parsed.text;
-                        onChunk?.(parsed.text);
-                    }
-                } catch (e) { /* سطر غير JSON */ }
-            }
-        }
-        return fullText;
     }
 }
 
@@ -165,12 +245,10 @@ const state = {
     dialectId: DIALECTS[0].id,
     type: VOICE_TYPES[0],
     gender: 'ذكر',
-    fieldId: VOICE_FIELDS[0].id,
     voiceName: '',
-    controls: { temp: 'متوازن', emotion: 'متوسط', speed: 'متوسطة', depth: 'متوسطة', pitch: 'متوسطة', drama: 'متوسط', purpose: '' },
+    controls: { speed: 'متوسطة', depth: 'متوسطة', pitch: 'متوسطة' },
     locked: false,
     generating: false,
-    fingerprint: { name: '', style: 'رسمي', rhythm: 'متوسط', narrative: 'مباشر', isActive: false },
     history: [],
     project: null,
     bookMode: 'none',
@@ -192,7 +270,6 @@ const state = {
         generated: false,
         progress: 0,
     },
-    transcript: { file: null, status: 'idle', result: '', useTimestamps: false, format: 'txt' },
 };
 
 const previewAudio = new Audio();
@@ -204,7 +281,12 @@ function loadHistory() {
     try {
         const raw = localStorage.getItem(HISTORY_STORAGE);
         const parsed = raw ? JSON.parse(raw) : [];
-        return Array.isArray(parsed) ? parsed.slice(0, HISTORY_LIMIT) : [];
+        if (!Array.isArray(parsed)) return [];
+        // روابط blob من جلسات سابقة ميتة بعد إعادة التحميل — تُحذف
+        // بدل ترك زر تشغيل يفشل بصمت. السجل الجديد يحفظ data URL
+        // دائمًا فينجو من إعادة التحميل.
+        return parsed.filter((item) => item && typeof item.url === 'string'
+            && item.url.startsWith('data:audio/')).slice(0, HISTORY_LIMIT);
     } catch (e) {
         return [];
     }
@@ -247,15 +329,6 @@ function announceOk(message) {
     announce($('pageStatus'), message, 'success');
 }
 
-function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(String(reader.result).split(',')[1]);
-        reader.onerror = (err) => reject(err);
-    });
-}
-
 function readFileAsText(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -276,21 +349,21 @@ function loadMammoth() {
     });
 }
 
+/** استيراد نص محلي فقط: TXT يُقرأ مباشرة، وDOCX عبر Mammoth من
+ *  CDN. أي صيغة أخرى (PDF / DOC / صورة…) تُرفض برسالة صريحة —
+ *  مسار استخراج الخادم حُذف (كان ميتًا: لا يمكن عبر ai-gateway
+ *  النصية، وGemini ترفض بالمفتاح الحالي). */
 async function extractFileText(file) {
     const name = (file.name || '').toLowerCase();
     if (name.endsWith('.txt')) return readFileAsText(file);
     if (name.endsWith('.docx')) {
-        try {
-            const mammoth = await loadMammoth();
-            const arrayBuffer = await file.arrayBuffer();
-            const result = await mammoth.extractRawText({ arrayBuffer });
-            if (result.value && result.value.trim()) return result.value;
-        } catch (e) {
-            // يسقط لاستخراج الخادم عند فشل mammoth
-        }
+        const mammoth = await loadMammoth();
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        if (result.value && result.value.trim()) return result.value;
+        throw new Error('تعذّر قراءة محتوى ملف Word.');
     }
-    const base64 = await fileToBase64(file);
-    return voiceService.extractTextFromFile(base64, file.type || 'application/octet-stream');
+    throw new Error('الصيغة غير مدعومة — الاستيراد يقبل TXT وDOCX فقط.');
 }
 
 function playCompletionSound() {
@@ -478,7 +551,6 @@ function switchMode(mode) {
     $('vsSectionVoice').hidden = mode !== 'voice';
     $('vsSectionAudiobook').hidden = mode !== 'audiobook';
     $('vsSectionPodcast').hidden = mode !== 'podcast';
-    $('vsSectionTranscript').hidden = mode !== 'transcript';
 }
 
 function initIntro() {
@@ -503,16 +575,16 @@ function initGeminiKey() {
     const saved = voiceService.getUserApiKey();
     if (saved) {
         input.value = saved;
-        status.textContent = 'مفتاح شخصي محفوظ — محرك Gemini متاح كخيار بديل، ووظائف النص مفعّلة.';
+        status.textContent = 'مفتاح شخصي محفوظ — محرك Gemini متاح كخيار بديل للتوليد الصوتي.';
         status.classList.add('is-saved');
     }
     $('vsSaveKeyBtn').addEventListener('click', () => {
         voiceService.setUserApiKey(input.value);
         if (input.value.trim()) {
-            status.textContent = 'مفتاح شخصي محفوظ — محرك Gemini متاح كخيار بديل، ووظائف النص مفعّلة.';
+            status.textContent = 'مفتاح شخصي محفوظ — محرك Gemini متاح كخيار بديل للتوليد الصوتي.';
             status.classList.add('is-saved');
         } else {
-            status.textContent = 'بلا مفتاح شخصي — التوليد الصوتي يعمل عبر Edge TTS المجاني؛ وظائف النص (تحسين، تفريغ…) تحتاج مفتاح Gemini.';
+            status.textContent = 'بلا مفتاح شخصي — التوليد الصوتي يعمل عبر Edge TTS المجاني، ووظائف النص تعمل عبر مفاتيح المنصة. محرك Gemini يحتاج مفتاحًا شخصيًا.';
             status.classList.remove('is-saved');
         }
         updateEnginePills();
@@ -581,7 +653,6 @@ function noteEngineUsed(result) {
 /* ───────────────────────── وضع التعليق الصوتي ───────────────────────── */
 
 const selectedDialect = () => DIALECTS.find((d) => d.id === state.dialectId) || DIALECTS[0];
-const selectedField = () => VOICE_FIELDS.find((f) => f.id === state.fieldId) || VOICE_FIELDS[0];
 const allVoicesFlattened = () => DIALECTS.flatMap((d) => d.profiles);
 
 /* نوع الصوت (بالغ/كبار السن/شخصية كارتونية) ضبط prosody فقط وليس
@@ -658,16 +729,6 @@ function renderTypeGenderField() {
         btn.classList.toggle('is-active', active);
         btn.disabled = state.locked || state.generating;
     });
-    const fieldSelect = $('vsField');
-    fieldSelect.innerHTML = '';
-    for (const field of VOICE_FIELDS) {
-        const opt = document.createElement('option');
-        opt.value = field.id;
-        opt.textContent = field.title;
-        fieldSelect.appendChild(opt);
-    }
-    fieldSelect.value = state.fieldId;
-    fieldSelect.disabled = state.locked || state.generating;
 }
 
 function categoryIcon(type) {
@@ -720,7 +781,11 @@ function renderGallery() {
     }
 }
 
-async function handleVoicePreview(profile) {
+/* المعاينة بلهجة الصوت المعروض نفسه: لهجة وضع التعليق للمعرض،
+   ولهجة البودكاست لمعاينة شخصياته — لا لهجة افتراضية من وضع آخر
+   (كان الخلل: state.project?.dialectId || state.podcast.dialectId
+   فيُسمِع المصري دائمًا بلا مشروع). */
+async function handleVoicePreview(profile, dialectId = state.dialectId) {
     if (activePreviewId === profile.id) {
         previewAudio.pause();
         activePreviewId = null;
@@ -738,7 +803,7 @@ async function handleVoicePreview(profile) {
         const baseVoice = getBaseVoiceForType(profile.voiceType, profile.gender);
         const result = await voiceService.generateVoiceOver(
             previewText, baseVoice, profile, state.controls, 'Identity Preview',
-            state.project?.dialectId || state.podcast.dialectId, state.engine,
+            dialectId, state.engine,
         );
         noteEngineUsed(result);
         previewAudio.src = result.url;
@@ -789,63 +854,18 @@ function renderControls() {
         group.appendChild(opts);
         box.appendChild(group);
     }
-
-    const purposeBox = $('vsPurpose');
-    purposeBox.innerHTML = '';
-    for (const purpose of VOICE_PURPOSES) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = `vs-pill${state.controls.purpose === purpose ? ' is-active' : ''}`;
-        btn.disabled = state.locked || state.generating;
-        btn.textContent = purpose;
-        btn.addEventListener('click', () => {
-            if (state.locked || state.generating) return;
-            state.controls.purpose = state.controls.purpose === purpose ? '' : purpose;
-            renderControls();
-        });
-        purposeBox.appendChild(btn);
-    }
-    const note = $('vsPurposeNote');
-    if (state.controls.purpose) {
-        const descriptions = {
-            'إعلان': 'سيتم ضبط الأداء ليكون حماسياً وجذاباً',
-            'قصصي': 'سيتم ضبط الأداء ليكون دافئاً ومعبراً',
-            'توعوي': 'سيتم ضبط الأداء ليكون هادئاً ومطمئناً',
-            'إخباري': 'سيتم ضبط الأداء ليكون رسمياً ومباشراً',
-            'تعليمي': 'سيتم ضبط الأداء ليكون واضحاً وتفسيرياً',
-        };
-        note.textContent = descriptions[state.controls.purpose] || '';
-        note.hidden = false;
-    } else {
-        note.hidden = true;
-    }
+    // حُذف «الغرض» في تدقيق 2026-11-25: نص برومبت في Gemini فقط،
+    // متجاهل في Edge الافتراضي، وملاحظته («سيتم ضبط الأداء…») كاذبة
+    // في Edge — فلا غرض ولا ملاحظة.
 }
 
-function renderLockFingerprint() {
+/* تثبيت الصوت فقط: تعطيل محلي للضوابط أثناء الإنتاج الطويل.
+   حُذفت «بصمة الصوت» في تدقيق 2026-11-25: ملاحظتها لا تُمرَّر
+   لمسار Edge إطلاقًا (ميتة في المحرك الافتراضي)، واسمها وطريقة
+   سردها لا يدخلان حتى في الملاحظة. */
+function renderLockButton() {
     const lockBtn = $('vsLockBtn');
     lockBtn.textContent = state.locked ? 'الصوت مثبت ✓' : 'تثبيت الصوت';
-    const fpBtn = $('vsFingerprintBtn');
-    fpBtn.textContent = state.fingerprint.isActive ? 'بصمة الصوت ✓' : 'بصمة الصوت';
-    $('vsFpDeactivate').hidden = !state.fingerprint.isActive;
-    $('vsFpName').value = state.fingerprint.name;
-    const fillGroup = (id, values, current, key) => {
-        const box = $(id);
-        box.innerHTML = '';
-        for (const value of values) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = `vs-fp-opt${current === value ? ' is-active' : ''}`;
-            btn.textContent = value;
-            btn.addEventListener('click', () => {
-                state.fingerprint[key] = value;
-                renderLockFingerprint();
-            });
-            box.appendChild(btn);
-        }
-    };
-    fillGroup('vsFpStyle', ['رسمي', 'ودود', 'حماسي'], state.fingerprint.style, 'style');
-    fillGroup('vsFpRhythm', ['هادئ', 'متوسط', 'نشيط'], state.fingerprint.rhythm, 'rhythm');
-    fillGroup('vsFpNarrative', ['مباشر', 'قصصي'], state.fingerprint.narrative, 'narrative');
 }
 
 function initVoiceSection() {
@@ -853,7 +873,7 @@ function initVoiceSection() {
     renderTypeGenderField();
     renderGallery();
     renderControls();
-    renderLockFingerprint();
+    renderLockButton();
     renderHistory();
 
     document.querySelectorAll('#vsGenders .vs-pill').forEach((btn) => {
@@ -864,45 +884,17 @@ function initVoiceSection() {
             renderGallery();
         });
     });
-    $('vsField').addEventListener('change', (e) => {
-        state.fieldId = e.target.value;
-    });
 
     $('vsLockBtn').addEventListener('click', () => {
         if (state.generating) return;
         state.locked = !state.locked;
-        renderLockFingerprint();
+        renderLockButton();
         renderDialects();
         renderTypeGenderField();
         renderGallery();
         renderControls();
         setControlsDisabled(state.locked);
         if (!state.locked) setControlsDisabled(false);
-    });
-
-    $('vsFingerprintBtn').addEventListener('click', () => {
-        if (state.generating) return;
-        $('vsFingerprintPanel').hidden = !$('vsFingerprintPanel').hidden;
-    });
-    $('vsFpCancel').addEventListener('click', () => {
-        $('vsFingerprintPanel').hidden = true;
-    });
-    $('vsFpName').addEventListener('input', (e) => {
-        state.fingerprint.name = e.target.value;
-    });
-    $('vsFpSave').addEventListener('click', () => {
-        state.fingerprint.isActive = true;
-        $('vsFpConfirm').hidden = false;
-        renderLockFingerprint();
-        setTimeout(() => {
-            $('vsFpConfirm').hidden = true;
-            $('vsFingerprintPanel').hidden = true;
-        }, 2000);
-    });
-    $('vsFpDeactivate').addEventListener('click', () => {
-        state.fingerprint.isActive = false;
-        $('vsFingerprintPanel').hidden = true;
-        renderLockFingerprint();
     });
 
     $('vsImportTextBtn').addEventListener('click', () => $('vsImportFile').click());
@@ -932,9 +924,7 @@ function initVoiceSection() {
         try {
             const processed = await voiceService.preprocessText(text, {
                 dialect: selectedDialect().title,
-                field: selectedField().title,
-                personality: state.voiceName,
-                controls: state.controls,
+                dialectId: state.dialectId,
             });
             $('vsProcessedText').value = processed;
         } catch (err) {
@@ -962,10 +952,15 @@ function initVoiceSection() {
                     p.textContent = sentence;
                     list.appendChild(p);
                 }
-                box.hidden = false;
             } else {
-                box.hidden = true;
+                // لا إخفاء صامت: النتيجة الفارغة نفسها تُعرض كرسالة
+                // بدل أن يبدو كأن النص بلا جمل محورية دون تفسير.
+                const p = document.createElement('p');
+                p.className = 'vs-key-sentence';
+                p.textContent = 'لم يعثر التحليل على جمل محورية واضحة في هذا النص.';
+                list.appendChild(p);
             }
+            box.hidden = false;
         } catch (err) {
             showError(err.message || 'تعذّر تحليل الجمل المحورية.');
         } finally {
@@ -1011,10 +1006,7 @@ async function handleStartTTSSynthesis() {
        الاختيار لا من بيانات الصوت. */
     frozenVoiceProfile.voiceType = frozenVoiceType;
     const frozenBaseVoice = getBaseVoiceForType(frozenVoiceType, frozenVoiceProfile.gender);
-    let performanceNote = 'Manual Studio Session (Synthesis Mode)';
-    if (state.fingerprint.isActive) {
-        performanceNote += ` [FINGERPRINT: Style=${state.fingerprint.style}, Rhythm=${state.fingerprint.rhythm}]`;
-    }
+    const performanceNote = 'Manual Studio Session (Synthesis Mode)';
 
     const stepTimers = [
         setTimeout(() => setProgress(25, 'جاري تحليل خصائص النص…'), 1000),
@@ -1037,9 +1029,7 @@ async function handleStartTTSSynthesis() {
             selection: {
                 dialect: selectedDialect().title,
                 type: frozenVoiceType,
-                field: selectedField().title,
                 controls: frozenControls,
-                fingerprint: state.fingerprint.isActive ? { ...state.fingerprint } : undefined,
             },
             timestamp: Date.now(),
             audioBlobUrl: url,
@@ -1065,7 +1055,8 @@ async function handleStartTTSSynthesis() {
                 dialect: selectedDialect().title,
                 category: frozenVoiceProfile.category,
                 timestamp: Date.now(),
-                url,
+                // data URL دائم لا blob مؤقت — ينجو من إعادة التحميل
+                url: result.dataUrl || url,
             },
             ...state.history,
         ].slice(0, HISTORY_LIMIT);
@@ -1117,7 +1108,15 @@ function renderHistory() {
             previewAudio.pause();
             activePreviewId = item.id;
             previewAudio.src = item.url;
-            previewAudio.play();
+            previewAudio.play().catch(() => {
+                // التسجيل لم يعد قابلًا للتشغيل (عنصر قديم تالف) —
+                // يُحذف من السجل بدل فشل صامت عند كل ضغطة.
+                activePreviewId = null;
+                state.history = state.history.filter((h) => h.id !== item.id);
+                saveHistory();
+                renderHistory();
+                showError('هذا التسجيل لم يعد متاحًا — أعد توليده.');
+            });
         });
         box.appendChild(row);
     }
@@ -1237,7 +1236,7 @@ function renderBookPanel() {
             <div class="vs-tr-grid">
                 <div>
                     <label class="vs-field-label">استيراد من ملف</label>
-                    <input type="file" class="form-control" id="vsBookFile" accept=".txt,.doc,.docx,.pdf">
+                    <input type="file" class="form-control" id="vsBookFile" accept=".txt,.docx">
                     <p class="vs-import-name" id="vsBookFileName" hidden></p>
                 </div>
                 <div>
@@ -1313,7 +1312,7 @@ function renderBookPanel() {
             try {
                 const dialectTitle = DIALECTS.find((d) => d.id === project.dialectId)?.title || 'فصحى';
                 const enhanced = await voiceService.preprocessText(project.content, {
-                    dialect: dialectTitle, field: 'Novels', personality: 'Professional', controls: {},
+                    dialect: dialectTitle, dialectId: project.dialectId,
                 });
                 updateActiveProject({ enhancedContent: enhanced });
                 wrap.querySelector('#vsBookEnhanced').value = enhanced;
@@ -1758,7 +1757,7 @@ function renderPodcastSpeakers() {
         });
         const previewBtn = card.querySelector('.vs-speaker-preview');
         if (assignedVoice && previewBtn) {
-            previewBtn.addEventListener('click', () => handleVoicePreview(assignedVoice));
+            previewBtn.addEventListener('click', () => handleVoicePreview(assignedVoice, state.podcast.dialectId));
         }
         box.appendChild(card);
     });
@@ -1937,7 +1936,23 @@ function initPodcast() {
     });
 
     $('vsPodGenerateBtn').addEventListener('click', async () => {
-        if (!state.podcast.script || !state.podcast.script.length) return;
+        // لا إنتاج صامتًا ولا بلا اعتماد: السكربت الفارغ والتوزيع
+        // غير المعتمد يوقفان الإنتاج برسالة صريحة (كان الزر يخرج
+        // بصمت إن كان السكربت فارغًا، وزر الاعتماد تجميليًا لا
+        // يُفحَص قبل الإنتاج).
+        if (!state.podcast.script || !state.podcast.script.length) {
+            showError('لا يوجد سكربت بعد — حلّل المحتوى أولًا من زر «تحليل المحتوى وصياغة المسودة».');
+            return;
+        }
+        if (!state.podcast.distributed) {
+            showError('اعتمد التوزيع أولًا من زر «اعتماد التوزيع والمتابعة» قبل بدء الإنتاج.');
+            return;
+        }
+        const unassigned = state.podcast.script.some((t) => !state.podcast.voiceMap[t.speakerId]);
+        if (unassigned) {
+            showError('بعض أدوار السكربت بلا صوت — أكمل توزيع الأصوات على كل الشخصيات أولًا.');
+            return;
+        }
         const btn = $('vsPodGenerateBtn');
         btn.disabled = true;
         $('vsPodProgress').hidden = false;
@@ -1989,7 +2004,7 @@ function initPodcast() {
             resultBox.appendChild(restart);
             resultBox.hidden = false;
         } catch (err) {
-            showError('حدث خطأ أثناء توليد البودكاست الصوتي.');
+            showError(err.message || 'حدث خطأ أثناء توليد البودكاست الصوتي.');
         } finally {
             btn.disabled = false;
             $('vsPodProgress').hidden = true;
@@ -1997,113 +2012,13 @@ function initPodcast() {
     });
 }
 
-/* ───────────────────────── وضع التفريغ النصي ───────────────────────── */
-
-function initTranscript() {
-    $('vsTrFile').addEventListener('change', (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        if (!file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
-            showError('هذا القسم يدعم ملفات الوسائط (صوت أو فيديو) فقط.');
-            e.target.value = '';
-            return;
-        }
-        state.transcript.file = file;
-        state.transcript.status = 'idle';
-        state.transcript.result = '';
-        $('vsTrResultBox').hidden = true;
-        const nameEl = $('vsTrFileName');
-        nameEl.hidden = false;
-        nameEl.textContent = file.name;
-        e.target.value = '';
-    });
-
-    $('vsTrTimestamps').addEventListener('click', () => {
-        state.transcript.useTimestamps = !state.transcript.useTimestamps;
-        $('vsTrTimestamps').setAttribute('aria-checked', String(state.transcript.useTimestamps));
-    });
-
-    $('vsTrStartBtn').addEventListener('click', async () => {
-        if (!state.transcript.file) {
-            showError('يرجى اختيار ملف وسائط أولاً.');
-            return;
-        }
-        const btn = $('vsTrStartBtn');
-        btn.disabled = true;
-        btn.textContent = 'جاري التفريغ…';
-        state.transcript.status = 'transcribing';
-        try {
-            const base64 = await fileToBase64(state.transcript.file);
-            const result = await voiceService.transcribeMedia(
-                base64, state.transcript.file.type, state.transcript.useTimestamps, 'Auto',
-            );
-            state.transcript.result = result;
-            state.transcript.status = 'completed';
-            $('vsTrResult').value = result;
-            $('vsTrResultBox').hidden = false;
-            announceOk('اكتمل التفريغ النصي.');
-        } catch (err) {
-            state.transcript.status = 'idle';
-            showError(err.message || 'فشل في عملية التفريغ.');
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'بدء التفريغ النصي';
-        }
-    });
-
-    $('vsTrCopy').addEventListener('click', async () => {
-        const text = $('vsTrResult').value;
-        if (!text) return;
-        try {
-            await navigator.clipboard.writeText(text);
-            $('vsTrCopy').textContent = 'تم نسخ النص';
-            setTimeout(() => { $('vsTrCopy').textContent = 'نسخ النص'; }, 2000);
-        } catch (e) {
-            showError('تعذّر النسخ.');
-        }
-    });
-
-    $('vsTrFormat').addEventListener('change', (e) => {
-        state.transcript.format = e.target.value;
-    });
-
-    $('vsTrDownload').addEventListener('click', () => {
-        const text = $('vsTrResult').value;
-        if (!text) return;
-        const format = state.transcript.format;
-        let content = text;
-        let mime = 'text/plain';
-        if (format === 'srt') content = buildSrt(text);
-        if (format === 'docx') {
-            content = buildDocxHtml(text);
-            mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-        }
-        const blob = new Blob([content], { type: mime });
-        downloadBlob(blob, transcriptFileName(format, state.transcript.file?.name || 'result'));
-    });
-
-    $('vsTrToPodcast').addEventListener('click', () => {
-        const text = $('vsTrResult').value;
-        if (!text) return;
-        state.podcast.text = text;
-        $('vsPodText').value = text;
-        state.podcast.source = 'manual';
-        document.querySelectorAll('[data-vs-pod-source]').forEach((b) =>
-            b.classList.toggle('is-active', b.dataset.vsPodSource === 'manual'));
-        $('vsPodManualBox').hidden = false;
-        $('vsPodUploadBox').hidden = true;
-        switchMode('podcast');
-    });
-
-    $('vsTrToAudiobook').addEventListener('click', () => {
-        const text = $('vsTrResult').value;
-        if (!text) return;
-        initializeNewProject(text);
-        renderBookSteps();
-        renderBookPanel();
-        switchMode('audiobook');
-    });
-}
+/* ── وضع التفريغ النصي: حُذف كاملًا في تدقيق 2026-11-25 ─────────────
+   التفريغ يحتاج إدخال صوت — لا يمكن عبر ai-gateway (نص فقط) — ومساره
+   المباشر بـ Gemini ميت حيًا (500 «API key not valid») ولا يمكن
+   التحقق من عمله بمفتاح شخصي صالح من هنا؛ فالزر كان سيبقى ميتًا
+   عمليًا. معه حُذف تصديره (SRT بتوقيتات مخترعة و«DOCX» HTML متنكر)
+   ونقل نصه إلى البودكاست والكتاب. يُستعاد من git إن وفّر محمود
+   مفتاح Gemini صالحًا وأثبت التفريغ حيًا. */
 
 /* ───────────────────────── التشغيل ───────────────────────── */
 
@@ -2119,5 +2034,4 @@ if (boot) {
     initVoiceSection();
     initAudiobook();
     initPodcast();
-    initTranscript();
 }
