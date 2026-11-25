@@ -19,15 +19,12 @@
 
 import { EDGE_VOICE_MAP, EDGE_VOICE_DEFAULT } from './voice-studio-data.js';
 
+/* الدالة الآن توليد صوتي فقط (tts): الإجراءات النصية الستة السابقة
+   (تحسين/جمل/توزيع/تفريغ/استخراج/سكربت/بث) حُذفت في تدقيق
+   2026-11-25 — الأربعة النصية تُوجَّه الآن إلى ai-gateway من الصفحة
+   مباشرة، والتفريغ والاستخراج والبث حُذفوا بلا بديل. */
 export const EDGE_ACTIONS = [
-  'preprocess-text',
-  'identify-key-sentences',
-  'analyze-and-segment',
-  'transcribe-media',
-  'extract-text',
-  'generate-podcast-script',
   'tts',
-  'generate-stream',
 ];
 
 /* أقفال اللهجات الصوتية — من server.ts في المشروع الأصلي، حرفيًا. */
@@ -107,16 +104,83 @@ export function formatTime(time) {
   return `${mins}:${String(secs).padStart(2, '0')}`;
 }
 
-/** طابع SRT: HH:MM:SS,mmm. */
-export function formatSrtTime(seconds) {
-  const total = Math.max(0, Number(seconds) || 0);
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = Math.floor(total % 60);
-  const ms = Math.floor((total - Math.floor(total)) * 1000);
-  const pad = (n, len = 2) => String(n).padStart(len, '0');
-  return `${pad(h)}:${pad(m)}:${pad(s)},${pad(ms, 3)}`;
+/* ── برومبتات الإجراءات النصية عبر ai-gateway ──────────────────────
+   الإجراءات النصية الأربعة (تحسين النص، الجمل المحورية، التوزيع
+   الذكي للكتاب، سكربت البودكاست) تُنفَّذ الآن بنداء ai-gateway
+   (action: generate) من الصفحة مباشرة بمفاتيح المنصة الخادمية — بلا
+   مفتاح Gemini شخصي. هذه الثوابت هي نصوص الـ system prompts التي
+   كانت في supabase/functions/voice-studio/index.ts، منقولة هنا لأن
+   الدالة أصبحت توليدًا صوتيًا فقط. */
+
+/** تعليمات تحويل اللهجة لتحسين النص (سودانية/يمنية/لبنانية فقط؛
+ *  باقي اللهجات تستخدم التعليم العام «الالتزام بنمط وروح اللهجة»). */
+export const DIALECT_PREPROCESS_INSTRUCTIONS = {
+  sudanese: `
+أنت خبير لغوي في اللهجة السودانية.
+المهمة: تحويل النص التالي إلى اللهجة السودانية الدارجة الخفيفة والمفهومة.
+القواعد:
+1. استخدم مفردات سودانية أصيلة ومفهومة (مثلاً: شديد، هسة، زول، تمام).
+2. طبق قواعد صياغة الجمل السودانية مع الحفاظ على المعنى الأصلي بدقة.
+3. تجنب المصطلحات شديدة الصعوبة أو "الراندوك" المبالغ فيه.
+4. ابتعد تماماً عن أنماط الحديث المصرية أو الخليجية.
+5. أخرج النص المعدل فقط.
+      `,
+  yemeni: `
+أنت خبير لغوي في اللهجة اليمنية.
+المهمة: تحويل النص التالي إلى اللهجة اليمنية البيضاء (المدنية) المفهومة واللطيفة.
+القواعد:
+1. استخدم مفردات يمنية دارجة خفيفة ومحببة (مثلاً: الحين، كذا، عاد، خلّينا، نشوف، تمام).
+2. طبق قواعد صياغة الجمل اليمنية مع الحفاظ على المعنى الأصلي بدقة.
+3. التزم بالنبرة اليمنية المدنية الواضحة والمباشرة.
+4. تجنب المصطلحات قبلية أو إقليمية شديدة الصعوبة؛ اجعلها "لهجة بيضاء" يمنية.
+5. ابتعد تماماً عن أنماط الحديث الخليجية أو السعودية الثقيلة.
+6. أخرج النص المعدل فقط.
+      `,
+  lebanese: `
+أنت خبير لغوي في اللهجة اللبنانية.
+المهمة: تحويل النص التالي إلى اللهجة اللبنانية البيضاء (المدنية) الأنيقة واللطيفة.
+القواعد:
+1. استخدم مفردات لبنانية دارجة خفيفة ومحببة (مثلاً: هلق، كتير، هيك، خلّينا، تمام، أكيد، مش مشكلة).
+2. طبق قواعد صياغة الجمل اللبنانية مع الحفاظ على المعنى الأصلي بدقة ومرونة.
+3. التزم بالنبرة اللبنانية المدنية الراقية والواضحة.
+4. تجنب المبالغة في اللكنة أو استخدام المصطلحات سوقية؛ اجعلها "لهجة بيضاء" لبنانية مهذبة تناسب المحتوى الاحترافي.
+5. ابتعد تماماً عن أنماط الحديث المصرية أو الخليجية.
+6. أخرج النص المعدل فقط.
+      `,
+};
+
+/** إرشاد لهجة الحوار لسكربت البودكاست، حسب معرّف اللهجة. */
+export const PODCAST_STYLE_GUIDES = {
+  egyptian: "يجب توطين الحوار لغويًا ليعكس روح اللهجة المصرية العامية. استخدم تعبيرات مصرية دارجة (مثل: عشان، كده، إيه، مفيش) مع الحفاظ على سلاسة الحوار. يفضل تجنب المفردات شديدة الرسمية.",
+  saudi: "يجب توطين الحوار ليعكس نمط الحديث السعودي الدارج والمهذب. استخدم مفردات وروح اللهجة السعودية.",
+  khaleeji: "يجب أن يعكس الحوار نمط الحديث الخليجي الأبيض الواضح والمريح.",
+  levantine: "يجب توطين الحوار لغويًا ليعكس روح اللهجة الشامية بأسلوبها العذب وتعبيراتها الدارجة (مثل: هيك، شو، كرمال).",
+  sudanese: "يجب توطين الحوار لغويًا ليعكس روح اللهجة السودانية الدافئة. استخدم تعبيرات سودانية دارجة ومحببة (مثل: يا زول، هسة، تمام شديد) مع الحفاظ على الوقار السوداني المعتاد في الحديث.",
+  yemeni: "يجب توطين الحوار ليعكس الأصالة اليمنية والأسلوب اليمني المدني الودود في الحديث. استخدم كلمات مثل (الحين، كذا، عاد، نشوف).",
+  lebanese: "يجب توطين الحوار ليعكس الرقة والأناقة اللبنانية في التعبير (مثل: هلق، كتير، هيك، شو، كيفك، ميرسي، كرمالك، أكيد).",
+  fusha: "يجب أن يكون الحوار باللغة العربية الفصحى السليمة والمعاصرة.",
+};
+
+/**
+ * يستخرج كائن JSON من رد نصي حر (قد يأتي ملفوفًا في ```json أو
+ * محاطًا بنص): يقطع من أول «{» إلى آخر «}» ويحلّل. يرمي عند فشل
+ * التحليل — لا بديل صامت: المتصل يعرض الخطأ بدل نتيجة مخترعة.
+ */
+export function extractJsonObject(text) {
+  const raw = String(text || '').trim();
+  if (!raw) throw new Error('رد فارغ من خدمة الذكاء الاصطناعي.');
+  const unfenced = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  const start = unfenced.indexOf('{');
+  const end = unfenced.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error('تعذّر تحليل رد خدمة الذكاء الاصطناعي.');
+  }
+  return JSON.parse(unfenced.slice(start, end + 1));
 }
+
+/* حُذف في تدقيق 2026-11-25 مع وضع التفريغ النصي كاملًا: بناء SRT
+   (كان يخترع توقيتات 4 ثوانٍ لكل جملة)، وغلاف DOCX (كان HTML متنكرًا
+   بامتداد docx)، وأسماء ملفات التفريغ — لا تصدير بلا تفريغ. */
 
 /**
  * يغلّف PCM خام (24kHz، أحادي، 16-bit افتراضيًا) في WAV صالح.
@@ -181,50 +245,6 @@ export function concatWavBuffers(buffers, sampleRate = 24000, numChannels = 1, b
 /** يقسّم النص إلى فقرات غير فارغة (التقسيم اليدوي للكتاب الصوتي). */
 export function splitTextByParagraphs(text) {
   return String(text || '').split(/\n+/).map((p) => p.trim()).filter(Boolean);
-}
-
-/**
- * يبني SRT من تفريغ نصي:
- *  • إن وُجدت طوابع [MM:SS] في النص تُستخدم حدودًا للمقاطع.
- *  • وإلا تُقسَّم الجمل على مقاطع متتالية مدة كل منها 4 ثوانٍ.
- */
-export function buildSrt(transcript) {
-  const text = String(transcript || '').trim();
-  if (!text) return '';
-  const timed = [...text.matchAll(/\[(\d{1,2}):(\d{2})\]\s*([^\[]*)/g)];
-  const blocks = [];
-  if (timed.length > 0) {
-    timed.forEach((m, i) => {
-      const start = Number(m[1]) * 60 + Number(m[2]);
-      const end = i + 1 < timed.length
-        ? Number(timed[i + 1][1]) * 60 + Number(timed[i + 1][2])
-        : start + 4;
-      const body = (m[3] || '').trim();
-      if (body) blocks.push({ start, end: Math.max(end, start + 1), body });
-    });
-  } else {
-    const sentences = text.split(/(?<=[.!؟\n])\s+/).map((s) => s.trim()).filter(Boolean);
-    sentences.forEach((body, i) => {
-      blocks.push({ start: i * 4, end: (i + 1) * 4, body });
-    });
-  }
-  return blocks.map((b, i) =>
-    `${i + 1}\n${formatSrtTime(b.start)} --> ${formatSrtTime(b.end)}\n${b.body}`).join('\n\n') + '\n';
-}
-
-/** غلاف DOCX (HTML يُفتح في Word) — كما في المشروع الأصلي، بخط Cairo. */
-export function buildDocxHtml(transcript) {
-  const escaped = String(transcript || '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/\n/g, '<br>');
-  return `<!DOCTYPE html><html><body><div style="direction:rtl; font-family: 'Cairo', sans-serif;">${escaped}</div></body></html>`;
-}
-
-/** اسم ملف التفريغ: mad3oom_transcript_<اسم المصدر>.<الامتداد>. */
-export function transcriptFileName(format, sourceName) {
-  const base = String(sourceName || 'result').replace(/\.[^.]+$/, '') || 'result';
-  const safe = base.replace(/[\\/:*?"<>|]/g, '_');
-  return `mad3oom_transcript_${safe}.${format}`;
 }
 
 /** اسم ملف الصوت المولّد: العنوان أو mad3oom_audio، بامتداد wav
