@@ -732,7 +732,17 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         وRLS صف صاحبه. الرقم 130 محجوز لحارس owns/belongs (المدخل
     //         أعلاه، دُمج بقرار صريح). مقيسٌ في tests/sql/login-locations.test.sql و
     //         tests/login-location.test.mjs.
-    assert.equal(migrations[migrations.length - 1], '131_login_locations.sql',
+    //   132 — محجوز لفرع muse-fast-reply غير المندمج، غير موجود في هذا الفرع.
+    //   133 — أولويات صفحة المتاجر للمالك، بطلب صاحب المنتج (2026-11-24، ثلاث
+    //         مهام متتابعة): سعر باقة المتاجر (500/5000 معتمَد، يُدخل من
+    //         الواجهة بعد الدمج) وإجراءات المزامنة وإعادة الأحداث للمالك
+    //         وإدارة اشتراك متجر كاستثناء (منح/انتهاء/إيقاف/استئناف/دورة)
+    //         والاقتراحات الستة (تنبيهات داخل الصفحة، طلبات معلّقة، حد
+    //         التذاكر والمزايا، فلاتر وتصدير، سجل عمليات، مبدّل المزوّد).
+    //         كلها دوال مالك owner_only/owner_critical_ok بلا منح لغير
+    //         المالك وبلا تطبيق حي. مقيسٌ في tests/sql/owner-stores-133.test.sql و
+    //         tests/owner-pages.render.test.mjs.
+    assert.equal(migrations[migrations.length - 1], '133_owner_store_price_and_sync_actions.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

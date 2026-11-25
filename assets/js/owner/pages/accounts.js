@@ -582,6 +582,16 @@ async function load() {
     renderUnitOptions();
     applyView();
     renderDetail();
+    // رابط عميق من صفحة المتاجر: ?id=<company_id|user_id> — يوسّع أسلاف العقدة ويختارها.
+    // flattenTree يعيد path كمفاتيح (strings) تشمل العقدة نفسها.
+    const deepId = new URLSearchParams(location.search).get('id');
+    if (deepId) {
+        const entry = flattenTree(tree).find(({ node }) => node.key === `company:${deepId}` || node.key === `person:${deepId}`);
+        if (entry) {
+            for (const key of entry.path || []) collapsed.delete(key);
+            selectNode(entry.node.key);
+        }
+    }
 }
 
 function selectNode(key) {

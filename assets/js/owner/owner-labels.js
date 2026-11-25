@@ -102,6 +102,80 @@ export function searchTerm(value) {
     return String(value || '').replace(/[,()*%\\:"]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100);
 }
 
+/** تسميات مزايا متجر الاختبار الثلاث (118/119) — نفس المفاتيح في company_feature_overrides. */
+export const STORE_FEATURE_LABELS = Object.freeze({
+    integrations_hub: 'مركز التكاملات',
+    shopify_integration: 'تكامل Shopify',
+    store_support: 'دعم المتجر'
+});
+
+/**
+ * التحقق من نموذج سعر باقة المتاجر قبل النداء — نسخة من شرط
+ * owner_set_store_plan_price() في القاعدة (133): السعران موجبان، بالجنيه.
+ * يعيد رسالة خطأ أو null.
+ */
+export function storePriceError({ monthly, yearly }) {
+    const m = Number(monthly);
+    const y = Number(yearly);
+    if (!Number.isFinite(m) || m <= 0) return 'السعر الشهري موجب (بالجنيه) — اكتب رقمًا أكبر من صفر.';
+    if (!Number.isFinite(y) || y <= 0) return 'السعر السنوي موجب (بالجنيه) — اكتب رقمًا أكبر من صفر.';
+    return null;
+}
+
+/**
+ * التحقق من سبب عملية مالك قبل النداء — نفس شرط القاعدة (118/119):
+ * السبب إلزامي 10 أحرف على الأقل، ويُسجَّل في تدقيق المالك.
+ */
+export function storeReasonError(reason) {
+    if (String(reason || '').trim().length < 10) return 'اكتب سببًا واضحًا (10 أحرف على الأقل) — يُسجَّل في تدقيق المالك.';
+    return null;
+}
+
+/**
+ * الأيام المتبقية لامتياز ينتهي في expiresAt — نسخة من حساب
+ * owner_store_test_status() في القاعدة (133): بلا انتهاء = null،
+ * ومنتهٍ = 0، وإلا السقف الكامل للأيام المتبقية.
+ */
+export function testDaysRemaining(expiresAt, now = new Date()) {
+    if (!expiresAt) return null;
+    const end = new Date(expiresAt);
+    if (Number.isNaN(end.getTime())) return null;
+    if (end <= now) return 0;
+    return Math.ceil((end - now) / 864e5);
+}
+
+/** تسميات دورة الفوترة في اشتراكات المتاجر (133) — نفس القيم في القاعدة. */
+export const BILLING_CYCLE_LABELS = Object.freeze({ monthly: 'شهري', yearly: 'سنوي' });
+
+/**
+ * التحقق من تاريخ انتهاء اشتراك متجر قبل النداء — نسخة من شرط
+ * owner_store_grant_exception / owner_store_set_end_date في القاعدة (133):
+ * مستقبلي، أبعد من البداية، وخلال maxDays يومًا كحد أقصى. يعيد رسالة خطأ أو null.
+ */
+export function storeEndDateError(endDate, { maxDays = 365, startDate = null } = {}, now = new Date()) {
+    const end = endDate ? new Date(endDate) : null;
+    if (!end || Number.isNaN(end.getTime())) return 'اختر تاريخ انتهاء صحيحًا.';
+    if (end <= now) return 'تاريخ الانتهاء في المستقبل — لا تاريخ ماضٍ.';
+    if (end > new Date(now.getTime() + maxDays * 864e5)) return `تاريخ الانتهاء خلال ${maxDays} يومًا كحد أقصى.`;
+    if (startDate) {
+        const start = new Date(startDate);
+        if (!Number.isNaN(start.getTime()) && end <= start) return 'تاريخ الانتهاء أبعد من تاريخ بداية الاشتراك.';
+    }
+    return null;
+}
+
+/** خلية CSV: تُقتبس عند وجود فاصلة أو سطر أو علامة اقتباس، وتُضاعف الاقتباسات. */
+export function csvCell(value) {
+    const s = value == null ? '' : String(value);
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/** جدول CSV نصي (سطر عناوين + صفوف) من مصفوفات قيم — يُبنى في المتصفح من بيانات محمّلة. */
+export function toCsv(headers, rows) {
+    const lines = [headers.map(csvCell).join(','), ...rows.map((r) => r.map(csvCell).join(','))];
+    return lines.join('\r\n');
+}
+
 /** حدود صفحة الترقيم (range شامل في PostgREST). */
 export function pageRange(page, size) {
     const p = Math.max(0, Number(page) || 0);

@@ -66,6 +66,14 @@
             <div class="kpi-grid" id="storesKpis" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
 
             <div class="owner-page-stack">
+                <section class="panel" aria-labelledby="storeAlertsHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="storeAlertsHeading">تنبيهات المتاجر</h2>
+                        <p class="panel-subtitle">روابط بخطأ أو مزامنة فاشلة أو أحداث ميتة أو طلبات خصوصية معلّقة أو ربط حي بلا امتياز — داخل هذه الصفحة فقط، بلا إشعارات دفع؛ ويقرؤها التقرير الصباحي أيضًا.</p>
+                    </div></div>
+                    <div id="storeAlerts" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                </section>
+
                 <section class="panel" aria-labelledby="accountsHeading">
                     <div class="panel-header"><div>
                         <h2 class="panel-title" id="accountsHeading">الحسابات حسب النوع</h2>
@@ -79,11 +87,41 @@
                             <option value="company">شركة</option>
                             <option value="ecommerce_store">متجر إلكتروني</option>
                         </select>
-                        <label class="visually-hidden" for="accountsSearch">ابحث بالاسم أو البريد</label>
-                        <input type="search" class="form-control owner-filter-search" id="accountsSearch" placeholder="ابحث بالاسم أو البريد…" autocomplete="off" maxlength="100">
+                        <label class="visually-hidden" for="accountsSubStatus">حالة الاشتراك</label>
+                        <select class="form-control owner-filter-select" id="accountsSubStatus">
+                            <option value="">كل حالات الاشتراك</option>
+                            <option value="active">فعّال</option>
+                            <option value="expired">منتهٍ</option>
+                            <option value="none">بلا اشتراك</option>
+                        </select>
+                        <label class="visually-hidden" for="accountsShopify">حالة شوبيفاي</label>
+                        <select class="form-control owner-filter-select" id="accountsShopify">
+                            <option value="">كل حالات شوبيفاي</option>
+                            <option value="active">متصل</option>
+                            <option value="error">خطأ</option>
+                            <option value="reauth_required">يحتاج تفويض</option>
+                            <option value="none">بلا ربط</option>
+                        </select>
+                        <label class="visually-hidden" for="accountsSuspended">حالة الإيقاف</label>
+                        <select class="form-control owner-filter-select" id="accountsSuspended">
+                            <option value="">الكل (موقوفة وغيرها)</option>
+                            <option value="true">الموقوفة فقط</option>
+                            <option value="false">غير الموقوفة</option>
+                        </select>
+                        <label class="visually-hidden" for="accountsSearch">ابحث بالاسم أو البريد أو دومين المتجر</label>
+                        <input type="search" class="form-control owner-filter-search" id="accountsSearch" placeholder="ابحث بالاسم أو البريد أو دومين المتجر…" autocomplete="off" maxlength="100">
+                        <button type="button" class="btn btn-outline btn-sm" id="accountsExport">تصدير CSV</button>
                     </form>
                     <div id="accountsTable" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
                     <div id="accountsPager"></div>
+                </section>
+
+                <section class="panel" aria-labelledby="storeRequestsHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="storeRequestsHeading">طلبات المتاجر المعلّقة</h2>
+                        <p class="panel-subtitle">طلبات تحويل الحساب إلى متجر إلكتروني بانتظار قرارك — الاعتماد أو الرفض من هنا، بسبب مسجَّل.</p>
+                    </div></div>
+                    <div id="storeRequests" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
                 </section>
 
                 <section class="panel" aria-labelledby="storeIntegrationsHeading">
@@ -102,6 +140,14 @@
                     <div id="storeDiagnostics" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
                 </section>
 
+                <section class="panel" aria-labelledby="storeOpsLogHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="storeOpsLogHeading">سجل عمليات المتاجر</h2>
+                        <p class="panel-subtitle">أحدث عمليات المتاجر: سعر الباقة، منح وسحب الاستثناءات، إيقاف واستئناف، تحويل دورة، تعديل انتهاء، تغيير نوع شركة، مزامنة وإعادة محاولة من المالك.</p>
+                    </div></div>
+                    <div id="storeOpsLog" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                </section>
+
                 <section class="panel" aria-labelledby="testStoreHeading">
                     <div class="panel-header"><div>
                         <h2 class="panel-title" id="testStoreHeading">متجر الاختبار والمعاينة</h2>
@@ -115,8 +161,8 @@
                 <summary>ما لا تفعله هذه الصفحة</summary>
                 <ul>
                     <li>لا تعرض رموز شوبيفاي ولا أسرار التطبيق ولا بيانات عملاء المتاجر أو طلباتهم: الطلبات والعملاء يراها فريق المتجر نفسه في لوحته.</li>
-                    <li>لا تمنح صلاحيات الإدارة: مراجعة طلبات حسابات المتاجر واعتماد الاشتراكات في <a href="/admin/company-requests.html">لوحة الإدارة</a>.</li>
-                    <li>لا تحدد أسعار باقة المتاجر: السعر قرار المالك من إدارة الباقات، والقاعدة ترفض تفعيل باقة متاجر بلا سعر.</li>
+                    <li>طلبات حسابات الشركات العادية (غير المتاجر) تُراجع في <a href="/admin/company-requests.html">لوحة الإدارة</a>؛ طلبات المتاجر تُقرر من هذه الصفحة.</li>
+                    <li>سعر باقة المتاجر وتفعيلها قرار المالك من نموذج السعر في قسم التشخيص؛ والقاعدة ترفض تفعيل باقة متاجر بلا سعرين موجبين.</li>
                 </ul>
             </details>
             <p class="owner-sie-status ows-toast" id="pageStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>

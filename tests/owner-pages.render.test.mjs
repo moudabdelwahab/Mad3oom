@@ -16,7 +16,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import {
-    subscriptionActions, subscriptionChangeError, searchTerm, pageRange, pagerText, SUBSCRIPTION_TRANSITIONS
+    subscriptionActions, subscriptionChangeError, searchTerm, pageRange, pagerText, SUBSCRIPTION_TRANSITIONS,
+    storePriceError, storeReasonError, testDaysRemaining, BILLING_CYCLE_LABELS, storeEndDateError, csvCell, toCsv
 } from '../assets/js/owner/owner-labels.js';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
@@ -93,6 +94,45 @@ function fixtures({ context = 'owner', owner = true } = {}) {
                 features: ['integrations_hub', 'shopify_integration'], ticket_quota_defined: false },
                 live_connection_without_entitlement: [], stores_without_subscription: 0, store_plan_on_non_store: 0, pending_store_requests: 2 },
             owner_store_events: { jobs: [], events: [], audit: [] },
+            // 133: سعر باقة المتاجر وإجراءات المزامنة وحالة متجر الاختبار
+            owner_set_store_plan_price: { key: 'store', is_active: true, price_monthly: 500, price_yearly: 5000, currency: 'EGP', activated: true },
+            owner_ihub_sync_request: { job_id: 7, existing: false },
+            owner_ihub_events_retry: { requeued: 1 },
+            owner_set_company_account_kind: { changed: true, account_kind: 'ecommerce_store' },
+            owner_store_test_entitlements: { company_id: 'cw', enabled: true, expires_at: future },
+            owner_store_test_status: { company_id: 'cw', company_name: 'شركة المالك', account_kind: 'company', has_company: true, is_test_store: false,
+                entitlements: [
+                    { feature_key: 'integrations_hub', granted: false, active: false, granted_at: null, expires_at: null, days_remaining: null },
+                    { feature_key: 'shopify_integration', granted: false, active: false, granted_at: null, expires_at: null, days_remaining: null },
+                    { feature_key: 'store_support', granted: false, active: false, granted_at: null, expires_at: null, days_remaining: null }] },
+            // 133: إدارة اشتراك المتجر كاستثناء + التنبيهات والطلبات وسجل العمليات
+            owner_store_alerts: { count: 2, critical: 1, alerts: [
+                { kind: 'dead_events', severity: 'critical', message: '3 أحداث ميتة في متجر الورد', count: 3, target: '#conn-cn1', connection_id: 'cn1' },
+                { kind: 'no_entitlement', severity: 'warning', message: 'ربط حي بلا امتياز في متجر الورد', count: 1, target: '#storeDiagnostics', connection_id: 'cn1' }] },
+            owner_store_requests: [
+                { id: 'rq1', customer_name: 'طالب الطلب', customer_email: 'rq@x.test', company_name: 'متجر الطلب',
+                  requested_plan: 'store', requested_billing_cycle: 'monthly', created_at: '2026-10-25T00:00:00Z' }],
+            owner_store_request_decide: { id: 'rq1', status: 'approved', decision: 'approve', company_id: 'c10' },
+            owner_store_subscription: { id: 'sub1', plan: 'store', billing_cycle: 'monthly', status: 'active',
+                start_date: '2026-10-01T00:00:00Z', end_date: future, duration_days: 30, payment_method: 'owner_exception',
+                price_snapshot: { amount: 0, exception: true, cycle_price: 500 }, effective: true },
+            owner_store_grant_exception: { id: 'sub1', plan: 'store', billing_cycle: 'monthly', status: 'active',
+                start_date: '2026-10-26T00:00:00Z', end_date: future, duration_days: 30, payment_method: 'owner_exception', effective: true },
+            owner_store_set_end_date: { id: 'sub1', plan: 'store', billing_cycle: 'monthly', status: 'active', end_date: future, effective: true },
+            owner_store_pause: { id: 'sub1', plan: 'store', billing_cycle: 'monthly', status: 'paused', effective: false },
+            owner_store_resume: { id: 'sub1', plan: 'store', billing_cycle: 'monthly', status: 'active', effective: true },
+            owner_store_change_cycle: { id: 'sub1', plan: 'store', billing_cycle: 'yearly', status: 'active', effective: true },
+            owner_store_plan_config: { plan: 'store', quota_defined: false, ticket_quota: null, features: [
+                { feature_key: 'integrations_hub', enabled: true, limits: null },
+                { feature_key: 'shopify_integration', enabled: true, limits: null },
+                { feature_key: 'store_support', enabled: false, limits: null },
+                { feature_key: 'support_tickets', enabled: false, limits: null },
+                { feature_key: 'sub_users', enabled: false, limits: null }] },
+            owner_set_store_plan_quota_features: { plan: 'store', quota_defined: true, ticket_quota: 100, features: [] },
+            owner_store_operations_log: [
+                { action: 'store.plan_price', actor_email: 'owner@example.com', summary: 'حُدّد سعر باقة المتاجر: 500 شهري / 5000 سنوي.', created_at: '2026-10-27T00:00:00Z' },
+                { action: 'store.grant_exception', actor_email: 'owner@example.com', summary: 'مُنحت باقة المتاجر لمتجر الورد كاستثناء.', created_at: '2026-10-26T00:00:00Z' }],
+            owner_set_shopify_provider_enabled: { provider: 'shopify', enabled: true },
             owner_set_passcode: { ok: true },
             owner_set_passcode_active: { ok: true },
             // 121: مركز الأمان والصلاحيات
@@ -217,6 +257,39 @@ test('البحث لا يكسر مرشّح PostgREST، والترقيم شامل 
     assert.deepEqual(pageRange(0, 25), [0, 24]);
     assert.deepEqual(pageRange(2, 25), [50, 74]);
     assert.match(pagerText(1, 25, 60), /٢٦–٥٠ من ٦٠|26–50 من 60/);
+});
+
+test('سعر باقة المتاجر والسبب والأيام المتبقية نسخة من شرط القاعدة (133)', () => {
+    assert.equal(storePriceError({ monthly: 500, yearly: 5000 }), null);
+    assert.equal(storePriceError({ monthly: '500', yearly: '5000' }), null);
+    assert.match(storePriceError({ monthly: 0, yearly: 5000 }), /الشهري/);
+    assert.match(storePriceError({ monthly: -5, yearly: 5000 }), /الشهري/);
+    assert.match(storePriceError({ monthly: 500, yearly: '' }), /السنوي/);
+    assert.match(storePriceError({ monthly: 'abc', yearly: 5000 }), /الشهري/);
+    assert.match(storeReasonError('قصير'), /10 أحرف/);
+    assert.match(storeReasonError('   '), /10 أحرف/);
+    assert.equal(storeReasonError('اختبار تجربة المتجر'), null);
+    assert.equal(testDaysRemaining(null), null);
+    assert.equal(testDaysRemaining('2026-01-01T00:00:00Z', new Date('2026-01-10T00:00:00Z')), 0);
+    assert.equal(testDaysRemaining('2026-01-10T12:00:00Z', new Date('2026-01-10T00:00:00Z')), 1);
+    assert.equal(testDaysRemaining('2026-01-16T00:00:00Z', new Date('2026-01-10T00:00:00Z')), 6);
+});
+
+test('تاريخ انتهاء اشتراك المتجر وتسميات الدورة وCSV نسخة من شرط القاعدة (133)', () => {
+    const now = new Date('2026-10-27T00:00:00Z');
+    assert.equal(BILLING_CYCLE_LABELS.monthly, 'شهري');
+    assert.equal(BILLING_CYCLE_LABELS.yearly, 'سنوي');
+    assert.equal(storeEndDateError('2026-11-26T00:00:00Z', { maxDays: 365 }, now), null);
+    assert.match(storeEndDateError('not-a-date', { maxDays: 365 }, now), /صحيحًا/);
+    assert.match(storeEndDateError('2026-10-26T00:00:00Z', { maxDays: 365 }, now), /المستقبل/);
+    assert.match(storeEndDateError('2027-11-01T00:00:00Z', { maxDays: 365 }, now), /365 يومًا/);
+    assert.match(storeEndDateError('2026-11-01T00:00:00Z', { maxDays: 365, startDate: '2026-11-05T00:00:00Z' }, now), /أبعد من تاريخ بداية/);
+    assert.equal(storeEndDateError('2026-11-06T00:00:00Z', { maxDays: 365, startDate: '2026-11-05T00:00:00Z' }, now), null);
+    assert.equal(csvCell('بسيط'), 'بسيط');
+    assert.equal(csvCell('فيه, فاصلة'), '"فيه, فاصلة"');
+    assert.equal(csvCell('قال "مرحبا"'), '"قال ""مرحبا"""');
+    assert.equal(csvCell(null), '');
+    assert.equal(toCsv(['أ', 'ب'], [['1', 'x,y'], ['2', 'z']]), 'أ,ب\r\n1,"x,y"\r\n2,z');
 });
 
 /* ── القائمة ───────────────────────────────────────────────────────────── */
@@ -353,6 +426,255 @@ test('الاشتراكات: رفض الدالة يظهر برسالتها', { sk
     await page.waitForFunction(() => /للإدارة فقط/.test(document.querySelector('#subStatus')?.textContent || ''));
     assert.equal(await page.locator('.owner-modal').count(), 1);
     await context.close();
+});
+
+test('المتاجر: سعر الباقة معبأ بالمعتمد (500/5000) ويُحفظ، والمزامنة وإعادة الأحداث تناديان دوال المالك', { skip: !chromiumPath }, async () => {
+    // جلسة تحرير طازجة: حارس [data-critical] في الشريط الجانبي يعترض النقرة بلا جلسة
+    // ويفتح نافذة التحقق — بالجلسة الطازجة يعيد النقرة نفسها فورًا.
+    const fx = fixtures();
+    fx.rpc.owner_security_status = { ...fx.rpc.owner_security_status, step_up_fresh: true, step_up_expires_at: '2099-01-01T00:00:00Z' };
+    const { page, context, errors } = await openPage(browser, baseUrl, 'stores', fx);
+    await page.waitForSelector('#storeIntegrations table');
+    await page.waitForSelector('#storePriceForm');
+
+    // السعر: القيم الافتراضية المعتمدة، والتحقق قبل الإرسال
+    assert.equal(await page.inputValue('#planMonthly'), '500');
+    assert.equal(await page.inputValue('#planYearly'), '5000');
+    await page.fill('#planMonthly', '');
+    await page.click('#storePriceForm button[type=submit]');
+    assert.match(await page.textContent('#planPriceStatus'), /الشهري/);
+    assert.deepEqual(await rpcCalls(page, 'owner_set_store_plan_price'), []);
+    await page.fill('#planMonthly', '500');
+    await page.fill('#planYearly', '5000');
+    await page.check('#planActivate');
+    await page.click('#storePriceForm button[type=submit]');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_set_store_plan_price'));
+    assert.deepEqual(await rpcCalls(page, 'owner_set_store_plan_price'),
+        [{ p_monthly: 500, p_yearly: 5000, p_activate: true }]);
+
+    // المزامنة وإعادة الأحداث على الربط الخطأ (error) وبه حدث ميت
+    await page.waitForSelector('[data-sync="cn1"]');
+    await page.click('[data-sync="cn1"]');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_ihub_sync_request'));
+    assert.deepEqual(await rpcCalls(page, 'owner_ihub_sync_request'), [{ p_connection: 'cn1' }]);
+    await page.waitForSelector('[data-retry="cn1"]');
+    await page.click('[data-retry="cn1"]');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_ihub_events_retry'));
+    assert.deepEqual(await rpcCalls(page, 'owner_ihub_events_retry'), [{ p_connection: 'cn1' }]);
+
+    // تحويل الشركة إلى متجر: السبب القصير لا يُرسل، والسبب الكامل يُرسل
+    await page.waitForSelector('[data-kind="ecommerce_store"]');
+    await page.click('[data-kind="ecommerce_store"]');
+    await page.waitForSelector('#kindForm');
+    await page.fill('#kindReason', 'قصير');
+    await page.click('#kindForm button[type=submit]');
+    assert.match(await page.textContent('#kindStatus'), /10 أحرف/);
+    assert.deepEqual(await rpcCalls(page, 'owner_set_company_account_kind'), []);
+    await page.fill('#kindReason', 'تحويل للاختبار التجريبي');
+    await page.click('#kindForm button[type=submit]');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_set_company_account_kind'));
+    assert.deepEqual(await rpcCalls(page, 'owner_set_company_account_kind'),
+        [{ p_company: 'cw', p_kind: 'ecommerce_store', p_reason: 'تحويل للاختبار التجريبي' }]);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('المتاجر: نافذة السجل تعيد محاولة الأحداث الميتة، ونموذج المنح يعرض الامتياز الحالي', { skip: !chromiumPath }, async () => {
+    const fx = fixtures();
+    fx.rpc.owner_security_status = { ...fx.rpc.owner_security_status, step_up_fresh: true, step_up_expires_at: '2099-01-01T00:00:00Z' };
+    fx.rpc.owner_store_events = { jobs: [], audit: [],
+        events: [{ topic: 'orders/create', status: 'dead', attempts: 6, last_error_code: 'timeout', received_at: '2026-10-27T00:00:00Z' }] };
+    const { page, context } = await openPage(browser, baseUrl, 'stores', fx);
+    await page.waitForSelector('[data-events="cn1"]');
+    await page.click('[data-events="cn1"]');
+    await page.waitForSelector('#eventsRetry');
+    await page.click('#eventsRetry');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_ihub_events_retry'));
+    assert.deepEqual(await rpcCalls(page, 'owner_ihub_events_retry'), [{ p_connection: 'cn1' }]);
+    await context.close();
+
+    // متجر اختبار قائم: الامتياز الحالي معروض، والمنح بسبب قابل للتحرير، والسحب بتأكيد
+    const fx2 = fixtures();
+    fx2.rpc.owner_security_status = { ...fx2.rpc.owner_security_status, step_up_fresh: true, step_up_expires_at: '2099-01-01T00:00:00Z' };
+    const future = new Date(Date.now() + 6 * 864e5).toISOString();
+    fx2.rpc.owner_store_test_status = { company_id: 'cw', company_name: 'شركة المالك', account_kind: 'ecommerce_store',
+        has_company: true, is_test_store: true,
+        entitlements: [
+            { feature_key: 'integrations_hub', granted: false, active: false, granted_at: null, expires_at: null, days_remaining: null },
+            { feature_key: 'shopify_integration', granted: true, active: true, granted_at: '2026-10-26T00:00:00Z', expires_at: future, days_remaining: 6 },
+            { feature_key: 'store_support', granted: false, active: false, granted_at: null, expires_at: null, days_remaining: null }] };
+    const second = await openPage(browser, baseUrl, 'stores', fx2);
+    await second.page.waitForSelector('#testGrantForm');
+    assert.match(await second.page.textContent('#testStore'), /تكامل Shopify/);
+    assert.match(await second.page.textContent('#testStore'), /باقٍ [6٦] يوم/);
+    await second.page.fill('#testGrantReason', 'قصير');
+    await second.page.click('#testGrantForm button[type=submit]');
+    assert.match(await second.page.textContent('#testGrantStatus'), /10 أحرف/);
+    assert.deepEqual(await rpcCalls(second.page, 'owner_store_test_entitlements'), []);
+    await second.page.fill('#testGrantReason', 'اختبار المنح التجريبي');
+    await second.page.click('#testGrantForm button[type=submit]');
+    await second.page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_store_test_entitlements'));
+    assert.deepEqual(await rpcCalls(second.page, 'owner_store_test_entitlements'),
+        [{ p_enable: true, p_days: 7, p_reason: 'اختبار المنح التجريبي' }]);
+    await second.page.waitForSelector('#testRevoke');
+    await second.page.click('#testRevoke');
+    await second.page.waitForSelector('#confirmRevoke');
+    await second.page.click('#confirmRevoke');
+    await second.page.waitForFunction(() => (window.__RPC_ARGS__ || []).filter(([n]) => n === 'owner_store_test_entitlements').length === 2);
+    assert.deepEqual(await rpcCalls(second.page, 'owner_store_test_entitlements'),
+        [{ p_enable: true, p_days: 7, p_reason: 'اختبار المنح التجريبي' },
+         { p_enable: false, p_days: 1, p_reason: null }]);
+    await second.context.close();
+});
+
+test('المتاجر: التنبيهات والطلبات والسجل والفلاتر والتصدير والحصة ومبدّل المزوّد', { skip: !chromiumPath }, async () => {
+    const fx = fixtures();
+    fx.rpc.owner_security_status = { ...fx.rpc.owner_security_status, step_up_fresh: true, step_up_expires_at: '2099-01-01T00:00:00Z' };
+    const { page, context, errors } = await openPage(browser, baseUrl, 'stores', fx);
+    await page.waitForSelector('#storeAlerts table');
+    await page.waitForSelector('#storeRequests table');
+    await page.waitForSelector('#storeOpsLog table');
+    await page.waitForSelector('#storeQuotaForm');
+
+    // التنبيهات: النوع والخطورة، والرابط يقفز لصف الربط المعني
+    assert.match(await page.textContent('#storeAlerts'), /أحداث ميتة/);
+    assert.match(await page.textContent('#storeAlerts'), /ربط حي بلا امتياز/);
+    assert.match(await page.textContent('#storeAlerts'), /حرج/);
+    const alertLink = await page.getAttribute('#storeAlerts a[href="#conn-cn1"]', 'href');
+    assert.equal(alertLink, '#conn-cn1');
+    assert.ok(await page.$('#conn-cn1'), 'صف الربط cn1 موجود كهدف للتنبيه');
+
+    // سجل العمليات: إجراءات 133 بالملخص العربي والفاعل
+    assert.match(await page.textContent('#storeOpsLog'), /store\.plan_price/);
+    assert.match(await page.textContent('#storeOpsLog'), /store\.grant_exception/);
+    assert.match(await page.textContent('#storeOpsLog'), /حُدّد سعر باقة المتاجر/);
+
+    // الطلبات: الاعتماد بسبب قصير لا يُرسل، والسبب الكامل يُرسل
+    await page.click('[data-decide="approve"][data-request="rq1"]');
+    await page.waitForSelector('#requestDecideForm');
+    await page.fill('#requestDecideReason', 'قصير');
+    await page.click('#requestDecideForm button[type=submit]');
+    assert.match(await page.textContent('#requestDecideStatus'), /10 أحرف/);
+    assert.deepEqual(await rpcCalls(page, 'owner_store_request_decide'), []);
+    await page.fill('#requestDecideReason', 'اعتماد طلب متجر الاختبار');
+    await page.click('#requestDecideForm button[type=submit]');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_store_request_decide'));
+    assert.deepEqual(await rpcCalls(page, 'owner_store_request_decide'),
+        [{ p_request: 'rq1', p_decision: 'approve', p_reason: 'اعتماد طلب متجر الاختبار' }]);
+
+    // الفلاتر: حالة الاشتراك وحالة شوبيفاي تُرسلان كمعاملات جديدة
+    await page.selectOption('#accountsSubStatus', 'active');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || [])
+        .some(([n, a]) => n === 'owner_accounts_overview' && a.p_sub_status === 'active'));
+    const lastOverview = (await rpcCalls(page, 'owner_accounts_overview')).at(-1);
+    assert.equal(lastOverview.p_sub_status, 'active');
+    await page.selectOption('#accountsShopify', 'error');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || [])
+        .some(([n, a]) => n === 'owner_accounts_overview' && a.p_shopify_status === 'error'));
+    assert.equal((await rpcCalls(page, 'owner_accounts_overview')).at(-1).p_shopify_status, 'error');
+    await page.selectOption('#accountsSuspended', 'true');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || [])
+        .some(([n, a]) => n === 'owner_accounts_overview' && a.p_suspended === true));
+    assert.equal((await rpcCalls(page, 'owner_accounts_overview')).at(-1).p_suspended, true);
+
+    // البحث بدومين المتجر يُرسل كما كُتب، واسم الحساب رابط لصفحة تفاصيله
+    await page.selectOption('#accountsSuspended', '');
+    await page.fill('#accountsSearch', 'ward.myshopify.com');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || [])
+        .some(([n, a]) => n === 'owner_accounts_overview' && a.p_search === 'ward.myshopify.com'));
+    assert.equal((await rpcCalls(page, 'owner_accounts_overview')).at(-1).p_search, 'ward.myshopify.com');
+    assert.equal(await page.getAttribute('#accountsTable a[href="/owner/accounts.html?id=c9"]', 'href'), '/owner/accounts.html?id=c9');
+
+    // التصدير: ملف CSV للصفوف المعروضة، بمحتوى عربي سليم
+    const downloadPromise = page.waitForEvent('download');
+    await page.click('#accountsExport');
+    const download = await downloadPromise;
+    assert.equal(download.suggestedFilename(), 'mad3oom-accounts.csv');
+    const csvPath = await download.path();
+    const csv = fs.readFileSync(csvPath, 'utf8');
+    assert.match(csv, /متجر الورد/);
+    assert.match(csv, /ward\.myshopify\.com/);
+
+    // حد التذاكر والمزايا: فارغ = بلا حد، والسبب إلزامي، والنداء بالحد والمزايا المفعّلة
+    assert.equal(await page.inputValue('#planQuota'), '');
+    await page.fill('#planQuota', '100');
+    await page.click('#storeQuotaForm button[type=submit]');
+    assert.match(await page.textContent('#planQuotaStatus'), /10 أحرف/);
+    assert.deepEqual(await rpcCalls(page, 'owner_set_store_plan_quota_features'), []);
+    await page.fill('#planQuotaReason', 'تحديد حد التذاكر للاختبار');
+    await page.click('#storeQuotaForm button[type=submit]');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_set_store_plan_quota_features'));
+    assert.deepEqual(await rpcCalls(page, 'owner_set_store_plan_quota_features'),
+        [{ p_monthly_quota: 100, p_features: ['integrations_hub', 'shopify_integration'], p_reason: 'تحديد حد التذاكر للاختبار' }]);
+
+    // مبدّل المزوّد: المزوّد مقفل في البيانات فيُعرض «تشغيل»، والسبب إلزامي
+    await page.waitForSelector('#providerToggle');
+    assert.match(await page.textContent('#providerToggle'), /تشغيل مزوّد Shopify/);
+    await page.click('#providerToggle');
+    await page.waitForSelector('#subReasonForm');
+    await page.fill('#subReason', 'تشغيل مزود الاختبار');
+    await page.click('#subReasonForm button[type=submit]');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_set_shopify_provider_enabled'));
+    assert.deepEqual(await rpcCalls(page, 'owner_set_shopify_provider_enabled'),
+        [{ p_enabled: true, p_reason: 'تشغيل مزود الاختبار' }]);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('المتاجر: إدارة اشتراك متجر — منح كاستثناء وإيقاف وتحويل دورة', { skip: !chromiumPath }, async () => {
+    // اشتراك فعّال قائم: الإيقاف وتحويل الدورة بنوافذ سبب
+    const fx = fixtures();
+    fx.rpc.owner_security_status = { ...fx.rpc.owner_security_status, step_up_fresh: true, step_up_expires_at: '2099-01-01T00:00:00Z' };
+    const { page, context, errors } = await openPage(browser, baseUrl, 'stores', fx);
+    await page.waitForSelector('[data-manage-sub="c9"]');
+    await page.click('[data-manage-sub="c9"]');
+    await page.waitForSelector('#subEndForm');
+    assert.match(await page.textContent('#manageSubBody'), /شهري/);
+    assert.match(await page.textContent('#manageSubBody'), /فعّال/);
+    assert.match(await page.textContent('#manageSubBody'), /باقٍ/);
+    await page.click('#subPause');
+    await page.waitForSelector('#subReasonForm');
+    await page.fill('#subReason', 'إيقاف الاشتراك للاختبار');
+    await page.click('#subReasonForm button[type=submit]');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_store_pause'));
+    assert.deepEqual(await rpcCalls(page, 'owner_store_pause'),
+        [{ p_subscription: 'sub1', p_reason: 'إيقاف الاشتراك للاختبار' }]);
+    await page.waitForSelector('#subCycle');
+    await page.click('#subCycle');
+    await page.waitForSelector('#subReasonForm');
+    await page.fill('#subReason', 'تحويل الدورة للاختبار');
+    await page.click('#subReasonForm button[type=submit]');
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_store_change_cycle'));
+    assert.deepEqual(await rpcCalls(page, 'owner_store_change_cycle'),
+        [{ p_subscription: 'sub1', p_billing_cycle: 'yearly', p_reason: 'تحويل الدورة للاختبار' }]);
+    assert.deepEqual(errors, []);
+    await context.close();
+
+    // بلا اشتراك: نموذج المنح — تاريخ ماضٍ مرفوض قبل الإرسال، والمنح الصحيح يُرسل
+    const fx2 = fixtures();
+    fx2.rpc.owner_security_status = { ...fx2.rpc.owner_security_status, step_up_fresh: true, step_up_expires_at: '2099-01-01T00:00:00Z' };
+    fx2.rpc.owner_store_subscription = null;
+    const second = await openPage(browser, baseUrl, 'stores', fx2);
+    await second.page.waitForSelector('[data-manage-sub="c9"]');
+    await second.page.click('[data-manage-sub="c9"]');
+    await second.page.waitForSelector('#subGrantForm');
+    assert.match(await second.page.textContent('#manageSubBody'), /لا اشتراك متجر/);
+    await second.page.fill('#subGrantEnd', '2020-01-01T00:00');
+    await second.page.fill('#subGrantReason', 'منح استثناء للاختبار');
+    await second.page.click('#subGrantForm button[type=submit]');
+    assert.match(await second.page.textContent('#subGrantStatus'), /المستقبل/);
+    assert.deepEqual(await rpcCalls(second.page, 'owner_store_grant_exception'), []);
+    // تاريخ ضمن حد السنة في القاعدة (180 يومًا من الآن)
+    const grantEnd = new Date(Date.now() + 180 * 864e5);
+    await second.page.fill('#subGrantEnd', grantEnd.toISOString().slice(0, 16));
+    await second.page.click('#subGrantForm button[type=submit]');
+    await second.page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_store_grant_exception'));
+    const grant = (await rpcCalls(second.page, 'owner_store_grant_exception'))[0];
+    assert.equal(grant.p_company, 'c9');
+    assert.equal(grant.p_billing_cycle, 'monthly');
+    assert.equal(grant.p_reason, 'منح استثناء للاختبار');
+    assert.ok(Math.abs(new Date(grant.p_end_date) - grantEnd) < 864e5, 'تاريخ الانتهاء المرسل هو المدخل');
+    await second.context.close();
 });
 
 test('سجل النشاط: الحمولة نصّ لا HTML، والتصفية بالحدث تُرسل للخادم', { skip: !chromiumPath }, async () => {
