@@ -252,42 +252,10 @@
 [data-owner-page="voice-studio"] .vs-control-opt-desc { display: block; font-size: .75rem; color: var(--color-text-secondary); line-height: 1.6; margin-top: .2rem; }
 [data-owner-page="voice-studio"] .vs-control-opt:disabled { opacity: .55; cursor: not-allowed; }
 
-[data-owner-page="voice-studio"] .vs-purpose { border-top: 1px solid var(--owner-border); padding-top: var(--sp-4); margin-bottom: var(--sp-4); }
-[data-owner-page="voice-studio"] .vs-purpose-label { display: block; text-align: center; font-size: .75rem; font-weight: 700; letter-spacing: .08em; color: var(--color-text-secondary); margin-bottom: var(--sp-3); }
-[data-owner-page="voice-studio"] .vs-purpose-list { display: flex; flex-wrap: wrap; gap: var(--sp-2); justify-content: center; }
-[data-owner-page="voice-studio"] .vs-purpose-note { text-align: center; font-size: .8rem; color: var(--color-accent); margin: var(--sp-3) 0 0; }
 
-/* ── التثبيت والبصمة ── */
+/* ── التثبيت ── */
 [data-owner-page="voice-studio"] .vs-lock-row { display: flex; flex-wrap: wrap; gap: var(--sp-3); justify-content: center; }
 [data-owner-page="voice-studio"] .vs-lock-note { text-align: center; font-size: .8rem; color: var(--color-text-3); margin: var(--sp-3) 0 0; }
-[data-owner-page="voice-studio"] .vs-fingerprint {
-    margin-top: var(--sp-4);
-    padding: var(--sp-4);
-    border: 1px solid var(--owner-border);
-    border-radius: var(--r-lg);
-    background: var(--color-surface-2);
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-3);
-}
-[data-owner-page="voice-studio"] .vs-fingerprint-head { display: flex; align-items: center; justify-content: space-between; }
-[data-owner-page="voice-studio"] .vs-fingerprint-title { margin: 0; font-size: 1rem; }
-[data-owner-page="voice-studio"] .vs-fingerprint-close { background: none; border: none; color: var(--color-text-3); cursor: pointer; font-size: 1rem; }
-[data-owner-page="voice-studio"] .vs-fp-label { display: block; font-size: .75rem; font-weight: 700; color: var(--color-text-secondary); margin-bottom: var(--sp-2); }
-[data-owner-page="voice-studio"] .vs-fp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--sp-3); }
-[data-owner-page="voice-studio"] .vs-fp-opts { display: flex; flex-direction: column; gap: var(--sp-2); }
-[data-owner-page="voice-studio"] .vs-fp-opt {
-    padding: var(--sp-2);
-    border: 1px solid var(--owner-border);
-    border-radius: var(--r-lg);
-    background: var(--color-surface);
-    color: var(--color-text-secondary);
-    font-size: .85rem;
-    font-weight: 700;
-    cursor: pointer;
-}
-[data-owner-page="voice-studio"] .vs-fp-opt.is-active { border-color: var(--color-accent); background: var(--owner-tint); color: var(--color-text); }
-[data-owner-page="voice-studio"] .vs-fp-confirm { color: var(--color-success); font-weight: 700; margin: 0; }
 
 /* ── النص والتوليد ── */
 [data-owner-page="voice-studio"] .vs-text-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
@@ -441,34 +409,11 @@
 [data-owner-page="voice-studio"] .vs-pod-turn-text { width: 100%; min-height: 3.5rem; line-height: 1.8; background: transparent; border: none; color: var(--color-text); resize: vertical; }
 [data-owner-page="voice-studio"] .vs-pod-turn-text:focus { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
-/* ── التفريغ ── */
+/* ── شبكة الاستيراد (كتاب/بودكاست) ── */
 [data-owner-page="voice-studio"] .vs-tr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
 @media (max-width: 48rem) {
     [data-owner-page="voice-studio"] .vs-tr-grid { grid-template-columns: 1fr; }
 }
-[data-owner-page="voice-studio"] .vs-tr-side { display: flex; flex-direction: column; gap: var(--sp-3); justify-content: flex-end; }
-[data-owner-page="voice-studio"] .vs-tr-toggle { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--owner-border); border-radius: var(--r-lg); background: var(--color-surface); font-weight: 700; font-size: .9rem; }
-[data-owner-page="voice-studio"] .vs-switch {
-    width: 3rem; height: 1.5rem; flex: none;
-    border-radius: var(--r-pill);
-    border: none;
-    background: var(--color-surface-2);
-    position: relative;
-    cursor: pointer;
-    padding: 0;
-}
-[data-owner-page="voice-studio"] .vs-switch-knob {
-    position: absolute; top: .15rem; right: .15rem;
-    width: 1.2rem; height: 1.2rem; border-radius: 50%;
-    background: var(--color-text);
-    transition: right .2s ease;
-}
-[data-owner-page="voice-studio"] .vs-switch[aria-checked="true"] { background: var(--color-accent); }
-[data-owner-page="voice-studio"] .vs-switch[aria-checked="true"] .vs-switch-knob { right: 1.65rem; }
-[data-owner-page="voice-studio"] .vs-tr-result { margin-top: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); }
-[data-owner-page="voice-studio"] .vs-tr-result-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); }
-[data-owner-page="voice-studio"] .vs-tr-export { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
-[data-owner-page="voice-studio"] .vs-tr-textarea { min-height: 20rem; }
 [data-owner-page="voice-studio"] .vs-tr-send { display: flex; flex-wrap: wrap; gap: var(--sp-3); justify-content: center; }
 
 /* ── الخطأ ── */
