@@ -1,13 +1,7 @@
 // ============================================================
 // voice-studio — الاستوديو الصوتي (مدعوم) في لوحة المالك
 // ------------------------------------------------------------
-// نقل نقاط server.ts الثماني من مشروع الاستوديو الصوتي الأصلي
-// (Express + GoogleGenAI) إلى Edge Function واحدة بلا خادم:
-//   preprocess-text، identify-key-sentences، analyze-and-segment،
-//   transcribe-media، extract-text، generate-podcast-script،
-//   tts، generate-stream (SSE).
-//
-// محركا التوليد الصوتي (tts):
+// الدالة الآن توليد صوتي فقط (tts) — تدقيق 2026-11-25:
 //   edge (الافتراضي، بلا مفتاح): Edge TTS من مايكروسوفت عبر
 //     edge-tts.ts — خدمة غير رسمية بلا عقد ولا مفتاح، والناتج MP3.
 //   gemini (اختياري، بمفتاح فقط): مسار Gemini السابق، والناتج WAV.
@@ -15,16 +9,28 @@
 //   (engine: gemini مع fallbackFrom: edge)؛ وبدون مفتاح يرجع خطأً
 //   صريحًا يذكر المحرك والسبب. gemini بلا مفتاح مرفوض صراحةً.
 //
+// حُذفت الإجراءات السبعة غير الصوتية: preprocess-text،
+// identify-key-sentences، analyze-and-segment، generate-podcast-script
+// (الأربعة النصية تُوجَّه الآن إلى ai-gateway من الصفحة مباشرة
+// بمفاتيح المنصة الخادمية — بلا مفتاح Gemini شخصي)، وtranscribe-media
+// وextract-text وgenerate-stream (بلا بديل: التفريغ والاستخراج
+// يحتاجان صوتًا/رؤية لا توفرهما ai-gateway النصية، والبث بلا منادٍ).
+// فلا إجراء ميت في الدالة: أي action غير tts يرجع 400.
+//
 // النداء: supabase.functions.invoke('voice-studio',
 //   { body: { action: 'tts', ...payload } })
 // والمفتاح الشخصي للمالك يُرسل في هيدر x-gemini-api-key إن وُجد،
 // وإلا يُستخدم متغير البيئة GEMINI_API_KEY. لا WebSocket Live هنا:
 // لا خادم WS في Edge Functions، وواجهة المشروع الأصلي لم تكن
-// تستخدمه أصلًا (دالة connectLiveSession معرّفة بلا أي منادٍ).
+// تستخدمه أصلًا.
 //
 // برومبتات TTS وأقفال اللهجات مرآة
-// assets/js/owner/voice-studio-state.js (نفس النصوص)، وقوائم
-// نماذج الـ fallback ورسائل الخطأ العربية من server.ts حرفيًا.
+// assets/js/owner/voice-studio-state.js (نفس النصوص).
+//
+// ملاحظة أمنية (خارج نطاق تدقيق 2026-11-25، متابعة مقترحة):
+// الدالة بلا تحقق مصادقة (لا Authorization ولا getUser) — أي حامل
+// للمفتاح العام يستطيع نداء tts edge. فرض JWT مالك عليها قرار
+// منفصل لم يُنفَّذ هنا قصدًا.
 // ============================================================
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { synthesizeEdge } from "./edge-tts.ts";
@@ -39,12 +45,6 @@ const CORS_HEADERS = {
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const FETCH_TIMEOUT_MS = 120000;
 
-const TEXT_MODELS = ["gemini-3.8-flash", "gemini-3-flash-preview"];
-const TRANSCRIBE_MODELS = [
-  "gemini-3.5-transcribe",
-  "gemini-3-flash-preview",
-  "gemini-3.8-flash",
-];
 const TTS_MODELS = [
   "gemini-3.1-flash-tts-preview",
   "gemini-2.5-flash-preview-tts",
@@ -91,50 +91,6 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<Respons
   } finally {
     clearTimeout(timer);
   }
-}
-
-interface GenerateParams {
-  apiKey: string;
-  models?: string[];
-  contents: unknown;
-  config?: Record<string, unknown>;
-}
-
-async function generateContentWithFallback(
-  params: GenerateParams,
-): Promise<{ text: string; audioBase64?: string }> {
-  const candidates = params.models || TEXT_MODELS;
-  let lastError: unknown = null;
-  for (const model of candidates) {
-    try {
-      const res = await fetchWithTimeout(
-        `${GEMINI_API_BASE}/models/${model}:generateContent?key=${encodeURIComponent(params.apiKey)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: params.contents, generationConfig: params.config }),
-        },
-      );
-      const data = await res.json() as Record<string, unknown>;
-      if (!res.ok) {
-        const message = (data?.error as Record<string, unknown>)?.message as string
-          || `Gemini HTTP ${res.status}`;
-        throw new Error(message);
-      }
-      const parts = (data?.candidates as Array<Record<string, unknown>>)?.[0]
-        ?.content as Record<string, unknown>;
-      const firstPart = (parts?.parts as Array<Record<string, unknown>>)?.[0];
-      const inline = firstPart?.inlineData as Record<string, unknown> | undefined;
-      const text = (firstPart?.text as string) || "";
-      if (inline?.data) return { text, audioBase64: inline.data as string };
-      if (text) return { text };
-      throw new Error("empty Gemini response");
-    } catch (err) {
-      lastError = err;
-      console.warn(`[voice-studio] model ${model} failed:`, (err as Error).message?.slice(0, 120));
-    }
-  }
-  throw lastError;
 }
 
 function generateVoiceFingerprint(name: string): string {
@@ -196,41 +152,6 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-const DIALECT_INSTRUCTIONS: Record<string, string> = {
-  sudanese: `
-أنت خبير لغوي في اللهجة السودانية.
-المهمة: تحويل النص التالي إلى اللهجة السودانية الدارجة الخفيفة والمفهومة.
-القواعد:
-1. استخدم مفردات سودانية أصيلة ومفهومة (مثلاً: شديد، هسة، زول، تمام).
-2. طبق قواعد صياغة الجمل السودانية مع الحفاظ على المعنى الأصلي بدقة.
-3. تجنب المصطلحات شديدة الصعوبة أو "الراندوك" المبالغ فيه.
-4. ابتعد تماماً عن أنماط الحديث المصرية أو الخليجية.
-5. أخرج النص المعدل فقط.
-      `,
-  yemeni: `
-أنت خبير لغوي في اللهجة اليمنية.
-المهمة: تحويل النص التالي إلى اللهجة اليمنية البيضاء (المدنية) المفهومة واللطيفة.
-القواعد:
-1. استخدم مفردات يمنية دارجة خفيفة ومحببة (مثلاً: الحين، كذا، عاد، خلّينا، نشوف، تمام).
-2. طبق قواعد صياغة الجمل اليمنية مع الحفاظ على المعنى الأصلي بدقة.
-3. التزم بالنبرة اليمنية المدنية الواضحة والمباشرة.
-4. تجنب المصطلحات قبلية أو إقليمية شديدة الصعوبة؛ اجعلها "لهجة بيضاء" يمنية.
-5. ابتعد تماماً عن أنماط الحديث الخليجية أو السعودية الثقيلة.
-6. أخرج النص المعدل فقط.
-      `,
-  lebanese: `
-أنت خبير لغوي في اللهجة اللبنانية.
-المهمة: تحويل النص التالي إلى اللهجة اللبنانية البيضاء (المدنية) الأنيقة واللطيفة.
-القواعد:
-1. استخدم مفردات لبنانية دارجة خفيفة ومحببة (مثلاً: هلق، كتير، هيك، خلّينا، تمام، أكيد، مش مشكلة).
-2. طبق قواعد صياغة الجمل اللبنانية مع الحفاظ على المعنى الأصلي بدقة ومرونة.
-3. التزم بالنبرة اللبنانية المدنية الراقية والواضحة.
-4. تجنب المبالغة في اللكنة أو استخدام المصطلحات سوقية؛ اجعلها "لهجة بيضاء" لبنانية مهذبة تناسب المحتوى الاحترافي.
-5. ابتعد تماماً عن أنماط الحديث المصرية أو الخليجية.
-6. أخرج النص المعدل فقط.
-      `,
-};
-
 const DIALECT_PHONETIC_LOCKS: Record<string, string> = {
   egyptian: `STRICT EGYPTIAN PHONETIC LOCK: 1. Pronounce ALL words using natural Egyptian phonetics. 2. (ج) must be soft 'g'. 3. Casual rhythm.`,
   saudi: `STRICT SAUDI PHONETIC LOCK: 1. Authentic Saudi prosody. 2. Najdi/Hejazi inflections.`,
@@ -248,321 +169,6 @@ const PURPOSE_DIRECTIVES: Record<string, string> = {
   "توعوي": "DELIVERY STYLE: Awareness - calm, sincere, reassuring delivery.",
   "إخباري": "DELIVERY STYLE: Informational - neutral, professional, concise.",
   "تعليمي": "DELIVERY STYLE: Educational - clear, steady, explanatory tone.",
-};
-
-const PODCAST_STYLE_GUIDES: Record<string, string> = {
-  egyptian: "يجب توطين الحوار لغويًا ليعكس روح اللهجة المصرية العامية. استخدم تعبيرات مصرية دارجة (مثل: عشان، كده، إيه، مفيش) مع الحفاظ على سلاسة الحوار. يفضل تجنب المفردات شديدة الرسمية.",
-  saudi: "يجب توطين الحوار ليعكس نمط الحديث السعودي الدارج والمهذب. استخدم مفردات وروح اللهجة السعودية.",
-  khaleeji: "يجب أن يعكس الحوار نمط الحديث الخليجي الأبيض الواضح والمريح.",
-  levantine: "يجب توطين الحوار لغويًا ليعكس روح اللهجة الشامية بأسلوبها العذب وتعبيراتها الدارجة (مثل: هيك، شو، كرمال).",
-  sudanese: "يجب توطين الحوار لغويًا ليعكس روح اللهجة السودانية الدافئة. استخدم تعبيرات سودانية دارجة ومحببة (مثل: يا زول، هسة، تمام شديد) مع الحفاظ على الوقار السوداني المعتاد في الحديث.",
-  yemeni: "يجب توطين الحوار ليعكس الأصالة اليمنية والأسلوب اليمني المدني الودود في الحديث. استخدم كلمات مثل (الحين، كذا، عاد، نشوف).",
-  lebanese: "يجب توطين الحوار ليعكس الرقة والأناقة اللبنانية في التعبير (مثل: هلق، كتير، هيك، شو، كيفك، ميرسي، كرمالك، أكيد).",
-  fusha: "يجب أن يكون الحوار باللغة العربية الفصحى السليمة والمعاصرة.",
-};
-
-function safeJsonParse(text: string, fallback: unknown): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return fallback;
-  }
-}
-
-type Handler = (apiKey: string, body: Record<string, unknown>) => Promise<Response>;
-
-const handlers: Record<string, Handler> = {
-  // 1. معالجة النص وتكييفه مع اللهجة
-  "preprocess-text": async (apiKey, body) => {
-    const text = typeof body.text === "string" ? body.text : "";
-    if (!text) return json({ text: "" });
-    const options = (body.options as Record<string, unknown>) || {};
-    const dialect = String(options.dialect || "العربية الفصحى");
-    const dialectKey = dialect.toLowerCase();
-    let dialectInstruction = `الالتزام بنمط وروح اللهجة: ${dialect}.`;
-    if (dialectKey.includes("سودانية") || dialectKey === "sudanese") {
-      dialectInstruction = DIALECT_INSTRUCTIONS.sudanese;
-    } else if (dialectKey.includes("يمنية") || dialectKey === "yemeni") {
-      dialectInstruction = DIALECT_INSTRUCTIONS.yemeni;
-    } else if (dialectKey.includes("لبنانية") || dialectKey === "lebanese") {
-      dialectInstruction = DIALECT_INSTRUCTIONS.lebanese;
-    }
-    const prompt = `
-أنت خبير معالجة نصوص في استوديو "مدعوم". مهمتك هي إعادة صياغة النص العربي التالي ليناسب الأداء الصوتي المحترف.
-${dialectInstruction}
-النص المراد معالجته:
-"${text}"
-أخرج النص المعالج فقط بالعربية.
-    `;
-    try {
-      const result = await generateContentWithFallback({
-        apiKey,
-        contents: [{ parts: [{ text: prompt }] }],
-      });
-      return json({ text: result.text || text });
-    } catch (err) {
-      console.error("[voice-studio] preprocess-text error:", (err as Error).message);
-      return json({ text });
-    }
-  },
-
-  // 2. الجمل المحورية
-  "identify-key-sentences": async (apiKey, body) => {
-    const text = typeof body.text === "string" ? body.text : "";
-    if (!text || text.length < 20) return json({ sentences: [] });
-    const prompt = `
-أنت خبير تحليل محتوى عربي. قم بتحليل النص المرفق واستخرج أهم جملة أو جملتين (الجمل المحورية) فقط.
-الجمل المحورية هي التي تمثل:
-1. الفكرة الأساسية (Main Idea).
-2. الرسالة المركزية (Key Message).
-3. رؤية عميقة (Central Insight).
-4. دعوة واضحة لاتخاذ إجراء (Call-to-Action).
-
-القواعد الصارمة:
-- استخرج الجمل كما هي حرفياً من النص الأصلي بدون أي تعديل أو إعادة صياغة.
-- لا تضف أي شرح أو تعليق.
-- أخرج النتائج بتنسيق JSON حصراً كصفوف في مصفوفة تحت مفتاح "sentences".
-- إذا كان النص لا يحتوي على جمل واضحة، أخرج مصفوفة فارغة.
-
-النص المرفق: "${text}"
-    `;
-    try {
-      const result = await generateContentWithFallback({
-        apiKey,
-        contents: [{ parts: [{ text: prompt }] }],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "OBJECT",
-            properties: { sentences: { type: "ARRAY", items: { type: "STRING" } } },
-            required: ["sentences"],
-          },
-        },
-      });
-      const parsed = safeJsonParse(result.text || '{"sentences":[]}', { sentences: [] }) as {
-        sentences?: string[];
-      };
-      return json({ sentences: parsed.sentences || [] });
-    } catch (err) {
-      console.error("[voice-studio] identify-key-sentences error:", (err as Error).message);
-      return json({ sentences: [] });
-    }
-  },
-
-  // 3. تحليل النص وتقسيمه لمقاطع سردية (الكتاب الصوتي)
-  "analyze-and-segment": async (apiKey, body) => {
-    const text = typeof body.text === "string" ? body.text : "";
-    const systemInstruction = `
-أنت مخرج كتب صوتية خبير في استوديو "مدعوم". مهمتك هي تحليل النص العربي المرفق وتقسيمه إلى مقاطع سردية منطقية لتوزيع الأصوات.
-القواعد:
-1. ميز بين السرد (الراوي) والحوار (الشخصيات).
-2. قسم النص إلى فقرات أو حوارات مترابطة.
-3. اقترح "دور" (Role) لكل مقطع (مثلاً: الراوي، البطل، شخصية عابرة).
-4. أخرج النتائج بتنسيق JSON حصراً كصفوف تحتوي على (label, role, text).
-5. الالتزام باللغة العربية في المخرجات.
-    `;
-    try {
-      const result = await generateContentWithFallback({
-        apiKey,
-        contents: [{ parts: [{ text: `قم بتحليل وتقسيم النص التالي: "${text}"` }] }],
-        config: {
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "OBJECT",
-            properties: {
-              segments: {
-                type: "ARRAY",
-                items: {
-                  type: "OBJECT",
-                  properties: {
-                    label: { type: "STRING" },
-                    role: { type: "STRING" },
-                    text: { type: "STRING" },
-                  },
-                  required: ["label", "role", "text"],
-                },
-              },
-            },
-            required: ["segments"],
-          },
-        },
-      });
-      const parsed = safeJsonParse(result.text || '{"segments":[]}', { segments: [] }) as {
-        segments?: unknown[];
-      };
-      return json({
-        segments: parsed.segments?.length
-          ? parsed.segments
-          : [{ label: "مقطع افتراضي", role: "الراوي", text }],
-      });
-    } catch (err) {
-      console.error("[voice-studio] analyze-and-segment error:", (err as Error).message);
-      return json({ segments: [{ label: "مقطع افتراضي", role: "الراوي", text }] });
-    }
-  },
-
-  // 4. تفريغ ملف صوتي إلى نص
-  "transcribe-media": async (apiKey, body) => {
-    const base64 = typeof body.base64 === "string" ? body.base64 : "";
-    const mimeType = typeof body.mimeType === "string" ? body.mimeType : "audio/mp3";
-    const includeTimestamps = body.includeTimestamps === true;
-    const language = typeof body.language === "string" ? body.language : "Auto";
-    const timestampInstruction = includeTimestamps
-      ? "قم بتقسيم النص إلى فقرات مع إضافة طوابع زمنية دقيقة بتنسيق [MM:SS] في بداية كل جملة أو فقرة منطقية."
-      : "لا تضف أي طوابع زمنية، استخرج النص بشكل متصل مع مراعاة الفقرات.";
-    const langInstruction = language === "Auto"
-      ? "تعرف على اللغة تلقائياً وحافظ عليها."
-      : `اللغة المتوقعة في الملف هي: ${language}. التزم بها بدقة.`;
-    const prompt = `
-أنت خبير تفريغ نصوص صوتية احترافي (Audio-to-Text). مهمتك هي استخراج النص الكامل من الملف الصوتي المرفق بدقة متناهية.
-القواعد الصارمة:
-1. استخرج النص كاملاً كما نُطق تماماً (Verbatim Transcription).
-2. ممنوع التلخيص نهائياً (Do NOT summarize).
-3. ممنوع الاختصار أو حذف أي كلمات (Do NOT shorten or skip).
-4. ممنوع إعادة الصياغة؛ انقل الكلمات حرفياً (Do NOT paraphrase).
-5. ${langInstruction}
-6. حافظ على لهجة المتحدث الأصلية كما هي.
-7. لا تقم بتنظيف اللغة أو تصحيح القواعد؛ استخرج ما قيل حرفياً.
-8. ${timestampInstruction}
-9. أخرج النص المفرغ فقط, بدون أي مقدمات أو تعليقات خارجية.
-    `;
-    try {
-      const result = await generateContentWithFallback({
-        apiKey,
-        models: TRANSCRIBE_MODELS,
-        contents: [{ parts: [{ inlineData: { mimeType, data: base64 } }, { text: prompt }] }],
-      });
-      return json({ text: result.text || "" });
-    } catch (err) {
-      console.error("[voice-studio] transcribe-media error:", (err as Error).message);
-      return json(
-        { error: (err as Error).message || "فشل في تفريغ النص من الملف الصوتي." },
-        500,
-      );
-    }
-  },
-
-  // 5. استخراج النص من ملف/مستند
-  "extract-text": async (apiKey, body) => {
-    const base64 = typeof body.base64 === "string" ? body.base64 : "";
-    const mimeType = typeof body.mimeType === "string" ? body.mimeType : "image/png";
-    const prompt = "استخرج كافة النصوص العربية المقروءة من الملف المرفق بشكل نظيف وصالح للقراءة الصوتية.";
-    try {
-      const result = await generateContentWithFallback({
-        apiKey,
-        contents: [{ parts: [{ inlineData: { mimeType, data: base64 } }, { text: prompt }] }],
-      });
-      const text = result.text || "";
-      if (!text.trim()) return json({ error: "تعذر تحليل المحتوى." }, 400);
-      return json({ text });
-    } catch (err) {
-      console.error("[voice-studio] extract-text error:", (err as Error).message);
-      return json({ error: "تعذر تحليل المحتوى. يُرجى مراجعة الملف أو تقسيمه." }, 500);
-    }
-  },
-
-  // 6. توليد سكربت بودكاست (شخصيات + أدوار حوارية)
-  "generate-podcast-script": async (apiKey, body) => {
-    const content = typeof body.content === "string" ? body.content : "";
-    const dialect = typeof body.dialect === "string" ? body.dialect : "فصحى";
-    const dialectId = typeof body.dialectId === "string" ? body.dialectId : "fusha";
-    const existingSpeakers = Array.isArray(body.existingSpeakers) ? body.existingSpeakers : [];
-    if (!content.trim()) {
-      return json({ turns: [], speakers: [], error: "لا يوجد نص لتحليله." });
-    }
-    const styleGuide = PODCAST_STYLE_GUIDES[dialectId]
-      || `الالتزام بنمط الحديث الخاص بـ ${dialect}.`;
-    let speakersInstruction = "";
-    if (existingSpeakers.length > 0) {
-      speakersInstruction = `
-STRICT REQUIREMENT: The user has manually defined the following speakers. You MUST include ALL of them in the generated script turns:
-${existingSpeakers.map((s) => `- ID: ${(s as Record<string, unknown>).id}, Role: ${(s as Record<string, unknown>).role}, Tone: ${(s as Record<string, unknown>).tone}`).join("\n")}
-
-INSTRUCTIONS:
-1. Re-analyze the content balance to include all these defined speakers naturally.
-2. DO NOT delete, rename, or overwrite any of the IDs or Roles provided above.
-3. If the script was previously two speakers and now there are more, expand the narrative turns to give the new characters significant presence.
-4. Return all speakers (including the ones provided above) in the "speakers" array.
-      `;
-    }
-    const analysisSystemInstruction = `
-أنت خبير صياغة حوارات بودكاست ومخرج فني في استوديو "مدعوم".
-المهمة: تحليل النص المرفق وتنفيذ معالجة ذكية للسيناريو والشخصيات:
-1. تحليل الشخصيات: تحديد كافة المتحدثين المذكورين أو المستنبطين من النص بدقة. استخرج العدد الحقيقي للمتحدثين الذين يثرون الحوار بناءً على تعقيد المحتوى.
-2. تصنيف الأدوار: حدد الدور لكل شخصية ونبرة الحديث (هادئ، متحمس، رسمي).
-3. ذكاء التوزيع: اقترح أفضل فئة صوتية (categoryHint) من الخيارات التالية لكل شخصية جديدة: [doc, ads, cartoon, podcast, novels, youtube, drama, edu, corporate].
-4. صياغة السيناريو: تحويل المحتوى إلى حوار منساب طبيعي بين الشخصيات.
-
-${speakersInstruction}
-
-إرشاد اللهجة:
-${styleGuide}
-
-المخرجات المطلوبة بتنسيق JSON:
-- "speakers": مصفوفة من الكائنات تحتوي على (id, role, tone, style, gender ['male', 'female', 'any'], categoryHint, description, reasoning).
-- "turns": مصفوفة من الكائنات (speakerId, text).
-    `;
-    try {
-      const result = await generateContentWithFallback({
-        apiKey,
-        contents: [{ parts: [{ text: `المحتوى المراد تحليله: "${content}"` }] }],
-        config: {
-          systemInstruction: { parts: [{ text: analysisSystemInstruction }] },
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "OBJECT",
-            properties: {
-              error: { type: "STRING" },
-              speakers: {
-                type: "ARRAY",
-                items: {
-                  type: "OBJECT",
-                  properties: {
-                    id: { type: "STRING" },
-                    role: { type: "STRING" },
-                    tone: { type: "STRING" },
-                    style: { type: "STRING" },
-                    gender: { type: "STRING", enum: ["male", "female", "any"] },
-                    categoryHint: {
-                      type: "STRING",
-                      enum: ["doc", "ads", "cartoon", "podcast", "novels", "youtube", "drama", "edu", "corporate"],
-                    },
-                    description: { type: "STRING" },
-                    reasoning: { type: "STRING" },
-                  },
-                  required: ["id", "role", "tone", "style", "gender", "categoryHint", "description", "reasoning"],
-                },
-              },
-              turns: {
-                type: "ARRAY",
-                items: {
-                  type: "OBJECT",
-                  properties: {
-                    speakerId: { type: "STRING" },
-                    text: { type: "STRING" },
-                  },
-                  required: ["speakerId", "text"],
-                },
-              },
-            },
-            required: ["turns", "speakers"],
-          },
-        },
-      });
-      const parsed = safeJsonParse(result.text || '{"turns":[], "speakers":[]}', {
-        turns: [],
-        speakers: [],
-      });
-      return json(parsed as Record<string, unknown>);
-    } catch (err) {
-      console.error("[voice-studio] generate-podcast-script error:", (err as Error).message);
-      return json({ turns: [], speakers: [], error: "تعذر تحليل المحتوى." });
-    }
-  },
-
-  // 7. تحويل النص إلى صوت (TTS) — ليس هنا: يُرسَل قبل بوابة المفتاح
-  // في serve() إلى handleTts، لأن محرك edge يعمل بلا مفتاح.
 };
 
 // ── التوليد الصوتي بمحركين ──────────────────────────────────────────
@@ -717,117 +323,10 @@ serve(async (req) => {
   }
 
   const action = typeof body.action === "string" ? body.action : "";
-  if (action === "generate-stream") {
-    return handleStream(req, body);
-  }
   if (action === "tts") {
     return handleTts(req, body);
   }
-  const handler = handlers[action];
-  if (!handler) {
-    return json({ error: "إجراء غير معروف." }, 400);
-  }
-  const apiKey = resolveApiKey(req, body);
-  if (!apiKey) {
-    return json(
-      { error: "هذه الوظيفة تحتاج مفتاح Gemini — أدخل مفتاحك الشخصي في إعدادات الاستوديو الصوتي أو اضبط GEMINI_API_KEY. التوليد الصوتي وحده يعمل بلا مفتاح عبر محرك Edge TTS." },
-      503,
-    );
-  }
-  try {
-    return await handler(apiKey, body);
-  } catch (err) {
-    console.error(`[voice-studio] ${action} unexpected error:`, (err as Error).message);
-    return json({ error: formatAIErrorMessage(err) }, 500);
-  }
+  // الدالة توليد صوتي فقط: أي إجراء آخر (ومنها الإجراءات النصية
+  // السبعة المحذوفة) يرجع 400 صريحًا بدل بوابة 503 أو نجاح زائف.
+  return json({ error: "إجراء غير معروف — الدالة تدعم tts فقط." }, 400);
 });
-
-// 8. توليد نصي متدفق (SSE) — يمرّر بث Gemini كما هو بصيغة data: {"text": ...}
-async function handleStream(req: Request, body: Record<string, unknown>): Promise<Response> {
-  const apiKey = resolveApiKey(req, body);
-  if (!apiKey) {
-    return new Response(
-      `data: ${JSON.stringify({ error: "لم يُضبط مفتاح Gemini بعد." })}\n\ndata: [DONE]\n\n`,
-      { headers: { ...CORS_HEADERS, "Content-Type": "text/event-stream" } },
-    );
-  }
-  const prompt = typeof body.prompt === "string" ? body.prompt : "";
-  const model = typeof body.model === "string" && body.model ? body.model : "gemini-3.8-flash";
-  const systemInstruction = typeof body.systemInstruction === "string" ? body.systemInstruction : "";
-  let upstream: Response;
-  try {
-    upstream = await fetchWithTimeout(
-      `${GEMINI_API_BASE}/models/${model}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          ...(systemInstruction
-            ? { systemInstruction: { parts: [{ text: systemInstruction }] } }
-            : {}),
-        }),
-      },
-    );
-  } catch (err) {
-    return new Response(
-      `data: ${JSON.stringify({ error: (err as Error).message || "Streaming failed" })}\n\ndata: [DONE]\n\n`,
-      { headers: { ...CORS_HEADERS, "Content-Type": "text/event-stream" } },
-    );
-  }
-  if (!upstream.ok || !upstream.body) {
-    return new Response(
-      `data: ${JSON.stringify({ error: "فشل بدء البث المباشر." })}\n\ndata: [DONE]\n\n`,
-      { headers: { ...CORS_HEADERS, "Content-Type": "text/event-stream" } },
-    );
-  }
-  const stream = new ReadableStream({
-    async start(controller) {
-      const reader = upstream.body!.getReader();
-      const decoder = new TextDecoder();
-      const encoder = new TextEncoder();
-      let buffer = "";
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed.startsWith("data:")) continue;
-            const raw = trimmed.slice(5).trim();
-            if (!raw) continue;
-            try {
-              const parsed = JSON.parse(raw) as Record<string, unknown>;
-              const parts = (parsed?.candidates as Array<Record<string, unknown>>)?.[0]
-                ?.content as Record<string, unknown>;
-              const text = (parts?.parts as Array<Record<string, unknown>>)?.[0]?.text as string;
-              if (text) {
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
-              }
-            } catch {
-              // سطر غير JSON يُتجاهل
-            }
-          }
-        }
-      } catch (err) {
-        controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ error: (err as Error).message })}\n\n`),
-        );
-      } finally {
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        controller.close();
-      }
-    },
-  });
-  return new Response(stream, {
-    headers: {
-      ...CORS_HEADERS,
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
-  });
-}
