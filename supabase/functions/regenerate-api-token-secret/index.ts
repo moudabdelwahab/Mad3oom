@@ -7,6 +7,12 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // api_key_secret: يولّد secret جديد بس (api_key نفسه زي ما هو) - بلا تغيير.
 // bearer: يولّد bearer token جديد (256-bit) بدون لمس api_key/secret_hash
 // الداخليين للصف - بيفضلوا زي ما هما (مش مستخدمين في مصادقة Bearer أصلاً).
+//
+// بيئة المفتاح (الترحيل 141 — ساندبوكس API):
+// مفتاح الاختبار يحتفظ ببادئته المميزة عند التدوير
+// (mad3oom_bt_test_ للـbearer؛ ومفتاح api_key_secret لا يتغير أصلًا،
+// فبادئته mad3oom_pk_test_ تبقى). التدوير لا يحوّل مفتاح اختبار إلى حي
+// ولا العكس إطلاقًا.
 // ============================================================
 
 const CORS_HEADERS: Record<string, string> = {
@@ -64,7 +70,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: existing, error: fetchError } = await userClient
       .from("api_tokens")
-      .select("id, user_id, name, credential_type")
+      .select("id, user_id, name, credential_type, environment")
       .eq("id", tokenId)
       .maybeSingle();
 
@@ -78,13 +84,16 @@ Deno.serve(async (req: Request) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     if (existing.credential_type === "bearer") {
-      const newBearer = `mad3oom_bt_${randomHex(32)}`; // 256-bit entropy
+      // مفتاح الاختبار يحتفظ ببادئته المميزة عند التدوير.
+      const newBearer = existing.environment === "test"
+        ? `mad3oom_bt_test_${randomHex(32)}` // 256-bit entropy
+        : `mad3oom_bt_${randomHex(32)}`; // 256-bit entropy
       const bearerHash = await sha256Hex(newBearer);
       const { data: updated, error: updateError } = await adminClient
         .from("api_tokens")
         .update({ bearer_token_hash: bearerHash, bearer_last_four: newBearer.slice(-4), revoked_at: null, is_active: true })
         .eq("id", tokenId)
-        .select("id, name, description, is_active, created_at, scopes, expires_at, credential_type")
+        .select("id, name, description, is_active, created_at, scopes, expires_at, credential_type, environment")
         .single();
       if (updateError || !updated) return jsonResponse({ error: "فشل تجديد Bearer Token" }, 500);
       return jsonResponse({ token: updated, bearer_token: newBearer });
@@ -98,7 +107,7 @@ Deno.serve(async (req: Request) => {
       .from("api_tokens")
       .update({ secret_hash: secretHash, secret_last_four: secretLastFour, revoked_at: null, is_active: true })
       .eq("id", tokenId)
-      .select("id, name, description, api_key, is_active, created_at")
+      .select("id, name, description, api_key, is_active, created_at, environment")
       .single();
 
     if (updateError || !updated) {

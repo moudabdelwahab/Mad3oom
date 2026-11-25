@@ -67,6 +67,15 @@ New reads (same journal, same `data.viewed` audit and 60/min limit as lookups):
 | `draftOrderInvoiceSend`, `notifyCustomer: true` defaults | Customer-facing messages — only when the user explicitly ticks "notify customer" (default off). |
 | Smart (automated) collections write, BXGY / free-shipping discounts, customer segments in discounts, order edits (`orderEditBegin…`), fulfillment holds/moves, `fulfillmentCancel`, gift cards, metaobjects, themes/content, markets | Higher risk or not requested; listed in `PROVIDER_SHOPIFY.md` → Limitations. |
 | `collectionAddProducts` / `collectionRemoveProducts`, `ruleSet`, `returnReason` | Deprecated in 2026-10 (we use `productUpdate.collectionsToJoin/Leave`, no rule sets, `returnReasonDefinitionId`/note). |
+| Abandoned checkouts (`checkout.list` / `abandoned_checkout.list`) | **No op in the 120 catalog and none in `shopify-admin.js`** — the store-manage «طلبات مهملة» section states this honestly instead of showing draft orders as abandoned checkouts. Adding it needs a catalog op + `read_orders` scope review. |
+| Shipping zones / rates (`shipping.list`, `shipping.update`, `delivery_profile.*`) | **No op in the 120 catalog and none in `shopify-admin.js`** — the «الشحن» section links to Shopify admin shipping settings. Per-order shipping (fulfillment + tracking) is available from «الطلبات». |
+
+### 139 — Inventory alerts (local to Mad3oom, no new Shopify op)
+| Piece | Detail |
+|---|---|
+| `ihub_shopify_inventory_thresholds` | Min quantity per store (one row per connection) and per variant (`inventory_item_id` + `variant_id`). Set from «تنبيهات المخزون» or from a variant's inventory view. Permission `store.inventory`, same entitlement gate as 120, no Shopify scopes needed (local data). |
+| Evaluation | In the page, from live `inventory.levels` via ihub-api. Variant thresholds are checked by «فحص الآن» in «تنبيهات المخزون». The store default applies per variant when its inventory is viewed; there is no whole-catalog scan, so a store-threshold crossing is reported from the variant inventory view itself (one open alert per store threshold, named after the first variant seen below it, resolved when a viewed variant is back above it). |
+| `ihub_shopify_inventory_alerts_report` | Client sends evaluated items; the server opens one alert per threshold, notifies the company owner **once** (no repeat while open, category `store`, link `#storeManage`), and resolves the alert when stock returns above the threshold. No background job — the check runs when the user opens the section and presses «فحص الآن». |
 
 ## 3. Scopes (app config `integrations/shopify/shopify.app.toml`)
 

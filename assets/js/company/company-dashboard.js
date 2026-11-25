@@ -22,8 +22,14 @@ import { initCompanyApi, setCompanyApiMembers, setCompanyApiEntitlement, loadCom
 import { initApiTokenModal, openApiTokenModal } from '/assets/js/company/api-token-modal.js';
 import { renderCompanyReports } from '/assets/js/company/company-reports.js';
 import {
-    analyzeSubscriptions, renewalContext, ANOMALY_NOTES, SUBSCRIPTION_STATES
+    analyzeSubscriptions, renewalContext, ANOMALY_NOTES, SUBSCRIPTION_STATES,
+    subscriptionActions, pendingRequestFor, quoteCodeMessage
 } from '/assets/js/company/subscription-model.js';
+import {
+    createSubscriptionTicket, getPlanPrices, getChangeQuote, submitDowngradeRequest,
+    PAYMENT_METHODS, PAYMENT_METHOD_LABELS, EXTERNAL_PAYMENT_METHODS
+} from '/whatsapp-subscription-service.js';
+import { formatMoney } from '/assets/js/plan-pricing-model.js';
 import { piCompanyLimitation } from '/assets/js/company/company-invoices-model.js';
 import { initCompanyActivity, loadCompanyActivity } from '/assets/js/company/company-activity.js';
 import { initCompanyIntegrations, loadCompanyIntegrations, oauthCompletion } from '/assets/js/company/company-integrations.js';
@@ -52,6 +58,7 @@ import {
 import { loadCompanyPermissions, loadCompanyAccessLog } from '/assets/js/company/company-access.js';
 import { initMemberAdmin, openMemberDetails, renderMemberAdminLists } from '/assets/js/company/company-member-admin.js';
 import { loadCompanyUsage } from '/assets/js/company/company-billing.js';
+import { initStandaloneCompanyRequestEntry } from '/assets/js/company/company-request-standalone.js';
 import { buildCompanyDirectory, filterCompanyDirectory, companyUserActions, DIRECTORY_KINDS } from '/assets/js/company/company-users-model.js';
 import { createOptionsMenu, optionsTrigger } from '/assets/js/options-menu.js';
 import {
@@ -65,6 +72,9 @@ import {
     revokeCompanyStaff,
     saveCompany,
     cancelSubscriptionRequest,
+    cancelActiveSubscription,
+    resumeSubscription,
+    linkSubscriptionToCompany,
     fetchCompanyCustomers,
     fetchCompanyInvitations,
     inviteCompanyCustomer,
@@ -100,6 +110,11 @@ import {
     invitationEmailInfo,
     inviteResultView,
     validateInviteEmail,
+    BULK_INVITE_MAX_FILE_BYTES,
+    parseCustomersCsv,
+    checkBulkInviteLimit,
+    validateBulkInviteRows,
+    summarizeBulkInviteResults,
     validateCompanyForm,
     validateMemberForm
 } from '/assets/js/company/company-model.js';
@@ -175,7 +190,7 @@ async function init() {
     // ناقصة (غياب سياسة INSERT)، والقراءة الكاملة من الإنتاج أظهرت أن
     // الإنشاء مدعوم عبر الخادم لا عبر الجدول.
     initCompanyApi({ onCreateToken: openApiTokenModal });
-    initApiTokenModal({ onCreated: () => loadCompanyApi({ selfId: currentUserId }) });
+    initApiTokenModal({ onCreated: () => loadCompanyApi({ selfId: currentUserId, companyId: dashboard?.company?.id }) });
     initCompanyActivity();
     // قائمة الأعضاء لاختيار العميل عند تحويل طلب دعم وارد من الموقع إلى تذكرة
     initCompanyIntegrations({ members: () => companyMembers });
@@ -189,6 +204,10 @@ async function init() {
     wireForm();
     wireAddMember();
     wireInviteCustomer();
+    wireBulkInvite();
+    // 138: مدخل مستقل لطلب حساب شركة — زر في بوابة «لا توجد شركة» أدناه،
+    // وأي زر [data-standalone-company-request] في اللوحة يفتح النافذة نفسها.
+    initStandaloneCompanyRequestEntry();
     // 113: نافذة تفاصيل العضو؛ أي تغيير فيها يعيد رسم القائمتين من القاعدة
     initMemberAdmin({ onChanged: async () => { await renderMembers(); await renderCustomers(); await reloadUsersDirectory(); } });
     wireSectionRouting();
@@ -258,7 +277,7 @@ const LOADERS = {
     profile: () => loadCompanyProfile(),
     security: () => loadCompanySecurity(),
     // قسم API يعرض صاحب كل مفتاح من قائمة الأعضاء
-    api: () => ensureMembers().then(() => loadCompanyApi({ selfId: currentUserId })),
+    api: () => ensureMembers().then(() => loadCompanyApi({ selfId: currentUserId, companyId: dashboard?.company?.id })),
     integrations: () => loadCompanyIntegrations(),
     storeOverview: () => loadStoreOverview(),
     shopify: () => loadShopifyPage(),
@@ -588,9 +607,15 @@ async function load() {
         renderState(document.getElementById('companyGateBody'), {
             variant: 'empty',
             title: 'لا توجد شركة مرتبطة بحسابك',
-            text: 'لوحة الشركة تُفعَّل عند الاشتراك في باقة تتطلب كيان شركة. اختر باقة من صفحة الاشتراكات وأدخل بيانات شركتك أثناء الطلب.',
+            text: 'لوحة الشركة تُفعَّل عند الاشتراك في باقة تتطلب كيان شركة. اختر باقة من صفحة الاشتراكات وأدخل بيانات شركتك أثناء الطلب — أو اطلب إنشاء حساب شركة مباشرة من هنا، بلا باقة، ليراجعه فريق الإدارة ويتواصل معك.',
             action: { label: 'استعراض الباقات', goto: '/subscriptions.html', variant: 'btn-primary' }
         });
+        // 138: المدخل المستقل — زر ثانٍ تحت زر الباقات (renderState زر واحد فقط)
+        document.getElementById('companyGateBody').insertAdjacentHTML('beforeend', `
+            <div style="text-align:center; margin-top:0.75rem;">
+                <button type="button" class="btn btn-secondary" data-standalone-company-request>طلب إنشاء حساب شركة</button>
+                <p style="font-size:0.8rem; color:var(--color-text-secondary); margin:0.5rem 0 0;">بلا باقة وبلا دفع — يُراجَع قبل أي تفعيل.</p>
+            </div>`);
         return;
     }
 
@@ -914,6 +939,8 @@ async function onRemoveMember(memberId, memberName) {
 let customersQuery = '';
 let customersPendingCount = 0;
 let customersInvitationsKnown = false;
+/** بريد الدعوات المعلّقة (صغير الأحرف) — يرفضها الاستيراد الجماعي في المعاينة. */
+let customersPendingInvitationEmails = [];
 
 /**
  * شريط عدّادات وبحث صفحة العملاء — يُبنى مرة واحدة بالجافاسكربت فوق نموذج
@@ -987,8 +1014,10 @@ async function renderCustomers() {
         companyCustomerList = [];
         customersPendingCount = 0;
         customersInvitationsKnown = false;
+        customersPendingInvitationEmails = [];
         panel.hidden = false;
         document.getElementById('companyInviteForm').hidden = true;
+        document.getElementById('companyBulkInvite').hidden = true;
         const toolbar = document.getElementById('companyCustomersToolbar');
         if (toolbar) toolbar.hidden = true;
         invitationsBox.innerHTML = '';
@@ -1007,12 +1036,14 @@ async function renderCustomers() {
     if (!view.show) return;
 
     document.getElementById('companyInviteForm').hidden = !view.canInvite;
+    document.getElementById('companyBulkInvite').hidden = !view.canInvite;
     ensureCustomersToolbar(panel);
     if (view.canInvite) {
         const inv = await fetchCompanyInvitations();
         if (!inv.ok) {
             customersPendingCount = 0;
             customersInvitationsKnown = false;
+            customersPendingInvitationEmails = [];
             renderState(invitationsBox, {
                 variant: 'error',
                 title: 'تعذّر تحميل الدعوات',
@@ -1024,6 +1055,10 @@ async function renderCustomers() {
             const rows = Array.isArray(inv.data) ? inv.data : [];
             customersPendingCount = rows.filter(i => i.status === 'pending').length;
             customersInvitationsKnown = true;
+            customersPendingInvitationEmails = rows
+                .filter(i => i.status === 'pending')
+                .map(i => String(i.email || '').trim().toLowerCase())
+                .filter(Boolean);
             invitationsBox.innerHTML = rows.length ? `
             <ul class="company-sub-list">
                 ${rows.map(i => {
@@ -1081,6 +1116,7 @@ async function renderCustomers() {
     } else {
         customersPendingCount = 0;
         customersInvitationsKnown = false;
+        customersPendingInvitationEmails = [];
         invitationsBox.innerHTML = '';
     }
 
@@ -1319,6 +1355,192 @@ function wireInviteCustomer() {
         ui?.showToast?.(view.message, 'success');
         await renderCustomers();
     });
+}
+
+/* ── الاستيراد الجماعي للعملاء من CSV ───────────────────────────────────────
+ *
+ * المسار لكل صف صالح هو دعوة العميل نفسها (inviteCompanyCustomer — الدالة
+ * company-invite-customer)، لا إنشاء مستخدم فرعي: create-sub-user يُنشئ
+ * عضوًا في الشركة بكلمة مرور، لا عميلًا. التنفيذ متسلسل صفًا صفًا (لا
+ * متوازي) احترامًا لمهلة الدعوة والحد اليومي للشركة؛ وكل صف يُسجَّل في
+ * التقرير بنتيجته ورسالة الخادم العربية. لا استيراد صامت: بلا معاينة
+ * سابقة لا يعمل زر التنفيذ أصلًا، والصفوف المرفوضة في المعاينة لا تُرسل.
+ */
+
+let bulkInvitePreview = null; // { valid, invalid } بعد آخر معاينة صالحة
+let bulkInviteRunning = false;
+
+function bulkInviteShowError(message) {
+    const box = document.getElementById('companyBulkInviteError');
+    if (!box) return;
+    if (!message) { box.hidden = true; box.textContent = ''; return; }
+    box.textContent = message;
+    box.hidden = false;
+}
+
+function bulkInviteReset() {
+    bulkInvitePreview = null;
+    const file = document.getElementById('companyBulkInviteFile');
+    if (file) file.value = '';
+    const preview = document.getElementById('companyBulkInvitePreview');
+    if (preview) preview.innerHTML = '';
+    const actions = document.getElementById('companyBulkInviteActions');
+    if (actions) actions.hidden = true;
+    const submit = document.getElementById('companyBulkInviteSubmit');
+    if (submit) { submit.disabled = true; submit.textContent = 'تنفيذ الاستيراد'; }
+    const report = document.getElementById('companyBulkInviteReport');
+    if (report) report.innerHTML = '';
+    bulkInviteShowError(null);
+}
+
+function bulkInviteRowHtml(row, pill, label) {
+    return `
+        <li class="company-sub">
+            <div class="company-sub-main">
+                <p class="company-sub-plan">${escapeHtml(row.name || row.email || '—')}</p>
+                <p class="company-sub-dates">${escapeHtml(row.email || '')}${row.line ? ` · سطر ${row.line}` : ''}</p>
+            </div>
+            <div class="company-sub-side">
+                <span class="pill ${escapeHtml(pill)}">${escapeHtml(label)}</span>
+            </div>
+        </li>`;
+}
+
+function renderBulkInvitePreview(preview, parseErrors) {
+    const box = document.getElementById('companyBulkInvitePreview');
+    if (!box) return;
+    const parts = [`${preview.valid.length.toLocaleString('ar-EG')} جاهز للإرسال`, `${preview.invalid.length.toLocaleString('ar-EG')} مرفوض`];
+    if (parseErrors.length) parts.push(`${parseErrors.length.toLocaleString('ar-EG')} سطر غير صالح`);
+    const rowsHtml = [
+        ...preview.valid.map(r => bulkInviteRowHtml(r, 'status-tone-success', 'جاهز للإرسال')),
+        ...preview.invalid.map(r => bulkInviteRowHtml(r, 'status-tone-danger', `مرفوض: ${r.reason}`)),
+        ...parseErrors.map(e => bulkInviteRowHtml({ line: e.line, email: '', name: '' }, 'status-tone-danger', `مرفوض: ${e.reason}`))
+    ].join('');
+    box.innerHTML = `
+        <p class="company-sub-counts">${parts.join(' · ')}</p>
+        ${preview.invalid.length || parseErrors.length ? '<p class="panel-subtitle">الصفوف المرفوضة لن تُرسل.</p>' : ''}
+        <ul class="company-sub-list">${rowsHtml}</ul>`;
+    const actions = document.getElementById('companyBulkInviteActions');
+    if (actions) actions.hidden = false;
+    const submit = document.getElementById('companyBulkInviteSubmit');
+    if (submit) {
+        submit.disabled = preview.valid.length === 0;
+        submit.textContent = `تنفيذ الاستيراد (${preview.valid.length.toLocaleString('ar-EG')} دعوة)`;
+    }
+}
+
+async function onBulkInviteFileChange(event) {
+    // الملف أولًا: bulkInviteReset يمسح قيمة الحقل، فقراءة الملف بعده تعود فارغة.
+    const file = event.target.files && event.target.files[0];
+    bulkInviteReset();
+    if (!file) return;
+    const nameOk = /\.csv$/i.test(file.name || '');
+    const typeOk = !file.type || file.type === 'text/csv' || file.type === 'application/vnd.ms-excel';
+    if (!nameOk && !typeOk) {
+        bulkInviteShowError('اختر ملف CSV — الملف المختار ليس بامتداد csv.');
+        event.target.value = '';
+        return;
+    }
+    if (file.size > BULK_INVITE_MAX_FILE_BYTES) {
+        bulkInviteShowError('الملف كبير جدًا — الحد الأقصى 1 ميجابايت.');
+        event.target.value = '';
+        return;
+    }
+    let text;
+    try {
+        text = await file.text();
+    } catch {
+        bulkInviteShowError('تعذّر قراءة الملف. حاول مرة أخرى.');
+        event.target.value = '';
+        return;
+    }
+    const { rows, errors } = parseCustomersCsv(text);
+    const limit = checkBulkInviteLimit(rows.length + errors.length);
+    if (!limit.ok) {
+        bulkInviteShowError(limit.error);
+        event.target.value = '';
+        return;
+    }
+    bulkInvitePreview = validateBulkInviteRows(rows, {
+        existingEmails: companyCustomerList.map(c => c.email),
+        pendingEmails: customersPendingInvitationEmails
+    });
+    renderBulkInvitePreview(bulkInvitePreview, errors);
+}
+
+function renderBulkInviteReport(results) {
+    const box = document.getElementById('companyBulkInviteReport');
+    if (!box) return;
+    const s = summarizeBulkInviteResults(results);
+    const summary = s.failed === 0
+        ? `تم إرسال ${s.succeeded.toLocaleString('ar-EG')} دعوة بنجاح${s.alreadySent ? ` (منها ${s.alreadySent.toLocaleString('ar-EG')} أُرسلت من قبل)` : ''}.`
+        : `أُرسلت ${s.succeeded.toLocaleString('ar-EG')} دعوة، وتعذّر إرسال ${s.failed.toLocaleString('ar-EG')} — راجع كل صف أدناه.`;
+    const rowsHtml = results.map(r => {
+        if (r.ok && r.status === 'sent') return bulkInviteRowHtml(r, 'status-tone-success', 'أُرسلت الدعوة');
+        if (r.ok && r.status === 'already_sent') return bulkInviteRowHtml(r, 'status-neutral', 'أُرسلت من قبل');
+        return bulkInviteRowHtml(r, 'status-tone-danger', r.message || 'تعذّر إرسال الدعوة');
+    }).join('');
+    box.innerHTML = `
+        <p class="company-sub-counts">${escapeHtml(summary)}</p>
+        <ul class="company-sub-list">${rowsHtml}</ul>`;
+}
+
+async function onBulkInviteSubmit() {
+    if (bulkInviteRunning || !bulkInvitePreview || !bulkInvitePreview.valid.length) return;
+    bulkInviteRunning = true;
+    const submit = document.getElementById('companyBulkInviteSubmit');
+    const cancel = document.getElementById('companyBulkInviteCancel');
+    const file = document.getElementById('companyBulkInviteFile');
+    const report = document.getElementById('companyBulkInviteReport');
+    if (submit) { submit.disabled = true; submit.textContent = 'جارٍ إرسال الدعوات…'; }
+    if (cancel) cancel.disabled = true;
+    if (file) file.disabled = true;
+    bulkInviteShowError(null);
+    const rows = bulkInvitePreview.valid;
+    const results = [];
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (report) report.innerHTML = `<p class="company-sub-counts">جارٍ الإرسال… ${i.toLocaleString('ar-EG')} من ${rows.length.toLocaleString('ar-EG')}</p>`;
+        const result = await inviteCompanyCustomer(row.email);
+        const view = inviteResultView(result);
+        results.push({ ...row, ok: view.ok, status: result?.status || 'server', message: view.message });
+    }
+    const summary = summarizeBulkInviteResults(results);
+    renderBulkInviteReport(results);
+    bulkInvitePreview = null;
+    const preview = document.getElementById('companyBulkInvitePreview');
+    if (preview) preview.innerHTML = '';
+    const actions = document.getElementById('companyBulkInviteActions');
+    if (actions) actions.hidden = true;
+    if (submit) submit.textContent = 'تنفيذ الاستيراد';
+    if (cancel) cancel.disabled = false;
+    if (file) { file.disabled = false; file.value = ''; }
+    bulkInviteRunning = false;
+    if (summary.failed === 0) {
+        ui?.showToast?.(`تم إرسال ${summary.succeeded} دعوة بنجاح`, 'success');
+    } else {
+        ui?.showToast?.(`أُرسلت ${summary.succeeded} دعوة، وتعذّر إرسال ${summary.failed}`, 'error');
+    }
+    await renderCustomers();
+}
+
+function downloadBulkInviteTemplate() {
+    const blob = new Blob(['email,name\nclient@example.com,اسم العميل\n'], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'customers-template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function wireBulkInvite() {
+    const file = document.getElementById('companyBulkInviteFile');
+    if (!file) return;
+    file.addEventListener('change', onBulkInviteFileChange);
+    document.getElementById('companyBulkInviteTemplate')?.addEventListener('click', downloadBulkInviteTemplate);
+    document.getElementById('companyBulkInviteSubmit')?.addEventListener('click', onBulkInviteSubmit);
+    document.getElementById('companyBulkInviteCancel')?.addEventListener('click', bulkInviteReset);
 }
 
 /* ── نافذة إضافة مستخدم ─────────────────────────────────────────────────── */
@@ -1642,6 +1864,23 @@ function renderSubscriptions() {
     container.querySelectorAll('[data-cancel-subscription]').forEach(btn => {
         btn.addEventListener('click', () => onCancelSubscriptionRequest(btn));
     });
+
+    // 136: إدارة الاشتراك ذاتيًا من اللوحة — تجديد وترقية وتخفيض وإلغاء.
+    container.querySelectorAll('[data-renew-plan]').forEach(btn => {
+        btn.addEventListener('click', () => onRenewSubscription(btn));
+    });
+    container.querySelectorAll('[data-sub-renew]').forEach(btn => {
+        btn.addEventListener('click', () => onRenewSubscription(btn));
+    });
+    container.querySelectorAll('[data-sub-change]').forEach(btn => {
+        btn.addEventListener('click', () => onChangePlan(btn));
+    });
+    container.querySelectorAll('[data-sub-cancel]').forEach(btn => {
+        btn.addEventListener('click', () => onCancelActiveSubscription(btn));
+    });
+    container.querySelectorAll('[data-sub-resume]').forEach(btn => {
+        btn.addEventListener('click', () => onResumeSubscription(btn));
+    });
 }
 
 /**
@@ -1669,6 +1908,406 @@ async function onCancelSubscriptionRequest(btn) {
     ui.showToast('أُلغي طلب الاشتراك', 'success');
     const refreshed = await refreshDashboardPayload();
     if (!refreshed) ui.showToast('أُلغي الطلب، لكن تعذّر تحديث القائمة. أعد تحميل الصفحة.', 'warning');
+}
+
+/* ── إدارة الاشتراك ذاتيًا من اللوحة (136) ──────────────────────────────────
+ *
+ * التجديد والترقية عبر مسار طلب الاشتراك الموجود (createSubscriptionTicket:
+ * تذكرة + صف pending + إثبات تحويل، وتأكيد الأدمن لاحقًا) — لا بوابة دفع
+ * جديدة ولا سعر جديد. التخفيض عبر submitDowngradeRequest (بلا دفع الآن).
+ * الإلغاء علَم نهاية مدة فقط، والخدمة تبقى حتى الانتهاء.
+ * الدفع بـPi غير معروض هنا أصلًا: حسابات الشركات مستثناة منه (التنبيه
+ * أعلاه)، فوسائل الدفع هي الأربع اليدوية/الداخلية فقط.
+ */
+
+function buildCompanyModal(title, bodyHtml) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `position:fixed; inset:0; background:rgba(0,0,0,.55);
+        display:flex; align-items:center; justify-content:center; z-index:10000; padding:1rem;`;
+    const box = document.createElement('div');
+    box.style.cssText = `background:var(--color-surface); color:var(--color-text);
+        border:1px solid var(--color-border); border-radius:1rem; padding:1.75rem;
+        width:100%; max-width:520px; max-height:90vh; overflow-y:auto;
+        box-shadow:var(--shadow-lg, 0 10px 30px rgba(0,0,0,.3));`;
+    box.innerHTML = `<h3 style="margin:0 0 1rem; font-size:1.15rem; font-weight:800;">${escapeHtml(title)}</h3>${bodyHtml}`;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    let done = false;
+    let resolvePromise;
+    const promise = new Promise((resolve) => { resolvePromise = resolve; });
+    const close = (value) => {
+        if (done) return;
+        done = true;
+        overlay.remove();
+        document.removeEventListener('keydown', onKey);
+        resolvePromise(value);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') close(null); };
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(null); });
+    return { box, close, promise };
+}
+
+function paymentFieldsHtml() {
+    return `
+        <div style="margin-bottom:1rem;">
+            <p style="font-size:.85rem; font-weight:700; margin:0 0 .4rem;">وسيلة الدفع</p>
+            ${PAYMENT_METHODS.map((method, idx) => `
+                <label style="display:flex; align-items:flex-start; gap:.6rem; padding:.85rem; border:2px solid var(--color-border); border-radius:.75rem; margin-bottom:.6rem; cursor:pointer;" data-method-option="${escapeHtml(method)}">
+                    <input type="radio" name="co_pay_method" value="${escapeHtml(method)}" ${idx === 0 ? 'checked' : ''} style="margin-top:.2rem;">
+                    <span>
+                        <strong>${escapeHtml(PAYMENT_METHOD_LABELS[method])}</strong>
+                        <span style="display:block; font-size:.8rem; color:var(--color-text-secondary); margin-top:.2rem;">
+                            ${EXTERNAL_PAYMENT_METHODS.includes(method)
+                                ? 'تحويل خارجي — يتطلب إرفاق صورة أو PDF لإثبات التحويل. ستتم المراجعة خلال ساعة كحد أقصى.'
+                                : 'سيتواصل معك فريق الدعم لإتمام الدفع.'}
+                        </span>
+                    </span>
+                </label>`).join('')}
+        </div>
+        <div id="coProofField" style="margin-bottom:1rem;">
+            <label style="display:block; font-size:.85rem; font-weight:700; margin-bottom:.4rem;">صورة أو PDF لإثبات التحويل <span style="color:#e11d48;">*</span></label>
+            <input type="file" id="coProofInput" accept="image/*,application/pdf" style="width:100%;">
+        </div>
+        <div style="margin-bottom:1rem;">
+            <label style="display:block; font-size:.85rem; font-weight:700; margin-bottom:.4rem;">رقم/مرجع التحويل (اختياري)</label>
+            <input type="text" id="coReferenceInput" placeholder="مثال: رقم العملية أو آخر 4 أرقام" style="width:100%; padding:.6rem; border-radius:.5rem; border:1px solid var(--color-border); background:var(--color-surface); color:var(--color-text);">
+        </div>
+        <p id="coPayError" style="display:none; color:#e11d48; font-size:.82rem; margin:0 0 1rem;"></p>`;
+}
+
+/** يقرأ حقول الدفع من نافذة مفتوحة، أو يرجّع رسالة خطأ عربية للعرض. */
+function readPaymentFields(box) {
+    const errorEl = box.querySelector('#coPayError');
+    const showError = (msg) => {
+        if (errorEl) { errorEl.textContent = msg; errorEl.style.display = 'block'; }
+        return { error: msg };
+    };
+    const selected = box.querySelector('input[name="co_pay_method"]:checked')?.value;
+    if (!selected || !PAYMENT_METHODS.includes(selected)) return showError('يجب اختيار وسيلة الدفع.');
+    let proofFile = null;
+    if (EXTERNAL_PAYMENT_METHODS.includes(selected)) {
+        const input = box.querySelector('#coProofInput');
+        proofFile = input?.files?.[0] || null;
+        if (!proofFile) return showError(`إرفاق صورة أو PDF لإثبات التحويل إلزامي لوسيلة "${PAYMENT_METHOD_LABELS[selected]}".`);
+        const isImage = proofFile.type?.startsWith('image/');
+        const isPdf = proofFile.type === 'application/pdf';
+        if (!isImage && !isPdf) return showError('الملف يجب أن يكون صورة أو PDF فقط.');
+        if (proofFile.size > 8 * 1024 * 1024) return showError('حجم الملف كبير جدًا. الحد الأقصى 8 ميجابايت.');
+    }
+    return {
+        paymentMethod: selected,
+        paymentReference: box.querySelector('#coReferenceInput')?.value || '',
+        proofFile
+    };
+}
+
+function wirePaymentVisibility(box) {
+    const proofField = box.querySelector('#coProofField');
+    const update = () => {
+        const selected = box.querySelector('input[name="co_pay_method"]:checked')?.value;
+        if (proofField) proofField.style.display = EXTERNAL_PAYMENT_METHODS.includes(selected) ? 'block' : 'none';
+    };
+    box.querySelectorAll('input[name="co_pay_method"]').forEach(r => r.addEventListener('change', update));
+    update();
+}
+
+function modalFooterHtml(confirmLabel) {
+    return `
+        <div style="display:flex; gap:.6rem;">
+            <button type="button" class="btn" data-modal-cancel style="flex:1;">إلغاء</button>
+            <button type="button" class="btn btn-primary" data-modal-confirm style="flex:1;">${escapeHtml(confirmLabel)}</button>
+        </div>`;
+}
+
+/**
+ * نافذة التجديد: دورة الفوترة + وسيلة الدفع + إثبات التحويل.
+ * ترجّع null إن ألغى العميل، وإلا { cycle, paymentMethod, paymentReference, proofFile }.
+ */
+function openRenewalModal(planName, currentCycle, kind = 'renew') {
+    const { box, close, promise } = buildCompanyModal(kind === 'resubscribe' ? `اشترك مجددًا في «${planName}»` : `تجديد «${planName}»`, `
+        <p style="margin:0 0 1rem; font-size:.85rem; color:var(--color-text-secondary); line-height:1.8;">
+            ${kind === 'resubscribe'
+                ? 'اشتراك جديد في الباقة نفسها — يبدأ من تاريخ تأكيد الطلب من فريق الدعم. يُرسَل الطلب للمراجعة، ولا يتفعّل اشتراكك قبل تأكيد الدفع.'
+                : 'يبدأ التجديد من تاريخ انتهاء اشتراكك الحالي، لا من اليوم. يُرسَل الطلب لمراجعة فريق الدعم، ولا يتغيّر اشتراكك قبل تأكيد الدفع.'}
+        </p>
+        <div style="margin-bottom:1rem;">
+            <p style="font-size:.85rem; font-weight:700; margin:0 0 .4rem;">دورة الفوترة</p>
+            <label style="display:inline-flex; gap:.4rem; align-items:center; margin-inline-end:1rem; cursor:pointer;">
+                <input type="radio" name="co_cycle" value="monthly" ${currentCycle !== 'yearly' ? 'checked' : ''}> شهري
+            </label>
+            <label style="display:inline-flex; gap:.4rem; align-items:center; cursor:pointer;">
+                <input type="radio" name="co_cycle" value="yearly" ${currentCycle === 'yearly' ? 'checked' : ''}> سنوي
+            </label>
+        </div>
+        ${paymentFieldsHtml()}
+        ${modalFooterHtml(kind === 'resubscribe' ? 'إرسال طلب الاشتراك' : 'إرسال طلب التجديد')}`);
+    wirePaymentVisibility(box);
+    box.querySelector('[data-modal-cancel]').addEventListener('click', () => close(null));
+    box.querySelector('[data-modal-confirm]').addEventListener('click', () => {
+        const payment = readPaymentFields(box);
+        if (payment.error) return;
+        close({ cycle: box.querySelector('input[name="co_cycle"]:checked')?.value || 'monthly', ...payment });
+    });
+    return promise;
+}
+
+/** نافذة الدفع وحدها (للترقية — الدورة موروثة من الاشتراك الحالي). */
+function openCompanyPaymentModal(title) {
+    const { box, close, promise } = buildCompanyModal(title, `
+        <p style="margin:0 0 1rem; font-size:.85rem; color:var(--color-text-secondary); line-height:1.8;">
+            اختيار وسيلة الدفع إلزامي قبل إرسال الطلب.
+        </p>
+        ${paymentFieldsHtml()}
+        ${modalFooterHtml('متابعة')}`);
+    wirePaymentVisibility(box);
+    box.querySelector('[data-modal-cancel]').addEventListener('click', () => close(null));
+    box.querySelector('[data-modal-confirm]').addEventListener('click', () => {
+        const payment = readPaymentFields(box);
+        if (payment.error) return;
+        close(payment);
+    });
+    return promise;
+}
+
+/** اختيار باقة أخرى من أسعار القاعدة — لا أسعار مكتوبة في الواجهة. */
+function openPlanPickerModal(currentPlan, plans) {
+    // 'store' باقة متجر (118: audience=ecommerce_store) تُدار من قسم المتجر
+    // لا من اشتراكات الشركة — فلا تظهر هدفًا لتغيير الباقة هنا.
+    const others = (plans || []).filter(p => p.key !== currentPlan && p.key !== 'store');
+    const { box, close, promise } = buildCompanyModal('تغيير الباقة', `
+        <p style="margin:0 0 1rem; font-size:.85rem; color:var(--color-text-secondary); line-height:1.8;">
+            اختر الباقة الجديدة. القاعدة هي التي تقرّر إن كانت ترقية أم تخفيضًا،
+            وتعرض لك الأرقام قبل أي طلب.
+        </p>
+        ${others.length ? others.map(p => `
+            <button type="button" data-pick-plan="${escapeHtml(p.key)}" data-plan-name="${escapeHtml(p.name_ar || p.name || p.key)}"
+                    style="display:flex; justify-content:space-between; gap:1rem; width:100%; text-align:start; padding:.85rem; margin-bottom:.6rem; border:1px solid var(--color-border); border-radius:.75rem; background:transparent; color:var(--color-text); font-family:inherit; cursor:pointer;">
+                <strong>${escapeHtml(p.name_ar || p.name || p.key)}</strong>
+                <span style="color:var(--color-text-secondary); font-size:.85rem;">${escapeHtml(formatMoney(p.price_monthly, p.currency))} شهريًا · ${escapeHtml(formatMoney(p.price_yearly, p.currency))} سنويًا</span>
+            </button>`).join('') : '<p class="company-notice">لا توجد باقات أخرى مفعّلة حاليًا.</p>'}
+        <div style="display:flex; gap:.6rem;">
+            <button type="button" class="btn" data-modal-cancel style="flex:1;">إلغاء</button>
+        </div>`);
+    box.querySelectorAll('[data-pick-plan]').forEach(btn => btn.addEventListener('click', () => close({
+        key: btn.getAttribute('data-pick-plan'),
+        name: btn.getAttribute('data-plan-name')
+    })));
+    box.querySelector('[data-modal-cancel]').addEventListener('click', () => close(null));
+    return promise;
+}
+
+/** عرض تغيير الباقة كما حسبته القاعدة، قبل أي طلب. */
+function openChangeQuoteModal(change) {
+    const q = change.quote;
+    const cur = q.current;
+    const tgt = q.target;
+    const money = (v) => formatMoney(v, q.currency);
+    const fmtDate = (d) => new Date(d).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
+    const row = (label, value, strong) => `
+        <div style="display:flex; justify-content:space-between; gap:1rem; padding:.45rem 0; ${strong ? 'font-weight:800; font-size:1.05rem;' : ''}">
+            <span style="color:var(--color-text-secondary);">${escapeHtml(label)}</span>
+            <span>${value}</span>
+        </div>`;
+    const isUpgrade = change.kind === 'upgrade';
+    const features = isUpgrade ? (q.added_features || []) : (q.removed_features || []);
+    // الترقية تسري عند تأكيد الدفع (admin_confirm_subscription_upgrade يفعّل
+    // الجديد في الدورة نفسها ويعلّم المصدر superseded) — لا عند نهاية الدورة.
+    // التخفيض وحده يسري من نهاية الدورة (q.effective_date).
+    const { box, close, promise } = buildCompanyModal(
+        isUpgrade ? 'ترقية ودمج الباقة' : 'تخفيض الباقة', `
+        <p style="margin:0 0 1rem; font-size:.85rem; color:var(--color-text-secondary); line-height:1.8;">
+            ${isUpgrade
+                ? 'لن تبدأ دورة اشتراك جديدة. تحتفظ بنفس تاريخ انتهاء اشتراكك الحالي، وتدفع فرق السعر عن الأيام المتبقية فقط.'
+                : 'لن يتغيّر اشتراكك الحالي قبل نهاية مدّته. يسري التخفيض من نهاية الدورة الحالية، وبلا أي مبلغ الآن.'}
+        </p>
+        <div style="border:1px solid var(--color-border); border-radius:.75rem; padding:1rem; margin-bottom:1rem;">
+            ${row('الباقة الحالية', `${escapeHtml(cur.plan_name_ar)} — ${escapeHtml(money(cur.price))}`)}
+            ${row('الباقة الجديدة', `${escapeHtml(tgt.plan_name_ar)} — ${escapeHtml(money(tgt.price))}`)}
+            ${row('دورة الفوترة', escapeHtml(billingCycleLabel(cur.billing_cycle)))}
+            ${row('ينتهي اشتراكك في', escapeHtml(fmtDate(cur.end_date)))}
+            ${row('الأيام المتبقية', `${escapeHtml(String(q.remaining_days))} من ${escapeHtml(String(q.cycle_days))}`)}
+            ${row('فرق السعر للدورة كاملة', escapeHtml(money(q.price_difference)))}
+            ${row(isUpgrade ? 'يسري من' : 'يسري التخفيض من', isUpgrade ? 'فور تأكيد الدفع من فريق الدعم' : escapeHtml(fmtDate(q.effective_date)))}
+        </div>
+        <div style="border:1px solid var(--color-accent); border-radius:.75rem; padding:1rem; margin-bottom:1rem;">
+            ${row('المبلغ المطلوب الآن', escapeHtml(money(q.amount_due)), true)}
+            <p style="margin:.5rem 0 0; font-size:.78rem; color:var(--color-text-secondary); line-height:1.7;">
+                ${isUpgrade
+                    ? `فرق السعر محسوبًا على ${escapeHtml(String(q.remaining_days))} يومًا متبقية.`
+                    : 'لا مبلغ الآن — تدفع عند التجديد التالي السعر الكامل للباقة الجديدة.'}
+            </p>
+        </div>
+        ${features.length ? `<p style="margin:0 0 1rem; font-size:.85rem; line-height:1.8;">${isUpgrade ? 'خدمات ستُضاف: ' : 'خدمات ستُزال عند السريان: '}${escapeHtml(features.join('، '))}</p>` : ''}
+        <p style="margin:0 0 1.25rem; font-size:.8rem; color:var(--color-text-secondary); line-height:1.7;">
+            عند التجديد بعد ${escapeHtml(fmtDate(cur.end_date))} ستُجدَّد باقة "${escapeHtml(tgt.plan_name_ar)}"
+            بالسعر الكامل ${escapeHtml(money(q.next_renewal_price))} ${escapeHtml(billingCycleLabel(cur.billing_cycle))}.
+        </p>
+        ${modalFooterHtml(isUpgrade ? 'متابعة الترقية' : 'إرسال طلب التخفيض')}`);
+    box.querySelector('[data-modal-cancel]').addEventListener('click', () => close(false));
+    box.querySelector('[data-modal-confirm]').addEventListener('click', () => close(true));
+    return promise;
+}
+
+/**
+ * نافذة إلغاء الاشتراك الفعّال: تأكيد صريح + سبب اختياري (500 حرف).
+ * ترجّع null إن ألغى العميل، وإلا السبب ('' بلا سبب).
+ */
+function openCancelModal(planName, endDate) {
+    const { box, close, promise } = buildCompanyModal(`إلغاء اشتراك «${planName}»`, `
+        <p style="margin:0 0 1rem; font-size:.9rem; line-height:1.9;">
+            سيبقى اشتراكك فعّالًا حتى <strong>${escapeHtml(formatDate(endDate))}</strong>، ثم ينتهي
+            ولا يتجدّد. يمكنك التراجع عن الإلغاء قبل ذلك التاريخ من اللوحة نفسها.
+        </p>
+        <div style="margin-bottom:1rem;">
+            <label style="display:block; font-size:.85rem; font-weight:700; margin-bottom:.4rem;">سبب الإلغاء (اختياري)</label>
+            <textarea id="coCancelReason" maxlength="500" rows="3" placeholder="مثال: لن نحتاج الخدمة بعد هذا الشهر"
+                style="width:100%; padding:.6rem; border-radius:.5rem; border:1px solid var(--color-border); background:var(--color-surface); color:var(--color-text); font-family:inherit; resize:vertical;"></textarea>
+        </div>
+        ${modalFooterHtml('تأكيد الإلغاء')}`);
+    box.querySelector('[data-modal-cancel]').addEventListener('click', () => close(null));
+    box.querySelector('[data-modal-confirm]').addEventListener('click', () => {
+        close(box.querySelector('#coCancelReason')?.value?.trim() || '');
+    });
+    return promise;
+}
+
+async function onRenewSubscription(btn) {
+    const plan = btn.getAttribute('data-plan');
+    const planName = btn.getAttribute('data-plan-name') || plan;
+    const currentCycle = btn.getAttribute('data-cycle') || 'monthly';
+    if (!plan) return;
+
+    const report = analyzeSubscriptions(dashboard.subscriptions);
+    if (pendingRequestFor(report, plan)) {
+        ui.showToast('لديك بالفعل طلب في هذه الباقة قيد المراجعة. انتظر رد فريق الدعم قبل إرسال طلب جديد.', 'warning');
+        return;
+    }
+
+    const renewal = await openRenewalModal(planName, currentCycle, btn.getAttribute('data-kind') || 'renew');
+    if (!renewal) return;
+
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    try {
+        const result = await createSubscriptionTicket(plan, renewal.cycle, {
+            isRenewal: true,
+            paymentMethod: renewal.paymentMethod,
+            paymentReference: renewal.paymentReference,
+            proofFile: renewal.proofFile
+        });
+        if (result.subscription?.id) await linkSubscriptionToCompany(result.subscription.id);
+        const reviewNote = EXTERNAL_PAYMENT_METHODS.includes(renewal.paymentMethod)
+            ? '\n\nسيتم مراجعة إثبات التحويل خلال ساعة كحد أقصى.' : '';
+        ui.showAlert('تم إرسال طلب التجديد',
+            `رقم التذكرة: #${result.ticket?.ticket_number ?? '—'}\n\nسيتم التواصل معك قريبًا من فريق الدعم للموافقة على طلبك.${reviewNote}`, 'success');
+        const refreshed = await refreshDashboardPayload();
+        if (!refreshed) ui.showToast('أُرسل الطلب، لكن تعذّر تحديث القائمة. أعد تحميل الصفحة.', 'warning');
+    } catch (error) {
+        ui.showToast(error?.message || 'حدث خطأ أثناء إرسال طلب التجديد. حاول مرة أخرى.', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+    }
+}
+
+async function onChangePlan(btn) {
+    const plan = btn.getAttribute('data-plan');
+    const cycle = btn.getAttribute('data-cycle') || 'monthly';
+    if (!plan) return;
+
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    try {
+        const plans = await getPlanPrices();
+        const picked = await openPlanPickerModal(plan, plans);
+        if (!picked) return;
+
+        const change = await getChangeQuote(picked.key);
+        if (!change || change.eligible === false) {
+            ui.showToast(quoteCodeMessage(change?.code) || 'تعذّر حساب عرض تغيير الباقة.', 'error');
+            return;
+        }
+        const confirmed = await openChangeQuoteModal(change);
+        if (!confirmed) return;
+
+        if (change.kind === 'upgrade') {
+            const payment = await openCompanyPaymentModal(`ترقية إلى «${picked.name}»`);
+            if (!payment) return;
+            const result = await createSubscriptionTicket(picked.key, cycle, {
+                isUpgrade: true,
+                paymentMethod: payment.paymentMethod,
+                paymentReference: payment.paymentReference,
+                proofFile: payment.proofFile
+            });
+            if (result.subscription?.id) await linkSubscriptionToCompany(result.subscription.id);
+            const amount = result.subscription?.upgrade_amount ?? change.quote.amount_due;
+            const reviewNote = EXTERNAL_PAYMENT_METHODS.includes(payment.paymentMethod)
+                ? '\n\nسيتم مراجعة إثبات التحويل خلال ساعة كحد أقصى.' : '';
+            ui.showAlert('تم إرسال طلب الترقية',
+                `رقم التذكرة: #${result.ticket?.ticket_number ?? '—'}\nالمبلغ المطلوب: ${formatMoney(amount, change.quote.currency)}\n\nلن تتغيّر باقتك قبل تأكيد الدفع من فريق الدعم.${reviewNote}`, 'success');
+        } else {
+            const result = await submitDowngradeRequest(picked.key);
+            ui.showAlert('تم إرسال طلب التخفيض',
+                `رقم التذكرة: #${result.ticket?.ticket_number ?? '—'}\nيسري التخفيض من ${formatDate(result.subscription?.start_date || change.quote.effective_date)}، وبلا أي مبلغ الآن.`, 'success');
+        }
+        const refreshed = await refreshDashboardPayload();
+        if (!refreshed) ui.showToast('أُرسل الطلب، لكن تعذّر تحديث القائمة. أعد تحميل الصفحة.', 'warning');
+    } catch (error) {
+        ui.showToast(error?.message || 'حدث خطأ أثناء إرسال الطلب. حاول مرة أخرى.', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+    }
+}
+
+async function onCancelActiveSubscription(btn) {
+    const id = btn.getAttribute('data-sub-id');
+    const planName = btn.getAttribute('data-plan-name') || 'الاشتراك';
+    const endDate = btn.getAttribute('data-end');
+    if (!id || !endDate) return;
+
+    const reason = await openCancelModal(planName, endDate);
+    if (reason === null) return;
+
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    const result = await cancelActiveSubscription(id, reason);
+    if (!result.ok) {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        ui.showToast(result.error || 'تعذّر إلغاء الاشتراك', 'error');
+        return;
+    }
+    ui.showToast(`سيبقى اشتراك «${planName}» فعّالًا حتى ${formatDate(endDate)}، ثم ينتهي ولا يتجدّد. يمكنك التراجع عن الإلغاء قبل ذلك التاريخ.`, 'success');
+    const refreshed = await refreshDashboardPayload();
+    if (!refreshed) ui.showToast('أُلغي الاشتراك، لكن تعذّر تحديث القائمة. أعد تحميل الصفحة.', 'warning');
+}
+
+async function onResumeSubscription(btn) {
+    const id = btn.getAttribute('data-sub-id');
+    const planName = btn.getAttribute('data-plan-name') || 'الاشتراك';
+    if (!id) return;
+
+    const confirmed = await ui.showConfirm(
+        'التراجع عن إلغاء الاشتراك',
+        `سيستمر اشتراك «${planName}» كالمعتاد ويُجدَّد في موعده.`,
+        { confirmLabel: 'تراجع عن الإلغاء', cancelLabel: 'رجوع' });
+    if (!confirmed) return;
+
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    const result = await resumeSubscription(id);
+    if (!result.ok) {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        ui.showToast(result.error || 'تعذّر التراجع عن الإلغاء', 'error');
+        return;
+    }
+    ui.showToast('تم التراجع عن الإلغاء. اشتراكك مستمر كالمعتاد.', 'success');
+    const refreshed = await refreshDashboardPayload();
+    if (!refreshed) ui.showToast('تم التراجع، لكن تعذّر تحديث القائمة. أعد تحميل الصفحة.', 'warning');
 }
 
 function subscriptionSummary(report) {
@@ -1709,9 +2348,10 @@ function piNoticeHtml() {
 
 /**
  * زر «جدّد الآن» بسياق الباقة الحالية: اسم الباقة وتاريخ انتهائها وأيامها
- * المتبقية من النموذج الموجود، رابطًا إلى مسار التجديد الموجود في صفحة
- * الاشتراكات — لا مسار دفع جديد، ولا معامل خطة في الرابط (الصفحة لا تقرأ
- * أي معامل؛ زر التجديد فيها يظهر بجانب الاشتراك النشط نفسه).
+ * المتبقية من النموذج الموجود — لكن التجديد نفسه يتم **داخل اللوحة** (136):
+ * نافذة تختار فيها دورة الفوترة ووسيلة الدفع، فيُرسَل طلب التجديد عبر مسار
+ * طلب الاشتراك الموجود (submit_subscription_request مع is_renewal). رابط
+ * «استعراض كل الباقات» ثانوي للتصفح فقط، لا مسار التجديد.
  * بلا سياق تجديد (قيد المراجعة أو لم يبدأ بعد أو بلا اشتراكات) لا شيء.
  */
 function renewalPanelHtml(context) {
@@ -1722,8 +2362,8 @@ function renewalPanelHtml(context) {
         ? ` (${escapeHtml(String(context.daysRemaining))} يومًا متبقيًا)` : '';
     const heading = context.kind === 'renew' ? 'تجديد الاشتراك' : 'الاشتراكات منتهية';
     const note = context.kind === 'renew'
-        ? 'زر التجديد موجود في صفحة الاشتراكات بجانب اشتراكك النشط.'
-        : 'انتهت مدة الاشتراك. الاشتراك مجددًا يتم من صفحة الاشتراكات نفسها.';
+        ? 'التجديد من هنا مباشرة: تختار دورة الفوترة ووسيلة الدفع، ويُرسَل الطلب لمراجعة فريق الدعم. يبدأ التجديد من تاريخ الانتهاء الحالي لا من اليوم.'
+        : 'انتهت مدة الاشتراك. الاشتراك مجددًا يتم من هنا بالدورة ووسيلة الدفع نفسيهما.';
 
     return `
         <section class="panel" aria-labelledby="companyRenewHeading">
@@ -1732,9 +2372,15 @@ function renewalPanelHtml(context) {
                     <h2 class="panel-title" id="companyRenewHeading">${heading}</h2>
                     <p class="panel-subtitle">${escapeHtml(context.planName)}${endText}${daysText}</p>
                 </div>
-                <a class="btn btn-primary" href="${escapeHtml(context.href)}">${escapeHtml(context.label)}</a>
+                <button type="button" class="btn btn-primary"
+                        data-renew-plan
+                        data-kind="${escapeHtml(context.kind)}"
+                        data-plan="${escapeHtml(context.planKey)}"
+                        data-cycle="${escapeHtml(context.billingCycle || 'monthly')}"
+                        data-plan-name="${escapeHtml(context.planName)}">${escapeHtml(context.label)}</button>
             </div>
             <p class="company-notice">${escapeHtml(note)}</p>
+            <p class="company-notice"><a href="${escapeHtml(context.href)}">استعراض كل الباقات</a></p>
         </section>`;
 }
 
@@ -1773,12 +2419,25 @@ function anomalyPanel(report) {
 function subscriptionRow(row) {
     const sub = row.sub;
     const state = row.state;
+    const isOwner = companyAccess(dashboard).isOwner;
+    const actions = subscriptionActions(row, { isOwner });
 
     const timing = state.key === 'scheduled'
         ? `يبدأ بعد ${escapeHtml(String(row.daysUntilStart))} يومًا`
         : (row.daysRemaining != null && (state.key === 'active' || state.key === 'expiring')
             ? `${escapeHtml(String(row.daysRemaining))} يوم متبقٍ`
             : '');
+
+    const actionBtn = (key) => {
+        const attrs = `data-sub-id="${escapeHtml(sub.id)}" data-plan="${escapeHtml(sub.plan)}" `
+            + `data-cycle="${escapeHtml(sub.billing_cycle || 'monthly')}" data-plan-name="${escapeHtml(sub.plan_name_ar || sub.plan)}" `
+            + (sub.end_date ? `data-end="${escapeHtml(sub.end_date)}" ` : '');
+        if (key === 'renew') return `<button type="button" class="btn btn-secondary btn-sm" data-sub-renew data-kind="renew" ${attrs}>تجديد</button>`;
+        if (key === 'change-plan') return `<button type="button" class="btn btn-secondary btn-sm" data-sub-change ${attrs}>تغيير الباقة</button>`;
+        if (key === 'cancel') return `<button type="button" class="btn btn-secondary btn-sm" data-sub-cancel ${attrs}>إلغاء الاشتراك</button>`;
+        if (key === 'resume') return `<button type="button" class="btn btn-secondary btn-sm" data-sub-resume ${attrs}>تراجع عن الإلغاء</button>`;
+        return '';
+    };
 
     return `
         <li class="company-sub">
@@ -1789,6 +2448,10 @@ function subscriptionRow(row) {
                     ${sub.end_date ? ` حتى ${escapeHtml(formatDate(sub.end_date))}` : ' · بلا تاريخ انتهاء'}
                     ${sub.billing_cycle ? ` · ${escapeHtml(billingCycleLabel(sub.billing_cycle))}` : ''}
                 </p>
+                ${row.cancelAtPeriodEnd && sub.end_date ? `
+                <p class="company-sub-dates is-warning">
+                    سيُلغى هذا الاشتراك عند انتهائه في ${escapeHtml(formatDate(sub.end_date))}، وتبقى الخدمة حتى ذلك التاريخ.
+                </p>` : ''}
                 ${row.anomalies.length ? `
                 <p class="company-sub-dates is-warning">
                     ${escapeHtml(row.anomalies.map(k => ANOMALY_NOTES[k]?.text || k).join(' '))}
@@ -1797,7 +2460,8 @@ function subscriptionRow(row) {
             <div class="company-sub-side">
                 <span class="pill ${escapeHtml(state.pill)}">${escapeHtml(state.label)}</span>
                 ${timing ? `<span class="company-sub-days">${timing}</span>` : ''}
-                ${state.key === 'pending' && companyAccess(dashboard).isOwner ? `
+                ${actions.map(actionBtn).join('')}
+                ${state.key === 'pending' && isOwner ? `
                 <button type="button" class="btn btn-secondary btn-sm"
                         data-cancel-subscription="${escapeHtml(sub.id)}"
                         data-plan-name="${escapeHtml(sub.plan_name_ar || sub.plan)}">إلغاء الطلب</button>` : ''}

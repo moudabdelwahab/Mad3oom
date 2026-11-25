@@ -106,7 +106,7 @@
                                     بواسطة: <strong>${s.profiles?.full_name || 'مستخدم'}</strong> | ${new Date(s.created_at).toLocaleDateString('ar-EG')}
                                 </div>
                             </div>
-                            <span class="status-badge status-${s.status}">${s.status === 'pending' ? 'قيد المراجعة' : s.status}</span>
+                            <span class="status-badge status-${s.status}">${{ pending: 'قيد المراجعة', reviewed: 'تمت المراجعة', implemented: 'تم التنفيذ' }[s.status] || s.status}</span>
                         </div>
                         <p style="line-height: 1.6; color: var(--color-text); white-space: pre-wrap;">${s.description}</p>
                     </div>

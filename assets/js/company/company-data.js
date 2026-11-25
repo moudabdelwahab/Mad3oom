@@ -153,6 +153,105 @@ export async function fetchMyCompanyAccountRequest() {
     });
 }
 
+/* ── المدخل المستقل لطلب حساب شركة (migrations/138) ─────────────────────
+ *
+ * طلب من خارج مسار الشراء — بلا باقة. نوع المتقدم يقرر الإثبات:
+ *   • شركة   ⇒ مستند إثبات مرفوع أولًا (uploadStandaloneProof) ثم يُرسَل رمزه.
+ *   • متجر/منصة ⇒ رابط موقع/متجر (websiteUrl) بدل المستند.
+ *   • أخرى   ⇒ لا مستند ولا رابط.
+ * القاعدة تفرض القواعد نفسها (الدالة + قيود الجدول)؛ الواجهة تقولها بالعربي
+ * قبل الإرسال فقط. لا يُنشئ شركة: الطلب ينتظر موافقة الإدارة (068).
+ */
+
+/**
+ * رفع مستند إثبات طلب مستقل عبر الدالة الطرفية القائمة company-document-upload
+ * (نفس المستودع الخاص ونفس فحص النوع/الحجم/التوقيع/البصمة في 100).
+ *
+ * الفرق الوحيد: المتقدم بلا شركة بعد، فلا يمر بـ document_upload_begin
+ * (يشترط مدير شركة قائمة) — بل بوضع «إثبات طلب» برأس X-Proof-Token، فينادي
+ * المعالج company_account_request_proof_begin (138) برمز يولّده المتصفح
+ * ويُرسَل مع الطلب بعدها. ⇒ { ok, data, error } حيث data حمولة التأكيد
+ * (proof_token, path, file_name, mime_type, size_bytes, sha256, status).
+ */
+export async function uploadStandaloneProof(file, { proofToken, idempotencyKey } = {}) {
+    try {
+        const { data: { session } = {} } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) return { ok: false, data: null, error: 'سجّل الدخول من جديد.' };
+        const res = await fetch(`${supabase.supabaseUrl}/functions/v1/company-document-upload`, {
+            method: 'POST',
+            body: file,
+            headers: {
+                Authorization: `Bearer ${token}`,
+                ...(supabase.supabaseKey ? { apikey: supabase.supabaseKey } : {}),
+                'Content-Type': file.type,
+                'X-Proof-Token': proofToken,
+                'X-Idempotency-Key': idempotencyKey,
+                'X-Document-Type': 'commercial_registration',
+                'X-Document-Name': encodeURIComponent(file.name || '')
+            }
+        });
+        let json = null;
+        try { json = await res.json(); } catch { json = null; }
+        if (!res.ok) {
+            const code = json?.error?.code;
+            const messages = {
+                validation_failed: 'الملف غير صالح (النوع أو الحجم لا يطابق).',
+                forbidden: 'تعذّر رفع المستند لحسابك الآن.',
+                idempotency_conflict: 'أُرسل هذا الطلب بملف مختلف — أعد المحاولة.',
+                upload_failed: 'تعذّر رفع الملف. حاول مرة أخرى.'
+            };
+            return { ok: false, data: null, error: messages[code] || 'تعذّر رفع الملف. حاول مرة أخرى.' };
+        }
+        return { ok: true, data: json || null, error: null };
+    } catch (err) {
+        console.error('[CompanyData] uploadStandaloneProof:', err?.message || err);
+        return { ok: false, data: null, error: 'تعذّر الاتصال. تحقّق من اتصالك ثم أعد المحاولة.' };
+    }
+}
+
+/**
+ * إرسال طلب حساب شركة مستقل (138). values الحقول القانونية نفسها كما في
+ * submitCompanyAccountRequest، و options: { applicantType, websiteUrl, proofToken }.
+ * صاحب الطلب من auth.uid() في القاعدة؛ الباقة لا تُرسَل (بلا باقة).
+ */
+export async function submitStandaloneCompanyAccountRequest(values, { applicantType, websiteUrl = null, proofToken = null } = {}) {
+    return safe('submitStandaloneCompanyAccountRequest', async () => {
+        const { data, error } = await supabase.rpc('submit_standalone_company_account_request', {
+            p_company_name: values.companyName,
+            p_commercial_registration_number: values.crNumber,
+            p_commercial_registration_expiry: values.crExpiry,
+            p_company_email: values.companyEmail || null,
+            p_company_phone: values.companyPhone || null,
+            p_applicant_type: applicantType,
+            p_website_url: websiteUrl || null,
+            p_proof_token: proofToken || null
+        });
+        if (error) throw error;
+        return data;
+    });
+}
+
+/**
+ * رابط تنزيل موقَّع (60 ثانية) لمستند إثبات طلب — للإدارة في صفحة المراجعة.
+ * الدالة الطرفية company-document-download بوضع request_id تنادي
+ * admin_company_account_request_proof_download (138). ⇒ { ok, url, error }.
+ */
+export async function fetchStandaloneProofUrl(requestId) {
+    try {
+        const { data, error } = await supabase.functions.invoke('company-document-download', {
+            body: { request_id: requestId }
+        });
+        if (error) throw new Error('تعذّر تجهيز رابط التنزيل. حاول مرة أخرى.');
+        if (data?.error) throw new Error('تعذّر تجهيز رابط التنزيل. حاول مرة أخرى.');
+        if (!data?.url) throw new Error('تعذّر تجهيز رابط التنزيل. حاول مرة أخرى.');
+        return { ok: true, url: data.url, error: null };
+    } catch (err) {
+        console.error('[CompanyData] fetchStandaloneProofUrl:', err?.message || err);
+        return { ok: false, url: null, error: err?.message || 'تعذّر تجهيز رابط التنزيل. حاول مرة أخرى.' };
+    }
+}
+
 /**
  * أعضاء الشركة (المالك + المستخدمون الفرعيون).
  * بلا مُعاملات — الشركة تُشتق من auth.uid() في القاعدة.
@@ -511,6 +610,62 @@ export async function cancelSubscriptionRequest(subscriptionId) {
         if (error) throw error;
         if (data !== true) throw new Error('تعذّر إلغاء الطلب: لم يعد قيد المراجعة أو ليس من طلباتك');
         return true;
+    });
+}
+
+/* ── إدارة الاشتراك ذاتيًا (migrations/136) ───────────────────────────────
+ *
+ * إلغاء اشتراك فعّال في نهاية مدّته والتراجع عنه: مالك الشركة أو صاحب
+ * الاشتراك وحدهما (القاعدة تتحقق من الملكية)، والخدمة تبقى حتى end_date.
+ * القاعدة ترجّع status نصيًا: 'cancel_at_period_end' أو 'already_cancelled'.
+ */
+export async function cancelActiveSubscription(subscriptionId, reason) {
+    return safe('cancelActiveSubscription', async () => {
+        const { data, error } = await supabase.rpc('cancel_my_active_subscription', {
+            p_subscription_id: subscriptionId,
+            p_reason: reason || null
+        });
+        if (error) throw error;
+        if (!data || data.cancel_at_period_end !== true) {
+            throw new Error('تعذّر إلغاء الاشتراك: لم يعد فعّالًا أو ليس من اشتراكاتك');
+        }
+        return data;
+    });
+}
+
+export async function resumeSubscription(subscriptionId) {
+    return safe('resumeSubscription', async () => {
+        const { data, error } = await supabase.rpc('resume_my_subscription', {
+            p_subscription_id: subscriptionId
+        });
+        if (error) throw error;
+        if (!data || data.cancel_at_period_end !== false) {
+            throw new Error('تعذّر التراجع عن الإلغاء');
+        }
+        return data;
+    });
+}
+
+/* ── التجربة المجانية 3 أيام (الترحيل 137) ──────────────────────────────────
+ * الطلب من مالك الشركة وحده (القاعدة ترفض غيره)، والشركة تُحدَّد من
+ * auth.uid() بلا معامل — فلا نداء هنا يوجّه الطلب لشركة أخرى.
+ * الطلب ينشئ طلبًا معلّقًا فقط؛ التجربة تبدأ بموافقة المالك من لوحته.
+ * قبل 137: الدوال غير موجودة فتعود الحالة null بلا خطأ (rpcOrNull). */
+export const fetchSaasTrialStatus = () => rpcOrNull('saasTrialStatus', 'my_saas_trial_status');
+
+export async function requestSaasTrial(planKey) {
+    return safe('requestSaasTrial', async () => {
+        const { data, error } = await supabase.rpc('request_saas_trial', { p_plan_key: planKey });
+        if (error) throw error;
+        return data || null;
+    });
+}
+
+export async function cancelSaasTrial(requestId) {
+    return safe('cancelSaasTrial', async () => {
+        const { data, error } = await supabase.rpc('cancel_saas_trial', { p_request: requestId });
+        if (error) throw error;
+        return data || null;
     });
 }
 

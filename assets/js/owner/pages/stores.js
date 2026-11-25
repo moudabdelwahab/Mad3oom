@@ -20,6 +20,16 @@
  *     تنبيهات داخل الصفحة فقط (بلا قناة إشعار — لا آلية مالك عامة موجودة)، وقرارات طلبات المتاجر، وحد التذاكر
  *     والمزايا، وسجل عمليات واحد، ومبدّل مزوّد شوبيفاي. تنبيه: إيقاف المزوّد يمنع مزامنة وربطًا جديدًا ولا يفصل القائم.
  *   • owner_accounts_overview (133): فلاتر حالة الاشتراك/شوبيفاي/الإيقاف + بحث بدومين المتجر؛ النداء القديم يعمل كما هو.
+ *   • (135) إلغاء تفعيل الباقة: owner_set_store_plan_price بتوقيع جديد (p_deactivate + p_reason) — زر مستقل
+ *     بتأكيد وسبب؛ إلغاء تحديد التفعيل في نموذج السعر ما زال يحفظ السعر فقط. بلا تفعيل حي هنا.
+ *   • (135) تعديل الانتهاء أثناء الإيقاف تاريخ نهائي: الاستئناف لا يمدّده بمدة التوقف (علامة
+ *     end_date_set_while_paused)؛ ونص الاستئناف يتبع أساس الحساب (storeResumeBasis). الأيام المتبقية
+ *     للمتوقف تُقرأ من days_remaining في القاعدة (مجمّدة عند الإيقاف) لا من تاريخ الانتهاء وحده.
+ *   • (135) نموذج الحصة: تعطيل shopify_integration أو إلغاء كل المزايا يفتح تأكيدًا صريحًا قبل الحفظ.
+ *   • (135) التشخيص: نموذج السعر يبني بياناته من owner_store_plan_config لا من owner_entitlement_diagnostics،
+ *     وكل قسم في التشخيص يُرسم بنتيجته وخطئه مستقلًا — فشل التشخيص لا يُسقط النموذجين.
+ *   • (135) المزامنة: المهمة القائمة (queued/running/failed) تُعاد كما هي بلا مكرر — في owner_ihub_sync_request
+ *     و ihub_sync_request المناظرة؛ وحد الدقيقتين على المهمة المنتهية وحدها.
  *   • المعاينة: سياقات المالك القائمة (040/041) — «مدير شركتي» للتشغيل، و«معاينة عضو» للقراءة فقط.
  *     لا انتحال لتاجر ولا تجاوز للعزل. لا window.prompt في هذه الصفحة إطلاقًا.
  */
@@ -27,8 +37,9 @@ import {
     supabase, bootOwnerPage, announce, esc, when, num, table, kpis, errorBlock, loadingBlock, stateBlock, openModal,
     friendlyError, renderPager
 } from '/assets/js/owner/owner-page.js';
-import { searchTerm, storePriceError, storeReasonError, testDaysRemaining, STORE_FEATURE_LABELS,
-    BILLING_CYCLE_LABELS, storeEndDateError, toCsv } from '/assets/js/owner/owner-labels.js';
+import { searchTerm, storeReasonError, testDaysRemaining, STORE_FEATURE_LABELS,
+    BILLING_CYCLE_LABELS, storeEndDateError, toCsv, storePlanPriceArgs, storePlanFromConfig,
+    storeQuotaDisableWarning, storeResumeBasis } from '/assets/js/owner/owner-labels.js';
 
 const $ = (id) => document.getElementById(id);
 const say = (text, tone = 'info') => announce($('pageStatus'), text, tone);
@@ -222,7 +233,9 @@ async function openManageSub(companyId, companyName) {
         const { data: sub, error } = await rpc('owner_store_subscription', { p_company: companyId });
         if (error) { body.innerHTML = errorBlock(friendlyError(error)); return; }
         const effective = sub?.effective === true;
-        const days = sub?.end_date ? testDaysRemaining(sub.end_date) : null;
+        // 135: المتوقف أيامه المتبقية مجمّدة عند الإيقاف — تُقرأ من القاعدة لا من الآن.
+        const days = sub?.days_remaining ?? (sub?.end_date ? testDaysRemaining(sub.end_date) : null);
+        const resumeBasis = storeResumeBasis(sub);
         body.innerHTML = `
             ${sub ? `<h3 class="panel-title">الاشتراك الحالي</h3>
                 <ul class="company-list">
@@ -269,6 +282,7 @@ async function openManageSub(companyId, companyName) {
                     </div>
                     <p class="owner-sie-status" id="subEndStatus" role="status" aria-live="polite" hidden></p>
                 </form>
+                ${sub.status === 'paused' ? '<p class="field-hint">الاشتراك متوقف الآن: التاريخ الجديد هو تاريخ الانتهاء النهائي بعد الاستئناف — لن يُمدَّد بمدة التوقف.</p>' : ''}
                 <div class="toolbar">
                     ${sub.status === 'active' ? '<button type="button" class="btn btn-outline btn-sm" id="subPause" data-critical>إيقاف مؤقتًا</button>' : ''}
                     ${sub.status === 'paused' ? '<button type="button" class="btn btn-primary btn-sm" id="subResume" data-critical>استئناف</button>' : ''}
@@ -323,7 +337,12 @@ async function openManageSub(companyId, companyName) {
             }
         }));
         body.querySelector('#subResume')?.addEventListener('click', () => openSubReasonModal({
-            title: 'استئناف الاشتراك', text: 'سيعود الاشتراك فعّالًا، ويمتدّ تاريخ الانتهاء بمدة التوقف — الأيام المتوقفة لا تُخصم من العميل.',
+            title: 'استئناف الاشتراك',
+            text: resumeBasis === 'manual'
+                ? 'سيعود الاشتراك فعّالًا بتاريخ الانتهاء المحدد يدويًا أثناء الإيقاف، دون تمديد إضافي بمدة التوقف.'
+                : resumeBasis === 'cycle'
+                    ? 'سيعود الاشتراك فعّالًا، وتبدأ الدورة الجديدة كاملة من لحظة الاستئناف.'
+                    : 'سيعود الاشتراك فعّالًا، ويمتدّ تاريخ الانتهاء بمدة التوقف — الأيام المتوقفة لا تُخصم من العميل.',
             confirmLabel: 'استئناف الاشتراك', confirmTone: 'btn-primary',
             onConfirm: async (reason) => {
                 const { error } = await rpc('owner_store_resume', { p_subscription: sub.id, p_reason: reason });
@@ -456,15 +475,19 @@ async function openEvents(connectionId) {
 
 async function loadDiagnostics() {
     $('storeDiagnostics').innerHTML = loadingBlock();
-    const [{ data, error }, cfg, { data: planCfg }] = await Promise.all([
+    const [diagRes, cfgRes, planRes] = await Promise.all([
         rpc('owner_entitlement_diagnostics'),
         supabase.functions.invoke('ihub-api', { body: { action: 'shopify_config' } }).catch((e) => ({ error: e })),
         rpc('owner_store_plan_config')
     ]);
-    if (error) { $('storeDiagnostics').innerHTML = errorBlock(friendlyError(error)); diagnostics = null; renderKpis(); return; }
-    diagnostics = data;
-    const plan = data?.store_plan;
-    const conf = cfg?.data;
+    // 135: كل قسم بنتيجته وخطئه مستقلًا — فشل التشخيص لا يُسقط نموذجي السعر
+    // والحصة، وفشل إعداد الخادم أو إعداد الباقة لا يُسقط ما عداه. نموذج السعر
+    // يبني بياناته من owner_store_plan_config (135) لا من التشخيص.
+    diagnostics = diagRes.error ? null : diagRes.data;
+    const data = diagnostics;
+    const conf = cfgRes?.error ? null : cfgRes?.data;
+    const planCfg = planRes.error ? null : planRes.data;
+    const plan = storePlanFromConfig(planCfg);
     const mismatch = data?.live_connection_without_entitlement || [];
     $('storeDiagnostics').innerHTML = `
         <h3 class="panel-title">إعداد تطبيق شوبيفاي على الخادم</h3>
@@ -474,7 +497,8 @@ async function loadDiagnostics() {
                 رابط الرجوع يطابق المتوقع: ${conf.redirect_matches_callback ? 'نعم' : '<strong>لا — صحّح SHOPIFY_REDIRECT_URI</strong>'}</p>
             <p class="panel-subtitle">لإصلاح SHOPIFY_REDIRECT_URI: القيمة سرّ على الخادم — لوحة Supabase ← Edge Functions ← ihub-api ← Secrets، وليست في هذه الصفحة.</p>
             ${conf.urls ? `<p class="panel-subtitle owner-mono" dir="ltr">${esc(conf.urls.callback)}<br>${esc(conf.urls.webhooks)}</p>` : ''}`
-            : stateBlock({ title: 'تعذّر فحص إعداد الخادم', text: 'الدالة الطرفية ihub-api غير منشورة بهذا الإصدار بعد، أو رفضت الطلب.' })}
+            : (cfgRes?.error ? errorBlock(friendlyError(cfgRes.error))
+                : stateBlock({ title: 'تعذّر فحص إعداد الخادم', text: 'الدالة الطرفية ihub-api غير منشورة بهذا الإصدار بعد، أو رفضت الطلب.' }))}
         <h3 class="panel-title">باقة المتاجر</h3>
         ${plan ? `<p class="panel-subtitle">${plan.is_active ? 'مفعّلة' : 'غير مفعّلة'} · السعر الشهري: ${esc(plan.price_monthly ?? 'لم يُحدد')} ·
             السنوي: ${esc(plan.price_yearly ?? 'لم يُحدد')} ${esc(plan.currency || '')} · حد التذاكر: ${plan.ticket_quota_defined ? 'محدد' : 'غير محدد'}<br>
@@ -495,13 +519,15 @@ async function loadDiagnostics() {
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary btn-sm" data-critical>حفظ سعر الباقة</button>
+                    ${plan.is_active ? '<button type="button" class="btn btn-danger btn-sm" id="planDeactivate" data-critical>إلغاء تفعيل باقة المتاجر</button>' : ''}
                 </div>
                 <p class="owner-sie-status" id="planPriceStatus" role="status" aria-live="polite" hidden></p>
             </form>
             <p class="field-hint">السعر والمزايا قرار المالك. القاعدة ترفض تفعيل الباقة بلا سعرين موجبين (subscription_plans_store_priced).
                 الحقلان معبّآن بالسعر المعتمد (500 شهري / 5000 سنوي) — عدّلهما قبل الحفظ إن لزم.
-                إلغاء تحديد التفعيل يحفظ السعر فقط ولا يوقف باقة مفعّلة.</p>`
-            : stateBlock({ text: 'الباقة غير موجودة (118 غير مطبّق).' })}
+                إلغاء تحديد التفعيل يحفظ السعر فقط ولا يوقف باقة مفعّلة؛ أوقفها بزر «إلغاء تفعيل باقة المتاجر» بتأكيد وسبب.</p>`
+            : (planRes?.error ? errorBlock(friendlyError(planRes.error))
+                : stateBlock({ text: 'الباقة غير موجودة (118 غير مطبّق).' }))}
         <h3 class="panel-title">حد التذاكر ومزايا باقة المتاجر</h3>
         ${planCfg ? `<form class="owner-action-form" id="storeQuotaForm" novalidate>
                 <div class="form-field">
@@ -523,33 +549,49 @@ async function loadDiagnostics() {
                 <p class="owner-sie-status" id="planQuotaStatus" role="status" aria-live="polite" hidden></p>
             </form>
             <p class="field-hint">الحقل فارغ يعني بلا حد للتذاكر — لا حد افتراضي؛ أدخل الرقم بنفسك. الحد الحالي: ${planCfg.ticket_quota == null ? 'بلا حد' : esc(num(planCfg.ticket_quota))}.</p>`
-            : stateBlock({ text: 'تعذّر تحميل إعداد باقة المتاجر.' })}
+            : (planRes?.error ? errorBlock(friendlyError(planRes.error))
+                : stateBlock({ text: 'تعذّر تحميل إعداد باقة المتاجر.' }))}
         <h3 class="panel-title">تعارضات الامتياز</h3>
-        <ul class="company-list">
+        ${data ? `<ul class="company-list">
             <li>متاجر لها ربط حي بلا امتياز شوبيفاي: <strong>${esc(num(mismatch.length))}</strong>${mismatch.length ? ` — ${mismatch.map((m) => esc(m.company_name)).join('، ')}` : ''}</li>
             <li>متاجر بلا اشتراك فعّال: <strong>${esc(num(data?.stores_without_subscription))}</strong></li>
             <li>اشتراكات باقة المتاجر على حساب ليس متجرًا: <strong>${esc(num(data?.store_plan_on_non_store))}</strong></li>
             <li>طلبات حسابات متاجر قيد المراجعة: <strong>${esc(num(data?.pending_store_requests))}</strong> — <a href="/admin/company-requests.html">المراجعة في لوحة الإدارة</a></li>
-        </ul>`;
+        </ul>`
+            : errorBlock(friendlyError(diagRes.error))}`;
     $('storePriceForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const form = e.currentTarget;
         const status = (t, tone) => announce(form.querySelector('#planPriceStatus'), t, tone);
-        const monthly = form.querySelector('#planMonthly').value;
-        const yearly = form.querySelector('#planYearly').value;
-        const activate = form.querySelector('#planActivate').checked;
-        const err = storePriceError({ monthly, yearly });
-        if (err) { status(err, 'error'); return; }
+        const { args, error: argError } = storePlanPriceArgs({
+            monthly: form.querySelector('#planMonthly').value,
+            yearly: form.querySelector('#planYearly').value,
+            activate: form.querySelector('#planActivate').checked
+        });
+        if (argError) { status(argError, 'error'); return; }
         const btn = form.querySelector('button[type=submit]');
         btn.disabled = true;
-        const { data: saved, error: saveError } = await rpc('owner_set_store_plan_price', {
-            p_monthly: Number(monthly), p_yearly: Number(yearly), p_activate: activate
-        });
+        const { data: saved, error: saveError } = await rpc('owner_set_store_plan_price', args);
         btn.disabled = false;
         if (saveError) { status(friendlyError(saveError), 'error'); return; }
         say(saved?.is_active ? 'حُفظ سعر باقة المتاجر وفُعّلت.' : 'حُفظ سعر باقة المتاجر.', 'success');
         loadDiagnostics();
     });
+    $('planDeactivate')?.addEventListener('click', () => openSubReasonModal({
+        title: 'إلغاء تفعيل باقة المتاجر',
+        text: 'سيتوقف بيع باقة المتاجر لمتاجر جديدة فورًا (الشراء والترقية يتحققان من تفعيل الباقة)، وتبقى اشتراكات المتاجر القائمة سارية حتى انتهائها. الأسعار المحفوظة تبقى كما هي، ويمكن إعادة التفعيل بها لاحقًا من النموذج نفسه.',
+        confirmLabel: 'إلغاء تفعيل الباقة', confirmTone: 'btn-danger',
+        onConfirm: async (reason) => {
+            // الأسعار المحفوظة لا المدخلات: إلغاء التفعيل وحده لا يغيّر السعرين.
+            const { args, error: argError } = storePlanPriceArgs({
+                monthly: plan.price_monthly, yearly: plan.price_yearly, deactivate: true, reason
+            });
+            if (argError) return { error: { message: argError } };
+            const { error } = await rpc('owner_set_store_plan_price', args);
+            if (!error) { say('أُلغي تفعيل باقة المتاجر — الأسعار المحفوظة باقية.', 'success'); loadDiagnostics(); }
+            return { error };
+        }
+    }));
     $('storeQuotaForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const form = e.currentTarget;
@@ -564,17 +606,50 @@ async function loadDiagnostics() {
         const reason = form.querySelector('#planQuotaReason').value;
         const err = storeReasonError(reason);
         if (err) { status(err, 'error'); return; }
-        const btn = form.querySelector('button[type=submit]');
-        btn.disabled = true;
-        const { error: quotaError } = await rpc('owner_set_store_plan_quota_features', {
-            p_monthly_quota: quota, p_features: features, p_reason: reason
+        const doSave = async () => {
+            const btn = form.querySelector('button[type=submit]');
+            btn.disabled = true;
+            const { error: quotaError } = await rpc('owner_set_store_plan_quota_features', {
+                p_monthly_quota: quota, p_features: features, p_reason: reason
+            });
+            btn.disabled = false;
+            if (quotaError) { status(friendlyError(quotaError), 'error'); return; }
+            say('حُفظ حد التذاكر ومزايا باقة المتاجر.', 'success');
+            loadDiagnostics();
+        };
+        // 135: تعطيل shopify_integration أو إلغاء كل المزايا لا يمر بصمت.
+        const warning = storeQuotaDisableWarning({
+            currentFeatures: (planCfg?.features || []).filter((f) => f.enabled).map((f) => f.feature_key),
+            selectedFeatures: features
         });
-        btn.disabled = false;
-        if (quotaError) { status(friendlyError(quotaError), 'error'); return; }
-        say('حُفظ حد التذاكر ومزايا باقة المتاجر.', 'success');
-        loadDiagnostics();
+        if (warning) { openQuotaDisableConfirm({ warning, onConfirm: doSave }); return; }
+        await doSave();
     });
     renderKpis();
+}
+
+/** تأكيد صريح قبل حفظ حصة تعطل shopify_integration أو تلغي كل المزايا (135). */
+function openQuotaDisableConfirm({ warning, onConfirm }) {
+    const names = warning.disabling.map((f) => STORE_FEATURE_LABELS[f] || f).join('، ');
+    const modal = openModal({
+        title: 'تأكيد تعطيل مزايا باقة المتاجر',
+        html: `<p class="panel-subtitle">${warning.disablesAll
+            ? 'أنت على وشك إلغاء كل مزايا باقة المتاجر.'
+            : 'أنت على وشك تعطيل مزايا من باقة المتاجر.'}</p>
+            <p class="panel-subtitle">المزايا التي ستُعطَّل: <strong>${esc(names)}</strong></p>
+            ${warning.disablesShopify ? '<p class="panel-subtitle"><strong>تنبيه:</strong> تعطيل «تكامل Shopify» يوقف امتياز شوبيفاي للمتاجر على هذه الباقة — وستظهر روابطها بلا امتياز في تنبيهات هذه الصفحة.</p>' : ''}
+            <p class="panel-subtitle">هذا الإجراء يُسجَّل في تدقيق المالك مع السبب الذي كتبته، ويمكن التراجع عنه من النموذج نفسه بإعادة تحديد المزايا.</p>
+            <div class="form-actions">
+                <button type="button" class="btn btn-danger btn-sm" id="quotaDisableConfirm">تأكيد الحفظ وتعطيل المزايا</button>
+                <button type="button" class="btn btn-outline btn-sm" id="quotaDisableCancel">إلغاء</button>
+            </div>`
+    });
+    modal.body.querySelector('#quotaDisableConfirm').addEventListener('click', async (e) => {
+        e.currentTarget.disabled = true;
+        modal.close();
+        await onConfirm();
+    });
+    modal.body.querySelector('#quotaDisableCancel').addEventListener('click', () => modal.close());
 }
 
 function entitlementLine(e) {

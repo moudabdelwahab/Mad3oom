@@ -13,6 +13,8 @@ import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { initSidebar } from './sidebar.js';
 import { escapeHtml, debounce } from './admin-utils.js';
 import { logActivity } from '/activity-service.js';
+import { APPLICANT_TYPE_LABELS, formatProofSize } from '/assets/js/company/company-request-model.js';
+import { fetchStandaloneProofUrl } from '/assets/js/company/company-data.js';
 
 const STATUS_LABELS = {
     pending: 'قيد المراجعة',
@@ -60,7 +62,7 @@ async function loadRequests() {
     const { data, error } = await supabase.rpc('admin_list_company_account_requests');
     if (error) {
         console.error('Error loading company account requests:', error);
-        body.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem;">تعذر تحميل الطلبات: ${escapeHtml(error.message || '')}</td></tr>`;
+        body.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem;">تعذر تحميل الطلبات: ${escapeHtml(error.message || '')}</td></tr>`;
         return;
     }
 
@@ -76,20 +78,34 @@ function renderRequests() {
     const filtered = allRequests.filter((req) => {
         if (statusFilter && req.status !== statusFilter) return false;
         if (!search) return true;
-        return [req.company_name, req.customer_name, req.customer_email, req.commercial_registration_number]
+        return [req.company_name, req.customer_name, req.customer_email, req.commercial_registration_number,
+                req.website_url, APPLICANT_TYPE_LABELS[req.applicant_type]]
             .some(v => String(v || '').toLowerCase().includes(search));
     });
 
     if (filtered.length === 0) {
-        body.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem;">${
+        body.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem;">${
             statusFilter === 'pending' && !search ? 'لا توجد طلبات قيد المراجعة' : 'لا توجد طلبات مطابقة'}</td></tr>`;
         return;
     }
 
+    // 138: عمود «نوع المتقدم» — تحته الإثبات المرفق: اسم المستند (شركة)
+    // أو رابط الموقع (متجر/منصة)، أو «—» لنوع «أخرى» ولمسار الشراء القديم.
+    const proofLine = (req) => {
+        if (req.proof_document_name) {
+            return `<div style="font-size: 0.75rem; color: var(--color-text-secondary);">مستند: ${escapeHtml(req.proof_document_name)} (${escapeHtml(formatProofSize(req.proof_document_size))})</div>`;
+        }
+        if (req.website_url) {
+            return `<div style="font-size: 0.75rem; color: var(--color-text-secondary);" dir="ltr">${escapeHtml(req.website_url)}</div>`;
+        }
+        return '';
+    };
+
     body.innerHTML = filtered.map((req) => `
         <tr data-request-row="${escapeHtml(req.id)}">
-            <td>${escapeHtml(req.company_name)}${req.account_kind === 'ecommerce_store' ? ' <span class="status-badge status-pending">متجر إلكتروني</span>' : ''}<div style="font-size: 0.75rem; color: var(--color-text-secondary);">سجل ${escapeHtml(req.commercial_registration_number)}</div></td>
+            <td>${escapeHtml(req.company_name)}${req.account_kind === 'ecommerce_store' ? ' <span class="status-badge status-pending">متجر إلكتروني</span>' : ''}${req.request_source === 'standalone' ? ' <span class="status-badge status-pending">مستقل</span>' : ''}<div style="font-size: 0.75rem; color: var(--color-text-secondary);">سجل ${escapeHtml(req.commercial_registration_number)}</div></td>
             <td>${escapeHtml(req.customer_name || '—')}<div style="font-size: 0.75rem; color: var(--color-text-secondary);">${escapeHtml(req.customer_email || '')}</div></td>
+            <td>${escapeHtml(APPLICANT_TYPE_LABELS[req.applicant_type] || 'شركة')}${proofLine(req)}</td>
             <td>${escapeHtml(planLabel(req))}</td>
             <td><span class="status-badge ${STATUS_CLASSES[req.status] || 'status-pending'}">${escapeHtml(STATUS_LABELS[req.status] || req.status)}</span></td>
             <td>${formatDate(req.created_at)}</td>
@@ -121,6 +137,21 @@ function openModal(requestId) {
     setText('crAccountKind', isStore ? 'متجر إلكتروني (Shopify)' : 'شركة');
     document.getElementById('crStoreDomainRow').hidden = !(isStore && req.store_domain_hint);
     setText('crStoreDomain', req.store_domain_hint);
+    // 138: نوع المتقدم ومصدر الطلب والإثبات المرفق (مستند أو رابط)
+    setText('crApplicantType', APPLICANT_TYPE_LABELS[req.applicant_type] || 'شركة');
+    setText('crRequestSource', req.request_source === 'standalone' ? 'مستقل — خارج مسار الشراء' : 'مسار الشراء');
+    const websiteRow = document.getElementById('crWebsiteRow');
+    const websiteLink = document.getElementById('crWebsite');
+    websiteRow.hidden = !req.website_url;
+    if (req.website_url) {
+        websiteLink.href = req.website_url;
+        websiteLink.textContent = req.website_url;
+    }
+    const proofRow = document.getElementById('crProofRow');
+    proofRow.hidden = !req.proof_document_name;
+    if (req.proof_document_name) {
+        setText('crProofName', `${req.proof_document_name} (${formatProofSize(req.proof_document_size)})`);
+    }
     setText('crCompanyName', req.company_name);
     setText('crCrNumber', req.commercial_registration_number);
     const expiryEl = document.getElementById('crCrExpiry');
@@ -215,12 +246,40 @@ function setupEventListeners() {
     document.getElementById('crCloseBtn').addEventListener('click', closeModal);
     document.getElementById('crApproveBtn').addEventListener('click', () => review('approve'));
     document.getElementById('crRejectBtn').addEventListener('click', () => review('reject'));
+    document.getElementById('crProofDownload').addEventListener('click', downloadProof);
     document.getElementById('crModal').addEventListener('click', (e) => {
         if (e.target.id === 'crModal') closeModal();
     });
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && activeRequestId) closeModal();
     });
+}
+
+/**
+ * 138: تنزيل مستند إثبات الطلب — رابط موقَّع 60 ثانية تجهزه القاعدة
+ * (admin_company_account_request_proof_download) عبر company-document-download.
+ * الرابط يُفتح في تبويب جديد؛ لا يُحفظ ولا يُعرض مساره في الصفحة.
+ */
+async function downloadProof() {
+    if (!activeRequestId || busy) return;
+    const button = document.getElementById('crProofDownload');
+    const original = button.textContent;
+    busy = true;
+    button.disabled = true;
+    button.textContent = 'جاري التجهيز...';
+    showError('');
+    try {
+        const result = await fetchStandaloneProofUrl(activeRequestId);
+        if (!result.ok) {
+            showError(result.error || 'تعذّر تجهيز رابط التنزيل. حاول مرة أخرى.');
+            return;
+        }
+        window.open(result.url, '_blank', 'noopener');
+    } finally {
+        busy = false;
+        button.disabled = false;
+        button.textContent = original;
+    }
 }
 
 function showToast(message, type = 'success') {

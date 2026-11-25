@@ -13,10 +13,13 @@ export const MANAGE_SECTIONS = Object.freeze([
     { key: 'products', label: 'المنتجات', read: 'product.list' },
     { key: 'collections', label: 'المجموعات', read: 'collection.list' },
     { key: 'orders', label: 'الطلبات', read: 'order.list' },
+    { key: 'abandoned', label: 'طلبات مهملة', read: 'order.list' },
     { key: 'drafts', label: 'مسودات الطلبات', read: 'draft_order.list' },
     { key: 'customers', label: 'العملاء', read: 'customer.list' },
     { key: 'inventory', label: 'المخزون', read: 'location.list' },
+    { key: 'alerts', label: 'تنبيهات المخزون', read: 'inventory.levels' },
     { key: 'discounts', label: 'الخصومات', read: 'discount.list' },
+    { key: 'shipping', label: 'الشحن', read: 'shop.info' },
     { key: 'log', label: 'سجل العمليات', read: null, adminOnly: true }
 ]);
 
@@ -475,6 +478,111 @@ export const productStatusLabel = (v) => statusLabel(PRODUCT_STATUS, v ? String(
 export const DISCOUNT_STATUS = Object.freeze({ ACTIVE: 'فعّال', SCHEDULED: 'مجدول', EXPIRED: 'منتهٍ' });
 export const RETURN_STATUS_LABELS = Object.freeze({ REQUESTED: 'طلب إرجاع', OPEN: 'مفتوح', CLOSED: 'مغلق', DECLINED: 'مرفوض', CANCELED: 'ملغى' });
 export const OP_STATUS = Object.freeze({ succeeded: 'نُفّذت', submitted: 'أُرسلت لـShopify', failed: 'فشلت', requested: 'قيد التنفيذ', unknown: 'نتيجة غير معروفة' });
+
+/* ── تنبيهات المخزون (139) والغياب الموثّق ─────────────────────────────────
+ * لا عملية checkout مهمل ولا مناطق/أسعار شحن في كتالوج 120 ولا في
+ * shopify-admin.js — فلا نداء وهمي ولا رقم مخترع. القسمان يعرضان هذا الغياب
+ * صراحة، والخصومات مكتملة أصلًا في 120 (discount.list/get/code_create/
+ * code_update/automatic_create/update/activate/deactivate/delete). */
+export const ABANDONED_CHECKOUTS_UNAVAILABLE = Object.freeze({
+    title: 'الطلبات المهملة غير متاحة من مدعوم',
+    text: 'لا توجد عملية في كتالوج Shopify المعتمد (الترحيل 120) تعرض الطلبات المهملة (abandoned checkouts)، ولا يمرّر ihub-api بياناتها. مسودات الطلبات ليست طلبات مهملة، فلا نعرضها هنا على أنها كذلك. راجع الطلبات المهملة في لوحة Shopify.',
+    missingOps: Object.freeze(['checkout.list', 'abandoned_checkout.list'])
+});
+export const SHIPPING_UNAVAILABLE = Object.freeze({
+    title: 'خيارات الشحن تُدار من لوحة Shopify',
+    text: 'لا توجد عملية في كتالوج Shopify المعتمد (الترحيل 120) تعرض مناطق الشحن أو أسعارها أو تعدّلها. ما هو متاح من مدعوم هو شحن طلب بعينه وتحديث تتبّعه (من قسم «الطلبات»). عدّل مناطق الشحن وأسعارها من إعدادات الشحن في لوحة Shopify.',
+    missingOps: Object.freeze(['shipping.list', 'shipping.update', 'delivery_profile.list', 'delivery_profile.update'])
+});
+export const THRESHOLD_SCOPE_LABELS = Object.freeze({ store: 'حد المتجر كله', variant: 'حد متغير بعينه' });
+export const ALERT_STATUS_LABELS = Object.freeze({ below: 'وصل للحد الأدنى', ok: 'فوق الحد', unknown: 'تعذّرت قراءة المخزون' });
+
+const GID_INVENTORY_ITEM = /^gid:\/\/shopify\/InventoryItem\/[0-9]{1,20}$/;
+const GID_VARIANT = /^gid:\/\/shopify\/ProductVariant\/[0-9]{1,20}$/;
+const intText = (v) => (/^[0-9]{1,7}$/.test(s(v)) ? Number(s(v)) : null);
+
+/** تحقق خفيف من حد مخزون قبل إرساله — الخادم (139) هو الحَكَم. */
+export function validateThreshold(values) {
+    const v = values || {};
+    const errors = {};
+    if (v.scope !== 'store' && v.scope !== 'variant') errors.scope = 'اختر نطاق الحد';
+    if (v.scope === 'variant') {
+        if (!GID_INVENTORY_ITEM.test(s(v.inventory_item_id))) errors.inventory_item_id = 'معرّف صنف المخزون غير صالح';
+        if (!GID_VARIANT.test(s(v.variant_id))) errors.variant_id = 'معرّف المتغير غير صالح';
+    }
+    if (s(v.product_title).length > 120) errors.product_title = 'العنوان أطول من 120 حرفًا';
+    const min = intText(v.min_quantity);
+    if (min === null || min < 0 || min > 999999) errors.min_quantity = 'عدد صحيح بين 0 و 999999';
+    return errors;
+}
+
+/** الحد الفعّال لمتغير: حد المتغير أولًا، ثم حد المتجر، ثم لا حد. */
+export function resolveThreshold(thresholds, inventoryItemId) {
+    const list = Array.isArray(thresholds) ? thresholds : [];
+    const own = list.find((t) => t?.scope === 'variant' && t.inventory_item_id === inventoryItemId);
+    if (own) return { threshold: own, min_quantity: own.min_quantity, scope: 'variant' };
+    const store = list.find((t) => t?.scope === 'store');
+    if (store) return { threshold: store, min_quantity: store.min_quantity, scope: 'store' };
+    return { threshold: null, min_quantity: null, scope: null };
+}
+
+/** مجموع «المتاح» عبر مواقع المخزون كما يرجعها inventory.levels. */
+export function availableOf(levels) {
+    const rows = Array.isArray(levels) ? levels : [];
+    let total = 0;
+    let seen = false;
+    for (const l of rows) {
+        const q = l?.quantities?.available;
+        if (Number.isInteger(q) && q >= 0) { total += q; seen = true; }
+    }
+    return seen ? total : null;
+}
+
+/**
+ * تقييم حدود المتغيرات من مستويات Shopify الحية.
+ * thresholds: صفوف ihub_shopify_thresholds_list؛ levelsByItem: {inventory_item_id: levels[]}.
+ * حد المتجر لا يُقيَّم هنا: لا مسح كامل للمنتجات من هذه الصفحة، فيُطبَّق عند عرض مخزون أي متغير.
+ */
+export function evaluateInventoryAlerts(thresholds, levelsByItem) {
+    const list = (Array.isArray(thresholds) ? thresholds : []).filter((t) => t?.scope === 'variant');
+    const byItem = levelsByItem || {};
+    return list.map((t) => {
+        const available = availableOf(byItem[t.inventory_item_id]);
+        const below = available !== null && available < t.min_quantity;
+        return {
+            threshold: t, inventory_item_id: t.inventory_item_id, variant_id: t.variant_id,
+            product_title: t.product_title || null, available, min_quantity: t.min_quantity,
+            status: available === null ? 'unknown' : below ? 'below' : 'ok', below
+        };
+    });
+}
+
+/** عناصر تقرير الفحص للخادم (139): المقروءة فعلًا فقط — تحت الحد أو فوقه (للحلّ). */
+export function buildAlertReportItems(evaluated) {
+    return (Array.isArray(evaluated) ? evaluated : [])
+        .filter((e) => e?.threshold?.id && Number.isInteger(e.available) && e.available >= 0)
+        .map((e) => ({
+            threshold_id: e.threshold.id, inventory_item_id: e.inventory_item_id,
+            product_title: e.product_title || null, available: e.available, min_quantity: e.min_quantity
+        }));
+}
+
+/**
+ * عنصر تقرير لحد المتجر من عرض مخزون متغير (139): حد المتجر بلا مسح كامل
+ * للمنتجات، فلا يصل إليه «فحص الآن» — يُبلَّغ عنه حين يُعرض مخزون متغير
+ * يسري عليه الحد (تحت الحد فيفتح تنبيهًا ويُشعَر المالك، وفوقه يحلّه).
+ * حد المتغير لا يُبلَّغ من هنا: له مساره الصريح في «فحص الآن».
+ */
+export function storeThresholdReportItem(eff, inventoryItemId, productTitle, available) {
+    if (!eff || eff.scope !== 'store' || !eff.threshold?.id) return null;
+    if (!GID_INVENTORY_ITEM.test(inventoryItemId || '')) return null;
+    if (!Number.isInteger(available) || available < 0) return null;
+    if (!Number.isInteger(eff.min_quantity) || eff.min_quantity < 0) return null;
+    return {
+        threshold_id: eff.threshold.id, inventory_item_id: inventoryItemId,
+        product_title: productTitle || null, available, min_quantity: eff.min_quantity
+    };
+}
 
 /** المسموح لهذا المستخدم: من حالة الإدارة (الخادم). */
 export function opAvailability(status, op) {

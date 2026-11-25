@@ -158,10 +158,12 @@ test('كل مدّة معروضة إمّا لها أيام أو هي «مخصَّ
 test('الحمولة تحمل مفاتيح الدالة بالضبط', () => {
     const payload = toCreatePayload(valid, { now: NOW });
     assert.deepEqual(Object.keys(payload).sort(),
-        ['credential_type', 'description', 'expires_at', 'name', 'scopes'].sort());
+        ['credential_type', 'description', 'environment', 'expires_at', 'name', 'scopes'].sort());
     assert.equal(payload.name, 'تكامل المبيعات');
     assert.equal(payload.description, undefined);
     assert.equal(payload.credential_type, 'api_key_secret');
+    // 141: البيئة الافتراضية live — مفتاح الحي ما لم يُختر الاختبار صراحةً
+    assert.equal(payload.environment, 'live');
     assert.deepEqual(payload.scopes, ['tickets:read']);
     assert.equal(payload.expires_at, new Date(NOW + 90 * 86400000).toISOString());
 });

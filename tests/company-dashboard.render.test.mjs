@@ -298,6 +298,41 @@ test('انتهاء الاشتراك يسحب الامتيازات ويغيّر �
     await context.close();
 });
 
+/* ── الإدارة الذاتية للاشتراك (136) ─────────────────────────────────────── */
+
+test('الاشتراك الفعّال يعرض أزرار التجديد وتغيير الباقة والإلغاء داخل اللوحة', async () => {
+    const { page, context, errors } = await openCompanyDashboard(browser, baseUrl, fixtures(companyPayload()));
+
+    const section = page.locator('#companySubscriptions');
+    assert.equal(await section.locator('[data-sub-renew]').count(), 1, 'زر تجديد داخل اللوحة');
+    assert.equal(await section.locator('[data-sub-change]').count(), 1, 'زر تغيير الباقة');
+    assert.equal(await section.locator('[data-sub-cancel]').count(), 1, 'زر إلغاء الاشتراك');
+    assert.equal(await section.locator('[data-renew-plan]').count(), 1, 'زر «جدّد الآن» في لوحة التجديد');
+    // زر التجديد زر لا رابط خارجي إلى صفحة الاشتراكات
+    assert.equal(await section.locator('[data-renew-plan]').evaluate(el => el.tagName), 'BUTTON');
+    assert.equal(errors.length, 0, `أخطاء في الصفحة: ${errors.join(' | ')}`);
+    await context.close();
+});
+
+test('الملغى في نهاية المدة يُعلَن ويُتاح التراجع بدل الإلغاء', async () => {
+    const payload = companyPayload({
+        subscriptions: [{
+            id: 's1', plan: 'whatsapp', plan_name_ar: 'واتساب بيزنس',
+            status: 'active', billing_cycle: 'monthly',
+            start_date: '2026-08-01T00:00:00Z', end_date: '2026-12-01T00:00:00Z',
+            is_active: true, days_remaining: 85, cancel_at_period_end: true
+        }]
+    });
+    const { page, context, errors } = await openCompanyDashboard(browser, baseUrl, fixtures(payload));
+
+    const section = page.locator('#companySubscriptions');
+    assert.match(await section.textContent(), /سيُلغى هذا الاشتراك عند انتهائه/);
+    assert.equal(await section.locator('[data-sub-resume]').count(), 1, 'زر التراجع عن الإلغاء');
+    assert.equal(await section.locator('[data-sub-cancel]').count(), 0, 'لا زر إلغاء لملغى أصلًا');
+    assert.equal(errors.length, 0, `أخطاء في الصفحة: ${errors.join(' | ')}`);
+    await context.close();
+});
+
 /* ── بيانات الشركة ──────────────────────────────────────────────────────── */
 
 test('السجل التجاري المنتهي يُعلَن بوضوح', async () => {
@@ -515,6 +550,68 @@ test('112: إعادة المحاولة للفاشلة وإعادة الإرسا�
     await page.click('[data-invitation-row="i2"] [data-resend-invitation]');
     await page.waitForFunction(() => (window.__INVOCATIONS__ || []).length >= 2);
     assert.deepEqual(await invocations(page), [{ email: 'bounce@x.test', resend: false }, { email: 'wait@x.test', resend: true }]);
+    await context.close();
+});
+
+test('الاستيراد الجماعي: معاينة ترفض غير الصالح، والتنفيذ يدعو الصالح وحده عبر company-invite-customer', async () => {
+    const payload = companyPayload();
+    payload.viewer_role = 'admin';
+    const fx = fixtures(payload, { rpc: {
+        my_account_kind: 'company_admin',
+        company_customers_list: { company_id: COMPANY_ID, can_manage: true, invitations_enabled: true,
+            customers: [{ id: 'u1', name: 'عميل أول', email: 'c1@x.test', phone: null }] },
+        company_invitations_list: [
+            { id: 'i2', email: 'wait@x.test', status: 'pending', email_status: 'sent', created_at: '2026-10-10T10:00:00Z' }
+        ]
+    } });
+    fx.functions = { 'company-invite-customer': { data: { status: 'sent', invitation_id: 'i9', message: 'أُرسلت الدعوة إلى بريد العميل.' } } };
+    const { page, context, errors } = await openCompanyDashboard(browser, baseUrl, fx);
+    await openCustomersSection(page);
+    await page.waitForSelector('#companyCustomersPanel:not([hidden])', { timeout: 5000 });
+    await page.waitForSelector('#companyBulkInvite:not([hidden])', { timeout: 5000 });
+    // بلا تنفيذ: زر التنفيذ معطّل ولا نداء واحد
+    assert.equal(await page.locator('#companyBulkInviteSubmit').isDisabled(), true);
+    assert.deepEqual(await invocations(page), []);
+    const csv = 'email,name\nnew@x.test,عميل جديد\nC1@X.test,عميل موجود\nwait@x.test,دعوة معلّقة\nbad-email,غير صالح\nnew@x.test,مكرر داخل الملف\n';
+    await page.setInputFiles('#companyBulkInviteFile', { name: 'customers.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'utf8') });
+    await page.waitForSelector('#companyBulkInviteSubmit:not([disabled])', { timeout: 5000 });
+    const preview = page.locator('#companyBulkInvitePreview');
+    assert.equal(await preview.locator('.pill.status-tone-success').count(), 1, 'جاهز واحد فقط');
+    assert.equal(await preview.locator('.pill.status-tone-danger').count(), 4, 'أربعة مرفوضة');
+    const previewText = await preview.textContent();
+    assert.match(previewText, /عميل في الشركة بالفعل/);
+    assert.match(previewText, /دعوة معلّقة لهذا البريد بالفعل/);
+    assert.match(previewText, /بريد إلكتروني غير صالح/);
+    assert.match(previewText, /البريد مكرر داخل الملف/);
+    assert.match(previewText, /الصفوف المرفوضة لن تُرسل/);
+    assert.match(await page.locator('#companyBulkInviteSubmit').textContent(), /تنفيذ الاستيراد/);
+    // ما زال بلا تنفيذ قبل الضغط: لا نداء
+    assert.deepEqual(await invocations(page), []);
+    await page.locator('#companyBulkInviteSubmit').click();
+    await page.waitForFunction(() => /تم إرسال 1 دعوة بنجاح/.test(document.getElementById('ui-toast-container')?.textContent || ''));
+    // الدعوة للصالح وحده، بنفس جسم الدعوة الفردية
+    assert.deepEqual(await invocations(page), [{ email: 'new@x.test', resend: false }]);
+    const report = await page.locator('#companyBulkInviteReport').textContent();
+    assert.match(report, /أُرسلت الدعوة/);
+    assert.match(report, /عميل جديد/);
+    assert.equal(errors.length, 0, errors.join(' | '));
+    await context.close();
+});
+
+test('الاستيراد الجماعي: ملف فوق 100 صف يُرفض كاملًا بلا معاينة ولا نداء', async () => {
+    const fx = inviteFixture({ 'company-invite-customer': { data: { status: 'sent', invitation_id: 'i9' } } });
+    const { page, context, errors } = await openCompanyDashboard(browser, baseUrl, fx);
+    await openCustomersSection(page);
+    await page.waitForSelector('#companyBulkInvite:not([hidden])', { timeout: 5000 });
+    const rows = Array.from({ length: 101 }, (_, i) => `c${i}@x.test,عميل ${i}`).join('\n');
+    await page.setInputFiles('#companyBulkInviteFile', { name: 'customers.csv', mimeType: 'text/csv', buffer: Buffer.from(`email,name\n${rows}\n`, 'utf8') });
+    await page.waitForSelector('#companyBulkInviteError:not([hidden])', { timeout: 5000 });
+    assert.match(await page.locator('#companyBulkInviteError').textContent(), /101 صفًا/);
+    assert.match(await page.locator('#companyBulkInviteError').textContent(), /100 صفوف/);
+    assert.equal(await page.locator('#companyBulkInvitePreview').textContent(), '');
+    assert.equal(await page.locator('#companyBulkInviteSubmit').isDisabled(), true);
+    assert.deepEqual(await invocations(page), []);
+    assert.equal(errors.length, 0, errors.join(' | '));
     await context.close();
 });
 

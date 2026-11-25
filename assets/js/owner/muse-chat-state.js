@@ -7,8 +7,12 @@
  * assets/js/admin/agent-connection-state.js).
  *
  * لا يوجد هنا أي نداء شبكة ولا أي حالة «متصل»: الرد يصل عبر الجسر
- * الدائم الذي يفحص الجلسة كل 15 ثانية، والصفحة تستطلع الرسائل
- * الجديدة كل POLL_MS.
+ * الدائم الذي يفحص الجلسة كل 15 ثانية، والصفحة تشترك في Realtime
+ * على رسائل الجلسة؛ والاستطلاع كل POLL_MS شبكة أمان فقط — يتوقف
+ * أثناء اتصال Realtime السليم ويعود عند انقطاعه بمهلة backoff
+ * (pollRetryDelay). الكوتة لقطة الجسر في extensions.quota وحدها —
+ * بلا مصدر آخر موثوق — وحالتها (حديثة/قديمة/غائبة) من
+ * quotaSnapshotState مقارنة بآخر رد مساعد.
  */
 
 /** موديل جلسة Muse الداخلية — نفس القيمة في ai_sessions.model_id. */
@@ -322,6 +326,66 @@ export function formatQuota(quota) {
 
 /** استطلاع الرسائل الجديدة كل 5 ثوانٍ — كافٍ لظهور الرد بلا تحديث يدوي. */
 export const POLL_MS = 5000;
+
+/**
+ * الاستطلاع شبكة أمان فقط، لا قراءة دائمة: يتوقف تمامًا أثناء اتصال
+ * Realtime السليم (SUBSCRIBED)، ويعود عند انقطاعه بمهلة تتضاعف مع كل
+ * فشل متتالٍ حتى دقيقة — فلا يتحول الانقطاع إلى قصف كل 5 ثوانٍ.
+ */
+export const POLL_BACKOFF_BASE_MS = 5000;
+export const POLL_BACKOFF_MAX_MS = 60000;
+
+/**
+ * مهلة الاستطلاع التالية من عدد مرات الفشل المتتالية: 5ث ثم 10ث ثم 20ث
+ * ثم 40ث ثم 60ث كحد أقصى. سالب أو غير رقمي يُعامل كصفر.
+ */
+export function pollRetryDelay(failures) {
+    const attempt = Math.max(0, Math.floor(Number(failures)) || 0);
+    return Math.min(POLL_BACKOFF_MAX_MS, POLL_BACKOFF_BASE_MS * 2 ** attempt);
+}
+
+/**
+ * هل اتصال Realtime حي فعلًا؟ 'SUBSCRIBED' وحدها تعني ذلك — أي حالة
+ * أخرى (انقطاع، خطأ قناة، مهلة) تعني أن الاستطلاع يجب أن يعود.
+ */
+export function isRealtimeLive(status) {
+    return status === 'SUBSCRIBED';
+}
+
+/**
+ * حالة لقطة الكوتة مقارنة بآخر رد مساعد — القراءة الاحتياطية المباشرة
+ * من ai_sessions.extensions نفسها:
+ *  • 'missing' — لا لقطة أصلًا (أو بلا remaining): لا رقم يُعرض.
+ *  • 'fresh' — اللقطة محدَّثة (طابعها بعد آخر رد مساعد، أو لا رد بعد).
+ *  • 'stale' — اللقطة أقدم من آخر رد مساعد، أو بلا طابع تحديث: الجسر
+ *    ردّ دون أن يحدّثها، أي أن قراءة الاشتراك الحي فشلت آخر مرة —
+ *    فتُعرض الأرقام الأخيرة مع تحذير صريح بقدمها، لا تُخفى بصمت.
+ * لا مصدر كوتة آخر موثوق في القاعدة: ai_usage_events أحداث نداءات
+ * مزوّدين (توكنات بلا حد اشتراك)، فلن يُشتق منها «متبقٍ» أبدًا.
+ */
+export function quotaSnapshotState(quota, lastAssistantAt) {
+    if (!quota || typeof quota !== 'object') return 'missing';
+    if (quota.remaining === null || quota.remaining === undefined || quota.remaining === '') return 'missing';
+    const updated = quota.updated_at ? new Date(quota.updated_at) : null;
+    const lastReply = lastAssistantAt ? new Date(lastAssistantAt) : null;
+    // Number.isNaN(date) لا يكشف التاريخ الفاسد (كائن Date ليس NaN) — فحص getTime.
+    if (!updated || Number.isNaN(updated.getTime())) return 'stale';
+    if (lastReply && !Number.isNaN(lastReply.getTime()) && updated < lastReply) return 'stale';
+    return 'fresh';
+}
+
+/**
+ * نص غياب الكوتة — صريح لا صامت: مع رد مساعد سابق يعني أن الجسر لم
+ * يحدّث اللقطة بعد؛ بلا رد بعد فهو متوقع (لم يرد الوكيل بعد).
+ */
+export function quotaMissingText(hasAssistantReply) {
+    return hasAssistantReply
+        ? 'بيانات الكوتة غير متوفرة — الجسر لم يتمكن من قراءة الاشتراك بعد آخر رد. ستظهر هنا فور نجاح القراءة.'
+        : 'الكوتة ستظهر هنا بعد أول رد من الوكيل.';
+}
+
+/** نص تحذير اللقطة القديمة — يُعرض مع الأرقام الأخيرة، لا بدلها. */
+export const QUOTA_STALE_TEXT = 'تنبيه: هذه اللقطة قديمة — آخر تحديث لها قبل آخر رد من الوكيل؛ الجسر لم يتمكن من قراءة الاشتراك في آخر رد.';
 
 /** أقصى رسائل تُحفظ في الذاكرة وتُعرض من الجلسة. */
 export const MESSAGES_LIMIT = 200;

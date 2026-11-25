@@ -67,7 +67,7 @@ export function applyCriticalState() {
 }
 
 export function initAuthorityCenter(ctx) {
-    const { supabase, $, esc, when, table, td, byId, rows, accountCell, errorBlock, badge = () => {} } = ctx;
+    const { supabase, $, esc, when, table, td, directory, accountCell, errorBlock, badge = () => {} } = ctx;
     let expiryTimer = null;
 
     const say = announce;
@@ -130,7 +130,7 @@ export function initAuthorityCenter(ctx) {
 
     /* ── B. فريق المنصة والتفويض ───────────────────────────────────────── */
     async function renderStaff() {
-        const staffIds = rows.filter(p => ['platform_owner', 'admin', 'support'].includes(p.role)).map(p => p.id);
+        const staffIds = directory.staff().map(p => p.id);
         const [authority, grants, mfa] = await Promise.all([
             supabase.from('platform_authority').select('user_id, level, granted_at'),
             supabase.from('platform_capability_grants').select('user_id, capability, granted_at'),
@@ -150,7 +150,7 @@ export function initAuthorityCenter(ctx) {
             : levelOf.get(p.id) === 'elevated_admin' ? 'platform_admin'
             : p.role === 'admin' ? 'admin' : p.role === 'support' ? 'support' : 'customer';
         const order = { owner: 0, platform_admin: 1, admin: 2, support: 3 };
-        const staff = rows.filter(p => staffIds.includes(p.id))
+        const staff = directory.staff()
             .map(p => ({ ...p, tier: tierOf(p) }))
             .sort((a, b) => order[a.tier] - order[b.tier]);
         badge('staff', staff.length);
@@ -193,13 +193,51 @@ export function initAuthorityCenter(ctx) {
 
         body.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => onStaffAction(b)));
 
-        // الإضافة: من حسابات العملاء وحدها (أدوار الشركة تُشتق من العلاقة ولا تُمنح)
-        const candidates = rows.filter(p => p.role === 'user');
-        const select = $('staffAddUser');
-        select.innerHTML = `<option value="">اختر حسابًا…</option>` + candidates
-            .map(p => `<option value="${esc(p.id)}">${esc(p.full_name ? `${p.full_name} — ${p.email}` : p.email)}</option>`).join('');
+        // الإضافة: بحث مقيّد في حسابات العملاء (20 نتيجة) عند الطلب فقط —
+        // لا تُحمَّل قائمة كل العملاء لمجرد عرض هذا القسم.
         $('staffAddForm').hidden = false;
         applyCriticalState();
+    }
+
+    /** بحث حساب لإضافته للفريق — يُربط مرة واحدة عند التهيئة، لا مع كل رسم. */
+    function wireStaffSearch() {
+        const input = $('staffAddSearch');
+        const button = $('staffAddSearchBtn');
+        const select = $('staffAddUser');
+        if (!input || !button || !select) return;
+        const run = async () => {
+            const q = input.value.trim();
+            if (q.length < 2) {
+                say($('staffStatus'), 'اكتب حرفين على الأقل للبحث بالبريد أو الاسم.', 'error');
+                input.focus();
+                return;
+            }
+            button.disabled = true;
+            say($('staffStatus'), 'جارٍ البحث…');
+            let results = [];
+            let error = null;
+            try {
+                results = await directory.searchUsers(q);
+            } catch (err) {
+                error = err;
+            } finally {
+                button.disabled = false;
+            }
+            if (error) {
+                say($('staffStatus'), error.message || 'تعذّر البحث.', 'error');
+                return;
+            }
+            select.innerHTML = results.length
+                ? `<option value="">اختر حسابًا…</option>` + results
+                    .map(p => `<option value="${esc(p.id)}">${esc(p.full_name ? `${p.full_name} — ${p.email}` : p.email)}</option>`).join('')
+                : '<option value="">لا حسابات مطابقة — جرّب بريدًا أو اسمًا آخر</option>';
+            say($('staffStatus'), results.length ? `وجدنا ${results.length} حسابًا.` : 'لا حسابات مطابقة.', results.length ? 'success' : 'info');
+            if (results.length) select.focus();
+        };
+        button.addEventListener('click', run);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); run(); }
+        });
     }
 
     const CONFIRM = {
@@ -217,7 +255,7 @@ export function initAuthorityCenter(ctx) {
     async function onStaffAction(btn) {
         const id = btn.dataset.id;
         const act = btn.dataset.act;
-        const who = byId.get(id);
+        const who = directory.get(id);
         if (!window.confirm(`${CONFIRM[act]}\n\n${who?.full_name || who?.email || id}`)) return;
         btn.disabled = true;
         say($('staffStatus'), 'جارٍ التنفيذ…');
@@ -242,8 +280,9 @@ export function initAuthorityCenter(ctx) {
         }
         say($('staffStatus'), error ? error.message : 'تم.', error ? 'error' : 'success');
         if (!error && ['to-support', 'to-admin', 'remove'].includes(act)) {
-            const p = rows.find(r => r.id === id);
-            if (p) p.role = act === 'to-admin' ? 'admin' : act === 'to-support' ? 'support' : 'user';
+            // الرتبة تغيّرت في القاعدة: أعد جلب الصف حتى يظهر برتبته الجديدة
+            // في القائمة (الدليل كان يحمل الرتبة القديمة).
+            try { await directory.refresh([id]); } catch (err) { /* الرسم التالي يجلبها */ }
         }
         await Promise.all([renderStaff(), renderAudit(), renderStepUp()]);
     }
@@ -268,8 +307,8 @@ export function initAuthorityCenter(ctx) {
         }
         say($('staffStatus'), error ? error.message : 'تمت الإضافة إلى الفريق.', error ? 'error' : 'success');
         if (!error) {
-            const p = rows.find(r => r.id === id);
-            if (p) p.role = role;
+            // الحساب الجديد لم يكن في الدليل (جاء من البحث): أعد جلبه برتبته الجديدة.
+            try { await directory.refresh([id]); } catch (err) { /* الرسم التالي يجلبه */ }
         }
         await Promise.all([renderStaff(), renderAudit(), renderStepUp()]);
     });
@@ -284,8 +323,13 @@ export function initAuthorityCenter(ctx) {
         const failedStepUps = (data || []).filter(r => r.action === 'step_up.failed').length;
         badge('privileges', (data || []).length || null, failedStepUps ? 'attention' : '');
 
+        // أسماء الفاعلين والمستهدفين عند الحاجة فقط — دفعة واحدة بالمعرّفات الظاهرة.
+        try {
+            await directory.ensure((data || []).flatMap(r => [r.actor_id, r.target_user_id]));
+        } catch (err) { /* الأسماء الغائبة تُعرض بالمعرّف كما قبل */ }
+
         const name = (id) => {
-            const p = id && byId.get(id);
+            const p = id && directory.get(id);
             return p ? (p.full_name || p.email) : (id ? id.slice(0, 8) : '—');
         };
         const diff = (o, n) => {
@@ -304,6 +348,7 @@ export function initAuthorityCenter(ctx) {
         </tr>`);
     }
 
+    wireStaffSearch();
     renderStepUp();
     renderStaff();
     renderAudit();

@@ -35,10 +35,17 @@ import { fetchApiUsage } from '/assets/js/customer/customer-data.js';
 import { escapeHtml, formatDate, timeAgo, renderState, renderSkeletonLines }
     from '/assets/js/customer/portal-ui.js';
 import { ui } from '/ui-service.js';
+import { environmentLabel } from '/assets/js/company/api-token-model.js';
+import {
+    API_ENDPOINTS, MCP_TOOLS, RATE_LIMIT_PER_MINUTE,
+    minuteUsage, remainingQuota
+} from '/assets/js/company/developers-model.js';
+import { initCompanyWebhooks } from '/assets/js/company/company-webhooks.js';
 
 let container = null;
 let onCreateKey = null;
 let members = [];
+let companyId = null;
 
 /** هل تمنح باقة الشركة ميزة api_tokens؟ يُقرأ من حمولة القاعدة لا يُحسب هنا. */
 let entitled = false;
@@ -89,15 +96,17 @@ export function daysToExpiry(token, now = Date.now()) {
 /** حدّ التنبيه: أسبوعان يكفيان لتدوير مفتاح قبل أن يتوقف الإنتاج فجأة. */
 export const EXPIRY_WARNING_DAYS = 14;
 
-export async function loadCompanyApi({ selfId } = {}) {
+export async function loadCompanyApi({ selfId, companyId: company } = {}) {
     if (!container) return;
     renderSkeletonLines(container, 4);
+    companyId = company || null;
 
     // الاستحقاق: نقرأ ما تسمح به القاعدة. لو رجعت فارغة فالحساب بلا مفاتيح،
     // وهذه حالة لا خطأ.
-    const [tokensRes, usageRes] = await Promise.all([
+    const [tokensRes, usageRes, minuteRes] = await Promise.all([
         fetchCompanyScopedTokens(),
-        fetchApiUsage(15)
+        fetchApiUsage(15),
+        fetchApiUsageLastMinute(selfId)
     ]);
 
     if (!tokensRes.ok) {
@@ -112,8 +121,10 @@ export async function loadCompanyApi({ selfId } = {}) {
 
     const tokens = tokensRes.data || [];
     const usage = usageRes.ok ? (usageRes.data || []) : [];
+    const minuteRows = minuteRes.ok ? (minuteRes.data || []) : [];
     const active = tokens.filter(t => tokenState(t).key === 'active');
     const calls = tokens.reduce((sum, t) => sum + (Number(t.usage_count) || 0), 0);
+    const testKeys = tokens.filter(t => t.environment === 'test');
     const expiring = active.filter(t => {
         const days = daysToExpiry(t);
         return days != null && days <= EXPIRY_WARNING_DAYS;
@@ -158,6 +169,12 @@ export async function loadCompanyApi({ selfId } = {}) {
                 ${expiring.length} مفتاح ${expiring.length === 1 ? 'ينتهي' : 'تنتهي'} خلال ${EXPIRY_WARNING_DAYS} يومًا.
                 أنشئ البديل وبدّل الاستخدام قبل التوقف، ثم أوقف القديم.
             </p>` : ''}
+            ${testKeys.length ? `
+            <p class="company-notice">
+                لديك ${testKeys.length} مفتاح اختبار (ساندبوكس API) — للاختبار فقط،
+                لا يصل إلى بيانات حية ولا ينفّذ أي إجراء حقيقي. هذا ساندبوكس API فقط،
+                وليس بيئة تجريبية للتجربة المجانية.
+            </p>` : ''}
             <div id="companyKeysList"></div>
         </section>
 
@@ -170,6 +187,82 @@ export async function loadCompanyApi({ selfId } = {}) {
             </div>
             <div id="companyApiUsage"></div>
         </section>
+
+        <section class="panel" aria-labelledby="companyApiLimitsHeading">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title" id="companyApiLimitsHeading">حدود الاستخدام والحصص</h2>
+                    <p class="panel-subtitle">حدّ المعدّل يُفرَض على الخادم لكل مفتاح، والعدّ أدناه من سجل النداءات الفعلي</p>
+                </div>
+            </div>
+            <dl class="company-facts">
+                <div class="company-fact">
+                    <dt>حدّ المعدّل</dt>
+                    <dd>${RATE_LIMIT_PER_MINUTE} نداءً في الدقيقة لكل مفتاح؛ التجاوز يردّ <code>429</code>.</dd>
+                </div>
+                ${active.map(t => {
+                    const used = minuteUsage(minuteRows, t.id);
+                    return `
+                <div class="company-fact">
+                    <dt>${escapeHtml(t.name || 'مفتاح API')}</dt>
+                    <dd>${used} من ${RATE_LIMIT_PER_MINUTE} في الدقيقة الأخيرة — متبقٍ ${remainingQuota(used)}.</dd>
+                </div>`;
+                }).join('') || `
+                <div class="company-fact">
+                    <dt>لا مفاتيح فعّالة</dt>
+                    <dd>لا استهلاك يُقاس في الدقيقة الأخيرة.</dd>
+                </div>`}
+                <div class="company-fact">
+                    <dt>حصة التذاكر الشهرية</dt>
+                    <dd>تظهر في تبويب «الاستخدام» من هذه اللوحة — هذا القسم للحدود الخاصة بالمفاتيح فقط.</dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="panel" aria-labelledby="companyApiEndpointsHeading">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title" id="companyApiEndpointsHeading">نقاط النهاية المتاحة</h2>
+                    <p class="panel-subtitle">ما يقبله مفتاح API فعلًا — والتفاصيل الكاملة في وثائق المطوّرين</p>
+                </div>
+                <a class="panel-link" href="/api-docs.html">وثائق المطوّرين الكاملة</a>
+            </div>
+            <div class="table-wrap">
+                <table class="doc-table">
+                    <thead><tr><th>الوظيفة</th><th>الطريقة</th><th>العنوان</th><th>المصادقة</th></tr></thead>
+                    <tbody>
+                        ${API_ENDPOINTS.map(e => `
+                        <tr>
+                            <td>${escapeHtml(e.label)}</td>
+                            <td><code>${escapeHtml(e.method)}</code></td>
+                            <td><code dir="ltr">${escapeHtml(e.url)}</code></td>
+                            <td>${escapeHtml(e.auth)}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <h3 class="panel-subtitle">أدوات MCP الـ${MCP_TOOLS.length} — كلها عبر <code dir="ltr">POST https://mad3oom.com/mcp</code></h3>
+            <div class="table-wrap">
+                <table class="doc-table">
+                    <thead><tr><th>الأداة</th><th>الصلاحية</th><th>الوصف</th></tr></thead>
+                    <tbody>
+                        ${MCP_TOOLS.map(tool => `
+                        <tr>
+                            <td><code>${escapeHtml(tool.key)}</code></td>
+                            <td><code>${escapeHtml(tool.scope)}</code></td>
+                            <td>${escapeHtml(tool.label)}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <p class="company-notice">
+                عمليات مركز التكاملات (ihub-api: الربط والاختبار وتدوير الأسرار
+                والأوامر) تُنادى من هذه اللوحة بجلسة المستخدم، لا بمفتاح API —
+                فلا تظهر في الجدول أعلاه.
+            </p>
+        </section>
+
+        <div id="companyWebhooks"></div>
 
         <section class="panel" aria-labelledby="companyApiGuideHeading">
             <div class="panel-header">
@@ -204,6 +297,7 @@ export async function loadCompanyApi({ selfId } = {}) {
 
     renderKeys(tokens, selfId);
     renderUsage(usage, tokens);
+    initCompanyWebhooks(document.getElementById('companyWebhooks'), { companyId });
 
     document.getElementById('companyCreateKey')?.addEventListener('click', () => onCreateKey?.());
 }
@@ -226,13 +320,36 @@ async function fetchCompanyScopedTokens() {
     try {
         const { data, error } = await supabase
             .from('api_tokens')
-            .select('id, user_id, name, description, api_key, secret_last_four, bearer_last_four, is_active, created_at, last_used_at, revoked_at, usage_count, expires_at, scopes')
+            .select('id, user_id, name, description, api_key, secret_last_four, bearer_last_four, is_active, created_at, last_used_at, revoked_at, usage_count, expires_at, scopes, environment')
             .order('created_at', { ascending: false });
         if (error) throw error;
         return { ok: true, data: data || [], error: null };
     } catch (err) {
         console.error('[CompanyApi] tokens:', err?.message || err);
         return { ok: false, data: null, error: err?.message || 'تعذّر تحميل المفاتيح' };
+    }
+}
+
+/**
+ * صفوف الاستخدام في الدقيقة الأخيرة — أساس عدّاد الحدّ لكل مفتاح.
+ * بلا user_id لا استعلام: الصفوف تخص صاحب الحساب وحده (RLS).
+ */
+async function fetchApiUsageLastMinute(selfId) {
+    if (!selfId) return { ok: true, data: [], error: null };
+    try {
+        const minuteAgo = new Date(Date.now() - 60000).toISOString();
+        const { data, error } = await supabase
+            .from('api_token_usage_logs')
+            .select('id, token_id, created_at')
+            .eq('user_id', selfId)
+            .gte('created_at', minuteAgo)
+            .order('created_at', { ascending: false })
+            .limit(500);
+        if (error) throw error;
+        return { ok: true, data: data || [], error: null };
+    } catch (err) {
+        console.error('[CompanyApi] minute usage:', err?.message || err);
+        return { ok: false, data: [], error: err?.message || 'تعذّر تحميل الاستخدام' };
     }
 }
 
@@ -286,6 +403,7 @@ function renderKeys(tokens, selfId) {
                         </p>
                     </div>
                     <div class="company-sub-side">
+                        <span class="pill">${escapeHtml(environmentLabel(token.environment))}</span>
                         <span class="pill status-tone-${escapeHtml(state.tone)}">${escapeHtml(state.label)}</span>
                         ${state.key === 'revoked' ? '' : `
                         <button type="button" class="panel-link" data-api-toggle="${escapeHtml(token.id)}">

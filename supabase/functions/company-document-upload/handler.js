@@ -13,6 +13,14 @@
  * 4. الرفع بمفتاح الخدمة إلى المسار المولَّد فقط (بلا upsert).
  * 5. document_upload_commit_server بمفتاح الخدمة (104 L3): الرافع الذي تحققنا منه والبصمة التي حسبناها —
  *    لا يرسل المستخدم البصمة أبدًا ⇒ pending_scan (معزول حتى نتيجة فحص موقَّعة).
+ *
+ * 138 — وضع «إثبات طلب شركة مستقل»: رأس X-Proof-Token (UUID يولّده المتصفح)
+ * بدل X-Document-Type. المتقدم بلا شركة بعد، فلا يمر بـ document_upload_begin
+ * (يشترط مدير شركة قائمة) — بل بـ company_account_request_proof_begin
+ * (بهوية المتقدم + مسار request-proofs/ من الخادم)، والتأكيد عبر
+ * company_account_request_proof_commit_server. باقي الخطوات (المعلَن،
+ * التوقيع، البصمة، الرفع بلا upsert) هي نفسها حرفيًا — والوضعان لا يختلطان:
+ * رمز الإثبات لا يقبل نوع مستند شركة، ونوع مستند الشركة لا يقبل رمز إثبات.
  */
 import { BUCKET, baseMime, checkDeclared, signatureMatches, cleanName } from '../_shared/company-documents.js';
 
@@ -20,7 +28,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const CORS_HEADERS = Object.freeze({
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-document-type, x-document-name, x-idempotency-key',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-document-type, x-document-name, x-idempotency-key, x-proof-token',
 });
 const json = (status, body) => new Response(JSON.stringify(body), {
     status, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
@@ -59,6 +67,7 @@ export async function readCapped(body, limit) {
 }
 
 /** deps: getUser(token) · rpc(token, fn, args) · commit(versionId, actorId, sha256) (مفتاح الخدمة)
+ *        · commitRequest(proofToken, actorId, sha256) (مفتاح الخدمة — وضع إثبات الطلب 138)
  *        · upload(path, bytes, contentType) · download(path) ⇒ Uint8Array|null · remove(path) · sha256(bytes) */
 export async function handleUpload(req, deps) {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -69,27 +78,56 @@ export async function handleUpload(req, deps) {
     const user = await deps.getUser(token).catch(() => null);
     if (!user?.id) return fail(401, 'unauthorized');
 
+    // 138: وضع إثبات طلب مستقل — رمز الطلب يحدد الوضع، لا نوع المستند
+    const proofToken = req.headers.get('x-proof-token') || '';
+    const isRequestProof = proofToken !== '';
+    if (isRequestProof && !UUID.test(proofToken)) return fail(400, 'validation_failed', { field: 'proof_token' });
+
     const docType = req.headers.get('x-document-type') || '';
     const key = req.headers.get('x-idempotency-key') || '';
     const mime = baseMime(req.headers.get('content-type'));
     const len = req.headers.get('content-length');
     const size = /^\d{1,12}$/.test(len || '') ? Number(len) : NaN;
-    if (!/^[a-z_]{3,40}$/.test(docType)) return fail(400, 'validation_failed', { field: 'doc_type' });
+    if (isRequestProof) {
+        // الإثبات مستند واحد ثابت (السجل التجاري)؛ أي نوع آخر رفض صريح
+        if (docType !== '' && docType !== 'commercial_registration') {
+            return fail(400, 'validation_failed', { field: 'doc_type' });
+        }
+    } else if (!/^[a-z_]{3,40}$/.test(docType)) {
+        return fail(400, 'validation_failed', { field: 'doc_type' });
+    }
     if (!UUID.test(key)) return fail(400, 'validation_failed', { field: 'idempotency_key' });
     if (!Number.isSafeInteger(size)) return fail(411, 'validation_failed', { field: 'size', reason: 'length_required' });
     const declared = checkDeclared({ mime, size });
     if (declared) return fail(declared.reason === 'too_large' ? 413 : 400, 'validation_failed', declared);
 
-    const begun = await deps.rpc(token, 'document_upload_begin', {
-        p_doc_type: docType, p_mime: mime, p_size: size, p_name: cleanName(req.headers.get('x-document-name')), p_idempotency_key: key,
-    });
-    if (begun.error) return dbFail(begun.error);
+    let begun;
+    let commitFn;
+    if (isRequestProof) {
+        if (typeof deps.commitRequest !== 'function') return fail(502, 'server_error');
+        begun = await deps.rpc(token, 'company_account_request_proof_begin', {
+            p_proof_token: proofToken, p_mime: mime, p_size: size,
+            p_name: cleanName(req.headers.get('x-document-name')), p_idempotency_key: key,
+        });
+        if (begun.error) return dbFail(begun.error);
+        if (!begun.data?.proof_token || !begun.data?.upload?.path || begun.data.upload.bucket !== BUCKET) {
+            return fail(502, 'server_error');
+        }
+        begun = { data: { version: { id: begun.data.proof_token, status: begun.data.status }, upload: begun.data.upload } };
+        commitFn = (id, actor, sha) => deps.commitRequest(id, actor, sha);
+    } else {
+        begun = await deps.rpc(token, 'document_upload_begin', {
+            p_doc_type: docType, p_mime: mime, p_size: size, p_name: cleanName(req.headers.get('x-document-name')), p_idempotency_key: key,
+        });
+        if (begun.error) return dbFail(begun.error);
+        commitFn = (id, actor, sha) => deps.commit(id, actor, sha);
+    }
     const version = begun.data?.version;
     const upload = begun.data?.upload;
     if (!version?.id || !upload?.path || upload.bucket !== BUCKET) return fail(502, 'server_error');
     // إعادة إرسال لإصدار اكتمل رفعه: التأكيد بلا أثر يرجع حالته
     if (version.status !== 'uploading') {
-        const done = await deps.commit(version.id, user.id, null);
+        const done = await commitFn(version.id, user.id, null);
         return done.error ? dbFail(done.error) : json(200, done.data);
     }
 
@@ -110,7 +148,7 @@ export async function handleUpload(req, deps) {
         sha = await deps.sha256(stored);
     }
 
-    const done = await deps.commit(version.id, user.id, sha);
+    const done = await commitFn(version.id, user.id, sha);
     if (done.error) {
         if (!exists) await deps.remove(upload.path).catch(() => null);
         return dbFail(done.error);

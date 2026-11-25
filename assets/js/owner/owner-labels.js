@@ -123,6 +123,80 @@ export function storePriceError({ monthly, yearly }) {
 }
 
 /**
+ * حمولة نداء سعر باقة المتاجر — نسخة من قواعد owner_set_store_plan_price()
+ * في القاعدة (133/135): التفعيل مع سعرين موجبين، والحفظ العادي كذلك،
+ * والإلغاء بسعرين اختياريين (فارغ = إبقاء الحالي). التفعيل والإلغاء معًا
+ * مرفوضان. الحقول الاختيارية الفارغة تُحذف من الحمولة، فيبقى نداء الحفظ
+ * العادي {p_monthly, p_yearly, p_activate} كما هو. يعيد {args} أو {error}.
+ */
+export function storePlanPriceArgs({ monthly, yearly, activate = false, deactivate = false, reason = null } = {}) {
+    if (activate && deactivate) return { error: 'لا يمكن تفعيل باقة المتاجر وإلغاء تفعيلها معًا.' };
+    const m = monthly === '' || monthly === null || monthly === undefined ? null : Number(monthly);
+    const y = yearly === '' || yearly === null || yearly === undefined ? null : Number(yearly);
+    if (deactivate) {
+        if ((m !== null && (!Number.isFinite(m) || m <= 0)) || (y !== null && (!Number.isFinite(y) || y <= 0))) {
+            return { error: 'السعر الشهري والسنوي موجبان (بالجنيه) إن أُرسلا — اكتب رقمًا أكبر من صفر أو اتركهما فارغين.' };
+        }
+        const args = { p_monthly: m, p_yearly: y, p_activate: false, p_deactivate: true };
+        const r = String(reason || '').trim();
+        if (r) args.p_reason = r;
+        return { args };
+    }
+    const err = storePriceError({ monthly, yearly });
+    if (err) return { error: err };
+    return { args: { p_monthly: m, p_yearly: y, p_activate: !!activate } };
+}
+
+/**
+ * باقة المتاجر لنموذج السعر من owner_store_plan_config (135): التفعيل
+ * والسعران والعملة والمزايا المفعّلة وتعريف الحد — بلا اعتماد على
+ * owner_entitlement_diagnostics، فيبقى النموذج وإن فشل التشخيص.
+ * يعيد null إن لم تصل بيانات الإعداد.
+ */
+export function storePlanFromConfig(planCfg) {
+    if (!planCfg || typeof planCfg !== 'object') return null;
+    return {
+        key: 'store',
+        is_active: planCfg.is_active ?? null,
+        price_monthly: planCfg.price_monthly ?? null,
+        price_yearly: planCfg.price_yearly ?? null,
+        currency: planCfg.currency || 'EGP',
+        features: (Array.isArray(planCfg.features) ? planCfg.features : [])
+            .filter((f) => f?.enabled).map((f) => f.feature_key),
+        ticket_quota_defined: planCfg.quota_defined ?? false
+    };
+}
+
+/**
+ * ما سيُعطَّل من مزايا باقة المتاجر عند حفظ نموذج الحصة (135): الفرق بين
+ * المفعّلة حاليًا والمختارة للحفظ. يعيد null إن لم يكن في التعطيل ما يستدعي
+ * تأكيدًا صريحًا، وإلا {disabling, disablesShopify, disablesAll}:
+ * تعطيل shopify_integration أو إلغاء الكل (قائمة مختارة فارغة) يستدعيان
+ * التحذير والتأكيد؛ تعطيل ميزة أخرى وحدها لا يستدعيه.
+ */
+export function storeQuotaDisableWarning({ currentFeatures = [], selectedFeatures = [] } = {}) {
+    const current = Array.isArray(currentFeatures) ? currentFeatures : [];
+    const selected = Array.isArray(selectedFeatures) ? selectedFeatures : [];
+    const disabling = current.filter((f) => !selected.includes(f));
+    if (!disabling.length) return null;
+    const disablesShopify = disabling.includes('shopify_integration');
+    const disablesAll = selected.length === 0;
+    if (!disablesShopify && !disablesAll) return null;
+    return { disabling, disablesShopify, disablesAll };
+}
+
+/**
+ * أساس حساب الانتهاء عند استئناف اشتراك متوقف (135)، من حقول
+ * _store_subscription_json: تاريخ حُدّد يدويًا أثناء الإيقاف يفوز، ثم
+ * تحويل دورة أثناء الإيقاف، ثم التمديد بمدة التوقف.
+ */
+export function storeResumeBasis(sub) {
+    if (sub?.end_date_set_while_paused) return 'manual';
+    if (sub?.cycle_changed_while_paused) return 'cycle';
+    return 'extension';
+}
+
+/**
  * التحقق من سبب عملية مالك قبل النداء — نفس شرط القاعدة (118/119):
  * السبب إلزامي 10 أحرف على الأقل، ويُسجَّل في تدقيق المالك.
  */

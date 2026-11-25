@@ -34,7 +34,7 @@ function timingSafeEqual(a: string, b: string): boolean {
 }
 
 const RATE_LIMIT_MAX_PER_MINUTE = 60;
-const TOKEN_COLUMNS = "id, user_id, name, api_key, secret_hash, bearer_token_hash, is_active, revoked_at, scopes, expires_at, credential_type";
+const TOKEN_COLUMNS = "id, user_id, name, api_key, secret_hash, bearer_token_hash, is_active, revoked_at, scopes, expires_at, credential_type, environment";
 
 export async function verifyApiToken(req: Request, requestEndpoint: string): Promise<VerifyResult> {
   const authHeader = req.headers.get("Authorization") || "";
@@ -69,6 +69,13 @@ export async function verifyApiToken(req: Request, requestEndpoint: string): Pro
     const { data, error } = await admin.from("api_tokens").select(TOKEN_COLUMNS).eq("bearer_token_hash", bearerHash).maybeSingle();
     if (error || !data) return { ok: false, status: 401, error: "Invalid bearer token" };
     row = data;
+  }
+
+  // مفتاح اختبار (ساندبوكس API، الترحيل 141): يُرفَض من كل نقطة حية قبل
+  // أي فحص آخر، فلا يستهلك حصة ولا يُسجَّل استخدامًا حيًا. 403 لا 401:
+  // الاعتماد نفسه صالح، لكن بيئته لا تصل إلى البيانات الحية.
+  if (row.environment === "test") {
+    return { ok: false, status: 403, error: "Test API keys cannot access live endpoints" };
   }
 
   if (!row.is_active || row.revoked_at) return { ok: false, status: 401, error: "Token is inactive or revoked" };

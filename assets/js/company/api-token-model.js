@@ -5,10 +5,14 @@
  * الإنتاج، لا من الذاكرة). أي قيمة هنا موجودة هناك حرفيًا:
  *
  *   POST create-api-token   (verify_jwt: true)
- *   body { name, description?, credential_type?, scopes?, expires_at? }
+ *   body { name, description?, credential_type?, environment?, scopes?, expires_at? }
  *     name             مطلوب، ≤ 80 حرفًا
  *     description      اختياري، ≤ 200 حرف
  *     credential_type  'api_key_secret' | 'bearer' | 'both'
+ *     environment      'live' | 'test' — غيابها ⇒ 'live'. مفتاح 'test' ساندبوكس
+ *                      API فقط (بادئة mad3oom_pk_test_ / mad3oom_bt_test_)،
+ *                      وتُرفَض نداءاته على كل نقطة حية. ليس بيئة تجريبية
+ *                      للتجربة المجانية.
  *     scopes           مصفوفة من ALLOWED_SCOPES أدناه (غيابها ⇒ DEFAULT_SCOPES)
  *     expires_at       تاريخ صالح لـnew Date()، أو غيابه ⇒ بلا انتهاء
  *   200 → { token, secret } | { token, bearer_token }
@@ -210,6 +214,44 @@ export const CREDENTIAL_TYPES = Object.freeze([
 ]);
 
 /**
+ * بيئة المفتاح (الترحيل 141 — ساندبوكس API).
+ *
+ * مفتاح الاختبار مفتاح *API* منفصل ببادئة مميزة (mad3oom_pk_test_ /
+ * mad3oom_bt_test_)، وتُرفَض نداءاته من verifyApiToken على كل نقطة حية،
+ * فلا يقرأ بيانات حية ولا ينفّذ أي إجراء حقيقي. وهو ساندبوكس API فقط —
+ * وليس بيئة تجريبية للتجربة المجانية: لا اشتراك تجريبي هنا ولا بيانات
+ * تجريبية، بل مفتاح اختبار لربط الأنظمة قبل التبديل لمفتاح الحي.
+ * الافتراضي 'live' عمدًا: مفتاح الحي هو ما يطلبه أغلب الناس، والاختبار
+ * اختيار صريح لا يُفعَّل بالخطأ.
+ */
+export const TOKEN_ENVIRONMENTS = Object.freeze([
+    {
+        key: 'live',
+        label: 'مفتاح حي',
+        hint: 'يصل إلى بيانات شركتك الحية وينفّذ إجراءات حقيقية.',
+        recommended: true
+    },
+    {
+        key: 'test',
+        label: 'مفتاح اختبار (ساندبوكس)',
+        hint: 'للاختبار فقط: لا يصل إلى بيانات حية ولا ينفّذ أي إجراء حقيقي، وتُرفَض نداءاته على كل نقطة حية. هذا ساندبوكس API فقط، وليس بيئة تجريبية للتجربة المجانية.'
+    }
+]);
+
+export const DEFAULT_ENVIRONMENT = 'live';
+
+/** هل هذه بيئة اختبار؟ أي قيمة غير 'test' تعني الحي. */
+export function isTestEnvironment(environment) {
+    return environment === 'test';
+}
+
+/** تسمية بيئة المفتاح كما تُقرأ من الصف — للعرض في القائمة. */
+export function environmentLabel(environment) {
+    if (environment === 'test') return 'اختبار';
+    return 'حي';
+}
+
+/**
  * مُدد الانتهاء المعروضة. القيمة أيام؛ و0 تعني «بلا انتهاء».
  *
  * قرار منتَجي: الافتراضي 90 يومًا لا «بلا انتهاء» — مفتاح دائم لا يُدوَّر
@@ -283,6 +325,11 @@ export function validateTokenForm(values, { now = Date.now() } = {}) {
         errors.credentialType = 'نوع الاعتماد غير صالح';
     }
 
+    const environment = values?.environment || DEFAULT_ENVIRONMENT;
+    if (!TOKEN_ENVIRONMENTS.some(t => t.key === environment)) {
+        errors.environment = 'بيئة المفتاح غير صالحة';
+    }
+
     if (!scopes.length) {
         errors.scopes = 'اختر صلاحية واحدة على الأقل — مفتاح بلا صلاحيات لا يصلح لشيء';
     } else if (scopes.some(s => !ALLOWED_SCOPES.includes(s))) {
@@ -316,6 +363,7 @@ export function toCreatePayload(values, { now = Date.now() } = {}) {
         name: String(values?.name || '').trim(),
         description: String(values?.description || '').trim() || undefined,
         credential_type: values?.credentialType || 'api_key_secret',
+        environment: values?.environment || DEFAULT_ENVIRONMENT,
         scopes: Array.isArray(values?.scopes) ? values.scopes.slice() : DEFAULT_SCOPES.slice(),
         expires_at: expiryFromPreset(values?.expiryPreset || DEFAULT_EXPIRY_PRESET, {
             now,

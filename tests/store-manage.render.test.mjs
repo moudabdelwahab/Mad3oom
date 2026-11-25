@@ -173,7 +173,11 @@ test('role and scopes from the database: forbidden operations are absent; a miss
     const { page, context, errors } = await openManage(fx);
     await page.waitForSelector('.sm-nav [data-section]');
     const sections = await page.locator('.sm-nav [data-section]').evaluateAll((els) => els.map((e) => e.dataset.section));
-    assert.deepEqual(sections, ['shop', 'orders', 'customers'], 'only what the agent may read');
+    // 139: «المهملة» تقرأ order.list كقسم «الطلبات»، و«الشحن» يقرأ shop.info
+    // كقسم «المتجر» — فتظهران لهذا الدور بالمنطق نفسه، وكلتاهما حالة فراغ
+    // صادقة بلا بيانات ولا إجراءات. «التنبيهات» (inventory.levels) مخفية
+    // لأن الدور لا يملكها.
+    assert.deepEqual(sections, ['shop', 'orders', 'abandoned', 'customers', 'shipping'], 'only what the agent may read');
     assert.match(await page.textContent('#storeManageBody'), /إعادة تفويض التطبيق/);
     await page.click('[data-section="orders"]');
     await page.waitForSelector('[data-open-order]');

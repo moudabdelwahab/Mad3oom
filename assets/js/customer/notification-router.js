@@ -32,6 +32,11 @@ export const NOTIFICATION_CATEGORIES = Object.freeze({
         tone: 'warning',
         icon: '<path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/>'
     },
+    store: {
+        label: 'المتجر',
+        tone: 'warning',
+        icon: '<path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>'
+    },
     whatsapp: {
         label: 'واتساب',
         tone: 'whatsapp',

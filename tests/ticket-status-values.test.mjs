@@ -31,5 +31,7 @@ test('مفيش in_progress كحالة تذكرة في الواجهة', () => {
 
 test('عداد «قيد المعالجة» في لوحة التحكم بيعد القيمة المخزّنة', () => {
     const src = fs.readFileSync(path.join(ROOT, 'assets/js/admin/dashboard-logic.js'), 'utf8');
-    assert.match(src, /t\.status === 'in-progress'/);
+    // منذ 134: العدّاد عدّاد خادم (count دقيق) لا تصفية صفوف — والقيمة
+    // المُعدّة هي المخزّنة نفسها 'in-progress' بشرطة، لا 'in_progress'.
+    assert.match(src, /countStatus\('in-progress'\)/);
 });

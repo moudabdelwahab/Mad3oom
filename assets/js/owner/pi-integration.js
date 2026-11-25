@@ -20,7 +20,7 @@ const fmtPi = (n) => n == null || n === ''
     ? '—'
     : `${Number(n).toLocaleString('ar-EG', { maximumFractionDigits: 7 })} π`;
 
-export function initPiIntegration({ supabase, $, esc, when, table, td, errorBlock, rows }) {
+export function initPiIntegration({ supabase, $, esc, when, table, td, errorBlock, piLinkedCount = 0, directory }) {
     const say = (text, tone = 'info') => announce($('piStatus'), text, tone);
     let loaded = false;
     let filter = 'all';
@@ -35,7 +35,8 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
 
     // ── الملخّص وحالة الاتصال ────────────────────────────────────────────────
     async function renderSummary(settings, payments) {
-        const linked = rows.filter(p => p.pi_uid).length;
+        // عدد الحسابات المربوطة بـ Pi عدّ دقيق من لوحة المالك — بلا سحب صفوف.
+        const linked = piLinkedCount;
         const done = payments.filter(p => p.status === 'completed');
         const total = done.reduce((s, p) => s + Number(p.amount || 0), 0);
 
@@ -73,10 +74,15 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
     }
 
     // ── الإعدادات ─────────────────────────────────────────────────────────────
-    function renderSettings(settings) {
+    async function renderSettings(settings) {
         $('piTestnetEnabled').checked = settings.testnet_enabled === true;
         $('piMainnetEnabled').checked = settings.mainnet_enabled === true;
-        const by = settings.updated_by ? rows.find(p => p.id === settings.updated_by) : null;
+        // اسم من غيّر الإعدادات عند الحاجة فقط — صف واحد بالمعرّف.
+        let by = null;
+        if (settings.updated_by) {
+            try { await directory.ensure([settings.updated_by]); } catch (e) { /* الاسم اختياري */ }
+            by = directory.get(settings.updated_by);
+        }
         $('piSettingsMeta').textContent = settings.updated_by
             ? `آخر تغيير ${when(settings.updated_at)}${by ? ` — ${by.full_name || by.email}` : ''}`
             : 'لم تُغيَّر بعد';
@@ -166,7 +172,7 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
     function renderPayments() {
         const list = filter === 'all' ? allPayments : allPayments.filter(p => p.status === filter);
         const account = (id) => {
-            const u = rows.find(p => p.id === id);
+            const u = directory.get(id);
             return `<span class="owner-account-name">${esc(u?.full_name || u?.email || id)}</span>`;
         };
         $('piPaymentsBody').innerHTML = table(
@@ -263,8 +269,13 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
         allPayments = payments.data || [];
         planNames = new Map((plans.data || []).map(p => [p.id, p.name_ar || p.name]));
 
+        // أسماء أصحاب المدفوعات عند الحاجة فقط — دفعة واحدة بالمعرّفات الظاهرة.
+        try {
+            await directory.ensure([...new Set(allPayments.map(p => p.user_id))]);
+        } catch (err) { /* الأسماء الغائبة تُعرض بالمعرّف كما قبل */ }
+
         lastSettings = settings.data;
-        renderSettings(settings.data);
+        await renderSettings(settings.data);
         if (plans.error || prices.error) $('piPricesBody').innerHTML = errorBlock((plans.error || prices.error).message);
         else renderPrices(plans.data || [], prices.data || []);
         if (payments.error) $('piPaymentsBody').innerHTML = errorBlock(payments.error.message);

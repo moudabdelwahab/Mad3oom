@@ -504,13 +504,13 @@ textarea.textarea-input{ min-height:90px; resize:vertical; line-height:1.7; font
         <svg class="icon icon-sm"><use href="#i-chevron-left"/></svg>
         <span class="current">تذكير بالتذاكر العاجلة</span>
       </div>
-      <button class="icon-btn"><svg class="icon icon-sm"><use href="#i-pencil"/></svg></button>
+      <button class="icon-btn" id="renameWorkflowBtn" title="إعادة تسمية التدفق"><svg class="icon icon-sm"><use href="#i-pencil"/></svg></button>
     </div>
     <div class="topbar-left">
       <span class="status-pill"><span class="dot"></span> نشط</span>
       <button class="icon-btn"><svg class="icon icon-sm"><use href="#i-more-horizontal"/></svg></button>
-      <button class="btn"><svg class="icon icon-sm"><use href="#i-folder"/></svg> حفظ</button>
-      <button class="btn btn-primary"><svg class="icon icon-sm"><use href="#i-arrow-up-right"/></svg> حفظ ونشر</button>
+      <button class="btn" id="saveWorkflowBtn"><svg class="icon icon-sm"><use href="#i-folder"/></svg> حفظ</button>
+      <button class="btn btn-primary" id="savePublishWorkflowBtn"><svg class="icon icon-sm"><use href="#i-arrow-up-right"/></svg> حفظ ونشر</button>
     </div>
   </div>
 
@@ -1537,7 +1537,9 @@ function closeInspector(){
    INIT
    ========================================================================= */
 function init(){
-  buildInitialGraph();
+  // إن طُلب تدفق محفوظ (?id=)، وحدة الحفظ أدناه تحمّله وتملأ المخطط —
+  // فلا نبنِ المخطط التجريبي فوقه. (الوحدة تعمل قبل حدث load.)
+  if (!window.__automationSkipDemo) buildInitialGraph();
   renderLibrary();
   renderNodesLayer();
 
@@ -1567,9 +1569,12 @@ function init(){
     }
   });
 
-  centerViewOnGraph();
+  // مخطط فارغ (تدفق محفوظ قيد التحميل) بلا توسيط ولا اختيار عقدة غير موجودة.
+  if (Object.keys(graphNodes).length) {
+    centerViewOnGraph();
+    selectNodeInstance('email1');
+  }
   redrawEdges();
-  selectNodeInstance('email1');
 }
 window.addEventListener('load', init);
 
@@ -1645,6 +1650,288 @@ window.addEventListener('load', init);
   else init();
 })();
 
+</script>
+
+<script type="module">
+/* =========================================================================
+   حفظ ونشر تدفقات الأتمتة — وحدة ES فوق سكربت المصمم الكلاسيكي.
+   - الحارس أولًا: بلا جلسة أدمن لا تُعرض الصفحة ولا تُحفظ.
+   - «حفظ»: يحوّل المخطط بتعريف منفِّذ (automation-serializer.js) ويحفظه
+     مسودة في wf_workflows / wf_workflow_versions (دوال 134).
+   - «حفظ ونشر»: يحفظ، ثم يتحقق من التعريف باختبار جاف عبر دالة
+     wf-executor (dry_run — بلا أي أثر جانبي)، ثم ينشر بـ publish_workflow.
+     عقد بلا مقابل في المنفِّذ (انتظار، إسناد تلقائي...) تُحفظ في المسودة
+     موسومة unsupported.*، ويرفض النشر لا الحفظ، مع ذكر السبب.
+   - ?id= يفتح تدفقًا محفوظًا ويعيد بناءه في المصمم.
+   ========================================================================= */
+import { supabase } from '/api-config.js';
+import { checkAdminAuth } from '/assets/js/admin/auth.js';
+import {
+    serializeAutomationGraph,
+    validateAutomationDefinition,
+    deserializeAutomationDefinition,
+} from '/assets/js/admin/automation-serializer.js';
+
+const adminUser = await checkAdminAuth();
+if (!adminUser) throw new Error('Admin access required — automation page load stopped after guard.');
+
+/* ---------- تنبيهات ---------- */
+const toastWrap = document.createElement('div');
+toastWrap.id = 'automationToastWrap';
+toastWrap.style.cssText = 'position:fixed; bottom:18px; left:50%; transform:translateX(-50%); z-index:9999; display:flex; flex-direction:column; gap:8px; align-items:center;';
+document.body.appendChild(toastWrap);
+function showAutomationToast(message, type = 'info') {
+    const el = document.createElement('div');
+    el.style.cssText = 'background:#1B1E27; color:#fff; padding:.65rem 1rem; border-radius:.6rem; font-size:.85rem; max-width:min(90vw, 560px); white-space:pre-line; box-shadow:0 8px 24px rgba(0,0,0,.25);';
+    if (type === 'error') el.style.background = '#DC2626';
+    if (type === 'success') el.style.background = '#12A150';
+    if (type === 'warn') el.style.background = '#D97706';
+    el.textContent = message;
+    toastWrap.appendChild(el);
+    setTimeout(() => el.remove(), 7000);
+}
+
+/* ---------- حالة سير العمل ---------- */
+const params = new URLSearchParams(location.search);
+let workflowId = params.get('id') || null;
+let draftVersionId = null;
+let draftVersionNumber = null;
+
+const saveBtn = document.getElementById('saveWorkflowBtn');
+const publishBtn = document.getElementById('savePublishWorkflowBtn');
+const renameBtn = document.getElementById('renameWorkflowBtn');
+const nameEl = document.querySelector('.topbar-breadcrumb .current');
+const statusPill = document.querySelector('.status-pill');
+
+const workflowName = () => (nameEl?.textContent || 'تدفق جديد').trim() || 'تدفق جديد';
+function setWorkflowName(name) { if (nameEl) nameEl.textContent = name; }
+function setStatusPill(label) { if (statusPill) statusPill.innerHTML = '<span class="dot"></span> ' + label; }
+function setBusy(busy) {
+    for (const b of [saveBtn, publishBtn]) if (b) b.disabled = busy;
+}
+
+if (!workflowId) setStatusPill('مسودة');
+
+/* ---------- تحميل تدفق محفوظ (?id=) ---------- */
+function bumpSeqs() {
+    const ids = [...Object.keys(graphNodes), ...edges.map((e) => e.id)];
+    const max = ids.reduce((m, id) => {
+        const match = /(\d+)$/.exec(String(id));
+        return match ? Math.max(m, parseInt(match[1], 10)) : m;
+    }, 0);
+    nodeSeq = Math.max(nodeSeq, max + 1);
+    edgeSeq = Math.max(edgeSeq, max + 1);
+}
+
+function loadDemoFallback() {
+    workflowId = null;
+    history.replaceState(null, '', location.pathname);
+    buildInitialGraph();
+    renderNodesLayer();
+    redrawEdges();
+    centerViewOnGraph();
+    selectNodeInstance('email1');
+    setStatusPill('مسودة');
+}
+
+if (workflowId) {
+    // يُضبط تزامنًا قبل حدث load، فيتخطى init() بناء المخطط التجريبي.
+    window.__automationSkipDemo = true;
+    try {
+        const { data: wf, error: wfErr } = await supabase
+            .from('wf_workflows')
+            .select('id, name, status, published_version_id, current_draft_version_id')
+            .eq('id', workflowId)
+            .maybeSingle();
+        if (wfErr) throw wfErr;
+        if (!wf) {
+            showAutomationToast('التدفق المطلوب غير موجود — سيُحفظ كتدفق جديد.', 'warn');
+            loadDemoFallback();
+        } else {
+            setWorkflowName(wf.name);
+            if (wf.status === 'active') setStatusPill('نشط');
+            const versionId = wf.current_draft_version_id || wf.published_version_id;
+            if (versionId) {
+                const { data: ver, error: verErr } = await supabase
+                    .from('wf_workflow_versions')
+                    .select('id, version_number, status, definition')
+                    .eq('id', versionId)
+                    .maybeSingle();
+                if (verErr) throw verErr;
+                if (ver?.definition) {
+                    const restored = deserializeAutomationDefinition(ver.definition);
+                    if (!restored.ok) {
+                        showAutomationToast('تعذّر فتح التدفق في المصمم: ' + restored.error + ' — سيُحفظ كتدفق جديد.', 'error');
+                        loadDemoFallback();
+                    } else {
+                        graphNodes = restored.graphNodes;
+                        edges = restored.edges;
+                        answers = restored.answers;
+                        conditionState = restored.conditionState;
+                        bumpSeqs();
+                        draftVersionId = ver.id;
+                        draftVersionNumber = ver.version_number;
+                        renderNodesLayer();
+                        redrawEdges();
+                        centerViewOnGraph();
+                        const triggerId = Object.values(graphNodes).find((n) => n.type === 'trigger')?.id;
+                        if (triggerId) selectNodeInstance(triggerId);
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        console.error('[Automation] load workflow failed:', err);
+        showAutomationToast('فشل تحميل التدفق: ' + (err.message || err) + ' — عُرض المخطط التجريبي.', 'error');
+        loadDemoFallback();
+    }
+}
+
+/* ---------- الحفظ ---------- */
+async function ensureDraftVersion(definition, triggerEventKey) {
+    const { data: draft, error: findErr } = await supabase
+        .from('wf_workflow_versions')
+        .select('id, version_number')
+        .eq('workflow_id', workflowId)
+        .eq('status', 'draft')
+        .order('version_number', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+    if (findErr) throw findErr;
+
+    let draftId = draft?.id || null;
+    if (!draftId) {
+        const { data: newId, error: rpcErr } = await supabase.rpc('create_workflow_draft_version', { p_workflow_id: workflowId });
+        if (rpcErr) throw rpcErr;
+        draftId = newId;
+    }
+    const { data: updated, error: updErr } = await supabase
+        .from('wf_workflow_versions')
+        .update({ definition, trigger_event_key: triggerEventKey, trigger_config: {} })
+        .eq('id', draftId)
+        .select('id, version_number')
+        .single();
+    if (updErr) throw updErr;
+    return updated;
+}
+
+async function saveDraft() {
+    const { definition, triggerEventKey, unsupported } = serializeAutomationGraph({ graphNodes, edges, answers, conditionState });
+    if (!triggerEventKey) throw new Error('لا يوجد مشغِّل في التدفق — أضف خطوة «متى يبدأ التدفق؟» أولًا.');
+    const name = workflowName();
+
+    if (!workflowId) {
+        const { data, error } = await supabase
+            .from('wf_workflows')
+            .insert({ name, status: 'draft', trigger_event_key: triggerEventKey, trigger_config: {}, created_by: adminUser.id })
+            .select('id')
+            .single();
+        if (error) throw error;
+        workflowId = data.id;
+        history.replaceState(null, '', `${location.pathname}?id=${workflowId}`);
+    } else {
+        const { error } = await supabase
+            .from('wf_workflows')
+            .update({ name, trigger_event_key: triggerEventKey, updated_at: new Date().toISOString() })
+            .eq('id', workflowId);
+        if (error) throw error;
+    }
+
+    const version = await ensureDraftVersion(definition, triggerEventKey);
+    draftVersionId = version.id;
+    draftVersionNumber = version.version_number;
+    setStatusPill('مسودة');
+    return { definition, triggerEventKey, unsupported };
+}
+
+/* ---------- النشر (مع اختبار جاف عبر wf-executor) ---------- */
+async function dryRunDefinition(definition) {
+    // عينة: أحدث 3 تذاكر مفتوحة (قد ترفض تذكرة شركة حارس العزل في الاختبار).
+    const { data: samples } = await supabase
+        .from('tickets')
+        .select('id, user_id, status, priority, ticket_type, category')
+        .eq('status', 'open')
+        .order('created_at', { ascending: false })
+        .limit(3);
+    if (!samples?.length) return 'no-sample';
+
+    let lastError = null;
+    for (const sample of samples) {
+        const triggerPayload = {};
+        for (const [key, value] of Object.entries(sample)) triggerPayload[`ticket.${key}`] = value;
+        const { data, error } = await supabase.functions.invoke('wf-executor', {
+            body: {
+                workflow_id: workflowId,
+                workflow_version_id: draftVersionId,
+                workflow_version_number: draftVersionNumber,
+                definition,
+                trigger_payload: triggerPayload,
+                dry_run: true,
+            },
+        });
+        if (!error && data?.status === 'completed') return 'ok';
+        lastError = error?.message || data?.error || 'خطأ غير معروف من المنفِّذ';
+    }
+    throw new Error('فشل الاختبار الجاف للتدفق عبر wf-executor: ' + lastError);
+}
+
+async function publishWorkflow() {
+    const { definition } = await saveDraft();
+    const validation = validateAutomationDefinition(definition);
+    if (!validation.ok) {
+        throw new Error('تعذّر النشر — راجع العقد التالية:\n' + validation.errors.join('\n'));
+    }
+    const dryRun = await dryRunDefinition(definition);
+    const { error: pubErr } = await supabase.rpc('publish_workflow', { p_workflow_id: workflowId });
+    if (pubErr) throw pubErr;
+    setStatusPill('نشط');
+    return dryRun;
+}
+
+/* ---------- ربط الأزرار ---------- */
+saveBtn?.addEventListener('click', async () => {
+    setBusy(true);
+    try {
+        const { unsupported } = await saveDraft();
+        showAutomationToast(
+            unsupported.length
+                ? 'تم حفظ المسودة — لكن فيها عقد غير قابلة للتنفيذ بعد:\n' + unsupported.map((u) => '• ' + u.reason).join('\n')
+                : 'تم حفظ المسودة بنجاح.',
+            unsupported.length ? 'warn' : 'success',
+        );
+    } catch (err) {
+        console.error('[Automation] save failed:', err);
+        showAutomationToast('فشل الحفظ: ' + (err.message || err), 'error');
+    } finally {
+        setBusy(false);
+    }
+});
+
+publishBtn?.addEventListener('click', async () => {
+    setBusy(true);
+    try {
+        const dryRun = await publishWorkflow();
+        showAutomationToast(
+            dryRun === 'no-sample'
+                ? 'تم النشر بنجاح — لا توجد تذاكر مفتوحة لاختبار التدفق عليها، فتم النشر دون اختبار جاف.'
+                : 'تم النشر بنجاح بعد اختبار جاف سليم عبر wf-executor.',
+            'success',
+        );
+    } catch (err) {
+        console.error('[Automation] publish failed:', err);
+        showAutomationToast('فشل النشر: ' + (err.message || err), 'error');
+    } finally {
+        setBusy(false);
+    }
+});
+
+renameBtn?.addEventListener('click', () => {
+    const next = prompt('اسم التدفق:', workflowName());
+    if (next && next.trim()) {
+        setWorkflowName(next.trim());
+        showAutomationToast('تم تغيير الاسم — احفظ لنقله للقاعدة.', 'info');
+    }
+});
 </script>
 
 </body>

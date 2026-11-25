@@ -71,6 +71,17 @@ export const getShopify = (connectionId, kind, id) => invokeIntegrationsApi('sho
  * بلا رمز ← تأكيد ومعاينة من Shopify؛ بالرمز ← تنفيذ. جسم الخطأ كاملًا (الحقل، السبب، رفض Shopify). */
 export const fetchManageStatus = (connectionId) => rpc('ihub_shopify_manage_status', { p_connection: connectionId });
 export const fetchOpsLog = (connectionId, limit = 50) => rpc('ihub_shopify_ops_list', { p_connection: connectionId, p_limit: limit });
+
+/* ── تنبيهات مخزون Shopify (139): حدود محلية في مدعوم + سجل تنبيهات ───────
+ * القراءة الحية للمخزون تمر بـ shopifyAdmin (inventory.levels)؛ هنا التخزين
+ * والتسجيل والإشعار فقط. */
+export const fetchThresholds = (connectionId) => rpc('ihub_shopify_thresholds_list', { p_connection: connectionId });
+export const saveThreshold = (connectionId, { scope, inventoryItemId = null, variantId = null, productTitle = null, minQuantity }) =>
+    rpc('ihub_shopify_threshold_set', { p_connection: connectionId, p_scope: scope, p_inventory_item_id: inventoryItemId,
+                                        p_variant_id: variantId, p_product_title: productTitle, p_min_quantity: minQuantity });
+export const deleteThreshold = (connectionId, thresholdId) => rpc('ihub_shopify_threshold_delete', { p_connection: connectionId, p_threshold_id: thresholdId });
+export const fetchOpenAlerts = (connectionId, limit = 50) => rpc('ihub_shopify_inventory_alerts_list', { p_connection: connectionId, p_limit: limit });
+export const reportInventoryAlerts = (connectionId, items) => rpc('ihub_shopify_inventory_alerts_report', { p_connection: connectionId, p_items: items });
 export async function shopifyAdmin(connectionId, op, input, confirmationToken = null) {
     const body = { action: 'shopify_admin', connection_id: connectionId, op, input };
     if (confirmationToken) body.confirmation_token = confirmationToken;

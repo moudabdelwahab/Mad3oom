@@ -12,7 +12,7 @@ const src = readFileSync(new URL('../supabase/functions/regenerate-api-token-sec
 test('شرط الملكية قبل إنشاء عميل الخدمة وقبل أي كتابة', () => {
     const owner = src.indexOf('if (existing.user_id !== userData.user.id)');
     assert.ok(owner > 0, 'لا يوجد شرط ملكية');
-    assert.ok(src.indexOf('select("id, user_id, name, credential_type")') < owner, 'user_id غير مقروء قبل الشرط');
+    assert.ok(src.indexOf('select("id, user_id, name, credential_type, environment")') < owner, 'user_id غير مقروء قبل الشرط');
     for (const touch of ['createClient(supabaseUrl, serviceRoleKey)', '.update(']) {
         const at = src.indexOf(touch);
         assert.ok(at > owner, `${touch} قبل شرط الملكية`);

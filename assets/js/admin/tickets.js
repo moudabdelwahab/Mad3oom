@@ -9,8 +9,10 @@ import {
     fetchTags, createTag, deleteTag, fetchAllTicketTagLinks, addTagToTicket, removeTagFromTicket,
     uploadTicketAttachment, fetchTicketAttachments,
     fetchTicketActivity, fetchTicketRating, fetchAllTicketRatings,
-    fetchSavedFilters, createSavedFilter, deleteSavedFilter
+    fetchSavedFilters, createSavedFilter, deleteSavedFilter, fetchTicketStats
 } from '/tickets-service.js';
+import { debounce } from './admin-utils.js';
+import { pageRange, totalPages as serverTotalPages, applyTicketServerFilter } from './tickets-page-model.js';
 import { impersonateUser } from './admin-utils.js';
 import { PLATFORM_OWNER_ROLE } from '/assets/js/access-policy.js';
 import { attachInvoicePdf } from './invoice-pdf.js';
@@ -103,6 +105,9 @@ let cannedResponses = [];
 let savedFilters = [];
 let currentPage = 1;
 let pageSize = 20;
+// allTickets = صفحة واحدة من الخادم فقط (لا كل الجدول)؛ والإجمالي الدقيق
+// يأتي مع كل استعلام (count) لترقيم صحيح.
+let totalTicketsCount = 0;
 let lastFilteredList = [];
 let slaTickInterval = null;
 let notificationChannel = null;
@@ -156,7 +161,10 @@ async function init() {
     await Promise.all([loadTags(), loadAgents(), loadCannedResponses(), loadSavedFilters()]);
     await loadTickets();
 
-    subscribeToTickets((payload) => { loadTickets(); onOpenTicketChanged(payload); });
+    // Realtime: إعادة تحميل الصفحة الحالية فقط (لا القائمة كاملة)، مع
+    // debounce 600ms حتى لا يعيد التحميل مع كل حدث متتالٍ.
+    const reloadCurrentPage = debounce(() => { loadTickets(); }, 600);
+    subscribeToTickets((payload) => { reloadCurrentPage(); onOpenTicketChanged(payload); });
     setupNotificationChannel();
     setupModalEvents();
     setupFilters();
@@ -310,13 +318,23 @@ async function loadSavedFilters() {
     }
 }
 
+/* ==================== تحميل التذاكر (ترقيم على الخادم) ====================
+   كان loadTickets() يجلب كل التذاكر بلا حد ثم يرقّمها في المتصفح.
+   الآن: صفحة واحدة بـ .range() مع count دقيق، والفلاتر الدقيقة
+   (الحالة/الأولوية/التصنيف/المسؤول/البحث بالعنوان أو الرقم) تُدفع للخادم.
+   ما لا يستطيع الخادم تصفيته بدقة — الوسم، والبحث باسم العميل أو بريده
+   أو نص التذكرة، وفلاتر SLA/بلا مسؤول السريعة — يُصفَّى في
+   applyFiltersAndRender() على الصفحة المحمّلة فقط (انظر التعليق هناك).
+   ======================================================================= */
 async function loadTickets() {
+    const { from, to } = pageRange(currentPage, pageSize);
     let query = supabase
         .from('tickets')
-        .select('*, profiles!tickets_user_profile_fk(full_name, email)');
+        .select('*, profiles!tickets_user_profile_fk(full_name, email)', { count: 'exact' });
     // تبويب تذكرة واحدة: القائمة مخفية، فلا داعي لتحميل كل التذاكر مع كل تحديث.
     if (SINGLE_TICKET) query = query.eq('id', SINGLE_TICKET);
-    const { data: tickets, error } = await query.order('created_at', { ascending: false });
+    else query = applyTicketServerFilter(query, getCurrentFilterState(), user?.id);
+    const { data: tickets, error, count } = await query.range(from, to);
 
     if (error) {
         console.error("Error fetching tickets:", error);
@@ -335,7 +353,16 @@ async function loadTickets() {
         return;
     }
 
+    totalTicketsCount = count ?? 0;
     allTickets = tickets || [];
+
+    // حذف/تغيير حالة فرّغ الصفحة الحالية (مثال: آخر تذكرة في الصفحة الأخيرة):
+    // نرجع لآخر صفحة غير فارغة بدل عرض صفحة فارغة.
+    if (allTickets.length === 0 && totalTicketsCount > 0 && currentPage > 1) {
+        currentPage = serverTotalPages(totalTicketsCount, pageSize);
+        return loadTickets();
+    }
+
     await loadTags();
     updateStats();
     applyFiltersAndRender();
@@ -349,21 +376,32 @@ function isSlaBreached(ticket) {
     return new Date(ticket.sla_resolution_due_at).getTime() < Date.now();
 }
 
-function updateStats() {
-    const total = allTickets.length;
-    const open = allTickets.filter(t => t.status === 'open').length;
-    const inProgress = allTickets.filter(t => t.status === 'in-progress').length;
-    const resolved = allTickets.filter(t => ['resolved', 'confirmed'].includes(t.status)).length;
-    const slaBreach = allTickets.filter(isSlaBreached).length;
-    const unassigned = allTickets.filter(t => !t.assigned_to).length;
-
+/* الإحصائيات من عدّادات الخادم (count دقيق بلا صفوف) — لا من الصفحة
+   المحمّلة، لأنها لا تمثل كل التذاكر. «المحلولة» هنا resolved+confirmed
+   كما كان في البطاقة؛ و SLA/بلا مسؤول بعدّادات مخصصة. */
+async function updateStats() {
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    set('statTotal', total);
-    set('statOpen', open);
-    set('statInProgress', inProgress);
-    set('statResolved', resolved);
-    set('statSlaBreach', slaBreach);
-    set('statUnassigned', unassigned);
+    try {
+        const stats = await fetchTicketStats();
+        set('statTotal', stats.total);
+        set('statOpen', stats.open);
+        set('statInProgress', stats.inProgress);
+        // البطاقة «المحلولة» كانت تعدّ resolved + confirmed معًا.
+        const resolvedCard = (await supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('status', 'confirmed')).count ?? 0;
+        set('statResolved', stats.resolved + resolvedCard);
+
+        const nowIso = new Date().toISOString();
+        const { count: slaBreach } = await supabase.from('tickets').select('id', { count: 'exact', head: true })
+            .not('status', 'in', '(resolved,confirmed,rejected)')
+            .not('sla_resolution_due_at', 'is', null)
+            .lt('sla_resolution_due_at', nowIso);
+        set('statSlaBreach', slaBreach ?? 0);
+
+        const { count: unassigned } = await supabase.from('tickets').select('id', { count: 'exact', head: true }).is('assigned_to', null);
+        set('statUnassigned', unassigned ?? 0);
+    } catch (err) {
+        console.error('Error loading ticket stats:', err);
+    }
 }
 
 /* ==================== SLA ==================== */
@@ -425,11 +463,18 @@ function applyFilterState(state) {
     set('sortBy', state.sort);
     set('searchInput', state.search);
     currentPage = 1;
-    applyFiltersAndRender();
+    loadTickets();
 }
 
 let quickFilter = null; // من كروت الإحصائيات السريعة
 
+/* تنقية إضافية على الصفحة المحمّلة فقط (لا على كل الجدول):
+   الفلاتر الدقيقة (الحالة/الأولوية/التصنيف/المسؤول/البحث بالعنوان أو
+   الرقم) طُبّقت أصلًا على الخادم في loadTickets()، وإعادة تطبيقها هنا
+   لا تغيّر شيئًا. ما يضيفه هذا التنقيح فعلًا: الوسم، والبحث باسم العميل
+   أو بريده أو نص التذكرة، وفلاتر SLA/بلا مسؤول السريعة — وهذه تعمل
+   على الصفحة الحالية فقط، لا على كل التذاكر. هذا قيد مقصود: بديله
+   الوحيد كان إعادة جلب الجدول كاملًا كما كان قبل الإصلاح. */
 function applyFiltersAndRender() {
     const state = getCurrentFilterState();
     let list = [...allTickets];
@@ -478,17 +523,17 @@ function applyFiltersAndRender() {
 
     lastFilteredList = list;
     const resultsCount = document.getElementById('resultsCount');
-    if (resultsCount) resultsCount.textContent = `${list.length} نتيجة`;
+    if (resultsCount) resultsCount.textContent = `${list.length} نتيجة في هذه الصفحة · ${totalTicketsCount} إجمالي`;
 
     renderPage();
 }
 
 function renderPage() {
-    const totalPages = Math.max(1, Math.ceil(lastFilteredList.length / pageSize));
+    // الترقيم من العدد الإجمالي الدقيق للخادم؛ الصفحة نفسها محمّلة جاهزة
+    // (lastFilteredList)، فلا تقطيع هنا.
+    const totalPages = serverTotalPages(totalTicketsCount, pageSize);
     if (currentPage > totalPages) currentPage = totalPages;
-    const start = (currentPage - 1) * pageSize;
-    const pageItems = lastFilteredList.slice(start, start + pageSize);
-    renderTickets(pageItems);
+    renderTickets(lastFilteredList);
 
     const pageIndicator = document.getElementById('pageIndicator');
     if (pageIndicator) pageIndicator.textContent = `صفحة ${currentPage} من ${totalPages}`;
@@ -501,7 +546,7 @@ function renderPage() {
 function setupFilters() {
     ['filterStatus', 'filterPriority', 'filterCategory', 'filterAssignee', 'filterTag', 'sortBy'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.addEventListener('change', () => { quickFilter = null; currentPage = 1; applyFiltersAndRender(); });
+        if (el) el.addEventListener('change', () => { quickFilter = null; currentPage = 1; loadTickets(); });
     });
 
     let debounceTimer;
@@ -509,15 +554,24 @@ function setupFilters() {
     if (searchInput) {
         searchInput.addEventListener('input', () => {
             clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => { currentPage = 1; applyFiltersAndRender(); }, 250);
+            debounceTimer = setTimeout(() => { currentPage = 1; loadTickets(); }, 250);
         });
     }
 
     document.querySelectorAll('.stat-card[data-quickfilter]').forEach(card => {
         card.addEventListener('click', () => {
-            quickFilter = card.dataset.quickfilter;
+            const value = card.dataset.quickfilter;
+            // فلتر سريع بحالة تذكرة يُدفع للخادم عبر قائمة الحالة؛ أما
+            // sla-breach و unassigned فتنقيح على الصفحة المحمّلة فقط.
+            if (['open', 'in-progress', 'resolved', 'confirmed', 'rejected', 'closed'].includes(value)) {
+                quickFilter = null;
+                const statusSelect = document.getElementById('filterStatus');
+                if (statusSelect) statusSelect.value = value;
+            } else {
+                quickFilter = value;
+            }
             currentPage = 1;
-            applyFiltersAndRender();
+            loadTickets();
         });
     });
 
@@ -546,12 +600,12 @@ function setupFilters() {
 }
 
 function setupPagination() {
-    document.getElementById('prevPageBtn')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderPage(); } });
-    document.getElementById('nextPageBtn')?.addEventListener('click', () => { currentPage++; renderPage(); });
+    document.getElementById('prevPageBtn')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; loadTickets(); } });
+    document.getElementById('nextPageBtn')?.addEventListener('click', () => { currentPage++; loadTickets(); });
     document.getElementById('pageSizeSelect')?.addEventListener('change', (e) => {
         pageSize = parseInt(e.target.value, 10) || 20;
         currentPage = 1;
-        renderPage();
+        loadTickets();
     });
 }
 
@@ -642,8 +696,9 @@ function updateBulkBar() {
 
 function setupBulkBar() {
     document.getElementById('selectAllTickets')?.addEventListener('change', (e) => {
-        const start = (currentPage - 1) * pageSize;
-        const pageItems = lastFilteredList.slice(start, start + pageSize);
+        // lastFilteredList هي الصفحة المحمّلة نفسها (الترقيم على الخادم)،
+        // فتحديد الكل يحدد الصفحة الحالية فقط.
+        const pageItems = lastFilteredList;
         if (e.target.checked) pageItems.forEach(t => selectedTicketIds.add(t.id));
         else pageItems.forEach(t => selectedTicketIds.delete(t.id));
         renderPage();
@@ -698,9 +753,14 @@ function setupBulkBar() {
         }
     });
 
-    document.getElementById('bulkExportBtn')?.addEventListener('click', () => {
-        const selected = allTickets.filter(t => selectedTicketIds.has(t.id));
-        if (selected.length === 0) return showToast('لا توجد تذاكر محددة', 'error');
+    document.getElementById('bulkExportBtn')?.addEventListener('click', async () => {
+        if (selectedTicketIds.size === 0) return showToast('لا توجد تذاكر محددة', 'error');
+        // التحديد قد يمتد لصفحات أخرى غير المحمّلة، فيُجلب المحدَّد بمعرِّفاته.
+        const { data: selected, error } = await supabase.from('tickets')
+            .select('*, profiles!tickets_user_profile_fk(full_name, email)')
+            .in('id', Array.from(selectedTicketIds));
+        if (error) return showToast('فشل جلب التذاكر المحددة: ' + error.message, 'error');
+        if (!selected?.length) return showToast('لا توجد تذاكر محددة', 'error');
         exportTicketsToCsv(selected);
     });
 
@@ -1294,41 +1354,54 @@ function renderTagsManagerList() {
     });
 }
 
-function renderAnalytics() {
+/* لوحة الإحصائيات: توزيعات من عدّادات الخادم (لا من الصفحة المحمّلة،
+   لأنها لا تمثل كل التذاكر). متوسط زمن الحل من عينة محدودة (أحدث 200
+   تذكرة محلولة) ويُذكر ذلك صراحة إن بلغت العينة الحد. */
+async function renderAnalytics() {
     const body = document.getElementById('analyticsBody');
     if (!body) return;
 
-    const total = allTickets.length;
-    const byStatus = {};
-    const byPriority = {};
-    const byCategory = {};
-    let resolvedCount = 0;
-    let totalResolutionMs = 0;
+    async function countWhere(build) {
+        const { count, error } = await build(supabase.from('tickets').select('id', { count: 'exact', head: true }));
+        if (error) throw error;
+        return count ?? 0;
+    }
 
-    allTickets.forEach(t => {
-        byStatus[t.status] = (byStatus[t.status] || 0) + 1;
-        byPriority[t.priority] = (byPriority[t.priority] || 0) + 1;
-        const cat = t.category || 'other';
-        byCategory[cat] = (byCategory[cat] || 0) + 1;
-        if (['resolved', 'confirmed'].includes(t.status) && t.last_updated_at) {
-            resolvedCount++;
-            totalResolutionMs += new Date(t.last_updated_at) - new Date(t.created_at);
-        }
-    });
+    try {
+        const statusKeys = [...Object.keys(STATUS_MAP), 'closed'];
+        const byStatusEntries = await Promise.all(statusKeys.map(async (s) => [s, await countWhere((q) => q.eq('status', s))]));
+        const byStatus = Object.fromEntries(byStatusEntries);
+        const byPriorityEntries = await Promise.all(Object.keys(PRIORITY_MAP).map(async (p) => [p, await countWhere((q) => q.eq('priority', p))]));
+        const byPriority = Object.fromEntries(byPriorityEntries);
+        const byCategoryEntries = await Promise.all(Object.keys(CATEGORY_MAP).map(async (c) => [c, await countWhere((q) => q.eq('category', c))]));
+        const byCategory = Object.fromEntries(byCategoryEntries);
+        const total = Object.values(byStatus).reduce((a, b) => a + b, 0);
 
-    const avgResolutionHours = resolvedCount ? (totalResolutionMs / resolvedCount / (1000 * 60 * 60)).toFixed(1) : null;
+        // متوسط زمن الحل من عينة محدودة من المحلولة/المؤكدة (الأحدث أولًا).
+        const { data: sample, error: sampleErr } = await supabase.from('tickets')
+            .select('created_at, last_updated_at')
+            .in('status', ['resolved', 'confirmed'])
+            .not('last_updated_at', 'is', null)
+            .order('last_updated_at', { ascending: false })
+            .limit(200);
+        if (sampleErr) throw sampleErr;
+        const resolvedCount = (sample || []).length;
+        const totalResolutionMs = (sample || []).reduce((sum, t) => sum + (new Date(t.last_updated_at) - new Date(t.created_at)), 0);
+        const avgResolutionHours = resolvedCount ? (totalResolutionMs / resolvedCount / (1000 * 60 * 60)).toFixed(1) : null;
+        const sampleNote = resolvedCount === 200 ? ' (من أحدث 200 تذكرة محلولة)' : '';
 
-    const row = (label, count) => `
+        const row = (label, count) => `
         <div style="display:flex; justify-content:space-between; padding:.5rem 0; border-bottom:1px solid var(--color-border); font-size:.85rem;">
             <span>${escapeHtml(label)}</span>
             <strong>${count} <span style="color:var(--color-text-secondary); font-weight:400;">(${total ? Math.round(count / total * 100) : 0}%)</span></strong>
         </div>`;
 
-    body.innerHTML = `
+        body.innerHTML = `
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
             <div>
                 <h4 style="margin:0 0 .5rem;">حسب الحالة</h4>
                 ${Object.entries(STATUS_MAP).map(([key, label]) => row(label, byStatus[key] || 0)).join('')}
+                ${row('مغلقة', byStatus['closed'] || 0)}
             </div>
             <div>
                 <h4 style="margin:0 0 .5rem;">حسب الأولوية</h4>
@@ -1342,10 +1415,14 @@ function renderAnalytics() {
                 <h4 style="margin:0 0 .5rem;">مؤشرات عامة</h4>
                 <div style="font-size:.85rem; line-height:2;">
                     <div>إجمالي التذاكر: <strong>${total}</strong></div>
-                    <div>متوسط زمن الحل: <strong>${avgResolutionHours ? avgResolutionHours + ' ساعة' : 'غير متاح'}</strong></div>
+                    <div>متوسط زمن الحل: <strong>${avgResolutionHours ? avgResolutionHours + ' ساعة' : 'غير متاح'}</strong>${escapeHtml(sampleNote)}</div>
                 </div>
             </div>
         </div>`;
+    } catch (err) {
+        console.error('Error loading analytics:', err);
+        body.innerHTML = '<p style="color:var(--color-danger);">فشل تحميل الإحصائيات: ' + escapeHtml(err.message || 'حدث خطأ غير متوقع') + '</p>';
+    }
 }
 
 function setupHeaderButtons() {
@@ -1356,7 +1433,9 @@ function setupHeaderButtons() {
 
     document.getElementById('exportCsvBtn')?.addEventListener('click', () => {
         if (!lastFilteredList.length) return showToast('لا توجد تذاكر لتصديرها', 'error');
+        // يصدّر الصفحة الحالية فقط (الترقيم على الخادم) — لا كل التذاكر.
         exportTicketsToCsv(lastFilteredList);
+        showToast(`تم تصدير الصفحة الحالية (${lastFilteredList.length} تذكرة)`);
     });
 
     document.getElementById('soundToggleBtn')?.addEventListener('click', (e) => {
@@ -1493,9 +1572,8 @@ function setupKeyboardShortcuts() {
             if (idx === -1) return;
             const nextIdx = e.key.toLowerCase() === 'j' ? idx + 1 : idx - 1;
             const nextTicket = lastFilteredList[nextIdx];
+            // التنقل بلوحة المفاتيح داخل الصفحة المحمّلة فقط (الترقيم على الخادم).
             if (!nextTicket) return;
-            const targetPage = Math.floor(nextIdx / pageSize) + 1;
-            if (targetPage !== currentPage) { currentPage = targetPage; renderPage(); }
             showAdminTicketInPanel(nextTicket.id);
             document.querySelectorAll('.ticket-card').forEach(c => c.classList.toggle('selected', c.dataset.ticketId === nextTicket.id));
         } else if (e.key.toLowerCase() === 'e') {

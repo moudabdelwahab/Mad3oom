@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>طلبات التجربة المجانية - لوحة المالك - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-workspace.css">
+    <link rel="stylesheet" href="/assets/css/portal-notifications.css">
+    <link rel="stylesheet" href="/assets/css/owner-pages.css">
+    <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في لوحة المالك — الثيم وحالة الطي قبل أول رسم. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body class="customer-shell owner-shell dash-layout" data-owner-page="trials">
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main" id="ownerMain">
+        <!-- بوابة العرض: سبب المنع بدل صفحة فارغة. القرار الحقيقي في القاعدة (owner_capability('owner_only')). -->
+        <section class="panel" id="ownerGate" hidden>
+            <div class="state-block" id="ownerGateBody"></div>
+        </section>
+
+        <div id="ownerContent" hidden>
+            <header class="owner-banner owner-page-banner">
+                <div class="owner-banner-main">
+                    <span class="owner-level-tag">لوحة المالك · التشغيل</span>
+                    <h1 class="owner-title">طلبات التجربة المجانية</h1>
+                    <p class="owner-meta">تجربة مجانية 3 أيام بالضبط للباقات المدفوعة للشركات والمتاجر — بلا بطاقة وبلا دفع.
+                        تبدأ الـ 3 أيام فقط بعد موافقتك هنا، وتنتهي تلقائيًا بعد 3 أيام بلا تجديد تلقائي وبلا خصم،
+                        ولا تتحول لاشتراك مدفوع.</p>
+                </div>
+                <div class="owner-banner-side">
+                    <a class="btn btn-outline btn-sm owner-crumb" href="/owner-dashboard.html#overview">لوحة المالك</a>
+                    <button type="button" class="btn btn-outline btn-sm" id="trialRefresh">تحديث</button>
+                </div>
+            </header>
+            <div class="kpi-grid" id="trialKpis" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+
+            <div class="owner-page-stack">
+                <section class="panel" aria-labelledby="trialRequestsHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="trialRequestsHeading">طلبات التجربة</h2>
+                        <p class="panel-subtitle">الطلبات المعلّقة أولًا — الموافقة تبدأ الـ 3 أيام فورًا على الحساب الحي نفسه،
+                            والرفض بسبب مسجَّل. بلا موافقة منك لا تبدأ أي تجربة إطلاقًا.</p>
+                    </div></div>
+                    <form class="toolbar owner-filters" id="trialFilters" role="search" novalidate>
+                        <label class="visually-hidden" for="trialStatus">حالة الطلب</label>
+                        <select class="form-control owner-filter-select" id="trialStatus">
+                            <option value="">كل الحالات</option>
+                            <option value="pending" selected>معلّقة</option>
+                            <option value="approved">جارية</option>
+                            <option value="rejected">مرفوضة</option>
+                            <option value="expired">منتهية</option>
+                            <option value="cancelled">ملغاة</option>
+                        </select>
+                        <label class="visually-hidden" for="trialPlan">الباقة</label>
+                        <select class="form-control owner-filter-select" id="trialPlan">
+                            <option value="">كل الباقات</option>
+                            <option value="support">الخطة المتقدمة</option>
+                            <option value="ultimate">الخطة الفائقة</option>
+                            <option value="store">باقة المتاجر الإلكترونية</option>
+                        </select>
+                    </form>
+                    <div id="trialRequests" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                </section>
+
+                <section class="panel" aria-labelledby="trialRulesHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="trialRulesHeading">قواعد التجربة</h2>
+                        <p class="panel-subtitle">ما يضمنه الترحيل 137 — لا قرار هنا يخرج عنها.</p>
+                    </div></div>
+                    <ul>
+                        <li>المدة 3 أيام بالضبط، مفروضة بقيد في القاعدة — لا مدة أخرى ممكنة من أي مسار.</li>
+                        <li>بلا بطاقة وبلا دفع: لا يُحفظ أي مبلغ أو طريقة دفع أثناء التجربة، وصف التجربة بلا طريقة دفع وبلا دورة فوترة.</li>
+                        <li>تنتهي تلقائيًا: الامتياز يتوقف لحظة انتهاء المدة، والوظيفة المجدولة تقلب الطلب والاشتراك إلى «منتهٍ» — بلا تجديد وبلا خصم.</li>
+                        <li>تجربة واحدة لكل شركة وكل باقة — طلب مستخدم يمنع طلبًا جديدًا لنفس الباقة.</li>
+                        <li>بلا بيئة تجريبية (Sandbox): التجربة اشتراك عادي على الحساب الحي نفسه بصلاحيات الباقة، بلا نسخة حساب ولا صفحة تجريبية منفصلة.</li>
+                    </ul>
+                </section>
+            </div>
+
+            <details class="owner-limits">
+                <summary>ما لا تفعله هذه الصفحة</summary>
+                <ul>
+                    <li>لا تنشئ اشتراكًا مدفوعًا ولا تجدّد تجربة منتهية: بعد الانتهاء يعود الحساب كما كان، والتجديد شراء عادي من مسار الاشتراكات.</li>
+                    <li>لا تقبل بطاقة ولا تحفظ أي بيانات دفع — لا يوجد حقل لذلك في الطلب أصلًا.</li>
+                    <li>لا توافق تلقائيًا: كل طلب يبقى معلّقًا حتى قرارك هنا، بتحقق حديث وسبب مسجَّل للرفض.</li>
+                </ul>
+            </details>
+            <p class="owner-sie-status ows-toast" id="pageStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
+        </div>
+    </main>
+
+    <script type="module" src="/assets/js/owner/pages/trials.js"></script>
+</body>
+</html>

@@ -1,6 +1,8 @@
 import { supabase } from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
 import { initSidebar } from './sidebar.js';
+import { debounce } from './admin-utils.js';
+import { computeResponseRate } from './dashboard-stats-model.js';
 import { fetchStats as fetchMcpStats } from '/mcp-service.js';
 
 let user = null;
@@ -34,28 +36,31 @@ async function loadAllStats() {
     ]);
 }
 
-// إحصائيات التذاكر
+// إحصائيات التذاكر — عدّادات دقيقة من الخادم (بلا جلب صفوف).
+// «المغلقة» حالة مستقلة (closed) وليست مرادفًا لـ «المحلولة» (resolved):
+// كان الكود يضع resolved في العدّادين معًا.
 async function loadTicketsStats() {
     try {
-        const { data: tickets, error } = await supabase
-            .from('tickets')
-            .select('status');
-        
-        if (error) {
-            console.error('Error loading tickets:', error);
-            return;
+        async function countStatus(status) {
+            const { count, error } = await supabase
+                .from('tickets')
+                .select('id', { count: 'exact', head: true })
+                .eq('status', status);
+            if (error) throw error;
+            return count ?? 0;
         }
-        
-        if (tickets) {
-            const open = tickets.filter(t => t.status === 'open').length;
-            const inProgress = tickets.filter(t => t.status === 'in-progress').length;
-            const resolved = tickets.filter(t => t.status === 'resolved').length;
-            
-            updateElement('ticketsOpen', open);
-            updateElement('ticketsInProgress', inProgress);
-            updateElement('ticketsResolved', resolved);
-            updateElement('ticketsClosed', resolved); // المغلقة = المحلولة
-        }
+
+        const [open, inProgress, resolved, closed] = await Promise.all([
+            countStatus('open'),
+            countStatus('in-progress'),
+            countStatus('resolved'),
+            countStatus('closed'),
+        ]);
+
+        updateElement('ticketsOpen', open);
+        updateElement('ticketsInProgress', inProgress);
+        updateElement('ticketsResolved', resolved);
+        updateElement('ticketsClosed', closed);
     } catch (err) {
         console.error('Error loading tickets stats:', err);
         updateElement('ticketsOpen', '0');
@@ -262,16 +267,25 @@ async function loadStatsStats() {
         }
 
         // 2. حساب معدل الاستجابة (بناءً على التذاكر)
-        // المعدل = (التذاكر التي تم الرد عليها / إجمالي التذاكر) * 100
-        const { data: tickets, error: ticketsError } = await supabase
+        // المعدل = (التذاكر التي لها أول رد فعلًا / إجمالي التذاكر) * 100.
+        // أول رد يُعرف من first_response_at الذي يكتبه محفِّز القاعدة
+        // track_first_response عند أول رد من الفريق — لا من كون الحالة
+        // ليست open (فالتذكرة قيد المعالجة بلا رد كانت تُحسب مستجابة).
+        const { count: totalTickets, error: totalError } = await supabase
             .from('tickets')
-            .select('id, status');
-        
-        if (!ticketsError && tickets && tickets.length > 0) {
-            const totalTickets = tickets.length;
-            const respondedTickets = tickets.filter(t => t.status !== 'open').length;
-            const responseRate = Math.round((respondedTickets / totalTickets) * 100);
-            updateElement('statsResponse', `${responseRate}%`);
+            .select('id', { count: 'exact', head: true });
+
+        if (!totalError) {
+            const { count: respondedTickets, error: respondedError } = await supabase
+                .from('tickets')
+                .select('id', { count: 'exact', head: true })
+                .not('first_response_at', 'is', null);
+
+            if (!respondedError) {
+                updateElement('statsResponse', `${computeResponseRate(totalTickets ?? 0, respondedTickets ?? 0)}%`);
+            } else {
+                updateElement('statsResponse', '0%');
+            }
         } else {
             updateElement('statsResponse', '0%');
         }
@@ -282,8 +296,14 @@ async function loadStatsStats() {
     }
 }
 
-// إعداد التحديثات الفورية (Realtime)
+// إعداد التحديثات الفورية (Realtime) — كل حدث يعيد تحميل إحصائيته فقط،
+// مع debounce 600ms حتى لا تتتالى إعادة التحميل مع كل حدث متتالٍ.
 function setupRealtimeSubscriptions() {
+    const reloadTickets = debounce(() => { loadTicketsStats(); loadStatsStats(); }, 600);
+    const reloadChat = debounce(() => { loadChatStats(); }, 600);
+    const reloadUsers = debounce(() => { loadUsersStats(); loadBannedStats(); }, 600);
+    const reloadActivity = debounce(() => { loadActivityStats(); loadStatsStats(); }, 600);
+    const reloadForum = debounce(() => { loadForumStats(); }, 600);
     // الاشتراك في تحديثات التذاكر
     const ticketsSubscription = supabase
         .channel('tickets-changes')
@@ -291,8 +311,7 @@ function setupRealtimeSubscriptions() {
             { event: '*', schema: 'public', table: 'tickets' }, 
             () => {
                 console.log('Tickets updated - reloading stats');
-                loadTicketsStats();
-                loadStatsStats();
+                reloadTickets();
             }
         )
         .subscribe();
@@ -306,7 +325,7 @@ function setupRealtimeSubscriptions() {
             { event: '*', schema: 'public', table: 'chat_sessions' }, 
             () => {
                 console.log('Chat sessions updated - reloading stats');
-                loadChatStats();
+                reloadChat();
             }
         )
         .subscribe();
@@ -320,8 +339,7 @@ function setupRealtimeSubscriptions() {
             { event: '*', schema: 'public', table: 'profiles' }, 
             () => {
                 console.log('Profiles updated - reloading stats');
-                loadUsersStats();
-                loadBannedStats();
+                reloadUsers();
             }
         )
         .subscribe();
@@ -335,8 +353,7 @@ function setupRealtimeSubscriptions() {
             { event: 'INSERT', schema: 'public', table: 'activity_logs' }, 
             () => {
                 console.log('Activity log updated - reloading stats');
-                loadActivityStats();
-                loadStatsStats();
+                reloadActivity();
             }
         )
         .subscribe();
@@ -350,7 +367,7 @@ function setupRealtimeSubscriptions() {
             { event: '*', schema: 'public', table: 'forum_threads' }, 
             () => {
                 console.log('Forum threads updated - reloading stats');
-                loadForumStats();
+                reloadForum();
             }
         )
         .subscribe();
@@ -363,7 +380,7 @@ function setupRealtimeSubscriptions() {
             { event: '*', schema: 'public', table: 'forum_reports' }, 
             () => {
                 console.log('Forum reports updated - reloading stats');
-                loadForumStats();
+                reloadForum();
             }
         )
         .subscribe();

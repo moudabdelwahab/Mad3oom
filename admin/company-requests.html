@@ -156,7 +156,7 @@
     <main class="admin-main">
         <header class="page-header">
             <h1>طلبات حسابات الشركات</h1>
-            <p>عملاء اختاروا «شركة» عند الاشتراك. الموافقة تحوّل الحساب إلى حساب شركة، والرفض يصل للعميل بسببه.</p>
+            <p>عملاء اختاروا «شركة» عند الاشتراك، أو طلبوا إنشاء حساب شركة مباشرة من خارج مسار الشراء. الموافقة تحوّل الحساب إلى حساب شركة، والرفض يصل للعميل بسببه.</p>
         </header>
 
         <div class="section-card">
@@ -180,6 +180,7 @@
                         <tr>
                             <th>الشركة</th>
                             <th>العميل</th>
+                            <th>نوع المتقدم</th>
                             <th>الباقة المطلوبة</th>
                             <th>الحالة</th>
                             <th>تاريخ الطلب</th>
@@ -187,7 +188,7 @@
                         </tr>
                     </thead>
                     <tbody id="crBody">
-                        <tr><td colspan="6" style="text-align: center; padding: 3rem;">جاري تحميل البيانات...</td></tr>
+                        <tr><td colspan="7" style="text-align: center; padding: 3rem;">جاري تحميل البيانات...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -201,6 +202,10 @@
 
             <div class="cr-section-title">بيانات الشركة</div>
             <div class="cr-row"><span>نوع الحساب</span><span id="crAccountKind"></span></div>
+            <div class="cr-row"><span>نوع المتقدم</span><span id="crApplicantType"></span></div>
+            <div class="cr-row"><span>مصدر الطلب</span><span id="crRequestSource"></span></div>
+            <div class="cr-row" id="crWebsiteRow" hidden><span>رابط الموقع / المتجر</span><span><a id="crWebsite" href="#" target="_blank" rel="noopener" dir="ltr"></a></span></div>
+            <div class="cr-row" id="crProofRow" hidden><span>مستند الإثبات</span><span><span id="crProofName"></span> <button type="button" class="btn btn-secondary btn-sm" id="crProofDownload">تنزيل المستند</button></span></div>
             <div class="cr-row" id="crStoreDomainRow" hidden><span>نطاق Shopify المذكور</span><span id="crStoreDomain" dir="ltr"></span></div>
             <div class="cr-row"><span>اسم الشركة</span><span id="crCompanyName"></span></div>
             <div class="cr-row"><span>رقم السجل التجاري</span><span id="crCrNumber"></span></div>

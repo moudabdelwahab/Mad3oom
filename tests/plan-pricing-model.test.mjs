@@ -69,6 +69,10 @@ test('مزايا كل خطة', () => {
     assert.equal(planFeatureRows('support')[0].value, '300 تذكرة');
     assert.equal(planFeatureRows('ultimate')[0].value, 'غير محدودة');
     assert.ok(planFeatureRows('bundle').some(r => r.label === 'واتساب بيزنس' && r.included));
+    // 141: واتساب مشمول في الفائقة حتى إشعار آخر — بلا تغيير سعر
+    const ultimateWa = planFeatureRows('ultimate').find(r => r.label === 'واتساب بيزنس');
+    assert.ok(ultimateWa && ultimateWa.included);
+    assert.match(ultimateWa.value || '', /حتى إشعار آخر/);
     assert.equal(planFeatureRows('unknown')[0].value, '20 تذكرة');
 });
 
