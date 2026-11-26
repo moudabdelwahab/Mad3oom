@@ -84,6 +84,18 @@ function fixtures({ context = 'owner', owner = true } = {}) {
                   shopify: { status: 'active', shop: 'ward.myshopify.com', last_sync_status: 'succeeded', last_error_code: null } },
                 { user_id: OWNER, name: 'مالك المنصة', email: 'owner@example.com', created_at: '2026-01-01T00:00:00Z', account_type: 'company',
                   company_id: 'cw', company_name: 'شركة المالك', company_status: 'active', subscription: null, shopify: null }] },
+            // الصفحات الجديدة في القائمة (طلبات الحسابات، دليل العملاء، شجرة الحسابات):
+            // بلا هذه الردود يرجع الـdouble ‏data: null‏ فتعرض الصفحات حالة فارغة بلا جدول.
+            account_requests_overview: { is_owner: true, execution: {}, owner_step_up: true },
+            owner_account_requests: { rows: [
+                { id: 'rq1', request_type: 'add_to_company', customer_id: CUSTOMER, customer_name: 'عميل أ', customer_email: 'a@x.test',
+                  company_name: 'شركة أ', requester_name: 'عميل أ', requested_at: '2026-10-25T00:00:00Z', status: 'pending' }],
+                total: 1, requesters: [{ id: CUSTOMER, name: 'عميل أ' }], pending_count: 1 },
+            admin_customer_directory: { total: 1, rows: [
+                { id: CUSTOMER, full_name: 'عميل أ', email: 'a@x.test', phone: '01000000000', manager: null, account_type: 'company',
+                  company: { name: 'شركة أ' }, companies_count: 1, status: 'active', created_at: '2026-04-01T00:00:00Z' }] },
+            owner_account_tree: { counts: { units: 1, companies: 1, direct_customers: 1, open_tickets: 0 },
+                units: [{ id: 'u1', name: 'وحدة الاختبار' }] },
             owner_store_integrations: { provider: { enabled: false, release_stage: 'beta' }, required_scopes: ['read_customers', 'read_orders', 'read_products'],
                 compliance_unmatched_30d: 0, connections: [
                 { connection_id: 'cn1', company_id: 'c9', company_name: 'متجر الورد', status: 'error', shop: 'ward.myshopify.com', shop_name: 'الورد',
@@ -179,6 +191,9 @@ function fixtures({ context = 'owner', owner = true } = {}) {
                 { id: 'a1', user_id: CUSTOMER, user_role: 'user', action: 'login', details: { note: XSS }, created_at: '2026-10-22T10:00:00Z', device_info: 'Chrome' },
                 { id: 'a2', user_id: ADMIN, user_role: 'admin', action: 'ban_user', details: {}, created_at: '2026-10-22T09:00:00Z' }
             ],
+            agent_activity_log: [
+                { id: 'lg1', action: 'ticket.reply', details: { ticket_id: 't1' }, session_id: 's1', model_id: 'muse', created_at: '2026-10-26T10:00:00Z' }
+            ],
             whatsapp_subscriptions: [{ id: 's-active', user_id: CUSTOMER, plan: 'support', status: 'active', billing_cycle: 'monthly', end_date: future }],
             api_tokens: [
                 { id: 'k1', user_id: CUSTOMER, name: 'مفتاح الموقع', is_active: true, revoked_at: null, usage_count: 12, credential_type: 'api_key',
@@ -221,13 +236,29 @@ const rpcCalls = (page, name) => page.evaluate(n => (window.__RPC_ARGS__ || []).
 const writes = (page, table) => page.evaluate(t => (window.__WRITES__ || []).filter(w => w.table === t), table);
 const noHorizontalScroll = (page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
 
+/*
+ * كل صفحة /owner/ لها عنصر في القائمة — والمفاتيح هنا بترتيب القائمة نفسه
+ * (الاختبار أدناه يطابقه حرفيًا). صفحتان في /owner/ ليستا قسمين عمدًا فلا
+ * تدخلان هنا ولا في القائمة: `subscription-details` تفاصيل اشتراك واحد
+ * (يُفتح بـ ?id= من الاشتراكات، وdata-owner-page فيها `subscriptions`)، و
+ * `security-approval` صفحة تدفق من رابط بريد (قبول/رفض تغيير) بلا
+ * data-owner-page. أي صفحة جديدة بلا مقابل في القائمة تُسقِط الاختبار.
+ */
 const PAGES = {
     stats: '#statsKpis .kpi',
+    status: '#statusKpis .kpi',
+    'muse-chat': '#museChatForm',
+    'voice-studio': '#vsSectionVoice',
+    'muse-activity-log': '#museLogTable table',
+    'muse-activations': '#museAccountsTable table',
     permissions: '#permMatrix table',
     security: '#secKpis .kpi',
+    'account-requests': '#reqTable table',
     tickets: '#ticketsTable table',
     subscriptions: '#subsTable table',
     trials: '#trialRequests table',
+    accounts: '#acctTree .acct-tree',
+    customers: '#cmTable table',
     blog: '#blogRows tr',
     activity: '#activityTable table',
     integrations: '#tokensTable table',
