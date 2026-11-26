@@ -844,7 +844,18 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         tests/sql/saas-developers-pricing.test.sql و
     //         tests/saas-developers-pricing.test.mjs و
     //         tests/api-token-sandbox-static.test.mjs.
-    assert.equal(migrations[migrations.length - 1], '141_saas_developers_pricing.sql',
+    //   144 — تثبيت ربط الحظر ببوابة الحساب (توثيق لا إصلاح سلوكي حي)،
+    //         بالرقم المخصَّص في التكليف (2026-11-26): الدالة الحية
+    //         account_is_active() تستدعي is_banned() فعلًا منذ 2026-09-18
+    //         عبر ترحيل مسجَّل بلا ملف (h04_wire_is_banned_into_account_gate،
+    //         الإصدار 20260918134408)، وملف 042 ما زال على النسخة القديمة
+    //         بلا فحص حظر؛ فهذا الترحيل ينقل نص h04 حرفيًا إلى ملف مرقَّم
+    //         حتى لا يُفقد الربط عند إعادة تطبيق 042 أو بناء بيئة جديدة
+    //         من الملفات وحدها. السلوك الحي لا يتغير إطلاقًا بتطبيقه، ولا
+    //         يُعدَّل ملف 042، وإعفاء المالك محفوظ (الحظر فوق الإعفاء كما
+    //         في الحي وكما في 058/067). بلا تطبيق حي. مقيسٌ في
+    //         tests/sql/account-gate-ban-144.test.sql.
+    assert.equal(migrations[migrations.length - 1], '144_wire_is_banned_into_account_gate.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 
