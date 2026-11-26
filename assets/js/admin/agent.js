@@ -417,6 +417,12 @@ async function loadLogs() {
         const search = document.getElementById('logSearch').value;
         const result = await callAgentManager('logs', { id: currentAgentId, level, search, limit: 300 });
         if (!result.ok) { box.innerHTML = `<div class="log-line error"><span class="lvl">ERROR</span><span>${escapeHtml(result.error || 'تعذّر جلب السجلات')}</span></div>`; return; }
+        // الوكيل لا يوفّر مسار سجلات: الرسالة نفسها
+        // تُعرض كسطر INFO محايد في الصندوق، بنفس نمط رسالة بلا endpoint أعلاه.
+        if (result.data?.unsupported) {
+            box.innerHTML = `<div class="log-line info"><span class="lvl">INFO</span><span>${escapeHtml(result.data.message || 'السجلات غير متاحة لهذا الوكيل.')}</span></div>`;
+            return;
+        }
         const lines = Array.isArray(result.data) ? result.data : (result.data?.logs || []);
         if (!lines.length) { box.innerHTML = `<div class="log-line info"><span class="lvl">INFO</span><span>لا توجد سجلات مطابقة.</span></div>`; return; }
         box.innerHTML = lines.map(l => `

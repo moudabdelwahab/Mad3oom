@@ -3,7 +3,8 @@
  * --------------------------------------------------------
  * كل العمليات تمر عبر Edge Function واحدة: agent-manager
  * (action: list | get | create | update | delete | start | stop | restart |
- *          test_connection | status | logs)
+ *          test_connection | status | logs | chat |
+ *          run_create | run_get | run_events | run_stop)
  *
  * لو الدالة agent-manager غير منشورة بعد على Supabase، الخدمة تسقط تلقائياً
  * على تخزين محلي (localStorage) عشان الصفحة تفضل شغالة للتجربة/العرض بدل ما
@@ -267,6 +268,23 @@ function localFallback(action, payload) {
         case 'logs':
             return { ok: true, data: [] };
 
+        // إجراءات المحادثة والتشغيل (Hermes عبر /v1/chat/completions و /v1/runs)
+        // تحتاج agent-manager منشورة — لا معنى لمحاكاتها محلياً.
+        case 'chat':
+            return { ok: false, error: 'المحادثة مع الوكيل غير متاحة في الوضع المحلي — تحتاج نشر Edge Function باسم agent-manager' };
+
+        case 'run_create':
+            return { ok: false, error: 'إنشاء تشغيل للوكيل غير متاح في الوضع المحلي — تحتاج نشر Edge Function باسم agent-manager' };
+
+        case 'run_get':
+            return { ok: false, error: 'جلب بيانات التشغيل غير متاح في الوضع المحلي — تحتاج نشر Edge Function باسم agent-manager' };
+
+        case 'run_events':
+            return { ok: false, error: 'جلب أحداث التشغيل غير متاح في الوضع المحلي — تحتاج نشر Edge Function باسم agent-manager' };
+
+        case 'run_stop':
+            return { ok: false, error: 'إيقاف التشغيل غير متاح في الوضع المحلي — تحتاج نشر Edge Function باسم agent-manager' };
+
         default:
             return { ok: false, error: `إجراء غير معروف: ${action}` };
     }
@@ -286,6 +304,11 @@ export const restartAgent = (id) => callAgentManager('restart', { id });
 export const testAgentConnection = (id) => callAgentManager('test_connection', { id });
 export const fetchAgentStatus = (id) => callAgentManager('status', { id });
 export const fetchAgentLogs = (params) => callAgentManager('logs', params);
+export const chatWithAgent = (id, body) => callAgentManager('chat', { id, ...body });
+export const createAgentRun = (id, body) => callAgentManager('run_create', { id, ...body });
+export const fetchAgentRun = (id, runId) => callAgentManager('run_get', { id, runId });
+export const fetchAgentRunEvents = (id, runId, opts = {}) => callAgentManager('run_events', { id, runId, ...opts });
+export const stopAgentRun = (id, runId) => callAgentManager('run_stop', { id, runId });
 
 /** true لو الصفحة شغّالة في الوضع المحلي (لسه ما فيش agent-manager على السيرفر) */
 export async function isUsingLocalFallback() {

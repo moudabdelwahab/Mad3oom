@@ -29,6 +29,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const agentHtml = () => read('admin/agent.html');
 const agentJs = () => read('assets/js/admin/agent.js');
+const agentServiceJs = () => read('agent-service.js');
+const agentConnStateJs = () => read('assets/js/admin/agent-connection-state.js');
 
 /* ─────────────────── حالة اتصال الوكيل ─────────────────── */
 
@@ -184,4 +186,68 @@ test('كل عنصر يطلبه agent.js بالـ id موجود في agent.html',
     const dynamic = new Set(['lastErrorNote']);
     const missing = [...new Set(ids)].filter((id) => !dynamic.has(id) && !html.includes(`id="${id}"`));
     assert.deepEqual(missing, [], `عناصر مفقودة من الصفحة: ${missing.join(', ')}`);
+});
+
+/* ─────────── تكييف Hermes: محادثة وتشغيل عبر agent-manager ─────────── */
+
+test('agent-service يصدّر اختصارات المحادثة والتشغيل كأغلفة رفيعة لـ callAgentManager', () => {
+    const js = agentServiceJs();
+    assert.match(js, /export const chatWithAgent = \(id, body\) => callAgentManager\('chat', \{ id, \.\.\.body \}\)/);
+    assert.match(js, /export const createAgentRun = \(id, body\) => callAgentManager\('run_create', \{ id, \.\.\.body \}\)/);
+    assert.match(js, /export const fetchAgentRun = \(id, runId\) => callAgentManager\('run_get', \{ id, runId \}\)/);
+    assert.match(js, /export const fetchAgentRunEvents = \(id, runId, opts = \{\}\) => callAgentManager\('run_events', \{ id, runId, \.\.\.opts \}\)/);
+    assert.match(js, /export const stopAgentRun = \(id, runId\) => callAgentManager\('run_stop', \{ id, runId \}\)/);
+    // قائمة الإجراءات في تعليق الرأس تشمل الإجراءات الجديدة.
+    assert.match(js, /run_create \| run_get \| run_events \| run_stop/);
+});
+
+test('الوضع المحلي يرفض إجراءات المحادثة والتشغيل برسالة نشر agent-manager', () => {
+    const js = agentServiceJs();
+    for (const action of ['chat', 'run_create', 'run_get', 'run_events', 'run_stop']) {
+        assert.match(js, new RegExp(`case '${action}':`));
+        const body = js.slice(js.indexOf(`case '${action}':`), js.indexOf(`case '${action}':`) + 300);
+        assert.match(body, /ok: false/);
+        assert.match(body, /تحتاج نشر Edge Function باسم agent-manager/);
+    }
+});
+
+/* ─────────── السجلات غير المدعومة: سطر INFO محايد لا خطأ ─────────── */
+
+test('loadLogs يعرض رسالة السجلات غير المدعومة كسطر INFO محايد', () => {
+    const js = agentJs();
+    // فرع مخصص قبل رسم السطور العادية.
+    assert.match(js, /if \(result\.data\?\.unsupported\)/);
+    const branch = js.slice(js.indexOf('if (result.data?.unsupported)'), js.indexOf('if (result.data?.unsupported)') + 400);
+    // نفس نمط رسالة بلا endpoint: log-line info + مستوى INFO + هروب HTML.
+    assert.match(branch, /class="log-line info"/);
+    assert.match(branch, /<span class="lvl">INFO<\/span>/);
+    assert.match(branch, /escapeHtml\(result\.data\.message/);
+    // لا يُعامل كخطأ: لا سطر error ولا toast أحمر في هذا الفرع.
+    assert.doesNotMatch(branch, /log-line error/);
+    assert.doesNotMatch(branch, /toast\(/);
+    // الفرع يأتي قبل استخراج السطور، وإلا ظهرت «لا توجد سجلات مطابقة» بدل الرسالة.
+    const unsupportedAt = js.indexOf('result.data?.unsupported');
+    const linesAt = js.indexOf('const lines = Array.isArray(result.data)');
+    assert.ok(unsupportedAt !== -1 && unsupportedAt < linesAt, 'فرع unsupported قبل رسم السطور');
+});
+
+/* ─────────── Hermes ليس مثالاً لوكيل بلا endpoint ─────────── */
+
+test('تعليق حالة الاتصال يذكر Muse فقط، لا Hermes، كمثال بلا endpoint', () => {
+    const js = agentConnStateJs();
+    assert.doesNotMatch(js, /hermes/i);
+    assert.match(js, /Muse/);
+    // المنطق نفسه لم يتغيّر: Muse بلا endpoint ما زال حالة عادية.
+    assert.match(js, /export function hasDirectEndpoint\(agent\)/);
+    assert.match(js, /export function isEndpointLessAgent\(agent\)/);
+});
+
+test('لا مكان آخر في ملفات الوكلاء يقدّم Hermes كمثال بلا endpoint', () => {
+    const service = agentServiceJs();
+    const pageJs = agentJs();
+    const html = agentHtml();
+    // أمثلة النموذج (placeholders) في agent.html مسموحة — ليست ادعاءات بلا endpoint.
+    assert.doesNotMatch(service, /Hermes بلا endpoint|بلا اتصال أصلاً/);
+    assert.doesNotMatch(pageJs, /Hermes بلا endpoint|بلا اتصال أصلاً/);
+    assert.doesNotMatch(html, /Hermes بلا endpoint|بلا اتصال أصلاً/);
 });
