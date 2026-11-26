@@ -195,7 +195,7 @@ export function initPiIntegration({ supabase, $, esc, when, table, td, errorBloc
     function settlementCell(p) {
         if (p.status !== 'completed') return '<span class="owner-cell-muted">—</span>';
         if (p.settled_at && p.invoice_attached_at) {
-            return `<a class="pill status-resolved" href="/admin/tickets.html?ticket_id=${esc(p.ticket_id)}">تذكرة مؤكَّدة + فاتورة</a>`;
+            return `<a class="pill status-resolved" href="/owner/tickets.html?ticket=${esc(p.ticket_id)}">تذكرة مؤكَّدة + فاتورة</a>`;
         }
         const what = p.settled_at ? 'إرفاق الفاتورة' : 'إكمال التسوية';
         return `<button type="button" class="btn btn-outline btn-sm" data-settle="${esc(p.pi_payment_id)}">${what}</button>

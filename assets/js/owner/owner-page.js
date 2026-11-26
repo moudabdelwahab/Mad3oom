@@ -12,7 +12,7 @@
 import { supabase } from '/api-config.js';
 import { initOwnerShell } from '/assets/js/customer-sidebar.js';
 import { contextStatus, mountContextBar, CONTEXT_PRESENTATION } from '/assets/js/owner/owner-context.js';
-import { ownerDestinationFor, OWNER_HOME, OWNER_SECTIONS } from '/assets/js/owner/owner-notifications.js';
+import { ownerDestinationFor, OWNER_HOME, OWNER_SECTIONS, storeOwnerNotice } from '/assets/js/owner/owner-notifications.js';
 import { announce } from '/assets/js/owner/owner-workspace.js';
 
 export { supabase, announce };
@@ -134,6 +134,8 @@ async function openNotification(notification) {
         }
     }
     const dest = ownerDestinationFor(notification, location.origin, OWNER_SECTIONS);
+    // رابط إدارة بلا مقابل أصيل: التنبيه يُحفظ ليظهر في قسم الإشعارات بعد التنقل.
+    if (dest.notice) storeOwnerNotice(dest.notice);
     if (dest.kind === 'section') location.href = `${OWNER_HOME}#${dest.section}`;
     else if (dest.kind === 'href') location.href = dest.href;
     else location.href = `${OWNER_HOME}#notifications`;

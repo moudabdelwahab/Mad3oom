@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>طلبات الحسابات - لوحة المالك - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-workspace.css">
+    <link rel="stylesheet" href="/assets/css/portal-notifications.css">
+    <link rel="stylesheet" href="/assets/css/owner-pages.css">
+    <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في لوحة المالك — الثيم وحالة الطي قبل أول رسم. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body class="customer-shell owner-shell dash-layout" data-owner-page="account-requests">
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main" id="ownerMain">
+        <!-- بوابة العرض: سبب المنع بدل صفحة فارغة. القرار الحقيقي في القاعدة (owner_capability('owner_only')). -->
+        <section class="panel" id="ownerGate" hidden>
+            <div class="state-block" id="ownerGateBody"></div>
+        </section>
+
+        <div id="ownerContent" hidden>
+            <header class="owner-banner owner-page-banner">
+                <div class="owner-banner-main">
+                    <span class="owner-level-tag">لوحة المالك · الحوكمة</span>
+                    <h1 class="owner-title">طلبات الحسابات</h1>
+                    <p class="owner-meta">طلبات إضافة عميل قائم إلى شركة أو نقل عميل مباشر إلى شركة — القرار هنا بتحقق
+                        بخطوتين حديث، والموافقة تنفّذ الطلب فورًا بعد إعادة التحقق من كل شرط. لا قرار على طلب قدّمته أنت.</p>
+                </div>
+                <div class="owner-banner-side">
+                    <a class="btn btn-outline btn-sm owner-crumb" href="/owner-dashboard.html#governance">حوكمة الشركات</a>
+                    <button type="button" class="btn btn-outline btn-sm" id="reqRefresh">تحديث</button>
+                </div>
+            </header>
+            <div class="kpi-grid" id="reqKpis" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+
+            <div class="owner-page-stack">
+                <section class="panel" aria-labelledby="reqHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="reqHeading">صندوق الطلبات</h2>
+                        <p class="panel-subtitle">الموافقة تنفّذ فورًا: إضافة إلى الشركة أو نقل مباشر إليها — والتفاصيل
+                            تعرض ملخص الأثر وإعادة التحقق الآن قبل أي قرار.</p>
+                    </div></div>
+                    <div id="reqBanner" aria-live="polite"></div>
+                    <div class="view-tabs" id="reqTabs" role="tablist" aria-label="حالات الطلبات"></div>
+                    <form class="toolbar owner-filters" id="reqFilters" role="search" novalidate>
+                        <label class="visually-hidden" for="reqType">نوع الطلب</label>
+                        <select class="form-control owner-filter-select" id="reqType">
+                            <option value="">كل الأنواع</option>
+                        </select>
+                        <label class="visually-hidden" for="reqRequester">مقدّم الطلب</label>
+                        <select class="form-control owner-filter-select" id="reqRequester">
+                            <option value="">كل مقدّمي الطلبات</option>
+                        </select>
+                        <label class="visually-hidden" for="reqCompany">الشركة الوجهة</label>
+                        <select class="form-control owner-filter-select" id="reqCompany">
+                            <option value="">كل الشركات</option>
+                        </select>
+                        <label class="visually-hidden" for="reqEmail">بريد العميل</label>
+                        <input type="search" class="form-control owner-filter-search" id="reqEmail" placeholder="بريد العميل…" autocomplete="off" maxlength="100" dir="ltr">
+                        <label class="visually-hidden" for="reqFrom">من تاريخ</label>
+                        <input type="date" class="form-control owner-filter-select" id="reqFrom">
+                        <label class="visually-hidden" for="reqTo">إلى تاريخ</label>
+                        <input type="date" class="form-control owner-filter-select" id="reqTo">
+                    </form>
+                    <div id="reqTable" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                    <div id="reqPager"></div>
+                </section>
+            </div>
+
+            <details class="owner-limits">
+                <summary>ما لا تفعله هذه الصفحة</summary>
+                <ul>
+                    <li>لا تنشئ طلبًا جديدًا: الإرسال من مساحة الإدارة أو دليل العملاء، والقرار وحده هنا.</li>
+                    <li>لا توافق بلا تنفيذ متاح: زر الموافقة لا يُفعَّل إلا حين يقول الخادم إن التنفيذ متاح وكل الشروط متحققة.</li>
+                    <li>لا قرار بلا تحقق بخطوتين حديث: القرار يتطلب جلسة تحرير سارية من لوحة المالك.</li>
+                </ul>
+            </details>
+            <p class="owner-sie-status ows-toast" id="pageStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
+        </div>
+    </main>
+
+    <script type="module" src="/assets/js/owner/pages/account-requests.js"></script>
+</body>
+</html>

@@ -131,7 +131,7 @@
                             <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                         </span>
                         <span class="context-card-name">المستخدمون</span>
-                        <p class="context-card-desc">كل الحسابات والعملاء والمحظورون والطلبات في مكان واحد، ببحث وفلاتر وخيارات لكل مستخدم.</p>
+                        <p class="context-card-desc">كل المستخدمين والمحظورون في مكان واحد، ببحث وفلاتر وخيارات لكل مستخدم.</p>
                         <span class="context-card-foot"><span class="context-card-go">فتح القسم
                             <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg></span></span>
                     </a>
@@ -350,8 +350,8 @@
                         <p class="panel-subtitle">مفاتيح التفعيل، طلبات الوصول المؤقت، مراجعة الإداريين، الهيكل الإداري، المستندات والنقل، ومطابقة الاستهلاك.
                             كل عملية مسجّلة، ومفاتيح العزل والوصول تحتاج موافقة صريحة منفصلة قبل تفعيلها على الإنتاج.</p>
                     </div>
-                    <p class="panel-subtitle owner-gov-links"><a href="/admin/account-requests.html" id="govAccountRequestsLink">طلبات الحسابات</a> ·
-                        <a href="/admin/customers.html" id="govCustomersLink">إدارة العملاء</a></p>
+                    <p class="panel-subtitle owner-gov-links"><a href="/owner/account-requests.html" id="govAccountRequestsLink">طلبات الحسابات</a> ·
+                        <a href="/owner/customers.html" id="govCustomersLink">إدارة العملاء</a></p>
                 </div>
 
                 <div class="ows" id="governanceWorkspace" data-ws="governance">
@@ -473,12 +473,10 @@
                             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                             المستخدمون
                         </h2>
-                        <p class="panel-subtitle">كل الحسابات والعملاء والمستخدمون المميزون والمحظورون والطلبات في مكان واحد: ابحث وفلتر، ومن «خيارات» نفّذ الإجراء. فريق المنصة وصلاحياته في «السلطة والمنح».</p>
-                    </div>
-                    <div class="panel-head-actions">
-                        <a class="panel-link" href="/admin/users.html" target="_blank" rel="noopener">فتح في صفحة مستقلة</a>
+                        <p class="panel-subtitle">كل المستخدمين والمحظورون في مكان واحد: ابحث وفلتر، ومن «خيارات» نفّذ الإجراء. وإجراءات المالك على مستخدم بعينه — تغيير الرتبة، الحظر، النقاط، تجميد الرصيد — من لوحة «إجراءات على مستخدم» أدناه. فريق المنصة وصلاحياته في «السلطة والمنح».</p>
                     </div>
                 </div>
+                <div class="owner-user-actions" id="ownerUserActions"></div>
                 <div class="owner-users-host" id="ownerUsersHost"></div>
             </section>
 
@@ -594,10 +592,11 @@ import { contextStatus, mountContextBar, CONTEXT_PRESENTATION } from '/assets/js
 import { initAuthorityCenter, applyCriticalState } from '/assets/js/owner/authority-center.js';
 import { initTenancyGovernance } from '/assets/js/owner/tenancy-governance.js';
 import { createWorkspaceTabs, announce } from '/assets/js/owner/owner-workspace.js';
-import { ownerDestinationFor, createOwnerNotifications } from '/assets/js/owner/owner-notifications.js';
+import { ownerDestinationFor, createOwnerNotifications, storeOwnerNotice } from '/assets/js/owner/owner-notifications.js';
 import * as notificationsService from '/notifications-service.js';
 import { initPiIntegration } from '/assets/js/owner/pi-integration.js';
 import { createProfileDirectory } from '/assets/js/owner/profile-directory.js';
+import { mountOwnerUserActionsPanel } from '/assets/js/owner/owner-user-actions.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -668,8 +667,11 @@ function showSection(name, { history: mode = 'push' } = {}) {
 }
 
 /* ── المستخدمون ────────────────────────────────────────────────────────────
-   الصفحة الموحّدة تُحمَّل عند أول فتح للقسم فقط، وتبقى حيّة بعده. */
+   الصفحة الموحّدة تُحمَّل عند أول فتح للقسم فقط، وتبقى حيّة بعده. لوحة
+   «إجراءات على مستخدم» الأصلية (رتبة/حظر/نقاط/تجميد عبر دوال المالك) تُركَّب
+   معها مرة واحدة. */
 function mountOwnerUsers() {
+    mountOwnerUserActionsPanel($('ownerUserActions'));
     const host = $('ownerUsersHost');
     if (!host || host.querySelector('iframe')) return;
     const frame = document.createElement('iframe');
@@ -693,6 +695,8 @@ function ownerNotifications() {
 /** يتبع رابط الإشعار: قسم في هذه اللوحة، أو صفحة على نفس الأصل، وإلا قسم الإشعارات. */
 function followNotification(notification) {
     const dest = ownerDestinationFor(notification, location.origin, Object.keys(SECTIONS));
+    // رابط إدارة بلا مقابل أصيل: التنبيه يُحفظ ليظهر في قسم الإشعارات بعد فتحه.
+    if (dest.notice) storeOwnerNotice(dest.notice);
     if (dest.kind === 'section') showSection(dest.section);
     else if (dest.kind === 'href') window.location.href = dest.href;
     else showSection('notifications');

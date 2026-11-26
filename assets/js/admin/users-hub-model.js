@@ -8,6 +8,13 @@
  * من يرى أي تبويب: نفس القواعد التي كانت تُظهر روابطها في القائمة الجانبية
  * (sidebar.js → applySidebarPermissions)، منقولة كما هي. الإخفاء هنا تنظيم
  * عرض فقط: كل صفحة وكل دالة تتحقق في القاعدة بنفسها.
+ *
+ * وضع التضمين (embed=1 داخل لوحة المالك): التبويبات المستضافة (src) تُخفى —
+ * صفحاتها (/admin/customers.html وSuper Users و«مستخدميني» وطلبات الحسابات
+ * وطلبات الشركات وقائمة الانتظار) لوحات إدارية أخرى، وقاعدة «لا رابط من لوحة
+ * المالك إلى لوحة أخرى» تمنع فتحها من هنا. لا صفحات مالك بديلة لها بعد في
+ * هذا الفرع، فالإخفاء هو السلوك حتى تُبنى مساراتها الأصلية. يبقى تبويبا
+ * القائمة نفسها («كل المستخدمين» و«المحظورون») وهما الوحيدان بلا src.
  */
 import { isAccountRestricted } from '../account-status.js';
 
@@ -27,6 +34,10 @@ export const HUB_TABS = Object.freeze([
  * التبويبات المتاحة لصلاحيات الحساب الحالي.
  * access: { isAdmin, isSupport, isSuperUser, isMainAdmin } كما يحسبها sidebar.js.
  *
+ * opts.embedded: الصفحة مضمّنة في لوحة المالك (?embed=1) — تُخفى التبويبات
+ * المستضافة (src) لأن صفحاتها لوحات إدارية أخرى بلا بديل مالك بعد؛ يبقى
+ * تبويبا القائمة نفسها («كل المستخدمين» و«المحظورون»).
+ *
  * المقابلة مع الروابط القديمة:
  *   all, banned, customers, accountRequests → كانت ضمن STAFF_ONLY_LINK_IDS
  *     (تُخفى عن Super User الصِّرف)، والعملاء وطلبات الحسابات للأدمن فقط.
@@ -34,7 +45,7 @@ export const HUB_TABS = Object.freeze([
  *   superUsers → للأدمن الرئيسي فقط (has_elevated_authority).
  *   myUsers → لـ Super User أو الأدمن.
  */
-export function visibleHubTabs(access = {}) {
+export function visibleHubTabs(access = {}, { embedded = false } = {}) {
     const { isAdmin = false, isSupport = false, isSuperUser = false, isMainAdmin = false } = access;
     const pureSuperUser = isSuperUser && !isAdmin && !isSupport && !isMainAdmin;
     const allowed = {
@@ -47,7 +58,8 @@ export function visibleHubTabs(access = {}) {
         superUsers: isMainAdmin,
         myUsers: isSuperUser || isAdmin
     };
-    return HUB_TABS.filter(t => allowed[t.id]);
+    // في وضع التضمين داخل لوحة المالك: بلا تبويبات مستضافة (صفحات /admin/ أخرى).
+    return HUB_TABS.filter(t => allowed[t.id] && (!embedded || !t.src));
 }
 
 /** التبويب المطلوب من الـhash إن كان متاحًا، وإلا أول تبويب متاح. */

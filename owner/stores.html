@@ -124,6 +124,26 @@
                     <div id="storeRequests" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
                 </section>
 
+                <section class="panel" aria-labelledby="companyRequestsHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="companyRequestsHeading">طلبات حسابات الشركات</h2>
+                        <p class="panel-subtitle">طلبات تحويل حساب عميل إلى حساب شركة (غير المتاجر) — المراجعة والقرار
+                            ومستند الإثبات من هنا. طلبات المتاجر الإلكترونية في القسم أعلاه بقرارها الخاص.</p>
+                    </div></div>
+                    <form class="toolbar owner-filters" id="companyReqFilters" role="search" novalidate>
+                        <label class="visually-hidden" for="companyReqStatus">حالة الطلب</label>
+                        <select class="form-control owner-filter-select" id="companyReqStatus">
+                            <option value="">كل الحالات</option>
+                            <option value="pending" selected>قيد المراجعة</option>
+                            <option value="approved">تمت الموافقة</option>
+                            <option value="rejected">مرفوضة</option>
+                        </select>
+                        <label class="visually-hidden" for="companyReqSearch">ابحث بالشركة أو العميل أو السجل</label>
+                        <input type="search" class="form-control owner-filter-search" id="companyReqSearch" placeholder="ابحث بالشركة أو العميل أو رقم السجل…" autocomplete="off" maxlength="100">
+                    </form>
+                    <div id="companyRequests" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                </section>
+
                 <section class="panel" aria-labelledby="storeIntegrationsHeading">
                     <div class="panel-header"><div>
                         <h2 class="panel-title" id="storeIntegrationsHeading">ربط متاجر شوبيفاي</h2>
@@ -148,6 +168,21 @@
                     <div id="storeOpsLog" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
                 </section>
 
+                <section class="panel" aria-labelledby="storePreviewHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="storePreviewHeading">معاينة متجر شركة</h2>
+                        <p class="panel-subtitle">قراءة فقط: نظرة المتجر كما يراها مديره — أرقام وربط ونشاط أخير، بلا تبديل سياق وبلا كتابة وبلا بيانات عملاء أو طلبات.</p>
+                    </div></div>
+                    <form class="toolbar owner-filters" id="storePreviewForm" novalidate>
+                        <label class="visually-hidden" for="storePreviewCompany">اختر الشركة أو المتجر</label>
+                        <select class="form-control owner-filter-select" id="storePreviewCompany">
+                            <option value="">اختر شركة أو متجرًا…</option>
+                        </select>
+                        <button type="submit" class="btn btn-primary btn-sm">عرض المعاينة</button>
+                    </form>
+                    <div id="storePreview" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                </section>
+
                 <section class="panel" aria-labelledby="testStoreHeading">
                     <div class="panel-header"><div>
                         <h2 class="panel-title" id="testStoreHeading">متجر الاختبار والمعاينة</h2>
@@ -161,7 +196,7 @@
                 <summary>ما لا تفعله هذه الصفحة</summary>
                 <ul>
                     <li>لا تعرض رموز شوبيفاي ولا أسرار التطبيق ولا بيانات عملاء المتاجر أو طلباتهم: الطلبات والعملاء يراها فريق المتجر نفسه في لوحته.</li>
-                    <li>طلبات حسابات الشركات العادية (غير المتاجر) تُراجع في <a href="/admin/company-requests.html">لوحة الإدارة</a>؛ طلبات المتاجر تُقرر من هذه الصفحة.</li>
+                    <li>طلبات حسابات الشركات العادية (غير المتاجر) تُراجع في قسم «طلبات حسابات الشركات» في <a href="#companyRequests">هذه الصفحة</a>؛ طلبات المتاجر تُقرر من قسم «طلبات المتاجر المعلّقة» أعلاه.</li>
                     <li>سعر باقة المتاجر وتفعيلها قرار المالك من نموذج السعر في قسم التشخيص؛ والقاعدة ترفض تفعيل باقة متاجر بلا سعرين موجبين.</li>
                 </ul>
             </details>

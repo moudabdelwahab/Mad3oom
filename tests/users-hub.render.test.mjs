@@ -234,7 +234,7 @@ test('لا تمرير أفقي على الجوال', { skip: !chromiumPath }, as
     await context.close();
 });
 
-test('لوحة المالك: «المستخدمون» قسم داخل اللوحة يستضيف الصفحة الموحّدة بكل تبويباتها', { skip: !chromiumPath }, async () => {
+test('لوحة المالك: «المستخدمون» قسم داخل اللوحة يستضيف الصفحة الموحّدة بتبويبي القائمة وحدهما', { skip: !chromiumPath }, async () => {
     const OWNER = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
     const fx = {
         user: { id: OWNER, email: 'owner@example.com' },
@@ -277,8 +277,11 @@ test('لوحة المالك: «المستخدمون» قسم داخل اللوح
     assert.equal(await page.getAttribute('.sidebar-item.active', 'data-tab'), 'users');
     const frame = page.frameLocator('.owner-users-frame');
     await frame.locator('#usersBody .uh-options-btn').first().waitFor();
+    // وضع التضمين داخل لوحة المالك: التبويبات المستضافة (صفحات /admin/ أخرى) مخفيّة —
+    // يبقى تبويبا القائمة نفسها («كل المستخدمين» و«المحظورون»)، ومساراتها الأصلية
+    // تُبنى في مجموعات موازية (F3).
     assert.deepEqual(await frame.locator('.uh-tab').evaluateAll(els => els.map(e => e.dataset.tab)),
-        ['all', 'customers', 'superUsers', 'myUsers', 'banned', 'accountRequests', 'companyRequests', 'waitlist']);
+        ['all', 'banned']);
     assert.equal(await frame.locator('#sidebar-container').evaluate(el => getComputedStyle(el).display), 'none', 'لا قائمة جانبية مكررة داخل القسم');
     assert.deepEqual(errors, []);
     await context.close();

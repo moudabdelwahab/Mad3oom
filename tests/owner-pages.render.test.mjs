@@ -233,7 +233,7 @@ const PAGES = {
     integrations: '#tokensTable table',
     stores: '#storeIntegrations table',
     passcodes: '#passcodesTable table',
-    settings: '#settingsSwitches table'
+    settings: '#regForm'
 };
 
 const chromiumPath = resolveChromium();
@@ -307,16 +307,17 @@ test('تاريخ انتهاء اشتراك المتجر وتسميات الدو�
 
 /* ── القائمة ───────────────────────────────────────────────────────────── */
 
-test('قائمة المالك: «الإدارة» و«التشغيل» صفحات /owner/ بقشرة المالك، لا روابط /admin/', () => {
+test('قائمة المالك: «الإدارة» و«التشغيل» صفحات /owner/ بقشرة المالك، لا روابط /admin/ إطلاقًا', () => {
     const html = fs.readFileSync(path.join(ROOT, 'assets/components/owner-sidebar.html'), 'utf8');
     const items = [...html.matchAll(/<a href="([^"]+)" class="sidebar-item"([^>]*)>/g)].map(m => [m[1], m[2]]);
-    // الاستثناء الوحيد «المستخدمون»: data-tab يفتح القسم داخل اللوحة، والرابط /admin/users.html احتياط لصفحة بلا القسم
-    assert.ok(!items.some(([href, attrs]) => href.startsWith('/admin/') && !(href === '/admin/users.html' && attrs.includes('data-tab="users"'))),
+    // بلا استثناء: «المستخدمون» قسم داخل اللوحة نفسها (data-tab)، ورابطه /owner-dashboard.html#users —
+    // الاستثناء القديم (/admin/users.html احتياطًا لصفحة بلا القسم) أُلغي مع F3.
+    assert.ok(!items.some(([href]) => href.startsWith('/admin/')),
         'عنصر في قائمة المالك يقود إلى /admin/');
     const pages = items.filter(([href]) => href.startsWith('/owner/')).map(([href, attrs]) => [href, /data-page="([^"]+)"/.exec(attrs)?.[1]]);
     // ترتيب القائمة = ترتيب PAGES. «المستخدمون» و«Pi Network» قسمان داخل اللوحة نفسها (data-tab)، لا صفحتان
     assert.deepEqual(pages.map(([h]) => h), Object.keys(PAGES).map(p => `/owner/${p}.html`));
-    assert.ok(items.some(([href, attrs]) => href === '/admin/users.html' && attrs.includes('data-tab="users"')), 'users');
+    assert.ok(items.some(([href, attrs]) => href === '/owner-dashboard.html#users' && attrs.includes('data-tab="users"')), 'users');
     assert.ok(items.some(([href, attrs]) => href === '/owner-dashboard.html#pi' && attrs.includes('data-tab="pi"')), 'pi');
     for (const [href, dataPage] of pages) {
         assert.equal(`/owner/${dataPage}.html`, href, `data-page لا يطابق الملف: ${href}`);
@@ -845,13 +846,21 @@ test('أكواد المرور: الكود القصير لا يُرسل، وال�
     await context.close();
 });
 
-test('الإعدادات: وضع التسجيل والمفاتيح والأمان من القاعدة، وإعدادات الإدارة مسمّاة بسببها', { skip: !chromiumPath }, async () => {
+test('الإعدادات: وضع التسجيل والمفاتيح والأمان من القاعدة، وأقسام التشغيل تبويبات أصيلة فيها', { skip: !chromiumPath }, async () => {
     const { page, context } = await openPage(browser, baseUrl, 'settings', fixtures());
+    // F4: الأقسام تبويبات — محتواها يُحمَّل كله عند الفتح لكن المخفيّ منها لا يُرى
+    // حتى يُنقر تبويبه؛ فعّل كل تبويب قبل انتظار محتواه المرئي.
+    await page.click('[data-tab="security"]');
     await page.waitForSelector('#settingsSecurity dl');
-    assert.match(await page.textContent('#settingsRegistration'), /قائمة انتظار/);
-    assert.match(await page.textContent('#settingsSwitches'), /عزل بيانات الشركات/);
-    assert.match(await page.textContent('#settingsAdminOnly'), /advanced_settings/);
     assert.match(await page.textContent('#settingsSecurity'), /مفعّل/);
+    await page.click('[data-tab="switches"]');
+    await page.waitForSelector('#settingsSwitches table');
+    assert.match(await page.textContent('#settingsSwitches'), /عزل بيانات الشركات/);
+    await page.click('[data-tab="registration"]');
+    assert.match(await page.textContent('#settingsRegistration'), /قائمة انتظار/);
+    // F4: جدول ADMIN_ONLY_SETTINGS القديم حُذف — أقسامه الآن تبويبات أصيلة في الصفحة نفسها.
+    assert.match(await page.textContent('#settingsTabs'), /قواعد الأتمتة/);
+    assert.match(await page.textContent('#tab-users'), /المستخدمون في لوحة المالك/);
     await context.close();
 });
 

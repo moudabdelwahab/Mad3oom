@@ -35,11 +35,17 @@
  */
 import {
     supabase, bootOwnerPage, announce, esc, when, num, table, kpis, errorBlock, loadingBlock, stateBlock, openModal,
-    friendlyError, renderPager
+    friendlyError, renderPager, writeResult
 } from '/assets/js/owner/owner-page.js';
 import { searchTerm, storeReasonError, testDaysRemaining, STORE_FEATURE_LABELS,
     BILLING_CYCLE_LABELS, storeEndDateError, toCsv, storePlanPriceArgs, storePlanFromConfig,
     storeQuotaDisableWarning, storeResumeBasis } from '/assets/js/owner/owner-labels.js';
+import { APPLICANT_TYPE_LABELS, formatProofSize } from '/assets/js/company/company-request-model.js';
+import { fetchStandaloneProofUrl } from '/assets/js/company/company-data.js';
+import {
+    isNonStoreCompanyRequest, companyRequestPlanLabel, companyRequestReviewError,
+    COMPANY_REQUEST_STATUS_LABELS, COMPANY_REQUEST_STATUS_TONES
+} from '/assets/js/owner/company-requests-model.js';
 
 const $ = (id) => document.getElementById(id);
 const say = (text, tone = 'info') => announce($('pageStatus'), text, tone);
@@ -56,6 +62,7 @@ let session = null;
 let accounts = { page: 0, total: 0, items: [], counts: {} };
 let integrations = null;
 let diagnostics = null;
+let companyRequests = [];
 
 async function rpc(name, args) {
     // النداء نفسه قد يرمي (انقطاع شبكة) لا أن يعود بـ error: بلا التقاط كانت
@@ -90,10 +97,13 @@ async function loadAccounts(page = 0) {
         <td>${a.shopify ? `${esc(CONN_LABELS[a.shopify.status] || a.shopify.status)}<br><span class="owner-account-email owner-mono" dir="ltr">${esc(a.shopify.shop || '')}</span>
             ${a.shopify.last_error_code ? `<br><span class="owner-account-email">${esc(a.shopify.last_error_code)}</span>` : ''}` : '—'}</td>
         <td>${esc(when(a.created_at))}</td>
-        <td>${a.account_type === 'ecommerce_store' && a.company_id
-            ? `<button type="button" class="btn btn-outline btn-sm" data-manage-sub="${esc(a.company_id)}" data-manage-name="${esc(a.company_name || a.name || '')}">إدارة الاشتراك</button>` : '—'}</td></tr>`, { empty: 'لا حسابات مطابقة.' });
+        <td>${a.company_id ? `<button type="button" class="btn btn-outline btn-sm" data-preview-store="${esc(a.company_id)}" data-preview-name="${esc(a.company_name || a.name || '')}">معاينة المتجر</button>` : '—'}
+            ${a.account_type === 'ecommerce_store' && a.company_id
+            ? `<button type="button" class="btn btn-outline btn-sm" data-manage-sub="${esc(a.company_id)}" data-manage-name="${esc(a.company_name || a.name || '')}">إدارة الاشتراك</button>` : ''}</td></tr>`, { empty: 'لا حسابات مطابقة.' });
     $('accountsTable').querySelectorAll('[data-manage-sub]').forEach((b) => b.addEventListener('click', () =>
         openManageSub(b.getAttribute('data-manage-sub'), b.getAttribute('data-manage-name'))));
+    $('accountsTable').querySelectorAll('[data-preview-store]').forEach((b) => b.addEventListener('click', () =>
+        previewStore(b.getAttribute('data-preview-store'), b.getAttribute('data-preview-name'))));
     renderPager($('accountsPager'), { page, size: PAGE_SIZE, total: accounts.total, onPage: loadAccounts,
         text: `${num(accounts.total)} حساب` });
     renderKpis();
@@ -188,6 +198,138 @@ function openRequestDecideModal(requestId, decision) {
         loadAccounts(0);
         loadDiagnostics();
     });
+}
+
+/* ── طلبات حسابات الشركات (غير المتاجر) ───────────────────────────────────
+ * admin_list_company_account_requests (138) تعيد كل الطلبات؛ هذا القسم يعرض
+ * غير-المتاجر فقط — المتجر الإلكتروني له قسمه وقراره أعلاه
+ * (owner_store_requests / owner_store_request_decide)، فلا طلب يُراجَع مرتين.
+ * القرار admin_review_company_account_request (068): الموافقة تُنشئ الشركة
+ * والاشتراك وتُخطر العميل، والرفض يتطلب سببًا يظهر للعميل. النجاح يُثبت من
+ * صف العودة (writeResult) — لا «تم» على رفض صامت بلا صفوف.
+ * مستند الإثبات برابط موقَّع 60 ثانية عبر company-document-download — يُفتح في
+ * تبويب جديد، لا يُحفظ ولا يُعرض مساره في الصفحة. */
+async function loadCompanyRequests() {
+    $('companyRequests').innerHTML = loadingBlock();
+    const { data, error } = await rpc('admin_list_company_account_requests');
+    if (error) { $('companyRequests').innerHTML = errorBlock(friendlyError(error)); return; }
+    companyRequests = (Array.isArray(data) ? data : []).filter(isNonStoreCompanyRequest);
+    renderCompanyRequests();
+    renderKpis();
+}
+
+function renderCompanyRequests() {
+    const search = $('companyReqSearch').value.trim().toLowerCase();
+    const statusFilter = $('companyReqStatus').value;
+    const rows = companyRequests.filter((req) => {
+        if (statusFilter && req.status !== statusFilter) return false;
+        if (!search) return true;
+        return [req.company_name, req.customer_name, req.customer_email, req.commercial_registration_number,
+                req.website_url, APPLICANT_TYPE_LABELS[req.applicant_type]]
+            .some(v => String(v || '').toLowerCase().includes(search));
+    });
+    $('companyRequests').innerHTML = table(
+        ['الشركة', 'العميل', 'نوع المتقدم', 'الباقة', 'الحالة', 'طُلب في', ''],
+        rows,
+        (req) => `<tr>
+            <td>${esc(req.company_name || '—')}${req.request_source === 'standalone' ? ' <span class="pill status-pending">مستقل</span>' : ''}
+                <div class="owner-account-email">سجل ${esc(req.commercial_registration_number || '—')}</div></td>
+            <td><div class="owner-account"><span class="owner-account-name">${esc(req.customer_name || '—')}</span>
+                <span class="owner-account-email" dir="ltr">${esc(req.customer_email || '')}</span></div></td>
+            <td>${esc(APPLICANT_TYPE_LABELS[req.applicant_type] || 'شركة')}
+                ${req.proof_document_name ? `<div class="owner-account-email">مستند: ${esc(req.proof_document_name)} (${esc(formatProofSize(req.proof_document_size))})</div>`
+                    : req.website_url ? `<div class="owner-account-email" dir="ltr">${esc(req.website_url)}</div>` : ''}</td>
+            <td>${esc(companyRequestPlanLabel(req))}</td>
+            <td><span class="pill ${COMPANY_REQUEST_STATUS_TONES[req.status] || 'status-pending'}">${esc(COMPANY_REQUEST_STATUS_LABELS[req.status] || req.status)}</span></td>
+            <td>${esc(when(req.created_at))}</td>
+            <td><button type="button" class="btn btn-secondary btn-sm" data-company-request="${esc(req.id)}">${req.status === 'pending' ? 'مراجعة' : 'عرض'}</button></td></tr>`,
+        { empty: statusFilter === 'pending' && !search ? 'لا توجد طلبات شركات قيد المراجعة.' : 'لا توجد طلبات مطابقة.' });
+    $('companyRequests').querySelectorAll('[data-company-request]').forEach((b) => b.addEventListener('click', () =>
+        openCompanyRequestModal(b.getAttribute('data-company-request'))));
+}
+
+function openCompanyRequestModal(requestId) {
+    const req = companyRequests.find((r) => r.id === requestId);
+    if (!req) return;
+    const isPending = req.status === 'pending';
+    const expired = req.commercial_registration_expiry && new Date(req.commercial_registration_expiry) < new Date(new Date().toDateString());
+    const modal = openModal({
+        title: isPending ? `مراجعة طلب «${req.company_name || ''}»` : `طلب «${req.company_name || ''}»`,
+        wide: true,
+        html: `
+        <p class="panel-subtitle">${isPending
+            ? 'تحقّق من البيانات القانونية. الموافقة تُنشئ الشركة باسم العميل ويتحوّل حسابه إلى حساب شركة فورًا، وتُنشئ اشتراكه وتُخطره.'
+            : `هذا الطلب ${COMPANY_REQUEST_STATUS_LABELS[req.status] || req.status}.`}</p>
+        <dl class="owner-detail-grid">
+            <div><dt>نوع المتقدم</dt><dd>${esc(APPLICANT_TYPE_LABELS[req.applicant_type] || 'شركة')}</dd></div>
+            <div><dt>مصدر الطلب</dt><dd>${esc(req.request_source === 'standalone' ? 'مستقل — خارج مسار الشراء' : 'مسار الشراء')}</dd></div>
+            <div><dt>الشركة</dt><dd>${esc(req.company_name || '—')}</dd></div>
+            <div><dt>رقم السجل التجاري</dt><dd>${esc(req.commercial_registration_number || '—')}</dd></div>
+            <div><dt>انتهاء السجل</dt><dd>${esc(day(req.commercial_registration_expiry))}${expired ? ' — منتهٍ' : ''}</dd></div>
+            <div><dt>بريد الشركة</dt><dd><span dir="ltr">${esc(req.company_email || '—')}</span></dd></div>
+            <div><dt>جوال الشركة</dt><dd><span dir="ltr">${esc(req.company_phone || '—')}</span></dd></div>
+            <div><dt>العميل</dt><dd>${esc(req.customer_name || '—')} — <span dir="ltr">${esc(req.customer_email || '')}</span>${req.customer_phone ? ` — <span dir="ltr">${esc(req.customer_phone)}</span>` : ''}</dd></div>
+            <div><dt>الباقة المطلوبة</dt><dd>${esc(companyRequestPlanLabel(req))}</dd></div>
+            ${req.website_url ? `<div><dt>رابط الموقع</dt><dd><a href="${esc(req.website_url)}" target="_blank" rel="noopener" dir="ltr">${esc(req.website_url)}</a></dd></div>` : ''}
+            ${req.store_domain_hint ? `<div><dt>دومين المتجر المقترح</dt><dd dir="ltr">${esc(req.store_domain_hint)}</dd></div>` : ''}
+            ${req.proof_document_name ? `<div><dt>مستند الإثبات</dt><dd>${esc(req.proof_document_name)} (${esc(formatProofSize(req.proof_document_size))})<br>
+                <button type="button" class="btn btn-outline btn-sm" id="companyReqProof">تنزيل المستند</button></dd></div>` : ''}
+            ${!isPending ? `<div><dt>الحالة</dt><dd>${esc(COMPANY_REQUEST_STATUS_LABELS[req.status] || req.status)}</dd></div>
+            <div><dt>راجعه</dt><dd>${esc(req.reviewer_name || '—')}</dd></div>
+            <div><dt>تاريخ المراجعة</dt><dd>${esc(when(req.reviewed_at))}</dd></div>
+            <div><dt>ملاحظة المراجعة</dt><dd>${esc(req.review_note || '—')}</dd></div>` : ''}
+        </dl>
+        ${isPending ? `<form class="owner-action-form" id="companyReqDecideForm" novalidate>
+            <div class="form-field">
+                <label for="companyReqNote">ملاحظة القرار (إلزامية للرفض — تظهر للعميل في الإشعار)</label>
+                <input type="text" class="form-control" id="companyReqNote" maxlength="300" autocomplete="off">
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-primary btn-sm" data-company-decide="approve" data-critical>موافقة — إنشاء الشركة</button>
+                <button type="button" class="btn btn-danger btn-sm" data-company-decide="reject" data-critical>رفض</button>
+            </div>
+            <p class="owner-sie-status" id="companyReqDecideStatus" role="status" aria-live="polite" hidden></p>
+        </form>` : ''}`
+    });
+    modal.body.querySelector('#companyReqProof')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        const original = btn.textContent;
+        btn.textContent = 'جارٍ التجهيز...';
+        try {
+            const result = await fetchStandaloneProofUrl(requestId);
+            if (!result.ok) {
+                say(result.error || 'تعذّر تجهيز رابط التنزيل. حاول مرة أخرى.', 'error');
+                return;
+            }
+            window.open(result.url, '_blank', 'noopener');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = original;
+        }
+    });
+    modal.body.querySelectorAll('[data-company-decide]').forEach((b) => b.addEventListener('click', () =>
+        reviewCompanyRequest(modal, requestId, b.getAttribute('data-company-decide'))));
+}
+
+async function reviewCompanyRequest(modal, requestId, decision) {
+    const note = modal.body.querySelector('#companyReqNote').value.trim();
+    const status = (t, tone) => announce(modal.body.querySelector('#companyReqDecideStatus'), t, tone);
+    const err = companyRequestReviewError({ decision, note });
+    if (err) { status(err, 'error'); return; }
+    const approve = decision === 'approve';
+    const btn = modal.body.querySelector(`[data-company-decide="${decision}"]`);
+    btn.disabled = true;
+    const checked = writeResult(await rpc('admin_review_company_account_request', {
+        p_request_id: requestId, p_decision: decision, p_note: note || null
+    }));
+    btn.disabled = false;
+    if (!checked.ok) { status(checked.message, 'error'); return; }
+    modal.close();
+    say(approve ? 'تمت الموافقة — أُنشئت الشركة وأُخطر العميل.' : 'تم رفض الطلب وإخطار العميل بالسبب.', 'success');
+    loadCompanyRequests();
+    loadAccounts(0);
+    loadDiagnostics();
 }
 
 /** نافذة سبب عامة لإجراءات الاشتراك (إيقاف/استئناف/تحويل دورة) — بلا window.prompt. */
@@ -556,7 +698,7 @@ async function loadDiagnostics() {
             <li>متاجر لها ربط حي بلا امتياز شوبيفاي: <strong>${esc(num(mismatch.length))}</strong>${mismatch.length ? ` — ${mismatch.map((m) => esc(m.company_name)).join('، ')}` : ''}</li>
             <li>متاجر بلا اشتراك فعّال: <strong>${esc(num(data?.stores_without_subscription))}</strong></li>
             <li>اشتراكات باقة المتاجر على حساب ليس متجرًا: <strong>${esc(num(data?.store_plan_on_non_store))}</strong></li>
-            <li>طلبات حسابات متاجر قيد المراجعة: <strong>${esc(num(data?.pending_store_requests))}</strong> — <a href="/admin/company-requests.html">المراجعة في لوحة الإدارة</a></li>
+            <li>طلبات حسابات متاجر قيد المراجعة: <strong>${esc(num(data?.pending_store_requests))}</strong> — <a href="#storeRequests">المراجعة في هذه الصفحة</a> · وطلبات الشركات (غير المتاجر) في قسم «طلبات حسابات الشركات» أدناه</li>
         </ul>`
             : errorBlock(friendlyError(diagRes.error))}`;
     $('storePriceForm')?.addEventListener('submit', async (e) => {
@@ -757,11 +899,7 @@ async function loadTestStore() {
                 <p class="owner-sie-status" id="testGrantStatus" role="status" aria-live="polite" hidden></p>
             </form>` : ''}` : ''}
         <h3 class="panel-title">معاينة لوحة المتجر</h3>
-        <ul class="company-list">
-            <li><strong>تشغيل:</strong> بدّل واجهتك من شريط السياق إلى «مدير شركتي»، ثم افتح <a href="/company-dashboard/#storeOverview">لوحة المتجر</a> — ترى متجر اختبارك أنت كما يراه مديره.</li>
-            <li><strong>قراءة فقط:</strong> واجهة «معاينة عضو» تعرض اللوحة كعضو؛ الكتابة وبيانات شوبيفاي الحية مرفوضة في القاعدة أثناء المعاينة.</li>
-            <li>لا توجد معاينة لمتجر تاجر آخر: العزل بين الشركات مفروض في القاعدة، ولوحة المالك ترى بياناته الوصفية فقط (أعلاه).</li>
-        </ul>`;
+        <p class="panel-subtitle">معاينة متجر أي شركة من قسم «معاينة متجر شركة» أدناه — قراءة فقط، بلا تبديل سياق. واجهة «معاينة عضو» تعرض اللوحة كعضو؛ الكتابة وبيانات شوبيفاي الحية مرفوضة في القاعدة أثناء المعاينة.</p>`;
     // بلا جلسة تحرير: النقرة تفتح نافذة التحقق ثم تُكمل الإجراء (installCriticalGuard — 121)
     box.querySelectorAll('[data-critical]').forEach((b) => { if (!fresh) b.title = 'عملية محمية: يُطلب رمز التحقق عند التنفيذ'; });
     box.querySelector('[data-kind]')?.addEventListener('click', () => openKindModal(own));
@@ -794,18 +932,112 @@ function renderKpis() {
         ['متاجر إلكترونية', num(c.ecommerce_store || 0), 'kpi--accent'],
         ['متاجر مربوطة بشوبيفاي', num(conns.filter((x) => x.status === 'active').length), 'kpi--success'],
         ['روابط تحتاج انتباهًا', num(problems), problems ? 'kpi--warning' : ''],
-        ['طلبات متاجر قيد المراجعة', num(diagnostics?.pending_store_requests ?? 0), diagnostics?.pending_store_requests ? 'kpi--info' : '']
+        ['طلبات متاجر قيد المراجعة', num(diagnostics?.pending_store_requests ?? 0), diagnostics?.pending_store_requests ? 'kpi--info' : ''],
+        ['طلبات شركات قيد المراجعة', num(companyRequests.filter((r) => r.status === 'pending').length), companyRequests.some((r) => r.status === 'pending') ? 'kpi--info' : '']
     ]);
+}
+
+/* ───────────────────────── معاينة متجر شركة (قراءة فقط) ─────────────────────────
+   owner_company_store_overview(p_company) — نفس جسم store_overview() في الشركة (119)
+   مع v_company := p_company (الترحيل 147). لا تبديل سياق: الشركة تُختار هنا
+   من القائمة أو من جدول الحسابات. قبل 147 تظهر حالة «غير متاح بعد» لا تفريغ خطأ. */
+const STORE_PREVIEW_ENTITLEMENTS = {
+    store_support: 'دعم المتاجر', shopify_integration: 'تكامل شوبيفاي', integrations_hub: 'مركز التكاملات'
+};
+
+function storePreviewMissing(error) {
+    if (!error) return false;
+    if (error.code === 'PGRST202' || error.code === '42883') return true;
+    return /does not exist|not found|PGRST202|42883/i.test(error.message || '');
+}
+
+async function loadStorePreview() {
+    const sel = $('storePreviewCompany');
+    const current = sel.value;
+    const { data, error } = await rpc('owner_accounts_overview', {
+        p_type: null, p_search: null, p_limit: 200, p_offset: 0,
+        p_sub_status: null, p_shopify_status: null, p_suspended: null
+    });
+    if (error) {
+        $('storePreview').innerHTML = errorBlock(friendlyError(error));
+        return;
+    }
+    const companies = (data?.items || []).filter(a => a.company_id);
+    sel.innerHTML = '<option value="">اختر شركة أو متجرًا…</option>' + companies.map(a =>
+        `<option value="${esc(a.company_id)}">${esc(a.company_name || a.name || '—')}</option>`).join('');
+    if (current && companies.some(a => String(a.company_id) === String(current))) {
+        sel.value = current;
+        loadStorePreviewData(current, sel.options[sel.selectedIndex]?.textContent || '');
+    } else if (!current) {
+        $('storePreview').innerHTML = stateBlock({ text: 'اختر شركة أو متجرًا من القائمة، أو اضغط «معاينة المتجر» بجانب أي حساب في جدول الحسابات.' });
+    }
+}
+
+async function loadStorePreviewData(companyId, companyName) {
+    const box = $('storePreview');
+    box.innerHTML = loadingBlock();
+    const { data, error } = await rpc('owner_company_store_overview', { p_company: companyId });
+    if (error) {
+        box.innerHTML = storePreviewMissing(error)
+            ? stateBlock({ title: 'معاينة المتجر غير متاحة بعد',
+                           text: 'دالة المالك owner_company_store_overview() لم تُنشر على الخادم بعد (الترحيل 147). تُفعَّل المعاينة فور تطبيقه.' })
+            : errorBlock(friendlyError(error));
+        return;
+    }
+    const d = data || {};
+    const ent = d.entitlements || {};
+    const conn = d.connection || null;
+    const activity = Array.isArray(d.recent_activity) ? d.recent_activity : [];
+    box.innerHTML = `
+        <p class="panel-subtitle">معاينة قراءة فقط لمتجر <strong>${esc(companyName)}</strong> — كما يراها مديره. لا كتابة من هنا، ولا بيانات عملاء أو طلبات.</p>
+        <div class="kpi-grid">${kpis([
+            ['تذاكر مفتوحة', num(d.open_tickets ?? 0), (d.open_tickets ?? 0) ? 'kpi--warning' : ''],
+            ['طلبات متجر غير محسومة', d.unresolved_requests == null ? '—' : num(d.unresolved_requests), (d.unresolved_requests ?? 0) ? 'kpi--warning' : ''],
+            ['طلبات متأخرة', d.overdue_requests == null ? '—' : num(d.overdue_requests), (d.overdue_requests ?? 0) ? 'kpi--danger' : ''],
+            ['محادثات شركة مفتوحة', d.active_conversations == null ? '—' : num(d.active_conversations), ''],
+            ['تذاكر مفتوحة مرتبطة بطلب', num(d.order_linked_open_tickets ?? 0), '']
+        ])}</div>
+        <dl class="owner-detail-grid">
+            <div><dt>الامتيازات</dt><dd>${Object.entries(STORE_PREVIEW_ENTITLEMENTS).map(([k, label]) =>
+                `<span class="pill ${ent[k] ? 'status-resolved' : 'status-neutral'}">${esc(label)}</span>`).join(' ')}</dd></div>
+            <div><dt>شوبيفاي مفعّل على المنصة</dt><dd>${d.shopify_enabled ? 'نعم' : 'لا'}</dd></div>
+            <div><dt>ربط شوبيفاي</dt><dd>${conn
+                ? `${esc(CONN_LABELS[conn.status] || conn.status)}${conn.account_label ? ` — ${esc(conn.account_label)}` : ''}${conn.base_url ? ` <span class="owner-cell-muted" dir="ltr">${esc(conn.base_url)}</span>` : ''}${conn.last_error_code ? ` <span class="owner-cell-muted">${esc(conn.last_error_code)}</span>` : ''}`
+                : 'بلا ربط'}</dd></div>
+        </dl>
+        <h3 class="panel-title">النشاط الأخير</h3>
+        ${table(['الطلب', 'النوع', 'الإجراء', 'الحالة الجديدة', 'الوقت'], activity, (e) => `<tr>
+            <td dir="ltr">${esc(e.order_ref || e.request_id || '—')}</td>
+            <td>${esc(e.kind || '—')}</td>
+            <td>${esc(e.action || '—')}</td>
+            <td>${esc(e.to_status || '—')}</td>
+            <td>${esc(when(e.created_at))}</td>
+        </tr>`, { empty: 'لا نشاط مسجّل بعد.' })}`;
+}
+
+function previewStore(companyId, companyName) {
+    const sel = $('storePreviewCompany');
+    if (![...sel.options].some(o => o.value === companyId)) {
+        const opt = document.createElement('option');
+        opt.value = companyId;
+        opt.textContent = companyName || companyId;
+        sel.appendChild(opt);
+    }
+    sel.value = companyId;
+    loadStorePreviewData(companyId, companyName);
+    document.getElementById('storePreviewHeading')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function refresh() {
     loadAlerts();
     loadAccounts(0);
     loadRequests();
+    loadCompanyRequests();
     loadIntegrations();
     loadDiagnostics();
     loadOpsLog();
     loadTestStore();
+    loadStorePreview();
 }
 
 (async function init() {
@@ -818,6 +1050,20 @@ function refresh() {
     $('accountsExport').addEventListener('click', exportAccountsCsv);
     let t = null;
     $('accountsSearch').addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => loadAccounts(0), 300); });
+    $('companyReqStatus').addEventListener('change', renderCompanyRequests);
+    let ct = null;
+    $('companyReqSearch').addEventListener('input', () => { clearTimeout(ct); ct = setTimeout(renderCompanyRequests, 250); });
+    $('companyReqFilters').addEventListener('submit', (e) => { e.preventDefault(); renderCompanyRequests(); });
     $('storesRefresh').addEventListener('click', refresh);
+    $('storePreviewForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const sel = $('storePreviewCompany');
+        if (!sel.value) return;
+        loadStorePreviewData(sel.value, sel.options[sel.selectedIndex]?.textContent || '');
+    });
+    $('storePreviewCompany').addEventListener('change', (e) => {
+        if (!e.target.value) return;
+        loadStorePreviewData(e.target.value, e.target.options[e.target.selectedIndex]?.textContent || '');
+    });
     refresh();
 })();

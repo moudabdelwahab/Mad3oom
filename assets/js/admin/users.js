@@ -41,7 +41,10 @@ async function init() {
 
     updateAdminUI(user);
     const access = await getAdminAccess();
-    tabs = visibleHubTabs(access || {});
+    // ?embed=1 داخل لوحة المالك: التبويبات المستضافة (صفحات /admin/ أخرى) تُخفى —
+    // لا رابط من لوحة المالك إلى لوحة أخرى، ولا بديل مالك لها بعد.
+    const embedded = new URLSearchParams(location.search).get('embed') === '1';
+    tabs = visibleHubTabs(access || {}, { embedded });
     renderTabs();
 
     isSieAdmin = await isCurrentUserSieAdmin(supabase);

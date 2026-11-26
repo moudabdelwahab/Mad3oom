@@ -93,6 +93,7 @@ function render() {
             <td>${esc(day(s.end_date))}</td>
             <td>${s.is_active ? `${esc(num(s.days_remaining))} يوم` : '—'}</td>
             <td><div class="owner-row-actions">
+                <a class="btn btn-outline btn-sm" href="/owner/subscription-details.html?id=${esc(s.id)}">تفاصيل</a>
                 ${actions.map(a => `<button type="button" class="btn btn-sm ${a.tone === 'btn-danger' ? 'btn-outline' : 'btn-primary'}" data-sub="${esc(s.id)}" data-to="${esc(a.to)}">${esc(a.label)}</button>`).join('')}
                 <button type="button" class="btn btn-outline btn-sm" data-audit="${esc(s.id)}">السجل</button>
             </div></td>
@@ -186,7 +187,7 @@ async function openAudit(sub) {
         <td>${esc(a.reason || '—')}</td>
         <td>${esc(when(a.created_at))}</td>
     </tr>`, { empty: 'لا تغييرات مسجّلة على هذا الاشتراك.' })
-        + `<p class="panel-subtitle owner-status-line"><a href="/admin/subscription-details.html?id=${esc(sub.id)}">تفاصيل الاشتراك في مساحة الإدارة</a></p>`;
+        + `<p class="panel-subtitle owner-status-line"><a href="/owner/subscription-details.html?id=${esc(sub.id)}">تفاصيل الاشتراك — تعديل الباقة والتواريخ وسجل التغييرات</a></p>`;
 }
 
 (async function init() {

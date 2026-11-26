@@ -855,7 +855,16 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         يُعدَّل ملف 042، وإعفاء المالك محفوظ (الحظر فوق الإعفاء كما
     //         في الحي وكما في 058/067). بلا تطبيق حي. مقيسٌ في
     //         tests/sql/account-gate-ban-144.test.sql.
-    assert.equal(migrations[migrations.length - 1], '144_wire_is_banned_into_account_gate.sql',
+    //   147 — دوال المالك لعرض لوحة المالك بلا تحويل إلى لوحة الإدارة
+    //         (2026-11-26): سبع دوال مالك جديدة بالأسماء التي تناديها
+    //         مجموعات الواجهة (حالة الخدمات وتغييرها، نظرة متجر شركة،
+    //         قائمة MCP بلا أسرار، تغيير الرتبة user↔admin، الحظر، النقاط)
+    //         + داخلية لاستحقاق شركة هدف؛ بلا أي تغيير سياسات (فحص
+    //         «تحقق أولًا» أثبت أن RLS الأربع جداول وحاوية tickets كلها
+    //         is_admin()/is_platform_staff() أصلًا). 146 محجوز لفرع
+    //         company-five-sections المتوازي. مقيسٌ في
+    //         tests/sql/owner-no-redirect-147.test.sql.
+    assert.equal(migrations[migrations.length - 1], '147_owner_no_redirect_rpcs.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

@@ -15,6 +15,12 @@
     <link rel="stylesheet" href="/assets/css/portal-notifications.css">
     <link rel="stylesheet" href="/assets/css/owner-pages.css">
     <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
+    <style>
+        /* تبويبات أقسام الإعدادات: أزرار تلتف على سطرين عند الحاجة، والقسم النشط مميز. */
+        .owner-settings-tabs { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1rem; }
+        .owner-settings-tabs .btn[aria-pressed="true"] { background: var(--hatch-widget-accent, #2563eb); color: var(--hatch-widget-on-accent, #fff); border-color: transparent; }
+        .owner-settings-tab[hidden] { display: none; }
+    </style>
     <script>
         /* نفس سكربت ما قبل الرسم في لوحة المالك — الثيم وحالة الطي قبل أول رسم. */
         (function () {
@@ -55,32 +61,60 @@
                 <div class="owner-banner-main">
                     <span class="owner-level-tag">لوحة المالك · التشغيل</span>
                     <h1 class="owner-title">إعدادات المنصة</h1>
-                    <p class="owner-meta">ما يملكه المالك من إعدادات المنصة في مكان واحد: وضع التسجيل، مفاتيح التفعيل، أمان حسابك وسياقك. وإعدادات التشغيل اليومي (البوت، ساعات العمل، توزيع التذاكر، قواعد الأتمتة) تبقى لإداريي المنصة.</p>
+                    <p class="owner-meta">كل إعدادات المنصة في مكان واحد: وضع التسجيل وطلبات الانتظار، ملفك وأمانك، مفاتيح التفعيل، والتشغيل اليومي (البوت، ساعات العمل، توزيع التذاكر، قواعد الأتمتة، الأدوار، الويبهوكس) — كلها أصلية هنا.</p>
                 </div>
                 <div class="owner-banner-side">
                     <a class="btn btn-outline btn-sm owner-crumb" href="/owner-dashboard.html#overview">لوحة المالك</a>
                     <button type="button" class="btn btn-outline btn-sm" id="settingsRefresh">تحديث</button>
                 </div>
             </header>
-            <div class="split-grid">
-                <section class="panel" aria-labelledby="regHeading">
-                    <div class="panel-header"><div>
-                        <h2 class="panel-title" id="regHeading">وضع التسجيل</h2>
-                        <p class="panel-subtitle">كما يراه الزائر في صفحة الدخول (get_public_registration_settings).</p>
-                    </div></div>
-                    <div id="settingsRegistration"><div class="skeleton skeleton-card"></div></div>
-                </section>
 
-                <section class="panel" aria-labelledby="secHeading">
-                    <div class="panel-header"><div>
-                        <h2 class="panel-title" id="secHeading">أمان حساب المالك</h2>
-                        <p class="panel-subtitle">التحقق بخطوتين ونافذة العمليات الحساسة وسياقك الحالي.</p>
-                    </div></div>
-                    <div id="settingsSecurity"><div class="skeleton skeleton-card"></div></div>
-                </section>
-            </div>
+            <nav class="owner-settings-tabs" id="settingsTabs" aria-label="أقسام الإعدادات">
+                <button type="button" class="btn btn-outline btn-sm" data-tab="registration">وضع التسجيل</button>
+                <button type="button" class="btn btn-outline btn-sm" data-tab="profile">الملف الشخصي</button>
+                <button type="button" class="btn btn-outline btn-sm" data-tab="security">أمان حساب المالك</button>
+                <button type="button" class="btn btn-outline btn-sm" data-tab="switches">مفاتيح التفعيل</button>
+                <button type="button" class="btn btn-outline btn-sm" data-tab="platform">التحكم في المنصة</button>
+                <button type="button" class="btn btn-outline btn-sm" data-tab="bot">البوت</button>
+                <button type="button" class="btn btn-outline btn-sm" data-tab="ads">الإعلانات</button>
+                <button type="button" class="btn btn-outline btn-sm" data-tab="branding">الهوية البصرية</button>
+                <button type="button" class="btn btn-outline btn-sm" data-tab="hours">ساعات العمل</button>
+                <button type="button" class="btn btn-outline btn-sm" data-tab="distribution">توزيع التذاكر</button>
+                <button type="button" class="btn btn-outline btn-sm" data-tab="retention">الاحتفاظ بالبيانات</button>
+                <button type="button" class="btn btn-outline btn-sm" data-tab="sla">أهداف الرد (SLA)</button>
+                <button type="button" class="btn btn-outline btn-sm" data-tab="telegram">تنبيهات تيليجرام</button>
+                <button type="button" class="btn btn-outline btn-sm" data-tab="rules">قواعد الأتمتة</button>
+                <button type="button" class="btn btn-outline btn-sm" data-tab="roles">الأدوار المخصصة</button>
+                <button type="button" class="btn btn-outline btn-sm" data-tab="webhooks">الويبهوكس</button>
+                <button type="button" class="btn btn-outline btn-sm" data-tab="advanced">الإعدادات المتقدمة</button>
+                <button type="button" class="btn btn-outline btn-sm" data-tab="users">إدارة المستخدمين</button>
+            </nav>
 
-            <section class="panel" aria-labelledby="switchesHeading">
+            <section class="panel owner-settings-tab" id="tab-registration" aria-labelledby="regHeading">
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="regHeading">وضع التسجيل</h2>
+                    <p class="panel-subtitle">كما يراه الزائر في صفحة الدخول (get_public_registration_settings).</p>
+                </div></div>
+                <div id="settingsRegistration"><div class="skeleton skeleton-card"></div></div>
+            </section>
+
+            <section class="panel owner-settings-tab" id="tab-profile" aria-labelledby="profileHeading" hidden>
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="profileHeading">الملف الشخصي</h2>
+                    <p class="panel-subtitle">بيانات حسابك كما في لوحتي العميل والشركة — نفس الوحدة الموحّدة.</p>
+                </div></div>
+                <div id="settingsProfile"><div class="skeleton skeleton-card"></div></div>
+            </section>
+
+            <section class="panel owner-settings-tab" id="tab-security" aria-labelledby="secHeading" hidden>
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="secHeading">أمان حساب المالك</h2>
+                    <p class="panel-subtitle">التحقق بخطوتين ونافذة العمليات الحساسة وسياقك الحالي.</p>
+                </div></div>
+                <div id="settingsSecurity"><div class="skeleton skeleton-card"></div></div>
+            </section>
+
+            <section class="panel owner-settings-tab" id="tab-switches" aria-labelledby="switchesHeading" hidden>
                 <div class="panel-header">
                     <div>
                         <h2 class="panel-title" id="switchesHeading">مفاتيح التفعيل</h2>
@@ -90,13 +124,126 @@
                 <div id="settingsSwitches"><div class="skeleton skeleton-card"></div></div>
             </section>
 
-            <section class="panel" aria-labelledby="adminOnlyHeading">
+            <section class="panel owner-settings-tab" id="tab-platform" aria-labelledby="platformHeading" hidden>
                 <div class="panel-header"><div>
-                    <h2 class="panel-title" id="adminOnlyHeading">إعدادات التشغيل اليومي — في لوحة الإدارة</h2>
-                    <p class="panel-subtitle">تُدار من صفحة إعدادات الإدارة بواجهتها الكاملة. سياساتها <code>is_admin()</code> (117)، فيعدّلها المالك هناك من واجهة «مالك المنصة» أو «الإدارة»، كما يعدّلها إداري المنصة.</p>
+                    <h2 class="panel-title" id="platformHeading">التحكم في المنصة</h2>
+                    <p class="panel-subtitle">قيم advanced_settings: التحكم في المنصة، والتواصل، ووضع الطوارئ، وسياسات الحساب، وتجربة العميل — كل مجموعة تُحفظ بزرها.</p>
                 </div></div>
-                <div id="settingsAdminOnly"></div>
+                <div id="settingsPlatform"><div class="skeleton skeleton-card"></div></div>
             </section>
+
+            <section class="panel owner-settings-tab" id="tab-bot" aria-labelledby="botHeading" hidden>
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="botHeading">إعدادات البوت</h2>
+                    <p class="panel-subtitle">الذاكرة الذكية ورسالة النظام لبوت المحادثة (bot_settings).</p>
+                </div></div>
+                <div id="settingsBot"><div class="skeleton skeleton-card"></div></div>
+            </section>
+
+            <section class="panel owner-settings-tab" id="tab-ads" aria-labelledby="adsHeading" hidden>
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="adsHeading">الإعلانات</h2>
+                    <p class="panel-subtitle">الإعلان العلوي في المنصة (ads_settings).</p>
+                </div></div>
+                <div id="settingsAds"><div class="skeleton skeleton-card"></div></div>
+            </section>
+
+            <section class="panel owner-settings-tab" id="tab-branding" aria-labelledby="brandingHeading" hidden>
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="brandingHeading">الهوية البصرية</h2>
+                    <p class="panel-subtitle">اسم المنصة واللون الرئيسي والشعار والأيقونة (advanced_settings: branding).</p>
+                </div></div>
+                <div id="settingsBranding"><div class="skeleton skeleton-card"></div></div>
+            </section>
+
+            <section class="panel owner-settings-tab" id="tab-hours" aria-labelledby="hoursHeading" hidden>
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="hoursHeading">ساعات العمل</h2>
+                    <p class="panel-subtitle">أيام العمل وساعاتها والرد التلقائي خارج الدوام (working_hours + after_hours).</p>
+                </div></div>
+                <div id="settingsHours"><div class="skeleton skeleton-card"></div></div>
+            </section>
+
+            <section class="panel owner-settings-tab" id="tab-distribution" aria-labelledby="distributionHeading" hidden>
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="distributionHeading">توزيع التذاكر</h2>
+                    <p class="panel-subtitle">التوزيع التلقائي الدوري على فريق الدعم (ticket_distribution_config).</p>
+                </div></div>
+                <div id="settingsDistribution"><div class="skeleton skeleton-card"></div></div>
+            </section>
+
+            <section class="panel owner-settings-tab" id="tab-retention" aria-labelledby="retentionHeading" hidden>
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="retentionHeading">الاحتفاظ بالبيانات</h2>
+                    <p class="panel-subtitle">سياسة الاحتفاظ بالتذاكر المغلقة (advanced_settings: data_retention) والتشغيل الفوري.</p>
+                </div></div>
+                <div id="settingsRetention"><div class="skeleton skeleton-card"></div></div>
+            </section>
+
+            <section class="panel owner-settings-tab" id="tab-sla" aria-labelledby="slaHeading" hidden>
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="slaHeading">أهداف زمن الرد (SLA)</h2>
+                    <p class="panel-subtitle">المهل الزمنية للحل حسب الأولوية (advanced_settings: sla_config).</p>
+                </div></div>
+                <div id="settingsSla"><div class="skeleton skeleton-card"></div></div>
+            </section>
+
+            <section class="panel owner-settings-tab" id="tab-telegram" aria-labelledby="telegramHeading" hidden>
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="telegramHeading">تنبيهات تيليجرام</h2>
+                    <p class="panel-subtitle">تنبيهاتك الشخصية على تيليجرام: التذاكر العاجلة وتجاوز مهل الحل.</p>
+                </div></div>
+                <div id="settingsTelegram"><div class="skeleton skeleton-card"></div></div>
+            </section>
+
+            <section class="panel owner-settings-tab" id="tab-rules" aria-labelledby="rulesHeading" hidden>
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="rulesHeading">قواعد الأتمتة</h2>
+                    <p class="panel-subtitle">قواعد rules_engine: حدث، وشرط، وإجراء.</p>
+                </div></div>
+                <div id="settingsRules"><div class="skeleton skeleton-card"></div></div>
+            </section>
+
+            <section class="panel owner-settings-tab" id="tab-roles" aria-labelledby="rolesHeading" hidden>
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="rolesHeading">الأدوار المخصصة</h2>
+                    <p class="panel-subtitle">أدوار custom_roles وصلاحياتها — تُسند للأعضاء من إدارة المستخدمين.</p>
+                </div></div>
+                <div id="settingsRoles"><div class="skeleton skeleton-card"></div></div>
+            </section>
+
+            <section class="panel owner-settings-tab" id="tab-webhooks" aria-labelledby="webhooksHeading" hidden>
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="webhooksHeading">الويبهوكس</h2>
+                    <p class="panel-subtitle">إشعارات webhooks الخارجية عند أحداث التذاكر.</p>
+                </div></div>
+                <div id="settingsWebhooks"><div class="skeleton skeleton-card"></div></div>
+            </section>
+
+            <section class="panel owner-settings-tab" id="tab-advanced" aria-labelledby="advancedHeading" hidden>
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="advancedHeading">الإعدادات المتقدمة</h2>
+                    <p class="panel-subtitle">محرر عام لمفاتيح advanced_settings (JSON) — للاطلاع والتعديل الدقيق.</p>
+                </div></div>
+                <div id="settingsAdvanced"><div class="skeleton skeleton-card"></div></div>
+            </section>
+
+            <section class="panel owner-settings-tab" id="tab-users" aria-labelledby="usersHeading" hidden>
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="usersHeading">إدارة المستخدمين</h2>
+                    <p class="panel-subtitle">إسناد الأدوار وحذف ملفات الأعضاء الإداريين.</p>
+                </div></div>
+                <p>تُدار من قسم <a href="/owner-dashboard.html#users">المستخدمون في لوحة المالك</a> — وهو سطح مجموعة F3 (B11) لإدارة المستخدمين، فلا تُبنى نسخة ثانية هنا.</p>
+            </section>
+
+            <section class="panel" aria-labelledby="waitlistHeading" id="waitlist">
+                <div class="panel-header"><div>
+                    <h2 class="panel-title" id="waitlistHeading">قائمة الانتظار</h2>
+                    <p class="panel-subtitle">طلبات التسجيل بانتظار المراجعة — الموافقة تُنشئ الحساب عبر دالة الحافة، والرفض يحدّث الحالة فقط.</p>
+                </div></div>
+                <div id="settingsWaitlist"><div class="skeleton skeleton-card"></div></div>
+            </section>
+            <p class="owner-sie-status ows-toast" id="pageStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
         </div>
     </main>
 

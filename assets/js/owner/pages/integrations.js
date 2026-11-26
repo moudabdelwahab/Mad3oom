@@ -9,12 +9,21 @@
  */
 import {
     supabase, bootOwnerPage, announce, esc, when, num, table, kpis, errorBlock, loadingBlock,
-    writeResult, friendlyError
+    writeResult, friendlyError, openModal
 } from '/assets/js/owner/owner-page.js';
 import { ROLE_LABELS, label, searchTerm } from '/assets/js/owner/owner-labels.js';
+import {
+    createServer, updateServer, deleteServer, saveCredentials, startOAuth, testServer
+} from '/mcp-service.js';
+import {
+    normalizeMcpServers, mcpStatusLabel, mcpStatusTone, MCP_TRANSPORT_LABELS, MCP_AUTH_LABELS,
+    canManageMcpServer, canTestMcpServer, credentialFields, validateServerForm
+} from '/assets/js/owner/owner-mcp-model.js';
 
 const $ = (id) => document.getElementById(id);
 let tokens = [];
+let mcpServers = [];
+let meId = null;
 const people = new Map();
 const say = (text, tone = 'info') => announce($('pageStatus'), text, tone);
 
@@ -100,7 +109,11 @@ async function setToken(token, active, btn) {
     btn.disabled = true;
     let result;
     try {
-        result = writeResult(await supabase.from('api_tokens').update(patch).eq('id', token.id).select('id'));
+        // إصلاح: كان `patch` غير معرّف إطلاقًا (ReferenceError عند كل نقرة إيقاف/تفعيل) —
+        // نفس حمولة toggleApiToken في mcp-service.js.
+        result = writeResult(await supabase.from('api_tokens')
+            .update({ is_active: active, revoked_at: active ? null : new Date().toISOString() })
+            .eq('id', token.id).select('id'));
     } catch (err) {
         result = { ok: false, message: friendlyError(err) };
     }
@@ -185,22 +198,317 @@ function renderKpis() {
     const live = tokens.filter(tokenLive).length;
     const usedWeek = tokens.filter(t => t.last_used_at && new Date(t.last_used_at) > new Date(Date.now() - 7 * 864e5)).length;
     const failing = platform.filter(i => i.is_active && i.last_test_status && !['success', 'ok'].includes(i.last_test_status)).length;
+    const mcpConnected = mcpServers.filter(s => s.status === 'connected').length;
     $('integrationsKpis').innerHTML = kpis([
         ['مفاتيح الواجهة البرمجية الفعّالة', num(live), 'kpi--success'],
         ['موقوفة أو منتهية', num(tokens.length - live), ''],
         ['استُخدمت خلال 7 أيام', num(usedWeek), 'kpi--info'],
         ['تكاملات المنصة المفعّلة', num(platform.filter(i => i.is_active).length), ''],
-        ['آخر اختبار فاشل', num(failing), failing ? 'kpi--danger' : '']
+        ['آخر اختبار فاشل', num(failing), failing ? 'kpi--danger' : ''],
+        ['خوادم MCP', num(mcpServers.length), ''],
+        ['خوادم MCP متصلة', num(mcpConnected), mcpConnected ? 'kpi--success' : '']
     ]);
 }
 
+/* ── خوادم MCP ─────────────────────────────────────────────────────────────
+   القراءة عبر owner_list_mcp_servers() (147): كل خوادم المنصة بلا أسرار.
+   الكتابة على التعريف مباشرة عبر mcp-service.js (سياسات 048: مالكه وحده)،
+   والاعتماد والاختبار وOAuth عبر دوال الحافة كما هي. */
+
+const MCP_MISSING = new Set(['PGRST202', '42883', 'PGRST404']);
+
+async function loadMcp() {
+    $('mcpTable').innerHTML = loadingBlock();
+    let data, error = null;
+    try {
+        ({ data, error } = await supabase.rpc('owner_list_mcp_servers'));
+    } catch (err) {
+        error = err;
+    }
+    if (error) {
+        $('mcpTable').innerHTML = errorBlock(MCP_MISSING.has(error.code) || error.status === 404
+            ? 'دالة owner_list_mcp_servers غير مطبّقة بعد (الترحيل 147).'
+            : friendlyError(error));
+        mcpServers = [];
+        renderKpis();
+        return;
+    }
+    mcpServers = normalizeMcpServers(data || [], meId);
+    await loadPeople(mcpServers.map(s => s.owner_id).filter(Boolean));
+    renderMcp();
+    renderKpis();
+}
+
+function renderMcp() {
+    const term = searchTerm($('mcpSearch').value).toLowerCase();
+    const state = $('mcpState').value;
+    const rows = mcpServers.filter(s => {
+        if (state === 'mine' && !s.mine) return false;
+        if (state && state !== 'mine' && s.status !== state) return false;
+        if (!term) return true;
+        return [s.name, s.url, s.description].some(v => String(v || '').toLowerCase().includes(term));
+    });
+    const box = $('mcpTable');
+    box.innerHTML = table(['الخادم', 'الناقل', 'المالك', 'الحالة', 'الأدوات', 'آخر فحص', ''], rows, s => {
+        const owner = people.get(s.owner_id);
+        const mine = canManageMcpServer(s, meId);
+        const tools = Array.isArray(s.tools) ? s.tools.filter(t => t.enabled !== false).length : 0;
+        return `<tr>
+            <td><div class="owner-account">
+                <span class="owner-account-name">${esc(s.name || '—')}</span>
+                <span class="owner-account-email owner-mono">${esc(s.url || s.command || '—')}</span>
+                ${s.description ? `<span class="owner-account-email">${esc(s.description)}</span>` : ''}
+            </div></td>
+            <td>${esc(MCP_TRANSPORT_LABELS[s.transport] || s.transport || '—')}</td>
+            <td>${esc(owner?.full_name || owner?.email || (mine ? 'أنت' : '—'))}</td>
+            <td><span class="pill ${mcpStatusTone(s.status)}">${esc(mcpStatusLabel(s.status))}</span>
+                ${s.last_error ? `<span class="owner-cell-muted">${esc(s.last_error)}</span>` : ''}</td>
+            <td>${esc(num(tools))}</td>
+            <td>${esc(when(s.last_checked_at))}</td>
+            <td><div class="owner-row-actions">
+                ${s.mine && s.connection_id ? `<button type="button" class="btn btn-outline btn-sm" data-mcp-test="${esc(s.id)}">اختبار</button>` : ''}
+                ${mine ? `<button type="button" class="btn btn-outline btn-sm" data-mcp-creds="${esc(s.id)}">بيانات الاعتماد (${esc(MCP_AUTH_LABELS[s.auth_type] || s.auth_type)})</button>` : `<span class="owner-cell-muted">${esc(MCP_AUTH_LABELS[s.auth_type] || s.auth_type || '—')}</span>`}
+                ${mine ? `<button type="button" class="btn btn-outline btn-sm" data-mcp-edit="${esc(s.id)}">تعديل</button>` : ''}
+                ${mine ? `<button type="button" class="btn btn-outline btn-sm" data-mcp-toggle="${esc(s.id)}" data-enabled="${s.enabled ? 'false' : 'true'}">${s.enabled ? 'تعطيل' : 'تفعيل'}</button>` : ''}
+                ${mine ? `<button type="button" class="btn btn-outline btn-sm" data-mcp-del="${esc(s.id)}">حذف</button>` : ''}
+            </div></td>
+        </tr>`;
+    }, { empty: mcpServers.length ? 'لا خوادم مطابقة.' : 'لا خوادم MCP على المنصة بعد.' });
+
+    box.querySelectorAll('[data-mcp-test]').forEach(b => b.addEventListener('click', async () => {
+        const server = mcpServers.find(s => s.id === b.dataset.mcpTest);
+        if (!server || !canTestMcpServer(server)) return;
+        b.disabled = true;
+        say('جارٍ اختبار الاتصال…');
+        try {
+            const result = await testServer(server.id);
+            say(result?.ok ? `نجح اختبار «${server.name}» — ${result.tools ?? 0} أداة.` : `فشل اختبار «${server.name}»: ${result?.message || 'تعذّر الاتصال'}.`, result?.ok ? 'success' : 'error');
+        } catch (err) {
+            say(`فشل اختبار «${server.name}»: ${friendlyError(err)}`, 'error');
+        } finally {
+            b.disabled = false;
+            loadMcp();
+        }
+    }));
+    box.querySelectorAll('[data-mcp-creds]').forEach(b => b.addEventListener('click', () => {
+        const server = mcpServers.find(s => s.id === b.dataset.mcpCreds);
+        if (server) openCredentialsModal(server);
+    }));
+    box.querySelectorAll('[data-mcp-edit]').forEach(b => b.addEventListener('click', () => {
+        const server = mcpServers.find(s => s.id === b.dataset.mcpEdit);
+        if (server) openServerModal(server);
+    }));
+    box.querySelectorAll('[data-mcp-toggle]').forEach(b => b.addEventListener('click', async () => {
+        const server = mcpServers.find(s => s.id === b.dataset.mcpToggle);
+        if (!server) return;
+        b.disabled = true;
+        try {
+            await updateServer(server.id, { enabled: b.dataset.enabled === 'true' });
+            say(b.dataset.enabled === 'true' ? `تم تفعيل «${server.name}».` : `تم تعطيل «${server.name}».`, 'success');
+        } catch (err) {
+            say(friendlyError(err), 'error');
+        } finally {
+            b.disabled = false;
+            loadMcp();
+        }
+    }));
+    box.querySelectorAll('[data-mcp-del]').forEach(b => b.addEventListener('click', async () => {
+        const server = mcpServers.find(s => s.id === b.dataset.mcpDel);
+        if (!server) return;
+        if (!window.confirm(`حذف خادم «${server.name}» نهائيًا؟ بيانات اعتماده واتصاله تُحذف معه.`)) return;
+        b.disabled = true;
+        try {
+            await deleteServer(server.id);
+            say(`تم حذف «${server.name}».`, 'success');
+        } catch (err) {
+            say(friendlyError(err), 'error');
+        } finally {
+            b.disabled = false;
+            loadMcp();
+        }
+    }));
+}
+
+/** نافذة إضافة/تعديل تعريف خادم — حقول normalizePayload في mcp-service.js، بلا أسرار. */
+function openServerModal(server) {
+    const isNew = !server;
+    const { body, close } = openModal({
+        title: isNew ? 'إضافة خادم MCP' : `تعديل خادم «${server.name}»`, wide: true
+    });
+    body.innerHTML = `
+        <form id="mcpServerForm" novalidate>
+            <label for="mcpName">اسم الخادم</label>
+            <input class="form-control" id="mcpName" type="text" maxlength="120" value="${esc(server?.name || '')}" dir="auto">
+            <label for="mcpTransport">نوع النقل</label>
+            <select class="form-control" id="mcpTransport">
+                ${Object.entries(MCP_TRANSPORT_LABELS).map(([v, l]) => `<option value="${esc(v)}" ${server?.transport === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}
+            </select>
+            <label for="mcpType">نوع الموصّل</label>
+            <select class="form-control" id="mcpType">
+                <option value="mcp_server" ${server?.connector_type !== 'oauth_connector' ? 'selected' : ''}>خادم MCP (JSON-RPC)</option>
+                <option value="oauth_connector" ${server?.connector_type === 'oauth_connector' ? 'selected' : ''}>موصّل OAuth فقط (بلا استدعاء MCP)</option>
+            </select>
+            <label for="mcpUrl">عنوان URL (لغير stdio)</label>
+            <input class="form-control" id="mcpUrl" type="url" dir="ltr" value="${esc(server?.url || '')}" placeholder="https://…">
+            <label for="mcpCommand">أمر التشغيل (stdio)</label>
+            <input class="form-control" id="mcpCommand" type="text" dir="ltr" value="${esc(server?.command || '')}">
+            <label for="mcpDesc">الوصف</label>
+            <input class="form-control" id="mcpDesc" type="text" maxlength="300" value="${esc(server?.description || '')}" dir="auto">
+            <label for="mcpCategory">الفئة</label>
+            <input class="form-control" id="mcpCategory" type="text" maxlength="60" value="${esc(server?.category || 'general')}" dir="auto">
+            <p class="state-text" id="mcpServerError" role="alert" style="color: var(--color-danger, #c0392b)" hidden></p>
+            <div class="owner-row-actions">
+                <button type="submit" class="btn btn-primary" id="mcpServerSave">${isNew ? 'إضافة الخادم' : 'حفظ التعديل'}</button>
+                <button type="button" class="btn btn-outline" data-mcp-cancel>إلغاء</button>
+            </div>
+        </form>`;
+    const errorEl = body.querySelector('#mcpServerError');
+    body.querySelector('[data-mcp-cancel]').addEventListener('click', close);
+    body.querySelector('#mcpServerForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errorEl.hidden = true;
+        const payload = {
+            name: body.querySelector('#mcpName').value.trim(),
+            transport: body.querySelector('#mcpTransport').value,
+            connector_type: body.querySelector('#mcpType').value,
+            url: body.querySelector('#mcpUrl').value.trim(),
+            command: body.querySelector('#mcpCommand').value.trim(),
+            description: body.querySelector('#mcpDesc').value.trim(),
+            category: body.querySelector('#mcpCategory').value.trim() || 'general'
+        };
+        const check = validateServerForm(payload);
+        if (!check.ok) { errorEl.textContent = check.error; errorEl.hidden = false; return; }
+        const submit = body.querySelector('#mcpServerSave');
+        submit.disabled = true;
+        try {
+            const saved = isNew ? await createServer(payload) : await updateServer(server.id, payload);
+            close();
+            say(isNew ? `تمت إضافة «${saved.name}» — أضف بيانات اعتماده الآن.` : `تم حفظ «${saved.name}».`, 'success');
+            await loadMcp();
+            if (isNew) {
+                const fresh = mcpServers.find(s => s.id === saved.id);
+                if (fresh) openCredentialsModal(fresh);
+            }
+        } catch (err) {
+            errorEl.textContent = friendlyError(err);
+            errorEl.hidden = false;
+        } finally {
+            submit.disabled = false;
+        }
+    });
+}
+
+/** نافذة بيانات الاعتماد — تُرسَل مرة واحدة إلى save-mcp-credentials ولا تُقرأ أبدًا. */
+function openCredentialsModal(server) {
+    const { body, close } = openModal({ title: `بيانات اعتماد «${server.name}»`, wide: true });
+    const renderFields = (authType) => {
+        const fields = credentialFields(authType);
+        body.querySelector('#mcpCredFields').innerHTML = fields.map(f => `
+            <label for="mcpCred-${esc(f.key)}">${esc(f.label)}</label>
+            ${f.type === 'textarea'
+                ? `<textarea class="form-control" id="mcpCred-${esc(f.key)}" rows="4" dir="ltr" placeholder='{"Header": "value"}'></textarea>`
+                : `<input class="form-control" id="mcpCred-${esc(f.key)}" type="${esc(f.type)}" dir="ltr" ${f.required ? 'required' : ''}>`}
+        `).join('');
+        body.querySelector('#mcpOauthStart').hidden = authType !== 'oauth2';
+    };
+    body.innerHTML = `
+        <form id="mcpCredForm" novalidate>
+            <p class="state-text">الأسرار تُشفَّر في الدالة الطرفية ولا تظهر هنا بعد الحفظ — حقل سر فارغ يعني «كما هو».</p>
+            <label for="mcpAuthType">نوع المصادقة</label>
+            <select class="form-control" id="mcpAuthType">
+                ${Object.entries(MCP_AUTH_LABELS).map(([v, l]) => `<option value="${esc(v)}" ${server.auth_type === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}
+            </select>
+            <div id="mcpCredFields"></div>
+            <p class="state-text" id="mcpCredError" role="alert" style="color: var(--color-danger, #c0392b)" hidden></p>
+            <p class="state-text" id="mcpCredDone" role="status" hidden></p>
+            <div class="owner-row-actions">
+                <button type="submit" class="btn btn-primary" id="mcpCredSave">حفظ بيانات الاعتماد</button>
+                <button type="button" class="btn btn-outline" id="mcpOauthStart" hidden>بدء ربط OAuth</button>
+                <button type="button" class="btn btn-outline" id="mcpTestAfter">اختبار الاتصال</button>
+                <button type="button" class="btn btn-outline" data-mcp-cancel>إغلاق</button>
+            </div>
+        </form>`;
+    const errorEl = body.querySelector('#mcpCredError');
+    const doneEl = body.querySelector('#mcpCredDone');
+    renderFields(server.auth_type || 'none');
+    body.querySelector('#mcpAuthType').addEventListener('change', (e) => renderFields(e.target.value));
+    body.querySelector('[data-mcp-cancel]').addEventListener('click', close);
+    body.querySelector('#mcpCredForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errorEl.hidden = true;
+        doneEl.hidden = true;
+        const authType = body.querySelector('#mcpAuthType').value;
+        const payload = { auth_type: authType };
+        for (const f of credentialFields(authType)) {
+            const el = body.querySelector(`#mcpCred-${f.key}`);
+            const value = el?.value.trim() || '';
+            if (f.required && !value) {
+                errorEl.textContent = `${f.label} مطلوب.`;
+                errorEl.hidden = false;
+                return;
+            }
+            if (value) payload[f.key] = value;
+        }
+        const submit = body.querySelector('#mcpCredSave');
+        submit.disabled = true;
+        try {
+            await saveCredentials(server.id, payload);
+            doneEl.textContent = 'تم حفظ بيانات الاعتماد.';
+            doneEl.hidden = false;
+            say(`تم حفظ بيانات اعتماد «${server.name}».`, 'success');
+            await loadMcp();
+        } catch (err) {
+            errorEl.textContent = friendlyError(err);
+            errorEl.hidden = false;
+        } finally {
+            submit.disabled = false;
+        }
+    });
+    body.querySelector('#mcpOauthStart').addEventListener('click', async (e) => {
+        e.currentTarget.disabled = true;
+        try {
+            const data = await startOAuth(server.id);
+            if (data?.authorize_url) location.href = data.authorize_url;
+            else { errorEl.textContent = 'لم يرجع مزود OAuth رابط تفويض.'; errorEl.hidden = false; }
+        } catch (err) {
+            errorEl.textContent = friendlyError(err);
+            errorEl.hidden = false;
+        } finally {
+            e.currentTarget.disabled = false;
+        }
+    });
+    body.querySelector('#mcpTestAfter').addEventListener('click', async (e) => {
+        e.currentTarget.disabled = true;
+        try {
+            const result = await testServer(server.id);
+            doneEl.textContent = result?.ok
+                ? `نجح الاختبار — ${result.tools ?? 0} أداة.`
+                : `فشل الاختبار: ${result?.message || 'تعذّر الاتصال'}.`;
+            doneEl.hidden = false;
+            await loadMcp();
+        } catch (err) {
+            errorEl.textContent = friendlyError(err);
+            errorEl.hidden = false;
+        } finally {
+            e.currentTarget.disabled = false;
+        }
+    });
+}
+
 (async function init() {
-    if (!await bootOwnerPage()) return;
+    const boot = await bootOwnerPage();
+    if (!boot) return;
+    meId = boot.session?.user?.id || null;
     $('tokensFilters').addEventListener('submit', (e) => { e.preventDefault(); renderTokens(); });
     $('tokensSearch').addEventListener('input', renderTokens);
     $('tokensState').addEventListener('change', renderTokens);
-    $('integrationsRefresh').addEventListener('click', () => { loadTokens(); loadPlatform(); loadUsage(); });
+    $('mcpFilters').addEventListener('submit', (e) => { e.preventDefault(); renderMcp(); });
+    $('mcpSearch').addEventListener('input', renderMcp);
+    $('mcpState').addEventListener('change', renderMcp);
+    $('mcpAdd').addEventListener('click', () => openServerModal(null));
+    $('integrationsRefresh').addEventListener('click', () => { loadTokens(); loadPlatform(); loadUsage(); loadMcp(); });
     loadTokens();
     loadPlatform();
     loadUsage();
+    loadMcp();
 })();

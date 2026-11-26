@@ -37,6 +37,7 @@ import {
 } from '/assets/js/owner/accounts-tree-model.js';
 import { TICKET_STATUS_LABELS, TICKET_STATUS_TONES } from '/assets/js/owner/owner-labels.js';
 import { ensureStepUp } from '/assets/js/security/step-up-modal.js';
+import { lookupOwnerUser, openOwnerUserActions } from '/assets/js/owner/owner-user-actions.js';
 
 const $ = (id) => document.getElementById(id);
 const MISSING = new Set(['PGRST202', '42883', 'PGRST404']);
@@ -234,7 +235,7 @@ function renderDetail() {
             </li>`).join('')}</ul>`
             : '<p class="panel-subtitle">لا أعضاء ولا عملاء في هذه الشركة.</p>');
         html += detailSection('سجل تدقيق الشركة', eventsList(d.events));
-        html += '<p class="panel-subtitle"><a href="/admin/customers.html">دليل العملاء في مساحة الإدارة</a> · <a href="/owner/subscriptions.html">اشتراكات المنصة</a></p>';
+        html += '<p class="panel-subtitle"><a href="/owner/customers.html">دليل العملاء في لوحة المالك</a> · <a href="/owner/subscriptions.html">اشتراكات المنصة</a></p>';
     } else if (node.type === 'person') {
         html += detailActions(node);
         const sub = node.data.subscription;
@@ -265,7 +266,7 @@ function renderDetail() {
             </li>`).join('')}</ul>`);
         }
         html += '<div id="acctFullDetail"><p class="panel-subtitle">جارٍ إكمال التفاصيل الكاملة…</p></div>';
-        html += '<p class="panel-subtitle"><a href="/admin/customers.html">دليل العملاء في مساحة الإدارة</a></p>';
+        html += '<p class="panel-subtitle"><a href="/owner/customers.html">دليل العملاء في لوحة المالك</a></p>';
         box.innerHTML = html;
         loadFullDetail(node);
         return;
@@ -291,6 +292,8 @@ function detailActions(node) {
             acts.push('<button type="button" class="btn btn-outline btn-sm" data-action="transfer">نقل إلى شركة أخرى</button>');
         }
         acts.push('<button type="button" class="btn btn-outline btn-sm" data-action="edit-profile">تعديل الاسم والجوال</button>');
+        // إجراءات المالك الأصلية على الحساب: رتبة/حظر/نقاط/تجميد عبر دوال 147 — بلا تقمّص وبلا تعديل باقة.
+        acts.push('<button type="button" class="btn btn-outline btn-sm" data-action="user-actions">إجراءات الحساب</button>');
     }
     return acts.length ? `<div class="owner-row-actions" style="margin-bottom:12px">${acts.join('')}</div>` : '';
 }
@@ -334,7 +337,7 @@ async function loadLegacyDetail(node, slot) {
         error = err;
     }
     if (error || !data) {
-        slot.innerHTML = '<p class="panel-subtitle">تعذّر إكمال السجل من دليل العملاء في هذا السياق — البيانات أعلاه من شجرة الحسابات، والتفاصيل الكاملة (السجل والطلبات) في <a href="/admin/customers.html">دليل العملاء</a>.</p>';
+        slot.innerHTML = '<p class="panel-subtitle">تعذّر إكمال السجل من دليل العملاء في هذا السياق — البيانات أعلاه من شجرة الحسابات، والتفاصيل الكاملة (السجل والطلبات) في <a href="/owner/customers.html">دليل العملاء</a>.</p>';
         return;
     }
     legacyCache.set(node.id, data);
@@ -468,6 +471,13 @@ function openTransferDialog(node) {
             submit.disabled = false;
         }
     });
+}
+
+/** إجراءات المالك الأصلية على الشخص: رتبة/حظر/نقاط/تجميد عبر دوال 147 — تُفتح ببيانات محدّثة، لا ببيانات الشجرة. */
+async function openUserActionsDialog(node) {
+    const found = await lookupOwnerUser(supabase, node.id);
+    if (found.error) { say(found.error, 'error'); return; }
+    openOwnerUserActions({ client: supabase, user: found.user, frozen: found.frozen, onDone: load });
 }
 
 /** حوار تعديل الاسم والجوال: البريد والرتبة قراءة فقط مع سبب المنع. */
@@ -617,6 +627,7 @@ function selectNode(key) {
         if (!node) return;
         if (btn.dataset.action === 'transfer') openTransferDialog(node);
         if (btn.dataset.action === 'edit-profile') openEditDialog(node);
+        if (btn.dataset.action === 'user-actions') openUserActionsDialog(node);
     });
     $('acctExpandAll').addEventListener('click', () => { collapsed = new Set(); saveCollapsed(window.localStorage, collapsed); renderTree(); });
     $('acctCollapseAll').addEventListener('click', () => {

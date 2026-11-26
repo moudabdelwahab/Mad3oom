@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>دليل العملاء - لوحة المالك - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-workspace.css">
+    <link rel="stylesheet" href="/assets/css/portal-notifications.css">
+    <link rel="stylesheet" href="/assets/css/owner-pages.css">
+    <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في لوحة المالك — الثيم وحالة الطي قبل أول رسم. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body class="customer-shell owner-shell dash-layout" data-owner-page="customers">
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main" id="ownerMain">
+        <!-- بوابة العرض: سبب المنع بدل صفحة فارغة. القرار الحقيقي في القاعدة (owner_capability('owner_only')). -->
+        <section class="panel" id="ownerGate" hidden>
+            <div class="state-block" id="ownerGateBody"></div>
+        </section>
+
+        <div id="ownerContent" hidden>
+            <header class="owner-banner owner-page-banner">
+                <div class="owner-banner-main">
+                    <span class="owner-level-tag">لوحة المالك · الحوكمة</span>
+                    <h1 class="owner-title">دليل العملاء</h1>
+                    <p class="owner-meta">كل عملاء المنصة والشركات في صفحة واحدة — البحث والفلاتر والترتيب والصفحات
+                        على الخادم، والتفاصيل الكاملة وإسناد مدير الحساب من هنا. مدير الحساب مسؤولية متابعة،
+                        لا صلاحية اطلاع على بيانات العميل.</p>
+                </div>
+                <div class="owner-banner-side">
+                    <a class="btn btn-outline btn-sm owner-crumb" href="/owner-dashboard.html#governance">حوكمة الشركات</a>
+                    <button type="button" class="btn btn-outline btn-sm" id="cmRefresh">تحديث</button>
+                </div>
+            </header>
+            <div class="kpi-grid" id="cmKpis" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+
+            <div class="owner-page-stack">
+                <section class="panel" aria-labelledby="cmHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="cmHeading">العملاء</h2>
+                        <p class="panel-subtitle">لا تقرأ هذه الصفحة أي جدول مباشرةً: كل صفحة نتائج تأتي من
+                            <span dir="ltr">admin_customer_directory</span> على الخادم.</p>
+                    </div></div>
+                    <div class="view-tabs" id="cmViews" role="tablist" aria-label="طرق عرض العملاء"></div>
+                    <form class="toolbar owner-filters" id="cmFilters" role="search" novalidate>
+                        <label class="visually-hidden" for="cmSearch">ابحث بالاسم أو البريد</label>
+                        <input type="search" class="form-control owner-filter-search" id="cmSearch" placeholder="ابحث بالاسم أو البريد…" autocomplete="off" maxlength="100">
+                        <label class="visually-hidden" for="cmType">نوع الحساب</label>
+                        <select class="form-control owner-filter-select" id="cmType">
+                            <option value="">كل الأنواع</option>
+                        </select>
+                        <label class="visually-hidden" for="cmCompany">الشركة</label>
+                        <select class="form-control owner-filter-select" id="cmCompany">
+                            <option value="">كل الشركات</option>
+                        </select>
+                        <label class="visually-hidden" for="cmManager">مدير الحساب</label>
+                        <select class="form-control owner-filter-select" id="cmManager">
+                            <option value="">كل مديري الحساب</option>
+                        </select>
+                        <label class="visually-hidden" for="cmStatus">الحالة</label>
+                        <select class="form-control owner-filter-select" id="cmStatus">
+                            <option value="">كل الحالات</option>
+                            <option value="active">نشط</option>
+                            <option value="suspended">موقوف</option>
+                        </select>
+                        <label class="visually-hidden" for="cmSort">الترتيب</label>
+                        <select class="form-control owner-filter-select" id="cmSort"></select>
+                        <label class="visually-hidden" for="cmPageSize">حجم الصفحة</label>
+                        <select class="form-control owner-filter-select" id="cmPageSize"></select>
+                    </form>
+                    <div id="cmTable" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                    <div id="cmPager"></div>
+                </section>
+            </div>
+
+            <details class="owner-limits">
+                <summary>ما لا تفعله هذه الصفحة</summary>
+                <ul>
+                    <li>لا ترسل طلب حساب جديدًا من هنا: طلبات الإضافة والنقل تُراجَع وتُقرَّر في <a href="/owner/account-requests.html">صفحة طلبات الحسابات</a>، لا تُنشأ من الدليل.</li>
+                    <li>لا تمنح مدير الحساب أي اطلاع: الإسناد مسؤولية متابعة فقط، وبيانات العميل ومحادثاته لا تصل للمدير بالإسناد.</li>
+                    <li>لا تعدّل بريدًا ولا رتبةً: التعديل الآمن (الاسم والجوال) من <a href="/owner/accounts.html">شجرة الحسابات</a>.</li>
+                </ul>
+            </details>
+            <p class="owner-sie-status ows-toast" id="pageStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
+        </div>
+    </main>
+
+    <script type="module" src="/assets/js/owner/pages/customers.js"></script>
+</body>
+</html>

@@ -60,7 +60,7 @@
                 <div class="owner-banner-side">
                     <a class="btn btn-outline btn-sm owner-crumb" href="/owner-dashboard.html#overview">لوحة المالك</a>
                     <button type="button" class="btn btn-outline btn-sm" id="integrationsRefresh">تحديث</button>
-                    <a class="btn btn-outline btn-sm" href="/admin/mcp.html">إعداد التكاملات</a>
+                    <a class="btn btn-outline btn-sm" href="#mcp">خوادم MCP</a>
                 </div>
             </header>
             <div class="kpi-grid" id="integrationsKpis" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
@@ -99,12 +99,35 @@
                     </div></div>
                     <div id="usageTable" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
                 </section>
+                <section class="panel" id="mcp" aria-labelledby="mcpHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="mcpHeading">خوادم MCP</h2>
+                        <p class="panel-subtitle">كل خوادم MCP على المنصة بلا أسرار: الإضافة والتعديل والاختبار وبيانات الاعتماد لخوادمك أنت، وخوادم الآخرين قراءة فقط (ملكيتها في سياسات 048).</p>
+                    </div>
+                    <div class="panel-head-actions">
+                        <button type="button" class="btn btn-primary btn-sm" id="mcpAdd">إضافة خادم</button>
+                    </div></div>
+                    <form class="toolbar owner-filters" id="mcpFilters" role="search" novalidate>
+                        <label class="visually-hidden" for="mcpSearch">ابحث باسم الخادم أو عنوانه</label>
+                        <input type="search" class="form-control owner-filter-search" id="mcpSearch" placeholder="ابحث باسم الخادم أو عنوانه…" autocomplete="off" maxlength="100">
+                        <label class="visually-hidden" for="mcpState">الحالة</label>
+                        <select class="form-control owner-filter-select" id="mcpState">
+                            <option value="">كل الخوادم</option>
+                            <option value="connected">متصلة</option>
+                            <option value="disconnected">غير متصلة</option>
+                            <option value="error">بها خطأ</option>
+                            <option value="pending">بانتظار الربط</option>
+                            <option value="mine">خوادمي فقط</option>
+                        </select>
+                    </form>
+                    <div id="mcpTable" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                </section>
             </div>
 
                 <details class="owner-limits">
                     <summary>ما يبقى حصريًا للإدارة في هذه الصفحة</summary>
                     <ul>
-                        <li>إضافة تكامل أو تعديل بيانات اعتماده واختبار الاتصال وخوادم MCP: في <a href="/admin/mcp.html">إعداد التكاملات</a> — الكتابة تمرّ بدوال طرفية تشفّر الاعتماد بمفتاح الخدمة.</li>
+                        <li>إضافة خادم MCP أو تعديل بيانات اعتماده واختبار الاتصال: في قسم «خوادم MCP» في هذه الصفحة — الكتابة تمرّ بدوال طرفية تشفّر الاعتماد بمفتاح الخدمة، والأسرار لا تُقرأ من هنا أبدًا.</li>
                         <li>إنشاء مفتاح واجهة برمجية أو تجديد سرّه: لصاحب الحساب نفسه عبر create-api-token وregenerate-api-token-secret؛ لا يُنشأ مفتاح باسم حساب آخر.</li>
                     </ul>
                 </details>

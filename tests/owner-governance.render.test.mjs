@@ -394,7 +394,24 @@ test('الإشعارات (خالصة): الرابط إلى قسم في لوحة 
     const o = 'https://mad3oom.com';
     assert.deepEqual(ownerNotifs.ownerDestinationFor({ link: '/owner-dashboard.html#governance' }, o, sections), { kind: 'section', section: 'governance' });
     assert.deepEqual(ownerNotifs.ownerDestinationFor({ link: 'https://mad3oom.com/owner-dashboard.html#nope' }, o, sections), { kind: 'section', section: 'overview' });
-    assert.deepEqual(ownerNotifs.ownerDestinationFor({ link: '/admin/account-requests.html' }, o, sections), { kind: 'href', href: '/admin/account-requests.html' });
+    // روابط الإدارة لا تُتبَع من لوحة المالك: ما له مقابل أصيل يُعاد توجيهه إليه،
+    // وما بلا مقابل يعود لقسم الإشعارات مع تنبيه يفسّر (F4).
+    assert.deepEqual(ownerNotifs.ownerDestinationFor({ link: '/admin/account-requests.html' }, o, sections),
+        { kind: 'href', href: '/owner/account-requests.html' });
+    assert.deepEqual(ownerNotifs.ownerDestinationFor({ link: '/admin/tickets.html?ticket_id=11111111-1111-4111-8111-111111111111' }, o, sections),
+        { kind: 'href', href: '/owner/tickets.html?ticket=11111111-1111-4111-8111-111111111111' });
+    assert.deepEqual(ownerNotifs.ownerDestinationFor({ link: '/admin/settings.html#webhooks' }, o, sections),
+        { kind: 'href', href: '/owner/settings.html#webhooks' });
+    assert.deepEqual(ownerNotifs.ownerDestinationFor({ link: '/admin/settings.html#api-keys' }, o, sections),
+        { kind: 'href', href: '/owner/settings.html' });
+    assert.deepEqual(ownerNotifs.ownerDestinationFor({ link: '/admin/continuity.html?record=22222222-2222-4222-8222-222222222222' }, o, sections),
+        { kind: 'section', section: 'notifications', notice: 'تذكير استمرارية بلا صفحة أصيلة في لوحة المالك بعد — بقيت في الإشعارات.' });
+    assert.deepEqual(ownerNotifs.ownerDestinationFor({ link: '/admin/suggestions.html' }, o, sections),
+        { kind: 'section', section: 'notifications', notice: 'صفحة الاقتراحات ليس لها مقابل أصيل في لوحة المالك بعد — بقيت في الإشعارات.' });
+    assert.deepEqual(ownerNotifs.ownerDestinationFor({ link: '/admin/unknown-page.html' }, o, sections),
+        { kind: 'section', section: 'notifications', notice: 'هذه الصفحة من لوحة الإدارة وليس لها مقابل في لوحة المالك بعد.' });
+    assert.deepEqual(ownerNotifs.ownerDestinationFor({ link: '/owner/tickets.html' }, o, sections),
+        { kind: 'href', href: '/owner/tickets.html' });
     for (const link of ['https://evil.test/x', 'javascript:alert(1)', '//evil.test', null, '']) {
         assert.deepEqual(ownerNotifs.ownerDestinationFor({ link }, o, sections), { kind: 'none' }, String(link));
     }
