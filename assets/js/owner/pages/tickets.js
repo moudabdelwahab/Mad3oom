@@ -15,6 +15,7 @@ import {
     supabase, bootOwnerPage, announce, esc, when, num, table, kpis, errorBlock, loadingBlock,
     openModal, writeResult, friendlyError, renderPager
 } from '/assets/js/owner/owner-page.js';
+import { initEmpActivity } from '/assets/js/emp-activity.js';
 import {
     TICKET_STATUS_LABELS, TICKET_STATUS_TONES, PRIORITY_LABELS, SCOPE_LABELS, STAFF_ROLES, label,
     searchTerm, pageRange, pagerText
@@ -319,6 +320,8 @@ async function openTicket(id) {
     const ctx = await bootOwnerPage();
     if (!ctx) return;
     me = ctx.session.user.id;
+    // تتبّع نشاط موظفي مدعوم (emp_ops) — best-effort؛ أي فشل فيه لا يوقف الصفحة.
+    initEmpActivity({ supabase });
 
     await Promise.all([loadStaff(), loadCompanies()]);
     $('ticketsFilters').addEventListener('submit', (e) => { e.preventDefault(); page = 0; loadTickets(); });

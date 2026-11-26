@@ -14,6 +14,7 @@
 // مفيش هنا أي منطق مكرر لحاجة ليها وحدة فوق — الملف ده تنسيق ورسم فقط.
 import { mountAccountSettings } from './assets/js/account/account-settings.js';
 import { guardPage } from './assets/js/page-guard.js';
+import { initEmpActivity } from './assets/js/emp-activity.js';
 import { isAccountRestricted } from './assets/js/account-status.js';
 import {
     initCustomerSidebar,
@@ -180,6 +181,10 @@ function meter(percent, tone = '') {
 
     const isGuest = user.isGuest || false;
     const isImpersonated = !!user.isImpersonated;
+
+    // تتبّع نشاط موظفي مدعوم (emp_ops) — best-effort؛ أي فشل فيه لا يوقف الصفحة.
+    // الضيف بلا جلسة أصلًا (الخادم سيرفضه بـ EO401)، فنتخطاه من الأساس.
+    if (!isGuest) initEmpActivity();
 
     const settings = await getPlatformSettings();
     const cx = settings.customer_experience;

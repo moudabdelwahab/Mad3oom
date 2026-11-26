@@ -26,6 +26,7 @@
  */
 import { initSidebar } from './sidebar.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
+import { initEmpActivity, trackEmpActivity } from '/assets/js/emp-activity.js';
 import { platformAuthority } from '/assets/js/platform-authority.js';
 import { iconize } from '/assets/js/chat-icons.js';
 import {
@@ -1225,6 +1226,8 @@ async function send() {
             const wanted = extractMentions(text, state.agents);
             const note = await addNote(session.id, text, wanted);
             upsertNote(note);
+            // نشاط موظف (emp_ops) — best-effort، وبلا أثر إن لم تكن الصفحة مهيأة.
+            trackEmpActivity('ticket_note', { entityType: 'chat_session', entityId: session.id });
             const dropped = wanted.filter((id) => !(note?.mentions || []).includes(id));
             if (dropped.length) {
                 toast(`${dropped.map((id) => agentName(id)).join('، ')} مش واصل للمحادثة دي، فماوصلوش إشعار.`, 'err');
@@ -1251,6 +1254,8 @@ async function send() {
             if (attachment) discardPending();
             session.is_manual_mode = true;
             addMessage(row);
+            // نشاط موظف (emp_ops) — best-effort، وبلا أثر إن لم تكن الصفحة مهيأة.
+            trackEmpActivity('chat_reply', { entityType: 'chat_session', entityId: session.id });
             if (session.meta?.archived_at) session.meta = { ...session.meta, archived_at: null, archived_by: null };
         }
         input.value = '';
@@ -1903,6 +1908,8 @@ async function boot() {
     const user = await checkAdminAuth();
     if (!user) { reportUnavailable('forbidden'); return; }
     updateAdminUI(user);
+    // تتبّع نشاط موظفي مدعوم (emp_ops) — best-effort؛ أي فشل فيه لا يوقف الصفحة.
+    initEmpActivity();
     state.me = user;
     // إنشاء الوسوم: سياسة ticket_tags ← is_admin() (117) — الأدمن، أو المالك في سياقه
     state.isAdmin = (await platformAuthority()).isAdmin;

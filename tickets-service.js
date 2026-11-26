@@ -1,6 +1,7 @@
 import { supabase } from './api-config.js';
 import { signedUrl, signedUrls, SIGNED_URL_TTL } from './storage-urls.js';
 import { logActivity } from './activity-service.js';
+import { trackEmpActivity } from '/assets/js/emp-activity.js';
 import { createNotification } from './notifications-service.js';
 import { platformAuthority, resetPlatformAuthority } from '/assets/js/platform-authority.js';
 
@@ -191,6 +192,8 @@ export async function createTicket({ title, description, priority, category = nu
     }
 
     await logActivity('ticket_create', { ticket_id: data.id });
+    // نشاط موظف (emp_ops) — best-effort، وبلا أثر إن لم تكن الصفحة مهيأة.
+    trackEmpActivity('ticket_open', { entityType: 'ticket', entityId: data.id });
     
     console.log('Ticket created successfully:', data.id);
     return data;
@@ -296,6 +299,8 @@ export async function updateTicketStatus(ticketId, status) {
     }
 
     await logActivity('ticket_status_update', { ticket_id: ticketId, status });
+    // نشاط موظف (emp_ops) — best-effort، وبلا أثر إن لم تكن الصفحة مهيأة.
+    trackEmpActivity('ticket_status', { entityType: 'ticket', entityId: ticketId, metadata: { to: status } });
 }
 
 /**
@@ -374,6 +379,8 @@ export async function updateTicketAssignee(ticketId, agentId) {
     }
 
     await logActivity('ticket_assignee_update', { ticket_id: ticketId, assigned_to: agentId });
+    // نشاط موظف (emp_ops) — best-effort، وبلا أثر إن لم تكن الصفحة مهيأة.
+    trackEmpActivity('ticket_assign', { entityType: 'ticket', entityId: ticketId, metadata: { assigned_to: agentId } });
 }
 
 /**
@@ -638,6 +645,8 @@ export async function addTicketReply(ticketId, message, isInternal = false, { au
     }
     
     await logActivity('ticket_reply', { ticket_id: ticketId, is_internal: isInternal });
+    // نشاط موظف (emp_ops) — best-effort، وبلا أثر إن لم تكن الصفحة مهيأة.
+    trackEmpActivity('ticket_reply', { entityType: 'ticket', entityId: ticketId });
 }
 
 /**

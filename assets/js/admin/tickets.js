@@ -1,5 +1,6 @@
 import { supabase } from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
+import { initEmpActivity } from '/assets/js/emp-activity.js';
 import { initSidebar } from './sidebar.js';
 import {
     subscribeToTickets, subscribeToTicketReplies, updateTicketStatus, updateTicketPriority,
@@ -155,6 +156,8 @@ async function init() {
     isStaffRole = ['admin', 'support'].includes(user.profile?.role) || isOwner;
 
     updateAdminUI(user);
+    // تتبّع نشاط موظفي مدعوم (emp_ops) — best-effort؛ أي فشل فيه لا يوقف الصفحة.
+    initEmpActivity({ supabase });
     applyRolePermissions();
     fillStaticIcons();
 

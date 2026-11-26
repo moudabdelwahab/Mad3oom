@@ -1,5 +1,6 @@
 import { supabase } from '/api-config.js';
 import { checkAdminAuth, updateAdminUI } from './auth.js';
+import { initEmpActivity } from '/assets/js/emp-activity.js';
 import { initSidebar } from './sidebar.js';
 import { debounce } from './admin-utils.js';
 import { computeResponseRate } from './dashboard-stats-model.js';
@@ -14,6 +15,8 @@ async function init() {
     if (!user) return; 
     
     updateAdminUI(user);
+    // تتبّع نشاط موظفي مدعوم (emp_ops) — best-effort؛ أي فشل فيه لا يوقف الصفحة.
+    initEmpActivity({ supabase });
     
     // تحميل جميع الإحصائيات
     await loadAllStats();

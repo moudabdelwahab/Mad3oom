@@ -13,6 +13,7 @@
  */
 
 import { guardPage } from '/assets/js/page-guard.js';
+import { initEmpActivity } from '/assets/js/emp-activity.js';
 import { initCompanyShell, setActiveSidebarTab } from '/assets/js/customer-sidebar.js';
 import { createTicketStream } from '/assets/js/company/company-tickets.js';
 import { initCompanySupport, loadCompanySupport } from '/assets/js/company/company-support.js';
@@ -161,6 +162,9 @@ async function init() {
     if (!user) return;
 
     currentUserId = user.id;
+
+    // تتبّع نشاط موظفي مدعوم (emp_ops) — best-effort؛ أي فشل فيه لا يوقف الصفحة.
+    initEmpActivity();
 
     // قشرة الشركة: قائمتها الخاصة، وكل عناصرها صفحات في هذه اللوحة.
     // onTabChange بيخلي عناصر القائمة تبدّل الصفحة بدل ما تنقل لأي مكان آخر.
