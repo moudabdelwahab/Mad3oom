@@ -306,7 +306,15 @@ class Client {
       if (this.debug) console.warn('[Mad3oomActivity] فشل الإرسال', err);
 
       const code = err?.code || '';
-      if (code === 'EO401' || code === 'EO403' || code === 'PGRST301') { this.stop(); return; }
+      // (0019) رفض المصادقة (بلا حساب موظف مرتبط غالبًا): أبلغ التطبيق
+      // أولًا عبر onStatus والبث — حتى ينبّه الموظف بدل الصمت — ثم أوقف
+      // النبض نهائيًا كما قبل.
+      if (code === 'EO401' || code === 'EO403' || code === 'PGRST301') {
+        const payload = { status: 'auth_failed', code, message: 'الحساب غير مربوط بملف موظف أو الجلسة منتهية.' };
+        this.onStatus?.(payload);
+        if (this._bc) this._bc.postMessage({ t: 'status', tab: this.tabId, payload });
+        this.stop(); return;
+      }
 
       this._schedule(Math.min(this.intervalSec * Math.pow(2, this.failures), 300));
     }

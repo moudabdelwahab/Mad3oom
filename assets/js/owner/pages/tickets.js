@@ -321,7 +321,7 @@ async function openTicket(id) {
     if (!ctx) return;
     me = ctx.session.user.id;
     // تتبّع نشاط موظفي مدعوم (emp_ops) — best-effort؛ أي فشل فيه لا يوقف الصفحة.
-    initEmpActivity({ supabase });
+    initEmpActivity({ supabase, expectEmployee: true });
 
     await Promise.all([loadStaff(), loadCompanies()]);
     $('ticketsFilters').addEventListener('submit', (e) => { e.preventDefault(); page = 0; loadTickets(); });

@@ -39,6 +39,30 @@ function setBrowser() {
     globalThis.document = { visibilityState: 'visible' };
 }
 
+/** DOM وهمي يكفي لمساعدي التنبيه في الجسر (createElement/body/getElementById). */
+function makeEl() {
+    const el = {
+        children: [], style: {}, id: '', className: '', textContent: '', type: '', removed: false,
+        appendChild(c) { this.children.push(c); return c; },
+        addEventListener() {},
+        remove() { this.removed = true; },
+        setAttribute(k, v) { this[k] = v; },
+    };
+    return el;
+}
+
+function setRichBrowser() {
+    const body = makeEl();
+    globalThis.window = {};
+    globalThis.document = {
+        visibilityState: 'visible',
+        body,
+        createElement: () => makeEl(),
+        getElementById: (id) => body.children.find((c) => c.id === id) || null,
+    };
+    return body;
+}
+
 function clearBrowser() {
     delete globalThis.window;
     delete globalThis.document;
@@ -117,6 +141,86 @@ test('init with a client module lacking init returns null', async () => {
     setBrowser();
     try {
         assert.equal(await initEmpActivity({ supabase: fakeSupabase, activityClient: {} }), null);
+    } finally {
+        resetEmpActivityState();
+        clearBrowser();
+    }
+});
+
+test('init passes an onStatus handler to the SDK', async () => {
+    resetEmpActivityState();
+    setBrowser();
+    try {
+        const instance = makeFakeInstance();
+        const fake = makeFakeClient(instance);
+        await initEmpActivity({ supabase: fakeSupabase, activityClient: fake });
+        assert.equal(typeof fake.__client.initCalls[0].onStatus, 'function');
+    } finally {
+        resetEmpActivityState();
+        clearBrowser();
+    }
+});
+
+test('auth_failed warns once per page load, only on staff pages (expectEmployee)', async () => {
+    resetEmpActivityState();
+    const body = setRichBrowser();
+    try {
+        const instance = makeFakeInstance();
+        const fake = makeFakeClient(instance);
+        await initEmpActivity({ supabase: fakeSupabase, activityClient: fake, expectEmployee: true });
+        const onStatus = fake.__client.initCalls[0].onStatus;
+
+        onStatus({ status: 'auth_failed', code: 'EO403' });
+        onStatus({ status: 'auth_failed', code: 'EO403' });
+        const root = body.children.find((c) => c.id === 'emp-activity-toasts');
+        assert.ok(root, 'لم يظهر جذر التنبيهات');
+        assert.equal(root.children.length, 1, 'تحذير الربط ظهر أكثر من مرة');
+        assert.match(root.children[0].textContent, /غير مربوط بملف موظف/);
+    } finally {
+        resetEmpActivityState();
+        clearBrowser();
+    }
+});
+
+test('auth_failed stays silent on non-staff pages (no expectEmployee)', async () => {
+    resetEmpActivityState();
+    const body = setRichBrowser();
+    try {
+        const instance = makeFakeInstance();
+        const fake = makeFakeClient(instance);
+        await initEmpActivity({ supabase: fakeSupabase, activityClient: fake });
+        fake.__client.initCalls[0].onStatus({ status: 'auth_failed', code: 'EO403' });
+        assert.equal(body.children.length, 0, 'ظهر تحذير رغم أن الصفحة ليست صفحة موظفين');
+    } finally {
+        resetEmpActivityState();
+        clearBrowser();
+    }
+});
+
+test('idle toasts once per window, break banner shows and clears', async () => {
+    resetEmpActivityState();
+    const body = setRichBrowser();
+    try {
+        const instance = makeFakeInstance();
+        const fake = makeFakeClient(instance);
+        await initEmpActivity({ supabase: fakeSupabase, activityClient: fake, expectEmployee: true });
+        const onStatus = fake.__client.initCalls[0].onStatus;
+
+        onStatus({ status: 'ok', presence: 'idle', idle_seconds: 700 });
+        onStatus({ status: 'ok', presence: 'idle', idle_seconds: 800 });
+        const root = body.children.find((c) => c.id === 'emp-activity-toasts');
+        assert.ok(root, 'لم يظهر تنبيه الخمول');
+        assert.equal(root.children.length, 1, 'تنبيه الخمول تكرر داخل نافذة الـ ١٠ دقائق');
+
+        onStatus({ status: 'ok', presence: 'break', on_break: true });
+        const banner = body.children.find((c) => c.id === 'emp-activity-break-banner');
+        assert.ok(banner, 'لافتة الاستراحة لم تظهر');
+        onStatus({ status: 'ok', presence: 'break', on_break: true });
+        assert.equal(body.children.filter((c) => c.id === 'emp-activity-break-banner').length, 1,
+            'لافتة الاستراحة تكررت');
+
+        onStatus({ status: 'ok', presence: 'active', on_break: false });
+        assert.equal(banner.removed, true, 'لافتة الاستراحة لم تُزَل بعد انتهائها');
     } finally {
         resetEmpActivityState();
         clearBrowser();

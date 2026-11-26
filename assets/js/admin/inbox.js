@@ -1909,7 +1909,7 @@ async function boot() {
     if (!user) { reportUnavailable('forbidden'); return; }
     updateAdminUI(user);
     // تتبّع نشاط موظفي مدعوم (emp_ops) — best-effort؛ أي فشل فيه لا يوقف الصفحة.
-    initEmpActivity();
+    initEmpActivity({ expectEmployee: true });
     state.me = user;
     // إنشاء الوسوم: سياسة ticket_tags ← is_admin() (117) — الأدمن، أو المالك في سياقه
     state.isAdmin = (await platformAuthority()).isAdmin;

@@ -157,7 +157,7 @@ async function init() {
 
     updateAdminUI(user);
     // تتبّع نشاط موظفي مدعوم (emp_ops) — best-effort؛ أي فشل فيه لا يوقف الصفحة.
-    initEmpActivity({ supabase });
+    initEmpActivity({ supabase, expectEmployee: true });
     applyRolePermissions();
     fillStaticIcons();
 

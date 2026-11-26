@@ -55,10 +55,10 @@ test('لا أحد ينادي الـ SDK مباشرةً إلا الجسر', () =>
 /* ── التهيئة بعد المصادقة، في الصفحات الست ───────────────────────────── */
 
 const ENTRIES = [
-    { rel: 'assets/js/admin/tickets.js', auth: 'checkAdminAuth()', call: 'initEmpActivity({ supabase })' },
-    { rel: 'assets/js/admin/inbox.js', auth: 'checkAdminAuth()', call: 'initEmpActivity()' },
-    { rel: 'assets/js/admin/dashboard-logic.js', auth: 'checkAdminAuth()', call: 'initEmpActivity({ supabase })' },
-    { rel: 'assets/js/owner/pages/tickets.js', auth: 'bootOwnerPage()', call: 'initEmpActivity({ supabase })' },
+    { rel: 'assets/js/admin/tickets.js', auth: 'checkAdminAuth()', call: 'initEmpActivity({ supabase, expectEmployee: true })' },
+    { rel: 'assets/js/admin/inbox.js', auth: 'checkAdminAuth()', call: 'initEmpActivity({ expectEmployee: true })' },
+    { rel: 'assets/js/admin/dashboard-logic.js', auth: 'checkAdminAuth()', call: 'initEmpActivity({ supabase, expectEmployee: true })' },
+    { rel: 'assets/js/owner/pages/tickets.js', auth: 'bootOwnerPage()', call: 'initEmpActivity({ supabase, expectEmployee: true })' },
     { rel: 'customer-dashboard.js', auth: "guardPage('user')", call: 'if (!isGuest) initEmpActivity()' },
     { rel: 'assets/js/company/company-dashboard.js', auth: 'guardPage()', call: 'initEmpActivity()' },
 ];
@@ -78,6 +78,29 @@ test('لوحة العميل: الضيف يُتخطَّى — بلا جلسة أ�
     const code = codeOnly(read('customer-dashboard.js'));
     assert.match(code, /if \(!isGuest\) initEmpActivity\(\)/,
         'لوحة العميل تهيّئ التتبّع للضيف أيضًا');
+});
+
+test('صفحات الموظفين الأربع تمرّر expectEmployee، وصفحتا العميل والشركة لا تمرّرانها', () => {
+    for (const rel of [
+        'assets/js/admin/tickets.js',
+        'assets/js/admin/inbox.js',
+        'assets/js/admin/dashboard-logic.js',
+        'assets/js/owner/pages/tickets.js',
+    ]) {
+        assert.match(codeOnly(read(rel)), /expectEmployee: true/,
+            `${rel} بلا expectEmployee — تحذير الربط الصامت لن يظهر لموظفي المنصة`);
+    }
+    for (const rel of ['customer-dashboard.js', 'assets/js/company/company-dashboard.js']) {
+        assert.doesNotMatch(codeOnly(read(rel)), /expectEmployee/,
+            `${rel} تمرّر expectEmployee — موظفو الشركات والعملاء ليسوا موظفي المنصة`);
+    }
+});
+
+test('الجسر يعالج حالة النبضة: تحذير ربط، لافتة استراحة، تنبيه خمول مخنوق', () => {
+    assert.match(BRIDGE, /auth_failed/, 'الجسر لا يعالج حالة auth_failed');
+    assert.match(BRIDGE, /expectEmployee/, 'الجسر لا يقرأ خيار expectEmployee');
+    assert.match(BRIDGE, /emp-activity-break-banner/, 'الجسر بلا لافتة استراحة');
+    assert.match(BRIDGE, /IDLE_TOAST_MIN_MS|10 \* 60 \* 1000/, 'تنبيه الخمول بلا خنق زمني');
 });
 
 /* ── أحداث العمل في خدمة التذاكر والصندوق ───────────────────────────── */
