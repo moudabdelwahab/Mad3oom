@@ -3,7 +3,7 @@
  * --------------------------------------------------------
  * كل العمليات تمر عبر Edge Function واحدة: agent-manager
  * (action: list | get | create | update | delete | start | stop | restart |
- *          test_connection | status | logs | chat |
+ *          test_connection | status | logs | metrics | chat |
  *          run_create | run_get | run_events | run_stop)
  *
  * لو الدالة agent-manager غير منشورة بعد على Supabase، الخدمة تسقط تلقائياً
@@ -265,6 +265,12 @@ function localFallback(action, payload) {
         case 'status':
             return { ok: false, error: 'بيانات الحالة اللحظية غير متاحة في الوضع المحلي — تحتاج نشر Edge Function باسم agent-manager' };
 
+        // مقاييس الكرت (Hermes + Northflank) تحتاج agent-manager منشورة —
+        // لا معنى لمحاكاتها محلياً. الشكل مطابق لحمولة "غير متاح" في الدالة
+        // (بلا error حتى لا يرمي callAgentManager، فتعرض الصفحة رسالة محايدة).
+        case 'metrics':
+            return { ok: false, available: false, reason: 'local', hermes: null, northflank: { configured: false, cpu_percent: null, memory_percent: null, memory_mb: null, cpu_vcpu: null, uptime_seconds: null, service_status: null } };
+
         case 'logs':
             return { ok: true, data: [] };
 
@@ -303,6 +309,7 @@ export const stopAgent = (id) => callAgentManager('stop', { id });
 export const restartAgent = (id) => callAgentManager('restart', { id });
 export const testAgentConnection = (id) => callAgentManager('test_connection', { id });
 export const fetchAgentStatus = (id) => callAgentManager('status', { id });
+export const fetchAgentMetrics = (id) => callAgentManager('metrics', { id });
 export const fetchAgentLogs = (params) => callAgentManager('logs', params);
 export const chatWithAgent = (id, body) => callAgentManager('chat', { id, ...body });
 export const createAgentRun = (id, body) => callAgentManager('run_create', { id, ...body });

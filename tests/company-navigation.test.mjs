@@ -864,7 +864,14 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         is_admin()/is_platform_staff() أصلًا). 146 محجوز لفرع
     //         company-five-sections المتوازي. مقيسٌ في
     //         tests/sql/owner-no-redirect-147.test.sql.
-    assert.equal(migrations[migrations.length - 1], '147_owner_no_redirect_rpcs.sql',
+    //   148 — تخزين توكن Northflank لكل وكيل على حدة (2026-11-27،
+    //         بقرار صريح من صاحب المنتج): عمودا northflank_token_encrypted
+    //         وnorthflank_token_last4 على ai_agents، مشفَّران بمفتاح
+    //         AI_AGENTS_ENC_KEY مثل api_key تمامًا، والتوكن المشفَّر لا
+    //         يظهر في أي رد؛ بهما يقرأ إجراء metrics مقاييس Northflank
+    //         (CPU/RAM/uptime) لكل خدمة. مقيسٌ في
+    //         tests/sql/agent-northflank-148.test.sql.
+    assert.equal(migrations[migrations.length - 1], '148_agent_northflank_token.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

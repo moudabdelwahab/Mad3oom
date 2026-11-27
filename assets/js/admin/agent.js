@@ -15,7 +15,7 @@
  */
 
 import {
-    callAgentManager, isUsingLocalFallback,
+    callAgentManager, isUsingLocalFallback, fetchAgentMetrics,
     AGENT_RESOURCES, AGENT_PERMISSIONS, AGENT_STATUS_LABELS,
 } from '/agent-service.js';
 import * as modalA11y from '/assets/js/admin/modal-a11y.js';
@@ -29,6 +29,15 @@ let currentAgentId = null; // null = إنشاء وكيل جديد
 let pendingDeleteId = null; // الوكيل بانتظار تأكيد الحذف في نافذة التأكيد
 let envVars = []; // {key, value, is_secret}
 let initialized = false;
+
+// مقاييس الكروت (FEATURE 2): Hermes + Northflank، تُجلب من agent-manager.
+// cardMetrics: id → { state: 'loading'|'ready'|'error', data?, fetchedAt? }
+// الخنق: Northflank لا يُسأل أسرع من مرة كل 60 ثانية لكل وكيل — التحديث
+// اليدوي داخل النافذة يُتجاهل (والزر يُعطَّل) ويُعرض وقت آخر تحديث.
+let cardMetrics = {};
+let metricsInFlight = new Set();
+const METRICS_MIN_INTERVAL_MS = 60_000;
+const NORTHFLANK_HINT = 'يُفعّل عند إدخال توكن Northflank';
 
 export async function initAgentAdminPage() {
     if (initialized) { loadAgents(); return; } // إعادة تحميل فقط لو استُدعيت مرة تانية
@@ -90,6 +99,12 @@ function renderAgents(filter = '') {
         e.stopPropagation();
         quickAction(el.dataset.quickAct, el.dataset.agentId);
     }));
+    // زر تحديث المقاييس داخل الكرت: نقرته لا تفتح نافذة الإعدادات.
+    grid.querySelectorAll('[data-refresh-metrics]').forEach(el => el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        refreshCardMetrics(el.dataset.refreshMetrics);
+    }));
+    loadCardMetrics(list);
 }
 
 function agentCardHTML(a) {
@@ -119,12 +134,8 @@ function agentCardHTML(a) {
       <span class="pill ${statusClass}"><span class="dot"></span>${statusLabel}</span>
     </div>
     ${a.description ? `<div class="agent-desc">${escapeHtml(a.description)}</div>` : ''}
-    <div class="metrics-row">
-      <div class="metric na"><b>—</b><span>CPU</span></div>
-      <div class="metric na"><b>—</b><span>RAM</span></div>
-      <div class="metric na"><b>—</b><span>Uptime</span></div>
-      <div class="metric na"><b>—</b><span>المهام</span></div>
-    </div>
+    ${metricsRowHTML(a)}
+    ${metricsDetailsHTML(a)}
     <div class="meta-row"><span>آخر Heartbeat: ${heartbeat}</span></div>
     ${noEndpointNote}
     ${errorNote}
@@ -136,6 +147,167 @@ function agentCardHTML(a) {
       <button class="btn btn-outline btn-sm icon-only" data-quick-act="delete" data-agent-id="${a.id}" title="حذف الوكيل" style="color:var(--color-danger);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13"/></svg></button>
     </div>
   </div>`;
+}
+
+/* ================= مقاييس الكرت (Hermes + Northflank) ================= */
+// المقاييس تُجلب تلقائيًا لوكلاء Hermes بمفتاح مخزَّن فقط
+// (api_key_last4 موجود) — وكيل بلا مفتاح أو من نوع آخر لا يُنادى إطلاقًا.
+function isMetricsEligible(a) {
+    return a?.type === 'hermes' && !!a?.api_key_last4;
+}
+
+// صف المقاييس الأربع في الكرت: CPU/RAM/Uptime من Northflank (أو "—" مع
+// تلميح التفعيل)، والمهام النشطة من Hermes. يُعاد رسمه عند كل تغيير حالة.
+function metricsRowHTML(a) {
+    const entry = cardMetrics[a.id];
+    const h = entry?.state === 'ready' ? entry.data?.hermes : null;
+    const nf = entry?.state === 'ready' ? entry.data?.northflank : null;
+    const loading = entry?.state === 'loading' || (!entry && isMetricsEligible(a));
+    const tasks = loading ? '…' : (h?.active_runs ?? '—');
+    const cpu = loading ? '…' : (nf?.cpu_percent != null ? `${nf.cpu_percent}%` : '—');
+    const ram = loading ? '…' : (nf?.memory_percent != null ? `${nf.memory_percent}%` : '—');
+    const uptime = loading ? '…' : (nf?.uptime_seconds != null ? formatUptime(nf.uptime_seconds) : '—');
+    return `
+    <div class="metrics-row" data-metrics-row="${a.id}">
+      <div class="metric${nf?.cpu_percent != null ? '' : ' na'}" title="${NORTHFLANK_HINT}"><b>${cpu}</b><span>CPU</span></div>
+      <div class="metric${nf?.memory_percent != null ? '' : ' na'}" title="${NORTHFLANK_HINT}"><b>${ram}</b><span>RAM</span></div>
+      <div class="metric${nf?.uptime_seconds != null ? '' : ' na'}" title="${NORTHFLANK_HINT}"><b>${uptime}</b><span>Uptime</span></div>
+      <div class="metric${h?.active_runs != null ? '' : ' na'}"><b>${tasks}</b><span>المهام</span></div>
+    </div>`;
+}
+
+// قسم المقاييس الموسَّع تحت صف الكرت — لوكلاء Hermes بمفتاح فقط؛ غيرهم
+// يبقى صفهم الأربع كما هو بلا قسم إضافي.
+function metricsDetailsHTML(a) {
+    if (!isMetricsEligible(a)) return '';
+    const entry = cardMetrics[a.id];
+    const state = entry?.state || 'loading'; // بلا إدخال بعد: التحميل التلقائي وشيك
+    if (state === 'loading') {
+        return `<div class="metrics-details" data-metrics-for="${a.id}"><p class="metrics-note">جاري تحميل المقاييس…</p></div>`;
+    }
+    if (state === 'error') {
+        return `<div class="metrics-details" data-metrics-for="${a.id}">
+      <p class="metrics-note">تعذّر تحميل المقاييس</p>
+      ${metricsRefreshHTML(a.id, entry)}
+    </div>`;
+    }
+    const h = entry.data?.hermes || {};
+    const nf = entry.data?.northflank || {};
+    const fmt = (v) => (v == null ? '—' : String(v));
+    const healthNote = h.available === false
+        ? `<p class="metrics-note">حالة Hermes غير متاحة حالياً — الأرقام أدناه من الوظائف والجلسات فقط.</p>`
+        : '';
+    const nfNote = nf.configured
+        ? (nf.error
+            ? `<p class="metrics-note">${escapeHtml(nf.error)}</p>`
+            : `<p class="metrics-note">الذاكرة: ${fmt(nf.memory_mb)}MB · المعالج: ${fmt(nf.cpu_vcpu)} vCPU${nf.service_status?.status ? ` · الحالة: ${escapeHtml(nf.service_status.status)}` : ''}</p>`)
+        : `<p class="metrics-note">CPU / RAM / مدة التشغيل: — (${NORTHFLANK_HINT})</p>`;
+    return `<div class="metrics-details" data-metrics-for="${a.id}">
+      <div class="metrics-row">
+        <div class="metric"><b>${fmt(h.active_runs)}</b><span>المهام النشطة</span></div>
+        <div class="metric"><b>${fmt(h.stored_runs)}</b><span>المهام المحفوظة</span></div>
+        <div class="metric"><b>${fmt(h.jobs_count)}</b><span>الوظائف</span></div>
+        <div class="metric"><b>${fmt(h.sessions_count)}</b><span>الجلسات</span></div>
+      </div>
+      <div class="metrics-row">
+        <div class="metric"><b>${fmt(h.requests_today)}</b><span>طلبات اليوم</span></div>
+        <div class="metric"><b>${fmt(h.messages_today)}</b><span>رسائل اليوم</span></div>
+        <div class="metric"><b>${fmt(h.tokens_today)}</b><span>توكنات اليوم</span></div>
+        <div class="metric"><b>${h.latency_p95_ms != null ? `${h.latency_p95_ms}ms` : '—'}</b><span>زمن الاستجابة p95</span></div>
+      </div>
+      <div class="metrics-row">
+        <div class="metric"><b>${fmt(h.active_agents)}</b><span>الوكلاء النشطون</span></div>
+        <div class="metric"><b>${escapeHtml(fmt(h.gateway_state))}</b><span>حالة البوابة</span></div>
+        <div class="metric"><b>${escapeHtml(fmt(h.version))}</b><span>الإصدار</span></div>
+        <div class="metric"><b>${fmt(h.sessions_messages)} / ${fmt(h.sessions_tool_calls)}</b><span>رسائل / أدوات الجلسات</span></div>
+      </div>
+      ${healthNote}
+      ${nfNote}
+      ${metricsRefreshHTML(a.id, entry)}
+    </div>`;
+}
+
+// زر التحديث اليدوي + وقت آخر تحديث. داخل نافذة الـ 60 ثانية الزر معطَّل
+// (الخنق: Northflank لا يُسأل أسرع من ذلك).
+function metricsRefreshHTML(id, entry) {
+    const last = entry?.fetchedAt;
+    const throttled = last && (Date.now() - last < METRICS_MIN_INTERVAL_MS);
+    const lastText = last ? `آخر تحديث: ${new Date(last).toLocaleTimeString('ar-EG')}` : '';
+    return `<div class="card-actions">
+      <button class="btn btn-outline btn-sm" data-refresh-metrics="${id}" ${throttled ? 'disabled' : ''} title="${throttled ? 'تُحدَّث المقاييس مرة كل دقيقة كحد أقصى' : 'تحديث المقاييس'}">⟳ تحديث المقاييس</button>
+      ${lastText ? `<span class="hint">${lastText}</span>` : ''}
+    </div>`;
+}
+
+// تحميل مقاييس الكروت: نداء واحد لكل وكيل في كل تحميل — وكيل في الذاكرة
+// أو قيد الجلب لا يُعاد نداؤه. الفشل حالة محايدة في الكرت، لا يكسر القائمة.
+function loadCardMetrics(agents) {
+    for (const a of agents) {
+        if (!isMetricsEligible(a)) continue;
+        if (cardMetrics[a.id] || metricsInFlight.has(a.id)) continue;
+        metricsInFlight.add(a.id);
+        cardMetrics[a.id] = { state: 'loading' };
+        updateCardMetricsDOM(a.id);
+        fetchAgentMetrics(a.id).then((result) => {
+            const ok = result?.ok && result?.hermes;
+            cardMetrics[a.id] = ok
+                ? { state: 'ready', data: result, fetchedAt: Date.now() }
+                : { state: 'error', data: result, fetchedAt: Date.now() };
+        }).catch(() => {
+            cardMetrics[a.id] = { state: 'error', fetchedAt: Date.now() };
+        }).finally(() => {
+            metricsInFlight.delete(a.id);
+            updateCardMetricsDOM(a.id);
+            // إعادة رسم بعد نافذة الخنق حتى يُفعَّل زر التحديث من جديد.
+            setTimeout(() => updateCardMetricsDOM(a.id), METRICS_MIN_INTERVAL_MS);
+        });
+    }
+}
+
+// تحديث يدوي لكرت واحد — يُتجاهل داخل نافذة الـ 60 ثانية (خنق Northflank).
+function refreshCardMetrics(id) {
+    const agent = agentsCache.find((x) => x.id === id);
+    if (!agent || metricsInFlight.has(id)) return;
+    const last = cardMetrics[id]?.fetchedAt;
+    if (last && Date.now() - last < METRICS_MIN_INTERVAL_MS) {
+        toast('المقاييس تُحدَّث مرة كل دقيقة كحد أقصى — انتظر قليلاً', 'info');
+        return;
+    }
+    delete cardMetrics[id];
+    loadCardMetrics([agent]);
+}
+
+// يعيد رسم صف المقاييس وقسمها في الكرت فقط — بلا إعادة رسم الشبكة كلها
+// (حتى لا يضيع تمرير الصفحة أو نص البحث).
+function updateCardMetricsDOM(id) {
+    const agent = agentsCache.find((x) => x.id === id);
+    const card = document.querySelector(`.agent-card[data-open-agent="${id}"]`);
+    if (!agent || !card) return;
+    const row = card.querySelector('.metrics-row');
+    if (row) row.outerHTML = metricsRowHTML(agent);
+    const details = card.querySelector('[data-metrics-for]');
+    const fresh = metricsDetailsHTML(agent);
+    if (details) {
+        if (fresh) details.outerHTML = fresh;
+        else details.remove();
+    } else if (fresh) {
+        const rowEl = card.querySelector('.metrics-row');
+        if (rowEl) rowEl.insertAdjacentHTML('afterend', fresh);
+    }
+    // زر التحديث مستبدَل مع القسم، فيُربط من جديد (مع إيقاف الفقاعة حتى
+    // لا تفتح نقرته نافذة الإعدادات).
+    card.querySelectorAll('[data-refresh-metrics]').forEach((el) => el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        refreshCardMetrics(el.dataset.refreshMetrics);
+    }));
+}
+
+function formatUptime(totalSeconds) {
+    const s = Math.floor(totalSeconds);
+    if (s < 60) return `${s}s`;
+    if (s < 3600) return `${Math.floor(s / 60)}m`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+    return `${Math.floor(s / 86400)}d ${Math.floor((s % 86400) / 3600)}h`;
 }
 
 async function quickAction(action, id) {
@@ -249,6 +421,14 @@ function openAgentModal(agentId) {
     document.getElementById('fHealthEndpoint').value = agent?.health_endpoint || '';
     document.getElementById('fApiKey').value = '';
     document.getElementById('fApiKey').placeholder = agent?.api_key_last4 ? `•••• ${agent.api_key_last4} — اتركه فارغاً للإبقاء عليه` : 'اتركه فارغاً إن لم تحتاج الي مفتاح API';
+    // توكن Northflank: نفس نمط API Key — لا يُعاد تعبئته أبدًا، وتلميح last4
+    // فقط لو مخزَّن. الحقل قد يغيب في نسخة قديمة من الصفحة، فالحارس `if`
+    // يمنع كسر فتح النافذة.
+    const nfField = document.getElementById('fNorthflankToken');
+    if (nfField) {
+        nfField.value = '';
+        nfField.placeholder = agent?.northflank_token_last4 ? `•••• ${agent.northflank_token_last4} — اتركه فارغاً للإبقاء عليه` : 'اتركه فارغاً إن لم تحتاج توكن Northflank';
+    }
     document.getElementById('fTimeout').value = agent?.timeout_ms ?? 10000;
     document.getElementById('fRetryCount').value = agent?.retry_count ?? 3;
     document.getElementById('fRetryDelay').value = agent?.retry_delay_ms ?? 2000;
@@ -545,6 +725,10 @@ async function handleSaveAgent() {
 
     const apiKeyVal = document.getElementById('fApiKey').value.trim();
     if (apiKeyVal) payload.api_key = apiKeyVal;
+    // توكن Northflank: يُرسَل فقط عند إدخال قيمة جديدة — القراءة بـ ?.
+    // حتى لا يكسر الحفظ لو غاب الحقل من الصفحة.
+    const nfTokenVal = document.getElementById('fNorthflankToken')?.value?.trim();
+    if (nfTokenVal) payload.northflank_token = nfTokenVal;
 
     if (!payload.name || !payload.slug) { toast('اسم الوكيل والمعرّف مطلوبان', 'error'); return; }
     if (!/^[a-z0-9][a-z0-9_-]*$/.test(payload.slug)) {

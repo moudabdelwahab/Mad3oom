@@ -268,6 +268,7 @@ const PAGES = {
     'voice-studio': '#vsSectionVoice',
     'muse-activity-log': '#museLogTable table',
     agents: '#agentsGrid .agent-card',
+    'agent-chat': '#agentPicker',
     'muse-activations': '#museAccountsTable table',
     permissions: '#permMatrix table',
     security: '#secKpis .kpi',

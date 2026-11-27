@@ -285,6 +285,129 @@ test('مرآة المالك: نفس الـ DOM ids ونفس كتلة الأنم�
     assert.match(owner, /قشرة المالك فقط/);
 });
 
+/* ─────────── مقاييس الكرت (FEATURE 2: Hermes + Northflank) ─────────── */
+
+test('agent-service يصدّر fetchAgentMetrics كغلاف رفيع لـ callAgentManager', () => {
+    const js = agentServiceJs();
+    assert.match(js, /export const fetchAgentMetrics = \(id\) => callAgentManager\('metrics', \{ id \}\)/);
+    // بجانب fetchAgentStatus مباشرةً، وقائمة الإجراءات في تعليق الرأس تشمل metrics.
+    assert.match(js, /test_connection \| status \| logs \| metrics \| chat/);
+    assert.ok(js.indexOf("export const fetchAgentMetrics") > js.indexOf("export const fetchAgentStatus"),
+        'fetchAgentMetrics ليس بعد fetchAgentStatus');
+    // الوضع المحلي يرجع حمولة "غير متاح" لا خطأً يُرمي — فتعرض الصفحة رسالة محايدة.
+    assert.match(js, /case 'metrics':/);
+    const body = js.slice(js.indexOf("case 'metrics':"), js.indexOf("case 'metrics':") + 400);
+    assert.match(body, /ok: false/);
+    assert.match(body, /reason: 'local'/);
+    assert.match(body, /hermes: null/);
+    assert.match(body, /configured: false/);
+});
+
+test('الكرت يحمّل المقاييس تلقائيًا عند فتح الصفحة — نداء واحد لكل وكيل', () => {
+    const js = agentJs();
+    assert.match(js, /import \{[^}]*fetchAgentMetrics[^}]*\} from '\/agent-service\.js'/s);
+    assert.match(js, /function loadCardMetrics\(agents\)/);
+    assert.match(js, /loadCardMetrics\(list\)/);
+    // وكيل في الذاكرة أو قيد الجلب لا يُعاد نداؤه.
+    assert.match(js, /if \(cardMetrics\[a\.id\] \|\| metricsInFlight\.has\(a\.id\)\) continue;/);
+    assert.match(js, /fetchAgentMetrics\(a\.id\)/);
+});
+
+test('لا نداء مقاييس لوكيل بلا مفتاح أو من غير نوع hermes', () => {
+    const js = agentJs();
+    assert.match(js, /function isMetricsEligible\(a\)/);
+    assert.match(js, /a\?\.type === 'hermes' && !!a\?\.api_key_last4/);
+    assert.match(js, /if \(!isMetricsEligible\(a\)\) continue;/);
+    // والقسم الموسَّع نفسه لا يُرسم لغير المؤهلين.
+    assert.match(js, /if \(!isMetricsEligible\(a\)\) return '';/);
+});
+
+test('قسم المقاييس يعرض كل حقول Hermes بالعربية', () => {
+    const js = agentJs();
+    for (const label of ['المهام النشطة', 'المهام المحفوظة', 'الوظائف', 'الجلسات', 'طلبات اليوم', 'رسائل اليوم', 'توكنات اليوم', 'زمن الاستجابة p95', 'الوكلاء النشطون', 'حالة البوابة', 'الإصدار']) {
+        assert.ok(js.includes(label), `تسمية مفقودة من قسم المقاييس: ${label}`);
+    }
+    for (const field of ['active_runs', 'stored_runs', 'jobs_count', 'sessions_count', 'requests_today', 'messages_today', 'tokens_today', 'latency_p95_ms', 'active_agents', 'gateway_state', 'version', 'sessions_messages', 'sessions_tool_calls']) {
+        assert.ok(js.includes(field), `حقل Hermes مفقود من قسم المقاييس: ${field}`);
+    }
+    // صف الكرت الأربع نفسه ممتد لا مكرر: metricsRowHTML بدل الكتلة الساكنة.
+    assert.match(js, /function metricsRowHTML\(a\)/);
+    assert.match(js, /\$\{metricsRowHTML\(a\)\}/);
+    assert.match(js, /\$\{metricsDetailsHTML\(a\)\}/);
+    assert.doesNotMatch(js, /<div class="metric na"><b>—<\/b><span>CPU<\/span><\/div>/);
+});
+
+test('CPU/RAM/Uptime من Northflank: "—" مع تلميح التفعيل، والقيم المطلقة في الملاحظة', () => {
+    const js = agentJs();
+    assert.match(js, /يُفعّل عند إدخال توكن Northflank/);
+    assert.match(js, /nf\?\.cpu_percent != null \? `\$\{nf\.cpu_percent\}%` : '—'/);
+    assert.match(js, /nf\?\.memory_percent != null \? `\$\{nf\.memory_percent\}%` : '—'/);
+    assert.match(js, /nf\?\.uptime_seconds != null \? formatUptime\(nf\.uptime_seconds\) : '—'/);
+    // الذاكرة بالميجا والمعالج بـ vCPU وحالة الخدمة في ملاحظة القسم.
+    assert.match(js, /memory_mb/);
+    assert.match(js, /cpu_vcpu/);
+    assert.match(js, /service_status\?\.status/);
+    // تلميح Northflank ثابت واحد لا نصوص متعددة: النص حرفيًا مرة واحدة
+    // (تعريف الثابت)، ويُستخدم بالمتغير في خلايا الصف وملاحظة القسم.
+    assert.equal((js.match(/يُفعّل عند إدخال توكن Northflank/g) || []).length, 1,
+        'نص تلميح Northflank يجب أن يظهر حرفيًا مرة واحدة (تعريف NORTHFLANK_HINT)');
+    assert.equal((js.match(/title="\$\{NORTHFLANK_HINT\}"/g) || []).length, 3,
+        'خلايا CPU/RAM/Uptime الثلاث تحمل التلميح كـ title');
+    assert.match(js, /\(\$\{NORTHFLANK_HINT\}\)/);
+});
+
+test('حالة التحميل والفشل محايدتان ولا تكسرا القائمة', () => {
+    const js = agentJs();
+    assert.match(js, /جاري تحميل المقاييس…/);
+    assert.match(js, /تعذّر تحميل المقاييس/);
+    // الفشل حالة error في الذاكرة، لا toast أحمر ولا رمي.
+    assert.match(js, /cardMetrics\[a\.id\] = \{ state: 'error'/);
+    assert.doesNotMatch(js.slice(js.indexOf('تعذّر تحميل المقاييس') - 200, js.indexOf('تعذّر تحميل المقاييس') + 200), /toast\(.*'error'\)/);
+});
+
+test('خنق Northflank: مرة كل 60 ثانية لكل وكيل، وزر معطَّل ووقت آخر تحديث', () => {
+    const js = agentJs();
+    assert.match(js, /const METRICS_MIN_INTERVAL_MS = 60_000;/);
+    assert.match(js, /Date\.now\(\) - last < METRICS_MIN_INTERVAL_MS/);
+    assert.match(js, /آخر تحديث: /);
+    assert.match(js, /تُحدَّث المقاييس مرة كل دقيقة كحد أقصى/);
+    // التحديث اليدوي زر لكل كرت، ونقرته لا تفتح نافذة الإعدادات.
+    assert.match(js, /data-refresh-metrics="/);
+    assert.match(js, /function refreshCardMetrics\(id\)/);
+    assert.match(js, /setTimeout\(\(\) => updateCardMetricsDOM\(a\.id\), METRICS_MIN_INTERVAL_MS\)/);
+});
+
+test('تحديث المقاييس يعيد رسم الكرت فقط — بلا إعادة رسم الشبكة', () => {
+    const js = agentJs();
+    assert.match(js, /function updateCardMetricsDOM\(id\)/);
+    assert.match(js, /card\.querySelector\('\.metrics-row'\)/);
+    assert.match(js, /row\.outerHTML = metricsRowHTML\(agent\)/);
+    assert.match(js, /details\.outerHTML = fresh/);
+});
+
+test('حقل توكن Northflank في نموذج الإدارة ونموذج المالك معًا', () => {
+    for (const html of [agentHtml(), ownerHtml()]) {
+        assert.match(html, /<input type="password" id="fNorthflankToken"/);
+        assert.match(html, /Northflank Token \(قراءة فقط\)/);
+        assert.match(html, /id="northflankTokenHint"/);
+    }
+    // الحقل بعد API Key مباشرةً في تبويب الاتصال، بنفس النمط.
+    const admin = agentHtml();
+    assert.ok(admin.indexOf('id="fNorthflankToken"') > admin.indexOf('id="fApiKey"'),
+        'حقل Northflank ليس بعد API Key في نموذج الإدارة');
+});
+
+test('حفظ التوكن: قراءة آمنة بـ ?. ولا إرسال إلا عند إدخال قيمة جديدة', () => {
+    const js = agentJs();
+    assert.match(js, /document\.getElementById\('fNorthflankToken'\)\?\.value\?\.trim\(\)/);
+    assert.match(js, /if \(nfTokenVal\) payload\.northflank_token = nfTokenVal;/);
+    // الفتح لا يعيد تعبئة القيمة — last4 تلميح فقط، مثل API Key.
+    assert.match(js, /nfField\.value = '';/);
+    assert.match(js, /northflank_token_last4 \? `•••• \$\{agent\.northflank_token_last4\} — اتركه فارغاً للإبقاء عليه`/);
+    assert.match(js, /const nfField = document\.getElementById\('fNorthflankToken'\);/);
+    assert.match(js, /if \(nfField\) \{/);
+});
+
 test('مرآة المالك: قشرة المالك لا قشرة الإدارة، وبوابة المالك لا تحقق الأدمن', () => {
     const html = ownerHtml();
     const js = ownerJs();

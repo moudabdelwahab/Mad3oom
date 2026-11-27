@@ -18,6 +18,10 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 //   status           — جلب Runtime Metrics لحظية من الوكيل (لا تُخزّن)
 //   logs             — جلب السجلات من الوكيل (لا تُخزّن كاملة)
 //   test_connection  — تحقق سريع من إمكانية الوصول لـ health_endpoint
+//   metrics          — مقاييس الكرت: Hermes (/health/detailed + /api/jobs
+//     + /api/sessions) + Northflank (CPU/RAM/uptime من API — توكن قراءة
+//     فقط مخزَّن مشفَّرًا في ai_agents.northflank_token_encrypted)؛
+//     فشل أي مصدر لا يُسقط الآخر ولا يرمي الصفحة أبدًا.
 //   chat             — محادثة OpenAI عبر Hermes: POST {endpoint}/v1/chat/completions
 //   run_create / run_get / run_events / run_stop — تشغيلات Hermes تحت {endpoint}/v1/runs
 //
@@ -62,9 +66,12 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 // الأعمدة المسموح إرجاعها للواجهة (بدون api_key_encrypted الخام)
+// northflank_token_last4 وحدها مسموحة؛ northflank_token_encrypted لا يظهر
+// في أي استجابة أبدًا — نفس قاعدة api_key_encrypted.
 const PUBLIC_COLUMNS = `
   id, name, slug, description, type, version, status, enabled, auto_start, auto_restart,
   connection_type, protocol, host, port, endpoint, health_endpoint, api_key_last4,
+  northflank_token_last4,
   timeout_ms, retry_count, retry_delay_ms,
   executable, working_directory, command_start, command_stop, command_restart,
   health_check_interval, last_heartbeat, last_error,
@@ -371,6 +378,261 @@ function hermesCollectMs(body: Record<string, any>): number {
   return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 5000;
 }
 
+// ---------- مقاييس الكروت (Hermes + Northflank) ----------
+// دوال نقية ومُصدَّرة للاختبار (نفس نمط parseSseDataPayloads و
+// applyHermesModelDefaults: تُستخرج من هذا الملف وتُنفَّذ في Node).
+// ملاحظة للاختبار: أجسام الدوال بلا أي صياغة TypeScript عدا تعليقات النوع
+// البسيطة حتى يبقى تجريدها آليًا. كل قراءة لحقل خارجي دفاعية: حقل مفقود
+// أو بشكل غير متوقع يتدهور لقيمة محايدة (null أو 0) ولا يرمي أبدًا.
+
+// يعيد الكائن نفسه لو كان كائنًا غير مصفوفة، وإلا كائنًا فارغًا.
+export function plainObj(v: unknown): Record<string, unknown> {
+  return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+}
+
+// قائمة Hermes/Northflank: تقبل مصفوفة مباشرة أو غلافًا فيه مصفوفة تحت
+// أحد المفاتيح {items|jobs|sessions|containers|data}؛ أي شكل آخر → [].
+export function hermesListItems(data: unknown): unknown[] {
+  if (Array.isArray(data)) return data;
+  const obj = plainObj(data);
+  for (const key of ["items", "jobs", "sessions", "containers", "data"]) {
+    const v = obj[key];
+    if (Array.isArray(v)) return v;
+  }
+  return [];
+}
+
+// مجاميع الجلسات: العدد + مجموع message_count وtool_call_count (?? 0).
+export function hermesSessionTotals(sessions: unknown): { count: number; messages: number; tool_calls: number } {
+  const list = hermesListItems(sessions);
+  let messages = 0;
+  let toolCalls = 0;
+  for (const s of list) {
+    const row = plainObj(s);
+    messages += typeof row.message_count === "number" ? row.message_count : 0;
+    toolCalls += typeof row.tool_call_count === "number" ? row.tool_call_count : 0;
+  }
+  return { count: list.length, messages, tool_calls: toolCalls };
+}
+
+// يطبّع /health/detailed + /api/jobs + /api/sessions في شكل hermes الموحّد.
+// health/jobs/sessions: بيانات كل مصدر كما عادت (أو null عند فشله)؛
+// available تعني نجاح /health/detailed وحدها، وباقي الحقول تتدهور
+// لقيم محايدة (null للحقول غير اليومية، 0 لعدّادات اليوم).
+export function normalizeHermesMetrics(health: unknown, jobs: unknown, sessions: unknown): Record<string, unknown> {
+  const h = plainObj(health);
+  const today = plainObj(h.metrics_today);
+  const apiServer = plainObj(h.api_server);
+  const totals = hermesSessionTotals(sessions);
+  const num = (v: unknown, fallback: number | null): number | null =>
+    typeof v === "number" && Number.isFinite(v) ? v : fallback;
+  return {
+    available: health !== null && health !== undefined && typeof health === "object" && !Array.isArray(health),
+    status: typeof h.status === "string" ? h.status : null,
+    version: typeof h.version === "string" ? h.version : null,
+    gateway_state: typeof h.gateway_state === "string" ? h.gateway_state : null,
+    active_agents: num(h.active_agents, null),
+    active_runs: num(apiServer.active_runs, null),
+    stored_runs: num(apiServer.stored_runs, null),
+    jobs_count: hermesListItems(jobs).length,
+    sessions_count: totals.count,
+    sessions_messages: totals.messages,
+    sessions_tool_calls: totals.tool_calls,
+    requests_today: num(today.requests, 0),
+    messages_today: num(today.messages, 0),
+    tokens_today: num(today.tokens, 0),
+    latency_p95_ms: num(today.latency_p95_ms, null),
+  };
+}
+
+// حدود خدمة Hermes على Northflank (Sandbox): 512MB ذاكرة و0.2 vCPU —
+// منها تُشتق memory_mb وcpu_vcpu من النسب المئوية. لو تغيّرت خطة الخدمة
+// يُحدَّث هذان الثابتان هنا فقط.
+const NORTHFLANK_MEMORY_LIMIT_MB = 512;
+const NORTHFLANK_CPU_LIMIT_VCPU = 0.2;
+
+// يحوّل نسب Northflank المئوية إلى قيم مطلقة: memory_mb = pct × 512 / 100
+// وcpu_vcpu = pct × 0.2 / 100. أي نسبة غير رقمية → null (لا تخمين).
+export function northflankDerivedMetrics(cpuPct: unknown, memPct: unknown): Record<string, unknown> {
+  const num = (v: unknown): number | null =>
+    typeof v === "number" && Number.isFinite(v) ? v : null;
+  const cpu = num(cpuPct);
+  const mem = num(memPct);
+  return {
+    cpu_percent: cpu,
+    memory_percent: mem,
+    memory_mb: mem === null ? null : (mem * NORTHFLANK_MEMORY_LIMIT_MB) / 100,
+    cpu_vcpu: cpu === null ? null : (cpu * NORTHFLANK_CPU_LIMIT_VCPU) / 100,
+  };
+}
+
+// يقرأ قيمة سلسلة مقياس واحدة: {metricUnit:"pct", values[0].data[0].value}.
+// أي شكل مختلف → null.
+export function northflankMetricValue(series: unknown): number | null {
+  const obj = plainObj(series);
+  const values = obj.values;
+  if (!Array.isArray(values) || values.length === 0) return null;
+  const first = plainObj(values[0]);
+  const data = first.data;
+  if (!Array.isArray(data) || data.length === 0) return null;
+  const point = plainObj(data[0]);
+  return typeof point.value === "number" && Number.isFinite(point.value) ? point.value : null;
+}
+
+// يفسّر استجابة GET /metrics: تقبل الشكلين المتداولين — كائن فيه cpu/memory
+// مباشرةً، أو مصفوفة/كائن metrics فيه سلسلة لكل نوع (تُطابَق بـ type أو
+// metricType أو name) — ويعيد نسبتي cpu وmemory. أي سلسلة بلا قيمة رقمية
+// صالحة → null لذلك النوع فقط.
+export function northflankMetricsValues(payload: unknown): { cpu: number | null; memory: number | null } {
+  const out: { cpu: number | null; memory: number | null } = { cpu: null, memory: null };
+  if (Array.isArray(payload)) {
+    for (const entry of payload) {
+      const row = plainObj(entry);
+      const kind = typeof row.type === "string" ? row.type : typeof row.metricType === "string" ? row.metricType : typeof row.name === "string" ? row.name : "";
+      if (kind === "cpu") out.cpu = northflankMetricValue(entry);
+      else if (kind === "memory") out.memory = northflankMetricValue(entry);
+    }
+    return out;
+  }
+  const obj = plainObj(payload);
+  if ("cpu" in obj || "memory" in obj) {
+    out.cpu = northflankMetricValue(obj.cpu);
+    out.memory = northflankMetricValue(obj.memory);
+    return out;
+  }
+  const nested = obj.metrics;
+  if (Array.isArray(nested)) return northflankMetricsValues(nested);
+  return out;
+}
+
+// مدة تشغيل الخدمة: createdAt لأقدم حاوية بحالة TASK_RUNNING إلى الآن
+// (بالثواني). حاويات TASK_KILLED أقدم تُتجاهل؛ بلا حاوية جارية → null.
+// createdAt يقبل ISO نصًا، أو epoch بالثواني، أو epoch بالمللي ثانية.
+export function northflankUptimeSeconds(containers: unknown, nowSeconds: number): number | null {
+  const list = hermesListItems(containers);
+  let oldest: number | null = null;
+  for (const c of list) {
+    const pod = plainObj(c);
+    if (pod.state !== "TASK_RUNNING") continue;
+    const created = pod.createdAt;
+    let ts = NaN;
+    if (typeof created === "number") ts = created > 1e12 ? Math.floor(created / 1000) : Math.floor(created);
+    else if (typeof created === "string") ts = Math.floor(new Date(created).getTime() / 1000);
+    if (!Number.isFinite(ts)) continue;
+    if (oldest === null || ts < oldest) oldest = ts;
+  }
+  if (oldest === null) return null;
+  const uptime = nowSeconds - oldest;
+  return uptime >= 0 ? uptime : null;
+}
+
+// حالة الخدمة: subset صغير دفاعي من GET {base} — الاسم والحالة فقط،
+// وكلاهما null لو غابا (شكل الاستجابة الكامل غير موثَّق هنا، فلا اختراع حقول).
+export function northflankServiceStatus(service: unknown): Record<string, unknown> {
+  const s = plainObj(service);
+  return {
+    name: typeof s.name === "string" ? s.name : (typeof s.slug === "string" ? s.slug : null),
+    status: typeof s.status === "string" ? s.status : null,
+  };
+}
+
+// يجمع مصادر Northflank الثلاثة في بلوك northflank الكامل (configured:true).
+// أي مصدر null → حقوله null؛ لا يرمي أبدًا.
+export function normalizeNorthflankMetrics(metrics: unknown, containers: unknown, service: unknown, nowSeconds: number): Record<string, unknown> {
+  const values = northflankMetricsValues(metrics);
+  const derived = northflankDerivedMetrics(values.cpu, values.memory);
+  return {
+    configured: true,
+    cpu_percent: derived.cpu_percent,
+    memory_percent: derived.memory_percent,
+    memory_mb: derived.memory_mb,
+    cpu_vcpu: derived.cpu_vcpu,
+    uptime_seconds: northflankUptimeSeconds(containers, nowSeconds),
+    service_status: northflankServiceStatus(service),
+  };
+}
+
+// بلوك Northflank قبل التوصيل: غير مهيأ وكل القيم null.
+// عند توصيل Northflank لاحقًا تُملأ هذه الحقول من إجراء metrics فقط:
+// cpu_percent وmemory_percent وmemory_mb وcpu_vcpu وuptime_seconds
+// وservice_status — تغيير محصور في هذا الإجراء ولا يمسّ أي كود آخر.
+export function northflankPlaceholder(): Record<string, unknown> {
+  return {
+    configured: false,
+    cpu_percent: null,
+    memory_percent: null,
+    memory_mb: null,
+    cpu_vcpu: null,
+    uptime_seconds: null,
+    service_status: null,
+  };
+}
+
+// بلوك خطأ Northflank: التوكن مهيأ لكن القراءة فشلت (توكن خاطئ، 4xx/5xx،
+// مهلة). بيانات Hermes في نفس الاستجابة تبقى سليمة — الفشل معزول.
+export function northflankError(): Record<string, unknown> {
+  return { ...northflankPlaceholder(), configured: true, error: "تعذر قراءة مقاييس Northflank" };
+}
+
+// حمولة "غير متاح" الموحّدة لإجراء metrics: لا hermes ولا northflank،
+// والسبب رمز قصير (no_key | not_hermes | fetch_failed).
+export function unavailableMetricsPayload(reason: string): Record<string, unknown> {
+  return {
+    ok: false,
+    available: false,
+    reason,
+    hermes: null,
+    northflank: northflankPlaceholder(),
+  };
+}
+
+// ---------- Northflank ----------
+// قاعدة خدمة الوكيل: slug الوكيل هو اسم الخدمة على Northflank (افتراض
+// موثَّق — خدمة Hermes اسمها hermes-agent، نفس slug الوكيل). بلا slug
+// لا قاعدة ولا نداء.
+// التوكن يُفك تشفيره هنا فقط (نفس نمط hermesApiKey)، ولا يخرج في أي
+// استجابة أبدًا — ولا حتى في رسائل الخطأ.
+function northflankBase(agent: Record<string, unknown>): string {
+  const slug = ((agent.slug as string) || "").trim();
+  return slug ? `https://api.northflank.com/v1/projects/default/services/${encodeURIComponent(slug)}` : "";
+}
+
+async function northflankApiKey(agent: Record<string, unknown>): Promise<string | undefined> {
+  if (!agent.northflank_token_encrypted) return undefined;
+  try {
+    return await decryptText(agent.northflank_token_encrypted as string);
+  } catch {
+    return undefined;
+  }
+}
+
+// نداء JSON عام لـ Northflank (Bearer دائمًا على كل المسارات)؛ يعيد
+// {ok, data} أو خطأ موحّدًا — بلا أي أثر للتوكن في الخطأ.
+async function northflankFetchJson(token: string, url: string, timeoutMs: number) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    });
+    const text = await res.text();
+    let data: unknown;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
+    if (!res.ok) return { ok: false, error: `Northflank رد بخطأ (${res.status})`, data };
+    return { ok: true, data };
+  } catch (err) {
+    return { ok: false, error: "تعذّر الوصول إلى Northflank: " + (err instanceof Error ? err.message : String(err)) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // نداء HTTP عام لأي وكيل (Agent Manager لا يعرف تفاصيل الوكيل، فقط ينفذ
 // عقد اتصال موحّد: GET health_endpoint للحالة، POST endpoint/control للتحكم،
 // GET endpoint/logs للسجلات). لو endpoint غير مُعد بعد، يرجع خطأ واضح
@@ -453,7 +715,7 @@ Deno.serve(async (req: Request) => {
     try { body = await req.json(); } catch { return jsonResponse({ error: "Invalid JSON body" }, 400); }
 
     const action = body.action as string;
-    const VALID_ACTIONS = ["list", "get", "create", "update", "delete", "start", "stop", "restart", "status", "logs", "test_connection", "chat", "run_create", "run_get", "run_events", "run_stop"];
+    const VALID_ACTIONS = ["list", "get", "create", "update", "delete", "start", "stop", "restart", "status", "logs", "test_connection", "metrics", "chat", "run_create", "run_get", "run_events", "run_stop"];
     if (!VALID_ACTIONS.includes(action)) return jsonResponse({ error: "action غير معروف" }, 400);
 
     // ---------- list ----------
@@ -516,6 +778,13 @@ Deno.serve(async (req: Request) => {
         insertRow.api_key_last4 = String(body.api_key).slice(-4);
       }
 
+      // توكن Northflank (قراءة فقط): نفس نمط api_key حرفيًا — تشفير
+      // بـ AI_AGENTS_ENC_KEY + آخر 4 خانات للعرض المقنَّع فقط.
+      if (body.northflank_token) {
+        insertRow.northflank_token_encrypted = await encryptText(body.northflank_token);
+        insertRow.northflank_token_last4 = String(body.northflank_token).slice(-4);
+      }
+
       const { data, error } = await adminClient.from("ai_agents").insert(insertRow).select(PUBLIC_COLUMNS).single();
       if (error) return jsonResponse({ error: "فشل الإنشاء: " + error.message }, 500);
       return jsonResponse({ agent: sanitizeAgent(data) });
@@ -555,6 +824,12 @@ Deno.serve(async (req: Request) => {
       if (body.api_key) {
         updateRow.api_key_encrypted = await encryptText(body.api_key);
         updateRow.api_key_last4 = String(body.api_key).slice(-4);
+      }
+      // توكن Northflank: نفس نمط api_key — يُرسَل فقط عند تغييره من
+      // النموذج (الحقل لا يُعاد تعبئته عند الفتح)، فيُحفَظ القديم دونه.
+      if (body.northflank_token) {
+        updateRow.northflank_token_encrypted = await encryptText(body.northflank_token);
+        updateRow.northflank_token_last4 = String(body.northflank_token).slice(-4);
       }
 
       const { data, error } = await adminClient.from("ai_agents").update(updateRow).eq("id", id).select(PUBLIC_COLUMNS).single();
@@ -598,6 +873,89 @@ Deno.serve(async (req: Request) => {
       }
       const result = await callAgent(agent, "logs", { limit: body.limit ?? 200, level: body.level, search: body.search });
       return jsonResponse(result);
+    }
+
+    // ---------- metrics (مقاييس الكرت: Hermes + Northflank) ----------
+    // خادم فقط، ولا شيء يُخزَّن. Hermes أولًا: /health/detailed + /api/jobs
+    // + /api/sessions بالتوازي (Promise.allSettled)، كل مصدر معزول عن
+    // الآخر — فشل مصدر واحد لا يُسقط الباقي، وفشلها كلها مع غياب Northflank
+    // يرجع fetch_failed. ثم Northflank فقط لو توكن مخزَّن: /metrics (cpu +
+    // memory فقط) + /containers + GET الخدمة، بالتوازي كذلك — وأي فشل فيها
+    // يرجع بلوك error معزولًا وتبقى بيانات Hermes سليمة (والعكس صحيح).
+    // التوكن لا يظهر في أي استجابة أبدًا — لا مشفَّرًا ولا صريحًا ولا في
+    // رسائل الخطأ. الاستجابة الناجحة:
+    //   { ok:true, agent_id, hermes:{available,status,version,gateway_state,
+    //     active_agents,active_runs,stored_runs,jobs_count,sessions_count,
+    //     sessions_messages,sessions_tool_calls,requests_today,messages_today,
+    //     tokens_today,latency_p95_ms},
+    //     northflank:{configured,cpu_percent,memory_percent,memory_mb,
+    //     cpu_vcpu,uptime_seconds,service_status,error?} }
+    // وغير المتاح: { ok:false, available:false, reason, hermes:null,
+    //   northflank:{configured:false, ...nulls} }.
+    if (action === "metrics") {
+      const base = hermesBase(agent);
+      const apiKey = await hermesApiKey(agent);
+      if (agent.type !== "hermes" && !base) return jsonResponse(unavailableMetricsPayload("not_hermes"));
+      if (!apiKey) return jsonResponse(unavailableMetricsPayload("no_key"));
+
+      // كل نداء آمن بذاته (try/catch داخلي) + معزول بـ allSettled.
+      const safeCall = async (fn: () => Promise<{ ok: boolean; data?: unknown }>): Promise<{ ok: boolean; data: unknown | null }> => {
+        try {
+          const res = await fn();
+          return { ok: !!res.ok, data: res.ok ? (res.data ?? null) : null };
+        } catch {
+          return { ok: false, data: null };
+        }
+      };
+      const settledOk = (r: PromiseSettledResult<{ ok: boolean; data: unknown | null }>): boolean =>
+        r.status === "fulfilled" && r.value.ok;
+      const settledData = (r: PromiseSettledResult<{ ok: boolean; data: unknown | null }>): unknown =>
+        r.status === "fulfilled" ? r.value.data : null;
+
+      // Hermes — الثلاثة بالتوازي. المسارات في مصفوفة حتى لا يُبنى أي
+      // نداء لحساب /api/sessions/{id}/chat (مسار موثَّق بلا عميل — انظر
+      // تعليق الرأس): هذه الثلاثة فقط هي ما يُنادى.
+      const hermesPaths = ["/health/detailed", "/api/jobs", "/api/sessions"];
+      const [healthRes, jobsRes, sessionsRes] = await Promise.allSettled(
+        hermesPaths.map((p) => safeCall(() => hermesFetchJson(agent, `${base}${p}`, "GET")))
+      );
+      const hermesOkCount = [healthRes, jobsRes, sessionsRes].filter(settledOk).length;
+      const hermes = normalizeHermesMetrics(settledData(healthRes), settledData(jobsRes), settledData(sessionsRes));
+
+      // Northflank — فقط لو توكن مخزَّن؛ بلا توكن يبقى بلوك configured:false.
+      let northflank: Record<string, unknown> = northflankPlaceholder();
+      let northflankOk = false;
+      const nfToken = await northflankApiKey(agent);
+      if (nfToken) {
+        const nfBase = northflankBase(agent);
+        if (nfBase) {
+          const timeoutMs = (agent.timeout_ms as number) || 10000;
+          const [mRes, cRes, sRes] = await Promise.allSettled([
+            safeCall(() => northflankFetchJson(nfToken, `${nfBase}/metrics?queryType=single&metricTypes=cpu&metricTypes=memory`, timeoutMs)),
+            safeCall(() => northflankFetchJson(nfToken, `${nfBase}/containers`, timeoutMs)),
+            safeCall(() => northflankFetchJson(nfToken, nfBase, timeoutMs)),
+          ]);
+          // أي فشل داخل Northflank → بلوك error معزول (بلا رمي وبلا مساس بـ Hermes).
+          if (settledOk(mRes) && settledOk(cRes) && settledOk(sRes)) {
+            northflank = normalizeNorthflankMetrics(
+              settledData(mRes),
+              settledData(cRes),
+              settledData(sRes),
+              Math.floor(Date.now() / 1000)
+            );
+            northflankOk = true;
+          } else {
+            northflank = northflankError();
+          }
+        }
+      }
+
+      // لا مصدر أعطى شيئًا إطلاقًا — غير متاح، لا رمي. بلوك northflank
+      // المُعاد هنا هو الفعلي (placeholder بلا توكن، أو error عند فشله).
+      if (hermesOkCount === 0 && !northflankOk) {
+        return jsonResponse({ ok: false, available: false, reason: "fetch_failed", hermes: null, northflank });
+      }
+      return jsonResponse({ ok: true, agent_id: id, hermes, northflank });
     }
 
     // ---------- chat / run_* (Hermes: /v1/chat/completions و /v1/runs) ----------

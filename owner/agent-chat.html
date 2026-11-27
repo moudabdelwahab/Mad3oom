@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>شات الوكلاء - لوحة المالك - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-workspace.css">
+    <link rel="stylesheet" href="/assets/css/portal-notifications.css">
+    <link rel="stylesheet" href="/assets/css/owner-pages.css">
+    <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في لوحة المالك — الثيم وحالة الطي قبل أول رسم. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* نفس منظومة الألوان المستخدمة في بقية لوحة المالك (--color-* من
+   admin-style.css) بدل tokens مستقلة، حتى تتبع الصفحة الثيم العام. */
+:root{
+  --radius-lg:1.1rem;
+  --radius-md:.85rem;
+  --radius-sm:.6rem;
+  --shadow-sm:0 10px 24px -10px rgba(16,27,46,.10);
+  --font-display:'Cairo',sans-serif;
+  --font-data:'Space Grotesk',sans-serif;
+  --ease-snap:cubic-bezier(.2,.8,.2,1);
+  --dur-fast:.16s;
+  --dur-med:.3s;
+}
+h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-.01em;}
+:focus-visible{outline:2px solid var(--color-accent);outline-offset:2px;border-radius:4px;}
+
+.agent-chat-container{max-width:1240px;margin:0 auto;}
+
+/* ---------- Header ---------- */
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;}
+.page-header h1{font-size:1.5rem;margin-bottom:.3rem;color:var(--color-text);}
+.page-header .sub{color:var(--color-text-secondary);font-size:.9rem;}
+
+/* ---------- Layout: منتقٍ + محادثة ---------- */
+.chat-layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:1rem;align-items:start;}
+@media (max-width:900px){.chat-layout{grid-template-columns:1fr;}}
+
+/* ---------- منتقي الوكيل ---------- */
+.picker-panel{padding:1.1rem;}
+.picker-panel h2{font-size:1.05rem;color:var(--color-text);margin-bottom:.9rem;}
+.picker-list{display:flex;flex-direction:column;gap:.55rem;}
+.picker-item{display:flex;flex-direction:column;align-items:stretch;gap:.15rem;text-align:right;background:var(--color-muted);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:.7rem .85rem;cursor:pointer;font-family:inherit;width:100%;transition:border-color var(--dur-fast) ease, background var(--dur-fast) ease;}
+.picker-item:hover{border-color:var(--color-accent);}
+.picker-item.selected{border-color:var(--color-accent);background:rgba(0,119,204,.08);}
+.picker-item.not-ready{cursor:default;opacity:.75;}
+.picker-item.not-ready:hover{border-color:var(--color-border);}
+.picker-item .nm{font-weight:700;font-size:.9rem;color:var(--color-text);}
+.picker-item .st{font-size:.72rem;color:var(--color-text-secondary);}
+.picker-item .st.key{color:var(--color-danger);font-weight:700;}
+.picker-hint{font-size:.78rem;line-height:1.7;color:var(--color-text-secondary);background:var(--color-muted);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:.7rem .85rem;margin-top:.8rem;}
+.picker-hint a{color:var(--color-accent);font-weight:700;}
+.picker-empty{font-size:.78rem;line-height:1.7;color:var(--color-text-secondary);margin-top:.8rem;}
+.picker-empty a{color:var(--color-accent);font-weight:700;}
+
+/* ---------- لوحة المحادثة ---------- */
+.chat-panel{display:flex;flex-direction:column;padding:0;overflow:hidden;}
+.chat-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.2rem;border-bottom:1px solid var(--color-border);}
+.chat-head h2{font-size:1.05rem;color:var(--color-text);}
+.chat-head .sub{color:var(--color-text-secondary);font-size:.78rem;margin-top:.15rem;}
+.chat-messages{display:flex;flex-direction:column;gap:.7rem;padding:1.1rem 1.2rem;min-height:320px;max-height:56vh;overflow-y:auto;}
+.chat-empty{text-align:center;color:var(--color-text-secondary);font-size:.85rem;padding:3rem 1rem;line-height:1.8;}
+.msg{max-width:85%;padding:.65rem .9rem;border-radius:var(--radius-sm);font-size:.88rem;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere;}
+.msg.user{align-self:flex-start;background:var(--color-accent);color:#fff;border-start-start-radius:.2rem;}
+.msg.assistant{align-self:flex-end;background:var(--color-muted);color:var(--color-text);border:1px solid var(--color-border);border-start-end-radius:.2rem;}
+.msg.error{align-self:flex-end;background:rgba(220,38,38,.1);color:var(--color-danger);border:1px solid rgba(220,38,38,.35);}
+.msg.hint{align-self:flex-end;background:rgba(245,158,11,.12);color:var(--color-text);border:1px solid rgba(245,158,11,.4);}
+.msg.hint a{color:var(--color-accent);font-weight:700;}
+.msg.typing{color:var(--color-text-secondary);font-size:.8rem;}
+.msg.typing .dots::after{content:"…";animation:typingDots 1.2s infinite;}
+@keyframes typingDots{0%{opacity:.3;}50%{opacity:1;}100%{opacity:.3;}}
+@media (max-width:560px){.msg{max-width:95%;}}
+
+/* ---------- أدوات المحادثة: النموذج + البث ---------- */
+.chat-controls{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;padding:.8rem 1.2rem;border-top:1px solid var(--color-border);}
+.field-inline{display:flex;align-items:center;gap:.5rem;font-size:.8rem;font-weight:700;color:var(--color-text);}
+.field-inline input{background:var(--input-bg,var(--color-muted));border:1px solid var(--color-border);border-radius:.55rem;padding:.5rem .7rem;font-size:.82rem;font-family:var(--font-data);color:var(--color-text);width:230px;max-width:60vw;}
+.field-inline input:focus{outline:none;border-color:var(--color-accent);}
+.switch-row-inline{display:flex;align-items:center;gap:.55rem;font-size:.8rem;font-weight:700;color:var(--color-text);}
+.switch{position:relative;width:40px;height:22px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.switch .track{position:absolute;inset:0;background:var(--color-border);border-radius:99px;transition:background var(--dur-fast) ease;cursor:pointer;}
+.switch .track::after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform var(--dur-fast) var(--ease-snap);box-shadow:0 1px 3px rgba(0,0,0,.25);}
+.switch input:checked + .track{background:var(--color-accent);}
+.switch input:checked + .track::after{transform:translateX(-18px);}
+
+/* ---------- الإدخال والإرسال ---------- */
+.chat-composer{display:flex;gap:.6rem;padding:0 1.2rem 1rem;}
+.chat-composer input{flex:1;min-width:0;background:var(--input-bg,var(--color-muted));border:1px solid var(--color-border);border-radius:.65rem;padding:.7rem .9rem;font-size:.9rem;font-family:inherit;color:var(--color-text);}
+.chat-composer input:focus{outline:none;border-color:var(--color-accent);}
+.chat-composer input:disabled{opacity:.55;cursor:not-allowed;}
+.chat-note{font-size:.72rem;color:var(--color-text-secondary);padding:0 1.2rem 1rem;line-height:1.7;}
+
+.not-authorized{text-align:center;padding:4rem 1.5rem;color:var(--color-text-secondary);}
+</style>
+</head>
+<body class="customer-shell owner-shell dash-layout" data-owner-page="agent-chat">
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main" id="ownerMain">
+        <!-- بوابة العرض: سبب المنع بدل صفحة فارغة. القرار الحقيقي في القاعدة؛ هذه رسالة. -->
+        <section class="panel" id="ownerGate" hidden>
+            <div class="state-block" id="ownerGateBody"></div>
+        </section>
+
+        <div id="ownerContent" hidden>
+<div class="agent-chat-container" id="agentChatRoot">
+
+  <!-- ================= Header ================= -->
+  <div class="page-header">
+    <div>
+      <h1>شات الوكلاء</h1>
+      <p class="sub">تحدّث مباشرة مع وكلاء الذكاء الاصطناعي المتصلين بمدعوم</p>
+    </div>
+    <button class="btn btn-outline" id="btnClearChat" type="button">محادثة جديدة</button>
+  </div>
+
+  <div class="chat-layout">
+    <!-- ================= منتقي الوكيل ================= -->
+    <!-- يظهر دائمًا حتى بلا وكلاء جاهزين: القائمة والتلميح عنصران ثابتان
+         في الصفحة، والـ JS يملأ القائمة فقط. -->
+    <section class="panel picker-panel" id="agentPicker" aria-label="اختيار الوكيل">
+      <h2>الوكيل</h2>
+      <div class="picker-list" id="agentPickerList" role="listbox" aria-label="الوكلاء">
+        <p class="picker-empty">جاري تحميل الوكلاء...</p>
+      </div>
+      <p class="picker-hint" id="agentPickerHint" hidden></p>
+      <p class="picker-empty" id="agentPickerEmpty" hidden>لا يوجد وكلاء بعد — <a href="/owner/agents.html">أضف وكيلًا أولًا</a></p>
+    </section>
+
+    <!-- ================= المحادثة ================= -->
+    <section class="panel chat-panel" id="chatPanel" aria-label="المحادثة">
+      <div class="chat-head">
+        <div>
+          <h2 id="chatAgentName">اختر وكيلًا</h2>
+          <p class="sub" id="chatAgentMeta">ستظهر رسائل المحادثة هنا</p>
+        </div>
+      </div>
+
+      <div class="chat-messages" id="chatMessages" aria-live="polite">
+        <div class="chat-empty" id="chatEmpty">اختر وكيلًا جاهزًا من القائمة، ثم اكتب رسالتك.</div>
+      </div>
+
+      <div class="chat-controls">
+        <label class="field-inline">
+          <span>النموذج</span>
+          <input type="text" id="modelInput" value="hermes-agent" placeholder="hermes-agent" autocomplete="off">
+        </label>
+        <span class="switch-row-inline">
+          <span>بث مباشر</span>
+          <label class="switch"><input type="checkbox" id="streamToggle" checked><span class="track"></span></label>
+        </span>
+      </div>
+
+      <form class="chat-composer" id="chatForm">
+        <input type="text" id="chatInput" placeholder="اكتب رسالتك..." autocomplete="off" disabled>
+        <button class="btn btn-primary" id="btnSendChat" type="submit" disabled>إرسال</button>
+      </form>
+      <p class="chat-note">الحقل فارغ في «النموذج» يعني الافتراضي على الخادم (hermes-agent). المحادثة هنا للاختبار فقط ولا تُحفظ.</p>
+    </section>
+  </div>
+
+</div>
+            <p class="owner-sie-status ows-toast" id="pageStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
+        </div>
+    </main>
+
+    <script type="module" src="/assets/js/owner/pages/agent-chat.js"></script>
+</body>
+</html>
