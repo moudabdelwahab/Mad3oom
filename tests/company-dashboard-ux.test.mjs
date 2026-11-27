@@ -133,7 +133,10 @@ test('مفاتيح مجموعات القائمة تطابق مفاتيح COMPANY
     const nav = read('assets/components/company-sidebar.html');
     const keys = new Set(COMPANY_GROUPS.map(g => g.key));
     const found = [...nav.matchAll(/data-group="([^"]+)"/g)].map(m => m[1]);
-    assert.equal(found.length, 9, 'مجموعات القائمة: 9 — الإشعارات بلا مجموعة مستقلة (عنصر في «الرئيسية»)');
+    // العدد مشتق من COMPANY_GROUPS لا مكتوبًا: الإشعارات بلا مجموعة مستقلة
+    // (عنصر في «الرئيسية»)، وكل مجموعة أخرى لها مجموعة في القائمة.
+    const expected = COMPANY_GROUPS.filter(g => g.key !== 'notifications').length;
+    assert.equal(found.length, expected, `مجموعات القائمة: ${expected} — الإشعارات بلا مجموعة مستقلة (عنصر في «الرئيسية»)`);
     for (const key of found) {
         assert.ok(keys.has(key), `مجموعة في القائمة بلا مقابل في COMPANY_GROUPS: ${key}`);
     }

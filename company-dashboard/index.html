@@ -812,6 +812,53 @@
                 <div id="companyReports"></div>
             </section>
 
+            <!-- ═══ الموارد البشرية (143) ═══════════════════════════════════
+                 تظهر صفحاتها فقط حين تستحق الشركة 'hr' أو 'hr_employees'
+                 (checkCompanyFeature في boot()). كل رقم هنا من القاعدة فقط. -->
+            <section class="tab-content" id="hrOverviewTabContent">
+                <div id="hrOverviewBody"></div>
+            </section>
+
+            <section class="tab-content" id="hrEmployeesTabContent">
+                <div id="hrEmployeesToolbar"></div>
+                <div id="hrEmployeesBody">
+                    <div id="hrEmployeesList"></div>
+                </div>
+            </section>
+
+            <section class="tab-content" id="hrDepartmentsTabContent">
+                <div id="hrDepartmentsBody">
+                    <div class="hr-org-grid">
+                        <section class="panel" aria-labelledby="hrDepartmentsHeading">
+                            <div class="panel-header"><div>
+                                <h2 class="panel-title" id="hrDepartmentsHeading">الأقسام</h2>
+                                <p class="panel-subtitle">هيكل الأقسام حتى 6 مستويات.</p>
+                            </div></div>
+                            <div id="hrDepartmentsList"></div>
+                        </section>
+                        <section class="panel" aria-labelledby="hrBranchesHeading">
+                            <div class="panel-header"><div>
+                                <h2 class="panel-title" id="hrBranchesHeading">الفروع</h2>
+                                <p class="panel-subtitle">فروع الشركة وأقسامها الفرعية.</p>
+                            </div></div>
+                            <div id="hrBranchesList"></div>
+                        </section>
+                        <section class="panel" aria-labelledby="hrPositionsHeading">
+                            <div class="panel-header"><div>
+                                <h2 class="panel-title" id="hrPositionsHeading">المسميات الوظيفية</h2>
+                                <p class="panel-subtitle">المسميات المرتبطة بالأقسام.</p>
+                            </div></div>
+                            <div id="hrPositionsList"></div>
+                        </section>
+                    </div>
+                    <div id="hrSettingsBody"></div>
+                </div>
+            </section>
+
+            <section class="tab-content" id="hrImportTabContent">
+                <div id="hrImportBody"></div>
+            </section>
+
             <!-- ═══ النشاط ═════════════════════════════════════════════════
                  مستوحى من «سجل النشاط»، لكن لهذا الحساب وحده. -->
             <section class="tab-content" id="activityTabContent">

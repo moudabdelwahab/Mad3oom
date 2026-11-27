@@ -1,3 +1,15 @@
+CREATE TRIGGER trg_hr_audit_logs_immutable BEFORE UPDATE OR DELETE ON public.hr_audit_logs FOR EACH ROW EXECUTE FUNCTION _hr_audit_immutable();
+CREATE TRIGGER trg_hr_audit_logs_no_truncate BEFORE TRUNCATE ON public.hr_audit_logs FOR EACH STATEMENT EXECUTE FUNCTION _hr_audit_immutable();
+CREATE TRIGGER trg_hr_branches_depth_guard BEFORE INSERT OR UPDATE OF parent_id ON public.hr_branches FOR EACH ROW EXECUTE FUNCTION _hr_org_depth_guard();
+CREATE TRIGGER trg_hr_branches_updated_at BEFORE UPDATE ON public.hr_branches FOR EACH ROW EXECUTE FUNCTION _hr_touch_updated_at();
+CREATE TRIGGER trg_hr_departments_depth_guard BEFORE INSERT OR UPDATE OF parent_id ON public.hr_departments FOR EACH ROW EXECUTE FUNCTION _hr_org_depth_guard();
+CREATE TRIGGER trg_hr_departments_updated_at BEFORE UPDATE ON public.hr_departments FOR EACH ROW EXECUTE FUNCTION _hr_touch_updated_at();
+CREATE TRIGGER trg_hr_employee_status_history_immutable BEFORE UPDATE OR DELETE ON public.hr_employee_status_history FOR EACH ROW EXECUTE FUNCTION _hr_audit_immutable();
+CREATE TRIGGER trg_hr_employee_status_history_no_truncate BEFORE TRUNCATE ON public.hr_employee_status_history FOR EACH STATEMENT EXECUTE FUNCTION _hr_audit_immutable();
+CREATE TRIGGER trg_hr_employees_updated_at BEFORE UPDATE ON public.hr_employees FOR EACH ROW EXECUTE FUNCTION _hr_touch_updated_at();
+CREATE TRIGGER trg_hr_positions_depth_guard BEFORE INSERT OR UPDATE OF parent_id ON public.hr_positions FOR EACH ROW EXECUTE FUNCTION _hr_org_depth_guard();
+CREATE TRIGGER trg_hr_positions_updated_at BEFORE UPDATE ON public.hr_positions FOR EACH ROW EXECUTE FUNCTION _hr_touch_updated_at();
+CREATE TRIGGER trg_hr_settings_updated_at BEFORE UPDATE ON public.hr_settings FOR EACH ROW EXECUTE FUNCTION _hr_touch_updated_at();
 CREATE TRIGGER trg_preview_read_only BEFORE INSERT OR DELETE OR UPDATE ON public._pre_038_rollback FOR EACH STATEMENT EXECUTE FUNCTION guard_preview_read_only();
 CREATE TRIGGER trg_preview_read_only BEFORE INSERT OR DELETE OR UPDATE ON public.accounting_invoices FOR EACH STATEMENT EXECUTE FUNCTION guard_preview_read_only();
 CREATE TRIGGER trg_preview_read_only BEFORE INSERT OR DELETE OR UPDATE ON public.admin_telegram_otps FOR EACH STATEMENT EXECUTE FUNCTION guard_preview_read_only();
@@ -268,6 +280,15 @@ CREATE TRIGGER trg_preview_read_only BEFORE INSERT OR DELETE OR UPDATE ON public
 CREATE TRIGGER trg_whatsapp_wallets_updated_at BEFORE UPDATE ON public.whatsapp_wallets FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER trg_preview_read_only BEFORE INSERT OR DELETE OR UPDATE ON public.work_hours FOR EACH STATEMENT EXECUTE FUNCTION guard_preview_read_only();
 CREATE TRIGGER trg_preview_read_only BEFORE INSERT OR DELETE OR UPDATE ON public.working_hours FOR EACH STATEMENT EXECUTE FUNCTION guard_preview_read_only();
+ALTER TABLE public.hr_audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hr_branches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hr_departments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hr_employee_status_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hr_employees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hr_import_runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hr_positions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hr_role_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hr_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.suggested_questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ticket_distribution_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_ai_usage_counters ENABLE ROW LEVEL SECURITY;
@@ -628,6 +649,15 @@ CREATE POLICY "Authors/Admins can update threads" ON public.forum_threads AS PER
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text))))));
 CREATE POLICY "Everyone can view threads" ON public.forum_threads AS PERMISSIVE FOR SELECT TO public USING (true);
+CREATE POLICY gate_account_active ON public.hr_audit_logs AS RESTRICTIVE FOR ALL TO authenticated USING (public.account_is_active()) WITH CHECK (public.account_is_active());
+CREATE POLICY gate_account_active ON public.hr_branches AS RESTRICTIVE FOR ALL TO authenticated USING (public.account_is_active()) WITH CHECK (public.account_is_active());
+CREATE POLICY gate_account_active ON public.hr_departments AS RESTRICTIVE FOR ALL TO authenticated USING (public.account_is_active()) WITH CHECK (public.account_is_active());
+CREATE POLICY gate_account_active ON public.hr_employee_status_history AS RESTRICTIVE FOR ALL TO authenticated USING (public.account_is_active()) WITH CHECK (public.account_is_active());
+CREATE POLICY gate_account_active ON public.hr_employees AS RESTRICTIVE FOR ALL TO authenticated USING (public.account_is_active()) WITH CHECK (public.account_is_active());
+CREATE POLICY gate_account_active ON public.hr_import_runs AS RESTRICTIVE FOR ALL TO authenticated USING (public.account_is_active()) WITH CHECK (public.account_is_active());
+CREATE POLICY gate_account_active ON public.hr_positions AS RESTRICTIVE FOR ALL TO authenticated USING (public.account_is_active()) WITH CHECK (public.account_is_active());
+CREATE POLICY gate_account_active ON public.hr_role_assignments AS RESTRICTIVE FOR ALL TO authenticated USING (public.account_is_active()) WITH CHECK (public.account_is_active());
+CREATE POLICY gate_account_active ON public.hr_settings AS RESTRICTIVE FOR ALL TO authenticated USING (public.account_is_active()) WITH CHECK (public.account_is_active());
 CREATE POLICY gate_account_active ON public.inbox_conversation_tags AS RESTRICTIVE FOR ALL TO authenticated USING (account_is_active()) WITH CHECK (account_is_active());
 CREATE POLICY inbox_conversation_tags_select ON public.inbox_conversation_tags AS PERMISSIVE FOR SELECT TO authenticated USING ((( SELECT inbox_is_agent() AS inbox_is_agent) AND inbox_can_access(session_id)));
 CREATE POLICY gate_account_active ON public.inbox_conversations AS RESTRICTIVE FOR ALL TO authenticated USING (account_is_active()) WITH CHECK (account_is_active());

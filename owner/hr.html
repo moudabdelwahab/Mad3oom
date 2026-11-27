@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>الموارد البشرية - لوحة المالك - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-workspace.css">
+    <link rel="stylesheet" href="/assets/css/portal-notifications.css">
+    <link rel="stylesheet" href="/assets/css/owner-pages.css">
+    <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في لوحة المالك — الثيم وحالة الطي قبل أول رسم. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body class="customer-shell owner-shell dash-layout" data-owner-page="hr">
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main" id="ownerMain">
+        <!-- بوابة العرض: سبب المنع بدل صفحة فارغة. القرار الحقيقي في القاعدة (owner_capability('owner_only')). -->
+        <section class="panel" id="ownerGate" hidden>
+            <div class="state-block" id="ownerGateBody"></div>
+        </section>
+
+        <div id="ownerContent" hidden>
+            <header class="owner-banner owner-page-banner">
+                <div class="owner-banner-main">
+                    <span class="owner-level-tag">لوحة المالك · التشغيل</span>
+                    <h1 class="owner-title">الموارد البشرية</h1>
+                    <p class="owner-meta">مفتاح المنصة العام، واستحقاق كل شركة (الوحدة والأقسام)، وسجل
+                        عمليات الوحدة — حالة استحقاق فقط: لا بيانات موظفين ولا رواتب
+                        ولا مستندات ولا أرقام قومية في هذه الصفحة إطلاقًا.</p>
+                </div>
+                <div class="owner-banner-side">
+                    <a class="btn btn-outline btn-sm owner-crumb" href="/owner-dashboard.html#overview">لوحة المالك</a>
+                    <button type="button" class="btn btn-outline btn-sm" id="hrRefresh">تحديث</button>
+                </div>
+            </header>
+            <div class="kpi-grid" id="hrKpis" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+
+            <div class="owner-page-stack">
+                <section class="panel" aria-labelledby="hrSwitchHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="hrSwitchHeading">مفتاح المنصة العام</h2>
+                        <p class="panel-subtitle">hr_module_enabled — بلا هذا المفتاح لا تعمل الوحدة لأي شركة،
+                        حتى لو كان اشتراكها يشملها. الإيقاف يوقف الوحدة منصةً كاملةً فورًا.</p>
+                    </div></div>
+                    <div id="hrSwitch" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                </section>
+
+                <section class="panel" aria-labelledby="hrCompaniesHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="hrCompaniesHeading">الشركات واستحقاق الموارد البشرية</h2>
+                        <p class="panel-subtitle">الوحدة والأقسام الستة لكل شركة — حالة استحقاق وعدد موظفين فقط،
+                        بلا أي بيانات موظفين. التفعيل والإيقاف من هنا بسبب مسجَّل.</p>
+                    </div></div>
+                    <form class="toolbar owner-filters" id="hrCompaniesFilters" role="search" novalidate>
+                        <label class="visually-hidden" for="hrCompaniesSearch">ابحث بالاسم أو البريد</label>
+                        <input type="search" class="form-control owner-filter-search" id="hrCompaniesSearch" placeholder="ابحث باسم الشركة أو بريد مالكها…" autocomplete="off" maxlength="100">
+                    </form>
+                    <div id="hrCompaniesTable" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                    <div id="hrCompaniesPager"></div>
+                </section>
+
+                <section class="panel" aria-labelledby="hrLogHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="hrLogHeading">سجل عمليات الموارد البشرية</h2>
+                        <p class="panel-subtitle">آخر قرارات المالك على الوحدة والأقسام، وتغييرات الاستحقاق — من سجلات التدقيق.</p>
+                    </div></div>
+                    <div id="hrLog" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                </section>
+            </div>
+
+            <details class="owner-limits">
+                <summary>ما لا تفعله هذه الصفحة</summary>
+                <ul>
+                    <li>لا تعرض أي بيانات موظفين: لا أسماء ولا رواتب ولا أرقام قومية ولا مستندات — حالة استحقاق وعدد موظفين فقط.</li>
+                    <li>لا تمنح صلاحيات HR داخل شركة (hr_manager / hr_officer) — تلك من لوحة الشركة نفسها (مرحلة الأدوار).</li>
+                    <li>مزايا الباقات للوحدة (plan_features) لا تُعدَّل من هنا — سعر الوحدة في الباقات قرار تجاري معلّق لمحمود.</li>
+                    <li>إيقاف قسم من هنا يسحب تجاوزه (يعني: بلا استحقاق) — لا يوجد إيقاف مؤقت يُستأنف في هذه الخطوة.</li>
+                </ul>
+            </details>
+            <p class="owner-sie-status ows-toast" id="pageStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
+        </div>
+    </main>
+
+    <script type="module" src="/assets/js/owner/pages/hr.js"></script>
+</body>
+</html>

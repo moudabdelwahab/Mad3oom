@@ -39,14 +39,30 @@ test('كل صفحة في مجال واحد بالضبط، ولها اسم وحا
     assert.equal(COMPANY_ROUTES.length, Object.keys(COMPANY_PAGES).length);
 });
 
-test('المجالات العشرة كما في هيكل المعلومات (المتجر لحسابات المتاجر وحدها)', () => {
+test('المجالات الأحد عشر كما في هيكل المعلومات (المتجر لحسابات المتاجر وحدها، والموارد البشرية للشركات المستحقة وحدها)', () => {
     assert.deepEqual(COMPANY_GROUPS.map(g => g.label), [
-        'الرئيسية', 'المتجر', 'الدعم والتذاكر', 'الفريق والصلاحيات', 'الاشتراك والفوترة',
+        'الرئيسية', 'المتجر', 'الدعم والتذاكر', 'الفريق والصلاحيات', 'الموارد البشرية', 'الاشتراك والفوترة',
         'التكاملات وواجهة API', 'التقارير والنشاط', 'الإشعارات', 'حساب الشركة', 'حسابي والأمان'
     ]);
+    assert.equal(COMPANY_GROUPS.length, 11);
+    assert.deepEqual(groupOf('hrEmployees').pages, ['hrOverview', 'hrEmployees', 'hrDepartments', 'hrImport']);
     // بيانات الشركة منفصلة عن الحساب الشخصي
     assert.notEqual(groupOf('company').key, groupOf('profile').key);
     assert.equal(groupOf('security').key, groupOf('profile').key);
+});
+
+test('صفحات الموارد البشرية: تُحجب بلا استحقاق وتظهر به (ctx.hr)', () => {
+    for (const page of ['hrOverview', 'hrEmployees', 'hrDepartments', 'hrImport']) {
+        assert.equal(pageAvailable(page, { viewerRole: 'admin' }), false, `${page} ظهرت بلا استحقاق`);
+        assert.equal(pageAvailable(page, { viewerRole: 'admin', hr: false }), false, `${page} ظهرت مع hr:false`);
+        assert.equal(pageAvailable(page, { viewerRole: 'admin', hr: true }), true, `${page} حُجبت مع hr:true`);
+        assert.equal(pageAvailable(page, { viewerRole: 'supervisor', hr: true }), true, `${page} حُجبت عن مشرف مستحق`);
+        assert.equal(pageAvailable(page, { viewerRole: 'agent', hr: true }), true, `${page} حُجبت عن موظف مستحق — الحارس الحقيقي RPC`);
+        assert.equal(pageAvailable(page, { viewerRole: 'admin', hr: 'yes' }), false, `${page} ظهرت مع hr غير true حرفيًا`);
+    }
+    // الصفحات العادية لا تتأثر بمفتاح HR
+    assert.equal(pageAvailable('overview', { viewerRole: 'admin' }), true);
+    assert.equal(pageAvailable('tickets', { viewerRole: 'admin' }), true);
 });
 
 test('الروابط القديمة تبقى صالحة، والمجهول يعود إلى النظرة العامة', () => {

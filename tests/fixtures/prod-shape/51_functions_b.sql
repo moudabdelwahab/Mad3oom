@@ -2805,6 +2805,205 @@ AS $function$
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.owner_hr_list_companies(p_search text default null, p_page integer default 1)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_page int := greatest(coalesce(p_page, 1), 1);
+  v_size int := 25;
+  v_term text := nullif(btrim(coalesce(p_search, '')), '');
+begin
+  perform public._owner_require();
+  if v_term is not null then
+    v_term := replace(replace(replace(v_term, '\', '\\'), '%', '\%'), '_', '\_');
+  end if;
+  return (
+    with f as (
+      select c.id company_id, c.company_name, c.status company_status,
+             (select email from public.profiles where id = c.user_id) owner_email,
+             (select count(*) from public.hr_employees e where e.company_id = c.id) employees_total,
+             (select count(*) from public.hr_employees e where e.company_id = c.id and e.archived_at is null) employees_active
+        from public.companies c
+       where v_term is null
+          or c.company_name ilike '%' || v_term || '%' escape '\'
+          or exists (select 1 from public.profiles p where p.id = c.user_id and p.email ilike '%' || v_term || '%' escape '\')
+    )
+    select jsonb_build_object(
+      'rows', coalesce((select jsonb_agg(jsonb_build_object(
+          'company_id', s.company_id, 'company_name', s.company_name,
+          'company_status', s.company_status, 'owner_email', s.owner_email,
+          'hr_enabled', public._hr_entitled(s.company_id, 'hr', true),
+          'sections', jsonb_build_object(
+            'hr_employees', public._hr_entitled(s.company_id, 'hr_employees', true),
+            'hr_leave', public._hr_entitled(s.company_id, 'hr_leave', true),
+            'hr_payroll', public._hr_entitled(s.company_id, 'hr_payroll', true),
+            'hr_tasks', public._hr_entitled(s.company_id, 'hr_tasks', true),
+            'hr_attendance', public._hr_entitled(s.company_id, 'hr_attendance', true),
+            'hr_reports', public._hr_entitled(s.company_id, 'hr_reports', true)),
+          'overrides', coalesce((select jsonb_agg(jsonb_build_object(
+              'feature_key', o.feature_key, 'status', o.status, 'expires_at', o.expires_at,
+              'reason', o.reason) order by o.feature_key)
+            from public.company_feature_overrides o
+           where o.company_id = s.company_id and o.feature_key like 'hr%'), '[]'::jsonb),
+          'employees_total', s.employees_total, 'employees_active', s.employees_active)
+        order by s.company_name)
+        from (select * from f order by company_name limit v_size offset (v_page - 1) * v_size) s), '[]'::jsonb),
+      'total', (select count(*) from f),
+      'page', v_page, 'page_size', v_size));
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.owner_hr_operations_log(p_limit integer default 30)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare v_n int := least(greatest(coalesce(p_limit, 30), 1), 100);
+begin
+  perform public._owner_require();
+  return (select coalesce(jsonb_agg(jsonb_build_object(
+      'at', x.at, 'source', x.source, 'action', x.action, 'actor_email', x.actor_email,
+      'company_name', x.company_name, 'summary', x.summary)
+      order by x.at desc), '[]'::jsonb)
+    from (select * from (
+      select a.at, 'privileged' source, a.action,
+             (select email from public.profiles where id = a.actor_id) actor_email,
+             (select company_name from public.companies where id = a.target_user_id) company_name,
+             case a.action
+               when 'hr.module' then 'وحدة HR: ' || case when coalesce((a.new_value->>'enabled')::boolean, false) then 'فُعّلت' else 'أُبطلت' end
+               when 'hr.section' then 'قسم ' || (a.new_value->>'feature_key') || ': ' || case when coalesce((a.new_value->>'enabled')::boolean, false) then 'فُعّل' else 'أُبطل' end
+               else a.action end summary
+        from public.privileged_audit a
+       where a.action like 'hr.%'
+      union all
+      select l.created_at, 'subscription', l.action,
+             l.actor_email,
+             (select company_name from public.companies where user_id = l.target_user_id) company_name,
+             case l.action
+               when 'hr.module_enabled' then 'وحدة HR فُعّلت للشركة'
+               when 'hr.module_disabled' then 'وحدة HR أُبطلت للشركة'
+               when 'hr.section_enabled' then 'قسم HR فُعّل للشركة'
+               when 'hr.section_disabled' then 'قسم HR أُبطل للشركة'
+               else l.action end
+        from public.subscription_audit_log l
+       where l.action like 'hr.%'
+      union all
+      select h.created_at, 'hr_audit', h.action,
+             (select email from public.profiles where id = h.actor_user_id) actor_email,
+             (select company_name from public.companies where id = h.company_id) company_name,
+             'تغيير استحقاق HR في الشركة'
+        from public.hr_audit_logs h
+       where h.action = 'entitlement.changed'
+    ) u order by u.at desc limit v_n) x);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.owner_hr_set_module(p_company_id uuid, p_enabled boolean, p_reason text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_reason text;
+  v_old    jsonb;
+  v_new    jsonb;
+begin
+  if not public.owner_critical_ok() then
+    raise exception 'إدارة وحدة HR لمالك المنصة في سياقه وبتحقق حديث' using errcode = '42501';
+  end if;
+  v_reason := public._reason_check(p_reason);
+  if p_enabled is null then
+    raise exception 'حدّد تفعيلًا أو إبطالًا' using errcode = '22023';
+  end if;
+  if not exists (select 1 from public.companies where id = p_company_id) then
+    raise exception 'الشركة غير موجودة' using errcode = 'P0002';
+  end if;
+  select jsonb_build_object('enabled', exists (select 1 from public.company_feature_overrides o
+             where o.company_id = p_company_id and o.feature_key = 'hr' and o.status = 'active'
+               and (o.expires_at is null or o.expires_at > now())))
+    into v_old;
+  if p_enabled then
+    insert into public.company_feature_overrides (company_id, feature_key, reason, granted_by, expires_at, status)
+    values (p_company_id, 'hr', v_reason, auth.uid(), null, 'active')
+    on conflict (company_id, feature_key) do update
+      set reason = excluded.reason, granted_by = excluded.granted_by, granted_at = now(),
+          expires_at = null, status = 'active',
+          suspended_at = null, suspended_by = null, suspend_reason = null;
+  else
+    delete from public.company_feature_overrides
+     where company_id = p_company_id and feature_key = 'hr';
+  end if;
+  v_new := jsonb_build_object('company_id', p_company_id, 'feature_key', 'hr',
+    'enabled', p_enabled, 'reason', v_reason);
+  perform public.log_privileged('hr.module', p_company_id, v_old, v_new);
+  perform public._hr_subscription_audit(p_company_id,
+    case when p_enabled then 'hr.module_enabled' else 'hr.module_disabled' end,
+    v_old, v_new, v_reason);
+  perform public._hr_audit(p_company_id, 'entitlement.changed', 'entitlement', p_company_id, null,
+    v_old, v_new, v_reason);
+  return v_new;
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.owner_hr_set_section(p_company_id uuid, p_feature_key text, p_enabled boolean, p_reason text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_reason text;
+  v_old    jsonb;
+  v_new    jsonb;
+begin
+  if not public.owner_critical_ok() then
+    raise exception 'إدارة أقسام HR لمالك المنصة في سياقه وبتحقق حديث' using errcode = '42501';
+  end if;
+  v_reason := public._reason_check(p_reason);
+  if p_feature_key not in ('hr_employees', 'hr_leave', 'hr_payroll', 'hr_tasks', 'hr_attendance', 'hr_reports') then
+    raise exception 'مفتاح قسم غير صالح' using errcode = '22023';
+  end if;
+  if p_enabled is null then
+    raise exception 'حدّد تفعيلًا أو إبطالًا' using errcode = '22023';
+  end if;
+  if not exists (select 1 from public.companies where id = p_company_id) then
+    raise exception 'الشركة غير موجودة' using errcode = 'P0002';
+  end if;
+  select jsonb_build_object('enabled', exists (select 1 from public.company_feature_overrides o
+             where o.company_id = p_company_id and o.feature_key = p_feature_key and o.status = 'active'
+               and (o.expires_at is null or o.expires_at > now())))
+    into v_old;
+  if p_enabled then
+    insert into public.company_feature_overrides (company_id, feature_key, reason, granted_by, expires_at, status)
+    values (p_company_id, p_feature_key, v_reason, auth.uid(), null, 'active')
+    on conflict (company_id, feature_key) do update
+      set reason = excluded.reason, granted_by = excluded.granted_by, granted_at = now(),
+          expires_at = null, status = 'active',
+          suspended_at = null, suspended_by = null, suspend_reason = null;
+  else
+    delete from public.company_feature_overrides
+     where company_id = p_company_id and feature_key = p_feature_key;
+  end if;
+  v_new := jsonb_build_object('company_id', p_company_id, 'feature_key', p_feature_key,
+    'enabled', p_enabled, 'reason', v_reason);
+  perform public.log_privileged('hr.section', p_company_id, v_old, v_new);
+  perform public._hr_subscription_audit(p_company_id,
+    case when p_enabled then 'hr.section_enabled' else 'hr.section_disabled' end,
+    v_old, v_new, v_reason);
+  perform public._hr_audit(p_company_id, 'entitlement.changed', 'entitlement', p_company_id, null,
+    v_old, v_new, v_reason);
+  return v_new;
+end 
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.persist_bot_turn(p_session_id uuid, p_turn integer, p_message_text text, p_bot_state jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql

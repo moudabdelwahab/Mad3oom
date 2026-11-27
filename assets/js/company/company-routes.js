@@ -34,6 +34,12 @@ export const COMPANY_PAGES = Object.freeze({
     customers:       { label: 'عملاء الشركة' },
     customerHistory: { label: 'سجل العميل' },
     teamPerformance: { label: 'أداء الفريق' },
+    // وحدة الموارد البشرية (الترحيل 143): تُحجب بالكامل حين تكون ctx.hr غير true
+    // — الاستحقاق يُحسب من القاعدة (مفتاح المنصة + اشتراك الشركة + تجاوز المالك).
+    hrOverview:      { label: 'نظرة الموارد البشرية' },
+    hrEmployees:     { label: 'الموظفون' },
+    hrDepartments:   { label: 'الأقسام والفروع والمسميات' },
+    hrImport:        { label: 'استيراد الموظفين' },
     permissions:     { label: 'الأدوار والصلاحيات' },
     accessLog:       { label: 'سجل وصول مدعوم' },
     subscriptions:   { label: 'الاشتراكات' },
@@ -71,6 +77,11 @@ export const COMPANY_GROUPS = Object.freeze([
         pages: ['users', 'members', 'customers', 'customerHistory', 'teamPerformance', 'permissions', 'accessLog']
     },
     {
+        key: 'hr', label: 'الموارد البشرية',
+        description: 'ملفات الموظفين والأقسام والفروع والمسميات والاستيراد الجماعي.',
+        pages: ['hrOverview', 'hrEmployees', 'hrDepartments', 'hrImport']
+    },
+    {
         key: 'billing', label: 'الاشتراك والفوترة',
         description: 'باقات الشركة، والخدمات التي تتيحها، ورصيد التذاكر هذا الشهر.',
         pages: ['subscriptions', 'refundPolicy', 'entitlements', 'usage']
@@ -99,15 +110,22 @@ export const COMPANY_ROUTES = Object.freeze(COMPANY_GROUPS.flatMap(g => g.pages)
 /** صفحات لمدير الشركة وحده في التنقّل (القاعدة ترفض غيره على أي حال). */
 const ADMIN_PAGES = new Set(['permissions', 'accessLog', 'shopify']);
 
+/** صفحات الموارد البشرية: تُحجب كلها حين تكون ctx.hr غير true. */
+const HR_PAGES = new Set(['hrOverview', 'hrEmployees', 'hrDepartments', 'hrImport']);
+
 /**
  * هل تستحق الصفحة رابطًا لهذا الناظر؟
- * ctx: { viewerRole: 'admin'|'supervisor'|'agent', inbox: boolean, store: boolean }
+ * ctx: { viewerRole: 'admin'|'supervisor'|'agent', inbox: boolean, store: boolean, hr: boolean }
  * - inbox: يظهر فقط حين ترد القاعدة بصندوق لهذا الحساب (company_inbox_summary).
+ * - store: صفحات المتجر لحساب ecommerce_store وحده (my_account_type()).
+ * - hr: صفحات الموارد البشرية حين ترد القاعدة باستحقاق 'hr' أو 'hr_employees'
+ *   للشركة (checkCompanyFeature في boot()) — بلا استحقاق تُحجب بالكامل.
  * - customers: للمدير (الدعوات) والمشرف (القائمة)؛ لا شيء لموظف الدعم فيها.
  * - teamPerformance: للمدير والمشرف؛ لا شيء لموظف الدعم فيها — كـ customers تمامًا.
  */
-export function pageAvailable(page, { viewerRole = 'admin', inbox = false, store = false } = {}) {
+export function pageAvailable(page, { viewerRole = 'admin', inbox = false, store = false, hr = false } = {}) {
     if (!COMPANY_ROUTES.includes(page)) return false;
+    if (HR_PAGES.has(page) && hr !== true) return false;
     if (STORE_PAGES.includes(page) && store !== true) return false;
     if (page === 'storeReports' && !['admin', 'supervisor'].includes(viewerRole)) return false;
     if (!sectionAllowed(page, viewerRole)) return false;

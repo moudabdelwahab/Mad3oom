@@ -43,6 +43,10 @@ import { initCompanyIntegrations, loadCompanyIntegrations, oauthCompletion } fro
 import {
     initCompanyStore, loadStoreOverview, loadShopifyPage, loadStoreOrders, loadStoreRequests, loadStoreReports
 } from '/assets/js/company/company-store.js';
+// 143: وحدة الموارد البشرية (الترحيل 143) — صفحات hr-* تُحجب حين لا استحقاق
+import {
+    initHrDashboard, loadHrOverview, loadHrEmployees, loadHrDepartments, loadHrImport
+} from '/assets/js/company/hr-dashboard.js';
 // 120: إدارة المتجر في Shopify (تظهر الأقسام حسب ihub_shopify_manage_status)
 import { loadStoreManage } from '/assets/js/company/store-manage.js';
 import { fetchAccountType } from '/assets/js/company/store-data.js';
@@ -98,7 +102,8 @@ import {
     fetchMyCompanyPermissions,
     fetchCompanyScopeTickets,
     setCompanyTicketStatus,
-    assignCompanyTicket
+    assignCompanyTicket,
+    checkCompanyFeature
 } from '/assets/js/company/company-data.js';
 import {
     subscriptionStatusInfo,
@@ -154,6 +159,9 @@ let companyMembers = [];
 let companyCustomerList = [];
 // 102: ملخص صندوق الرسائل كما رجّعته القاعدة — null يعني لا رابط في القائمة
 let inboxSummary = null;
+// 143: استحقاق الموارد البشرية للشركة (مفتاح المنصة + اشتراك/تجاوز) —
+// يُحسب مرة في boot() ويُعاد تطبيق التنقّل بعده؛ القاعدة ترفض ما عداه.
+let hrEntitled = false;
 // 118: نوع الحساب كما رجّعته my_account_type() — عرض فقط؛ القاعدة تقرر كل صفحة متجر
 let accountType = null;
 
@@ -247,6 +255,8 @@ async function init() {
     wireAddMember();
     wireInviteCustomer();
     wireBulkInvite();
+    // 143: وحدة الموارد البشرية — أزرار إعادة المحاولة في صفحات hr-*
+    initHrDashboard();
     // 138: مدخل مستقل لطلب حساب شركة — زر في بوابة «لا توجد شركة» أدناه،
     // وأي زر [data-standalone-company-request] في اللوحة يفتح النافذة نفسها.
     initStandaloneCompanyRequestEntry();
@@ -267,9 +277,15 @@ async function boot() {
     if (!dashboard) return;
     // صندوق الرسائل (102) يظهر في التنقّل فقط حين ترد القاعدة بصندوق لهذا الحساب.
     // نوع الحساب (118) يُظهر مجموعة المتجر لحساب ecommerce_store؛ قبل 118 لا رد = لا مجموعة.
-    const [inbox, kind] = await Promise.all([fetchInboxSummary(), fetchAccountType()]);
+    // 143: استحقاق HR — 'hr' أو 'hr_employees'؛ القاعدة تحسم مفتاح المنصة
+    // والاشتراك والتجاوز معًا (checkCompanyFeature ينادي company_has_feature).
+    const [inbox, kind, hrMain, hrEmp] = await Promise.all([
+        fetchInboxSummary(), fetchAccountType(),
+        checkCompanyFeature('hr'), checkCompanyFeature('hr_employees')
+    ]);
     inboxSummary = inbox;
     accountType = kind?.ok ? kind.data : null;
+    hrEntitled = (hrMain?.ok && hrMain.data === true) || (hrEmp?.ok && hrEmp.data === true);
     applyViewerRole();
 
     // البحث في الشريط العلوي بيوصل هنا كـ?q= (بيت القشرة هو لوحة الشركة
@@ -339,7 +355,12 @@ const LOADERS = {
     storeReports: () => loadStoreReports(),
     activity: () => loadCompanyActivity(),
     // التقارير تُبنى من المسارين والأعضاء، فنضمن تحميلها أولًا بدل عرض أصفار كاذبة
-    reports: () => loadReports()
+    reports: () => loadReports(),
+    // 143: وحدة الموارد البشرية — تُحجب من التنقّل حين لا استحقاق (pageAvailable)
+    hrOverview: () => loadHrOverview(),
+    hrEmployees: () => loadHrEmployees(),
+    hrDepartments: () => loadHrDepartments(),
+    hrImport: () => loadHrImport()
 };
 
 const loadedOnce = new Set();
@@ -350,7 +371,7 @@ const BASE_TITLE = 'لوحة الشركة - منصة مدعوم';
 let currentSection = 'overview';
 
 function navContext() {
-    return { viewerRole, inbox: inboxSummary !== null, store: accountType?.organization_kind === 'ecommerce_store' };
+    return { viewerRole, inbox: inboxSummary !== null, store: accountType?.organization_kind === 'ecommerce_store', hr: hrEntitled === true };
 }
 
 function sectionFromHash() {

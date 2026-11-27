@@ -96,6 +96,440 @@ end;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public._hr_audit(p_company uuid, p_action text, p_entity_type text, p_entity_id uuid, p_employee_id uuid, p_old jsonb, p_new jsonb, p_reason text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  insert into public.hr_audit_logs
+    (company_id, employee_id, actor_user_id, actor_role, action, entity_type, entity_id,
+     old_values, new_values, reason)
+  values (p_company, p_employee_id, auth.uid(),
+          (select role from public.profiles where id = auth.uid()),
+          p_action, p_entity_type, p_entity_id, p_old, p_new, p_reason);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public._hr_audit_immutable()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  raise exception 'سجل HR إلحاقي: لا تعديل ولا حذف ولا تقطيع' using errcode = '42501';
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public._hr_can_archive(p_company uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select public._hr_is_company_admin(p_company)
+      or exists (select 1 from public.hr_role_assignments r
+                  where r.company_id = p_company and r.user_id = auth.uid()
+                    and r.role = 'hr_manager' and r.revoked_at is null);
+$function$
+;
+CREATE OR REPLACE FUNCTION public._hr_dept_scope(p_company uuid)
+ RETURNS uuid
+ LANGUAGE sql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select r.department_id from public.hr_role_assignments r
+   where r.company_id = p_company and r.user_id = auth.uid()
+     and r.role = 'dept_manager' and r.revoked_at is null
+     and r.department_id is not null
+   limit 1;
+$function$
+;
+CREATE OR REPLACE FUNCTION public._hr_entitled(p_company uuid, p_feature_key text, p_write boolean default true)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select
+    exists (
+      select 1
+        from public.companies c
+        join public.whatsapp_subscriptions s on (s.company_id = c.id or s.user_id = c.user_id)
+        join public.subscription_plans sp on sp.key = s.plan
+        join public.plan_features pf on pf.plan_id = sp.id and pf.enabled = true
+       where c.id = p_company
+         and s.status = 'active'
+         and s.start_date <= now()
+         and s.end_date   >  now()
+         and pf.feature_key = p_feature_key)
+    or exists (
+      select 1
+        from public.company_feature_overrides o
+       where o.company_id = p_company
+         and o.feature_key = p_feature_key
+         and (o.expires_at is null or o.expires_at > now())
+         and (o.status = 'active' or (not p_write and o.status = 'suspended')));
+$function$
+;
+CREATE OR REPLACE FUNCTION public._hr_gate(p_section_key text, p_write boolean default true)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare v_company uuid;
+begin
+  -- HIGH في التدقيق: account_is_active() لا تستدعي is_banned() — كل RPC
+  -- في HR يفحص الحظر صراحةً ولا يعتمد على سياسة gate_account_active وحدها.
+  if coalesce(public.is_banned(), false) then
+    raise exception 'الحساب محظور' using errcode = '42501';
+  end if;
+  if not public._feature_on('hr_module_enabled') then
+    raise exception 'وحدة الموارد البشرية متوقفة على مستوى المنصة' using errcode = '42501';
+  end if;
+  v_company := public.current_company_id();
+  if v_company is null then
+    raise exception 'لا توجد شركة مرتبطة بحسابك' using errcode = '42501';
+  end if;
+  if public._feature_on('company_suspension_enforced')
+     and exists (select 1 from public.companies c where c.id = v_company and c.status = 'suspended') then
+    raise exception 'الشركة موقوفة' using errcode = '42501';
+  end if;
+  if not public._hr_entitled(v_company, 'hr', p_write) then
+    raise exception 'وحدة الموارد البشرية غير متاحة لشركتك' using errcode = '42501';
+  end if;
+  if p_section_key <> 'hr' and not public._hr_entitled(v_company, p_section_key, p_write) then
+    raise exception 'هذا القسم غير مفعّل لشركتك' using errcode = '42501';
+  end if;
+  return v_company;
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public._hr_has_permission(p_company uuid, p_key text)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select public._hr_is_company_admin(p_company)
+      or (p_key = 'hr.self.view'
+          and exists (select 1 from public.hr_employees e
+                       where e.company_id = p_company and e.user_id = auth.uid()
+                         and e.archived_at is null))
+      or exists (
+        select 1 from public.hr_role_assignments r
+         where r.company_id = p_company
+           and r.user_id = auth.uid()
+           and r.revoked_at is null
+           and (
+             (r.role = 'hr_manager' and p_key in (
+               'hr.employees.view', 'hr.employees.manage', 'hr.departments.manage',
+               'hr.import', 'hr.link_account', 'hr.roles.manage', 'hr.settings.manage',
+               'hr.audit.view', 'hr.leave.view', 'hr.leave.manage',
+               'hr.tasks.view', 'hr.tasks.manage'))
+             or (r.role = 'hr_officer' and p_key in (
+               'hr.employees.view', 'hr.employees.manage', 'hr.import',
+               'hr.audit.view', 'hr.leave.view', 'hr.leave.manage',
+               'hr.tasks.view', 'hr.tasks.manage'))
+             or (r.role = 'dept_manager' and p_key in (
+               'hr.employees.view', 'hr.leave.view', 'hr.leave.manage',
+               'hr.tasks.view', 'hr.tasks.manage'))
+             or (r.role = 'payroll_officer' and p_key in (
+               'hr.payroll.view', 'hr.payroll.manage'))
+           ));
+$function$
+;
+CREATE OR REPLACE FUNCTION public._hr_in_my_scope(p_employee_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select auth.uid() is not null
+     and not coalesce(public.is_banned(), false)
+     and exists (
+       select 1 from public.hr_employees e
+        where e.id = p_employee_id
+          and e.company_id = public.current_company_id()
+          and e.archived_at is null
+          and (
+            public._hr_is_company_admin(e.company_id)
+            or public._hr_has_permission(e.company_id, 'hr.employees.view')
+               and (public._hr_dept_scope(e.company_id) is null
+                    or e.department_id = public._hr_dept_scope(e.company_id)
+                    or e.manager_employee_id = public._hr_my_employee_id(e.company_id))
+            or e.id = public._hr_my_employee_id(e.company_id)
+          ));
+$function$
+;
+CREATE OR REPLACE FUNCTION public._hr_is_company_admin(p_company uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select exists (select 1 from public.companies c where c.id = p_company and c.user_id = auth.uid())
+      or coalesce(public.is_company_admin(), false);
+$function$
+;
+CREATE OR REPLACE FUNCTION public._hr_mask_national_id(p_national_id text)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO 'public'
+AS $function$
+  select case when p_national_id is null then null
+              when char_length(p_national_id) < 6 then '****'
+              else left(p_national_id, 3) || '********' || right(p_national_id, 2)
+         end;
+$function$
+;
+CREATE OR REPLACE FUNCTION public._hr_my_employee_id(p_company uuid)
+ RETURNS uuid
+ LANGUAGE sql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select e.id from public.hr_employees e
+   where e.company_id = p_company and e.user_id = auth.uid() and e.archived_at is null
+   limit 1;
+$function$
+;
+CREATE OR REPLACE FUNCTION public._hr_next_employee_number(p_company uuid)
+ RETURNS text
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_prefix text;
+  v_next   int;
+  v_num    text;
+  v_tries  int := 0;
+begin
+  insert into public.hr_settings (company_id) values (p_company)
+    on conflict (company_id) do nothing;
+  select employee_number_prefix, employee_number_next into v_prefix, v_next
+    from public.hr_settings where company_id = p_company for update;
+  loop
+    v_num := coalesce(v_prefix, '') || lpad(v_next::text, 4, '0');
+    exit when not exists (select 1 from public.hr_employees e
+                           where e.company_id = p_company and e.employee_number = v_num);
+    v_next := v_next + 1;
+    v_tries := v_tries + 1;
+    if v_tries > 100 then
+      raise exception 'تعذّر توليد رقم وظيفي متاح' using errcode = 'P0001';
+    end if;
+  end loop;
+  update public.hr_settings set employee_number_next = v_next + 1, updated_by = auth.uid()
+   where company_id = p_company;
+  return v_num;
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public._hr_org_depth_guard()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_parent uuid := new.parent_id;
+  v_depth  int := 1;
+  v_seen   uuid[] := '{}'::uuid[];
+  v_next   uuid;
+begin
+  if new.parent_id is null then
+    return new;
+  end if;
+  if new.parent_id = new.id then
+    raise exception 'لا يمكن أن تكون العقدة أبًا لنفسها' using errcode = '22023';
+  end if;
+  loop
+    if v_parent = new.id then
+      raise exception 'لا يمكن نقل عقدة تحت أحد أحفادها' using errcode = '22023';
+    end if;
+    if v_parent = any(v_seen) then
+      raise exception 'حلقة في الهيكل التنظيمي' using errcode = '22023';
+    end if;
+    v_seen := v_seen || v_parent;
+    v_depth := v_depth + 1;
+    if v_depth > 6 then
+      raise exception 'العمق الأقصى للهيكل التنظيمي 6 مستويات' using errcode = '22023';
+    end if;
+    execute format('select parent_id from public.%I where id = $1', TG_TABLE_NAME)
+       using v_parent into v_next;
+    if v_next is null then
+      return new;
+    end if;
+    v_parent := v_next;
+  end loop;
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public._hr_subscription_audit(p_company uuid, p_action text, p_old jsonb, p_new jsonb, p_reason text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  insert into public.subscription_audit_log
+    (subscription_id, target_user_id, actor_user_id, actor_email, action, old_values, new_values, reason)
+  values (null,
+          (select user_id from public.companies where id = p_company),
+          auth.uid(),
+          (select email from public.profiles where id = auth.uid()),
+          p_action, p_old, p_new, nullif(btrim(coalesce(p_reason, '')), ''));
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public._hr_touch_updated_at()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  new.updated_at := now();
+  return new;
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public._hr_validate_employee_row(p_row jsonb, p_company uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_name        text := btrim(coalesce(p_row ->> 'full_name', ''));
+  v_number      text := nullif(btrim(coalesce(p_row ->> 'employee_number', '')), '');
+  v_phone       text := nullif(btrim(coalesce(p_row ->> 'phone', '')), '');
+  v_email       text := nullif(btrim(coalesce(p_row ->> 'email', '')), '');
+  v_nid         text := nullif(btrim(coalesce(p_row ->> 'national_id', '')), '');
+  v_dept_name   text := nullif(btrim(coalesce(p_row ->> 'department', '')), '');
+  v_branch_name text := nullif(btrim(coalesce(p_row ->> 'branch', '')), '');
+  v_pos_name    text := nullif(btrim(coalesce(p_row ->> 'position', '')), '');
+  v_mgr_number  text := nullif(btrim(coalesce(p_row ->> 'manager_employee_number', '')), '');
+  v_job         text := nullif(btrim(coalesce(p_row ->> 'job_title', '')), '');
+  v_hire_txt    text := nullif(btrim(coalesce(p_row ->> 'hire_date', '')), '');
+  v_contract    text := nullif(btrim(coalesce(p_row ->> 'contract_type', '')), '');
+  v_hire        date;
+  v_dept_id     uuid;
+  v_branch_id   uuid;
+  v_pos_id      uuid;
+  v_mgr_id      uuid;
+  v_norm        jsonb;
+  v_fail        jsonb;
+begin
+  if char_length(v_name) < 2 then
+    return jsonb_build_object('valid', false, 'code', 'missing_name', 'reason', 'الاسم مطلوب (حرفان على الأقل)');
+  end if;
+  if v_number is not null and v_number ~ '\s' then
+    return jsonb_build_object('valid', false, 'code', 'missing_employee_number', 'reason', 'الرقم الوظيفي بلا مسافات');
+  end if;
+  if v_number is not null and exists (select 1 from public.hr_employees e
+                                       where e.company_id = p_company and e.employee_number = v_number) then
+    return jsonb_build_object('valid', false, 'code', 'duplicate_employee_number', 'reason', 'الرقم الوظيفي مستخدم بالفعل في شركتك');
+  end if;
+  if v_phone is not null and (char_length(v_phone) < 7 or char_length(v_phone) > 20
+      or v_phone !~ '^\+?[0-9][0-9 ()-]*$') then
+    return jsonb_build_object('valid', false, 'code', 'invalid_phone', 'reason', 'رقم هاتف غير صالح');
+  end if;
+  if v_email is not null and (char_length(v_email) > 320 or v_email !~ '^[^\s@]+@[^\s@]+\.[^\s@]+$') then
+    return jsonb_build_object('valid', false, 'code', 'invalid_email', 'reason', 'بريد إلكتروني غير صالح');
+  end if;
+  if v_email is not null and exists (select 1 from public.hr_employees e
+                                      where e.company_id = p_company and lower(e.email) = lower(v_email)) then
+    return jsonb_build_object('valid', false, 'code', 'duplicate_email', 'reason', 'البريد الإلكتروني مستخدم بالفعل في شركتك');
+  end if;
+  if v_nid is not null and (char_length(v_nid) < 10 or char_length(v_nid) > 20) then
+    return jsonb_build_object('valid', false, 'code', 'invalid_national_id', 'reason', 'الرقم القومي بين 10 و20 حرفًا');
+  end if;
+  if v_nid is not null and exists (select 1 from public.hr_employees e
+                                    where e.company_id = p_company and e.national_id = v_nid) then
+    return jsonb_build_object('valid', false, 'code', 'duplicate_national_id', 'reason', 'الرقم القومي مستخدم بالفعل في شركتك');
+  end if;
+  if v_hire_txt is not null then
+    if v_hire_txt !~ '^\d{4}-\d{2}-\d{2}$' then
+      return jsonb_build_object('valid', false, 'code', 'invalid_date', 'reason', 'تاريخ التعيين بصيغة YYYY-MM-DD');
+    end if;
+    begin
+      v_hire := v_hire_txt::date;
+    exception when others then
+      return jsonb_build_object('valid', false, 'code', 'invalid_date', 'reason', 'تاريخ التعيين غير صالح');
+    end;
+    if v_hire > current_date then
+      return jsonb_build_object('valid', false, 'code', 'invalid_date', 'reason', 'تاريخ التعيين لا يكون في المستقبل');
+    end if;
+  end if;
+  if v_contract is not null and v_contract not in ('full_time', 'part_time', 'contract', 'intern', 'temporary') then
+    return jsonb_build_object('valid', false, 'code', 'invalid_contract_type', 'reason', 'نوع عقد غير صالح');
+  end if;
+  if v_dept_name is not null then
+    select id into v_dept_id from public.hr_departments
+     where company_id = p_company and lower(btrim(name)) = lower(v_dept_name)
+       and archived_at is null and is_active limit 1;
+    if v_dept_id is null then
+      return jsonb_build_object('valid', false, 'code', 'unknown_department', 'reason', 'القسم غير موجود في شركتك: ' || v_dept_name);
+    end if;
+  end if;
+  if v_branch_name is not null then
+    select id into v_branch_id from public.hr_branches
+     where company_id = p_company and lower(btrim(name)) = lower(v_branch_name)
+       and archived_at is null and is_active limit 1;
+    if v_branch_id is null then
+      return jsonb_build_object('valid', false, 'code', 'unknown_branch', 'reason', 'الفرع غير موجود في شركتك: ' || v_branch_name);
+    end if;
+  end if;
+  if v_pos_name is not null then
+    select id into v_pos_id from public.hr_positions
+     where company_id = p_company and lower(btrim(name)) = lower(v_pos_name)
+       and archived_at is null and is_active limit 1;
+    if v_pos_id is null then
+      return jsonb_build_object('valid', false, 'code', 'unknown_position', 'reason', 'المسمى الوظيفي غير موجود في شركتك: ' || v_pos_name);
+    end if;
+  end if;
+  if v_mgr_number is not null then
+    select id into v_mgr_id from public.hr_employees
+     where company_id = p_company and employee_number = v_mgr_number and archived_at is null limit 1;
+    if v_mgr_id is null then
+      -- ليس فشلًا نهائيًا للاستيراد: قد يكون المدير صفًا لاحقًا في الملف نفسه.
+      return jsonb_build_object('valid', false, 'code', 'unknown_manager',
+        'reason', 'الرقم الوظيفي للمدير غير موجود: ' || v_mgr_number, 'manager_in_db', false,
+        'normalized', jsonb_build_object(
+          'full_name', v_name, 'employee_number', v_number, 'phone', v_phone, 'email', v_email,
+          'national_id', v_nid, 'department_id', v_dept_id, 'branch_id', v_branch_id,
+          'position_id', v_pos_id, 'manager_employee_number', v_mgr_number,
+          'job_title', v_job, 'hire_date', v_hire_txt, 'contract_type', v_contract));
+    end if;
+  end if;
+  v_norm := jsonb_build_object(
+    'full_name', v_name, 'employee_number', v_number, 'phone', v_phone, 'email', v_email,
+    'national_id', v_nid, 'department_id', v_dept_id, 'branch_id', v_branch_id,
+    'position_id', v_pos_id, 'manager_employee_id', v_mgr_id,
+    'manager_employee_number', v_mgr_number, 'job_title', v_job, 'hire_date', v_hire_txt,
+    'contract_type', v_contract,
+    'employment_status', case when v_phone is null and v_email is null then 'pending_data' else 'active' end);
+  return jsonb_build_object('valid', true, 'code', null, 'reason', null, 'normalized', v_norm);
+end 
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public._inbox_account_active(p_user uuid)
  RETURNS boolean
  LANGUAGE sql
@@ -5809,6 +6243,1517 @@ CREATE OR REPLACE FUNCTION public.hash_recovery_code(p_code text)
  SET search_path TO ''
 AS $function$
   select encode(extensions.digest(upper(btrim(p_code)), 'sha256'), 'hex');
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.hr_branch_archive(p_id uuid, p_reason text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  v_reason  text;
+  b         public.hr_branches;
+  v_kids    int;
+  v_emps    int;
+begin
+  v_company := public._hr_gate('hr_employees', true);
+  if not (public._hr_has_permission(v_company, 'hr.departments.manage')
+          or public._hr_has_permission(v_company, 'hr.employees.manage')) then
+    raise exception 'لا تملك صلاحية إدارة الهيكل التنظيمي' using errcode = '42501';
+  end if;
+  v_reason := public._reason_check(p_reason);
+  select * into b from public.hr_branches where id = p_id and company_id = v_company;
+  if not found then
+    raise exception 'الفرع غير موجود' using errcode = 'P0002';
+  end if;
+  if b.archived_at is not null then
+    raise exception 'الفرع مؤرشف بالفعل' using errcode = '22023';
+  end if;
+  select count(*) into v_kids from public.hr_branches where parent_id = b.id and archived_at is null;
+  select count(*) into v_emps from public.hr_employees where branch_id = b.id and archived_at is null;
+  if v_kids > 0 or v_emps > 0 then
+    raise exception 'لا يمكن أرشفة الفرع: تحته % فروع غير مؤرشفة و% موظفين نشطين', v_kids, v_emps using errcode = '22023';
+  end if;
+  update public.hr_branches set archived_at = now() where id = b.id;
+  perform public._hr_audit(v_company, 'branch.archived', 'branch', b.id, null,
+    jsonb_build_object('name', b.name), jsonb_build_object('archived', true), v_reason);
+  return jsonb_build_object('id', b.id, 'archived', true);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_branch_create(p_name text, p_parent_id uuid default null, p_description text default null, p_manager_employee_id uuid default null, p_sort_order integer default 0)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  v_name    text := btrim(coalesce(p_name, ''));
+  v_id      uuid;
+begin
+  v_company := public._hr_gate('hr_employees', true);
+  if not (public._hr_has_permission(v_company, 'hr.departments.manage')
+          or public._hr_has_permission(v_company, 'hr.employees.manage')) then
+    raise exception 'لا تملك صلاحية إدارة الهيكل التنظيمي' using errcode = '42501';
+  end if;
+  if char_length(v_name) < 2 or char_length(v_name) > 120 then
+    raise exception 'اسم الفرع بين حرفين و120 حرفًا' using errcode = '22023';
+  end if;
+  if p_parent_id is not null and not exists (select 1 from public.hr_branches where id = p_parent_id and company_id = v_company and archived_at is null) then
+    raise exception 'الفرع الأب غير موجود أو مؤرشف' using errcode = 'P0002';
+  end if;
+  if p_manager_employee_id is not null and not exists (select 1 from public.hr_employees where id = p_manager_employee_id and company_id = v_company and archived_at is null) then
+    raise exception 'مدير الفرع غير موجود' using errcode = 'P0002';
+  end if;
+  begin
+    insert into public.hr_branches (company_id, parent_id, name, description, manager_employee_id, sort_order, created_by)
+    values (v_company, p_parent_id, v_name, nullif(btrim(coalesce(p_description, '')), ''), p_manager_employee_id,
+            coalesce(p_sort_order, 0), auth.uid())
+    returning id into v_id;
+  exception when unique_violation then
+    raise exception 'اسم الفرع مستخدم بالفعل تحت نفس الأب' using errcode = '23505';
+  end;
+  perform public._hr_audit(v_company, 'branch.created', 'branch', v_id, null, null,
+    jsonb_build_object('name', v_name, 'parent_id', p_parent_id), null);
+  return jsonb_build_object('id', v_id, 'name', v_name);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_branch_update(p_id uuid, p_name text default null, p_parent_id uuid default null, p_description text default null, p_manager_employee_id uuid default null, p_is_active boolean default null, p_sort_order integer default null)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  b         public.hr_branches;
+  v_name    text;
+begin
+  v_company := public._hr_gate('hr_employees', true);
+  if not (public._hr_has_permission(v_company, 'hr.departments.manage')
+          or public._hr_has_permission(v_company, 'hr.employees.manage')) then
+    raise exception 'لا تملك صلاحية إدارة الهيكل التنظيمي' using errcode = '42501';
+  end if;
+  select * into b from public.hr_branches where id = p_id and company_id = v_company;
+  if not found then
+    raise exception 'الفرع غير موجود' using errcode = 'P0002';
+  end if;
+  if b.archived_at is not null then
+    raise exception 'الفرع مؤرشف' using errcode = '22023';
+  end if;
+  v_name := case when p_name is null then b.name else btrim(p_name) end;
+  if char_length(v_name) < 2 or char_length(v_name) > 120 then
+    raise exception 'اسم الفرع بين حرفين و120 حرفًا' using errcode = '22023';
+  end if;
+  if p_parent_id is not null then
+    if p_parent_id = b.id then
+      raise exception 'لا يمكن أن يكون الفرع أبًا لنفسه' using errcode = '22023';
+    end if;
+    if not exists (select 1 from public.hr_branches where id = p_parent_id and company_id = v_company and archived_at is null) then
+      raise exception 'الفرع الأب غير موجود أو مؤرشف' using errcode = 'P0002';
+    end if;
+  end if;
+  if p_manager_employee_id is not null and not exists (select 1 from public.hr_employees where id = p_manager_employee_id and company_id = v_company and archived_at is null) then
+    raise exception 'مدير الفرع غير موجود' using errcode = 'P0002';
+  end if;
+  begin
+    update public.hr_branches set
+      name = v_name, parent_id = coalesce(p_parent_id, b.parent_id),
+      description = case when p_description is null then b.description when btrim(p_description) = '' then null else btrim(p_description) end,
+      manager_employee_id = coalesce(p_manager_employee_id, b.manager_employee_id),
+      is_active = coalesce(p_is_active, b.is_active),
+      sort_order = coalesce(p_sort_order, b.sort_order)
+    where id = b.id;
+  exception when unique_violation then
+    raise exception 'اسم الفرع مستخدم بالفعل تحت نفس الأب' using errcode = '23505';
+  end;
+  perform public._hr_audit(v_company, 'branch.updated', 'branch', b.id, null,
+    jsonb_build_object('name', b.name), jsonb_build_object('name', v_name), null);
+  return jsonb_build_object('id', b.id, 'name', v_name);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_branches_list(p_include_archived boolean default false)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  v_rows    jsonb;
+begin
+  v_company := public._hr_gate('hr_employees', false);
+  if not public._hr_has_permission(v_company, 'hr.employees.view') then
+    raise exception 'لا تملك صلاحية عرض الموظفين' using errcode = '42501';
+  end if;
+  with recursive tree as (
+    select b.*, 1 as depth from public.hr_branches b
+     where b.company_id = v_company and b.parent_id is null
+       and (coalesce(p_include_archived, false) or b.archived_at is null)
+    union all
+    select b.*, t.depth + 1 from public.hr_branches b
+      join tree t on b.parent_id = t.id
+     where b.company_id = v_company
+       and (coalesce(p_include_archived, false) or b.archived_at is null)
+  )
+  select coalesce(jsonb_agg(jsonb_build_object(
+      'id', s.id, 'parent_id', s.parent_id, 'name', s.name, 'description', s.description,
+      'manager_employee_id', s.manager_employee_id,
+      'manager_name', (select full_name from public.hr_employees where id = s.manager_employee_id),
+      'is_active', s.is_active, 'sort_order', s.sort_order, 'depth', s.depth,
+      'archived_at', s.archived_at, 'employees_count', s.employees_count)
+    order by s.depth, s.sort_order, s.name), '[]'::jsonb)
+    into v_rows
+    from (select t.*, (select count(*) from public.hr_employees e
+                        where e.branch_id = t.id and e.archived_at is null) employees_count
+            from tree t) s;
+  return jsonb_build_object('rows', v_rows, 'total', jsonb_array_length(v_rows));
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_department_archive(p_id uuid, p_reason text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  v_reason  text;
+  d         public.hr_departments;
+  v_kids    int;
+  v_emps    int;
+begin
+  v_company := public._hr_gate('hr_employees', true);
+  if not (public._hr_has_permission(v_company, 'hr.departments.manage')
+          or public._hr_has_permission(v_company, 'hr.employees.manage')) then
+    raise exception 'لا تملك صلاحية إدارة الهيكل التنظيمي' using errcode = '42501';
+  end if;
+  v_reason := public._reason_check(p_reason);
+  select * into d from public.hr_departments where id = p_id and company_id = v_company;
+  if not found then
+    raise exception 'القسم غير موجود' using errcode = 'P0002';
+  end if;
+  if d.archived_at is not null then
+    raise exception 'القسم مؤرشف بالفعل' using errcode = '22023';
+  end if;
+  select count(*) into v_kids from public.hr_departments where parent_id = d.id and archived_at is null;
+  select count(*) into v_emps from public.hr_employees where department_id = d.id and archived_at is null;
+  if v_kids > 0 or v_emps > 0 then
+    raise exception 'لا يمكن أرشفة القسم: تحته % أقسام غير مؤرشفة و% موظفين نشطين' , v_kids, v_emps using errcode = '22023';
+  end if;
+  update public.hr_departments set archived_at = now() where id = d.id;
+  perform public._hr_audit(v_company, 'department.archived', 'department', d.id, null,
+    jsonb_build_object('name', d.name), jsonb_build_object('archived', true), v_reason);
+  return jsonb_build_object('id', d.id, 'archived', true);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_department_create(p_name text, p_parent_id uuid default null, p_description text default null, p_manager_employee_id uuid default null, p_sort_order integer default 0)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  v_name    text := btrim(coalesce(p_name, ''));
+  v_id      uuid;
+begin
+  v_company := public._hr_gate('hr_employees', true);
+  if not (public._hr_has_permission(v_company, 'hr.departments.manage')
+          or public._hr_has_permission(v_company, 'hr.employees.manage')) then
+    raise exception 'لا تملك صلاحية إدارة الهيكل التنظيمي' using errcode = '42501';
+  end if;
+  if char_length(v_name) < 2 or char_length(v_name) > 120 then
+    raise exception 'اسم القسم بين حرفين و120 حرفًا' using errcode = '22023';
+  end if;
+  if p_parent_id is not null and not exists (select 1 from public.hr_departments where id = p_parent_id and company_id = v_company and archived_at is null) then
+    raise exception 'القسم الأب غير موجود أو مؤرشف' using errcode = 'P0002';
+  end if;
+  if p_manager_employee_id is not null and not exists (select 1 from public.hr_employees where id = p_manager_employee_id and company_id = v_company and archived_at is null) then
+    raise exception 'مدير القسم غير موجود' using errcode = 'P0002';
+  end if;
+  begin
+    insert into public.hr_departments (company_id, parent_id, name, description, manager_employee_id, sort_order, created_by)
+    values (v_company, p_parent_id, v_name, nullif(btrim(coalesce(p_description, '')), ''), p_manager_employee_id,
+            coalesce(p_sort_order, 0), auth.uid())
+    returning id into v_id;
+  exception when unique_violation then
+    raise exception 'اسم القسم مستخدم بالفعل تحت نفس الأب' using errcode = '23505';
+  end;
+  perform public._hr_audit(v_company, 'department.created', 'department', v_id, null, null,
+    jsonb_build_object('name', v_name, 'parent_id', p_parent_id), null);
+  return jsonb_build_object('id', v_id, 'name', v_name);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_department_update(p_id uuid, p_name text default null, p_parent_id uuid default null, p_description text default null, p_manager_employee_id uuid default null, p_is_active boolean default null, p_sort_order integer default null)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  d         public.hr_departments;
+  v_name    text;
+begin
+  v_company := public._hr_gate('hr_employees', true);
+  if not (public._hr_has_permission(v_company, 'hr.departments.manage')
+          or public._hr_has_permission(v_company, 'hr.employees.manage')) then
+    raise exception 'لا تملك صلاحية إدارة الهيكل التنظيمي' using errcode = '42501';
+  end if;
+  select * into d from public.hr_departments where id = p_id and company_id = v_company;
+  if not found then
+    raise exception 'القسم غير موجود' using errcode = 'P0002';
+  end if;
+  if d.archived_at is not null then
+    raise exception 'القسم مؤرشف' using errcode = '22023';
+  end if;
+  v_name := case when p_name is null then d.name else btrim(p_name) end;
+  if char_length(v_name) < 2 or char_length(v_name) > 120 then
+    raise exception 'اسم القسم بين حرفين و120 حرفًا' using errcode = '22023';
+  end if;
+  if p_parent_id is not null then
+    if p_parent_id = d.id then
+      raise exception 'لا يمكن أن يكون القسم أبًا لنفسه' using errcode = '22023';
+    end if;
+    if not exists (select 1 from public.hr_departments where id = p_parent_id and company_id = v_company and archived_at is null) then
+      raise exception 'القسم الأب غير موجود أو مؤرشف' using errcode = 'P0002';
+    end if;
+  end if;
+  if p_manager_employee_id is not null and not exists (select 1 from public.hr_employees where id = p_manager_employee_id and company_id = v_company and archived_at is null) then
+    raise exception 'مدير القسم غير موجود' using errcode = 'P0002';
+  end if;
+  begin
+    update public.hr_departments set
+      name = v_name,
+      parent_id = coalesce(p_parent_id, d.parent_id),
+      description = case when p_description is null then d.description when btrim(p_description) = '' then null else btrim(p_description) end,
+      manager_employee_id = coalesce(p_manager_employee_id, d.manager_employee_id),
+      is_active = coalesce(p_is_active, d.is_active),
+      sort_order = coalesce(p_sort_order, d.sort_order)
+    where id = d.id;
+  exception when unique_violation then
+    raise exception 'اسم القسم مستخدم بالفعل تحت نفس الأب' using errcode = '23505';
+  end;
+  perform public._hr_audit(v_company, 'department.updated', 'department', d.id, null,
+    jsonb_build_object('name', d.name), jsonb_build_object('name', v_name), null);
+  return jsonb_build_object('id', d.id, 'name', v_name);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_departments_list(p_include_archived boolean default false)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  v_rows    jsonb;
+begin
+  v_company := public._hr_gate('hr_employees', false);
+  if not public._hr_has_permission(v_company, 'hr.employees.view') then
+    raise exception 'لا تملك صلاحية عرض الموظفين' using errcode = '42501';
+  end if;
+  with recursive tree as (
+    select d.*, 1 as depth from public.hr_departments d
+     where d.company_id = v_company and d.parent_id is null
+       and (coalesce(p_include_archived, false) or d.archived_at is null)
+    union all
+    select d.*, t.depth + 1 from public.hr_departments d
+      join tree t on d.parent_id = t.id
+     where d.company_id = v_company
+       and (coalesce(p_include_archived, false) or d.archived_at is null)
+  )
+  select coalesce(jsonb_agg(jsonb_build_object(
+      'id', s.id, 'parent_id', s.parent_id, 'name', s.name, 'description', s.description,
+      'manager_employee_id', s.manager_employee_id,
+      'manager_name', (select full_name from public.hr_employees where id = s.manager_employee_id),
+      'is_active', s.is_active, 'sort_order', s.sort_order, 'depth', s.depth,
+      'archived_at', s.archived_at, 'employees_count', s.employees_count)
+    order by s.depth, s.sort_order, s.name), '[]'::jsonb)
+    into v_rows
+    from (select t.*, (select count(*) from public.hr_employees e
+                        where e.department_id = t.id and e.archived_at is null) employees_count
+            from tree t) s;
+  return jsonb_build_object('rows', v_rows, 'total', jsonb_array_length(v_rows));
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_employee_archive(p_employee_id uuid, p_reason text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  v_reason  text;
+  e         public.hr_employees;
+begin
+  v_company := public._hr_gate('hr_employees', true);
+  if not public._hr_has_permission(v_company, 'hr.employees.manage') then
+    raise exception 'لا تملك صلاحية إدارة الموظفين' using errcode = '42501';
+  end if;
+  if not public._hr_can_archive(v_company) then
+    raise exception 'الأرشفة لمالك الشركة ومدير HR فقط' using errcode = '42501';
+  end if;
+  v_reason := public._reason_check(p_reason);
+  select * into e from public.hr_employees where id = p_employee_id and company_id = v_company;
+  if not found then
+    raise exception 'الموظف غير موجود' using errcode = 'P0002';
+  end if;
+  if e.archived_at is not null then
+    raise exception 'الموظف مؤرشف بالفعل' using errcode = '22023';
+  end if;
+  update public.hr_employees set employment_status = 'terminated', archived_at = now(),
+    archived_by = auth.uid(), archive_reason = v_reason where id = e.id;
+  insert into public.hr_employee_status_history (company_id, employee_id, from_status, to_status, reason, changed_by)
+  values (v_company, e.id, e.employment_status, 'terminated', v_reason, auth.uid());
+  perform public._hr_audit(v_company, 'employee.archived', 'employee', e.id, e.id,
+    jsonb_build_object('employment_status', e.employment_status),
+    jsonb_build_object('employment_status', 'terminated'), v_reason);
+  return jsonb_build_object('employee_id', e.id, 'employment_status', 'terminated');
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_employee_create(p_full_name text, p_employee_number text, p_phone text default null, p_email text default null, p_national_id text default null, p_department_id uuid default null, p_branch_id uuid default null, p_position_id uuid default null, p_manager_employee_id uuid default null, p_job_title text default null, p_hire_date date default null, p_contract_type text default null, p_date_of_birth date default null, p_address text default null, p_emergency_contact jsonb default null)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  v_val     jsonb;
+  v_norm    jsonb;
+  v_num     text;
+  v_id      uuid;
+  v_row     jsonb;
+begin
+  v_company := public._hr_gate('hr_employees', true);
+  if not public._hr_has_permission(v_company, 'hr.employees.manage') then
+    raise exception 'لا تملك صلاحية إدارة الموظفين' using errcode = '42501';
+  end if;
+  v_row := jsonb_build_object(
+    'full_name', p_full_name, 'employee_number', p_employee_number, 'phone', p_phone,
+    'email', p_email, 'national_id', p_national_id,
+    'department', (select name from public.hr_departments where id = p_department_id),
+    'branch', (select name from public.hr_branches where id = p_branch_id),
+    'position', (select name from public.hr_positions where id = p_position_id),
+    'manager_employee_number', (select employee_number from public.hr_employees where id = p_manager_employee_id),
+    'job_title', p_job_title,
+    'hire_date', case when p_hire_date is null then null else to_char(p_hire_date, 'YYYY-MM-DD') end,
+    'contract_type', p_contract_type);
+  -- المراجع بمعرّفات UUID يجب أن تنتمي لنفس الشركة (أي مرجع من شركة أخرى
+  -- يُرفض دون تسريب وجوده — الرسالة عامة عمدًا).
+  if p_department_id is not null and not exists (select 1 from public.hr_departments where id = p_department_id and company_id = v_company) then
+    raise exception 'القسم غير موجود' using errcode = 'P0002';
+  end if;
+  if p_branch_id is not null and not exists (select 1 from public.hr_branches where id = p_branch_id and company_id = v_company) then
+    raise exception 'الفرع غير موجود' using errcode = 'P0002';
+  end if;
+  if p_position_id is not null and not exists (select 1 from public.hr_positions where id = p_position_id and company_id = v_company) then
+    raise exception 'المسمى الوظيفي غير موجود' using errcode = 'P0002';
+  end if;
+  if p_manager_employee_id is not null and not exists (select 1 from public.hr_employees where id = p_manager_employee_id and company_id = v_company and archived_at is null) then
+    raise exception 'المدير غير موجود' using errcode = 'P0002';
+  end if;
+  v_val := public._hr_validate_employee_row(v_row, v_company);
+  if not (v_val ->> 'valid')::boolean then
+    raise exception '%', (v_val ->> 'reason') using errcode = '22023';
+  end if;
+  v_norm := v_val -> 'normalized';
+  v_num := v_norm ->> 'employee_number';
+  if v_num is null then
+    v_num := public._hr_next_employee_number(v_company);
+  end if;
+  begin
+    -- المعرّفات الممرَّرة نفسها (بعد فحص انتمائها للشركة أعلاه) لا المعرّفات
+    -- المحلولة بالاسم من المحقق — فالاسم قد يتكرر تحت آباء مختلفين.
+    insert into public.hr_employees
+      (company_id, employee_number, full_name, phone, email, national_id, date_of_birth, address,
+       emergency_contact, department_id, branch_id, position_id, manager_employee_id,
+       job_title, hire_date, contract_type, employment_status, created_by)
+    values (v_company, v_num, v_norm ->> 'full_name', v_norm ->> 'phone', v_norm ->> 'email',
+            v_norm ->> 'national_id', p_date_of_birth, nullif(btrim(coalesce(p_address, '')), ''),
+            p_emergency_contact,
+            p_department_id, p_branch_id, p_position_id, p_manager_employee_id,
+            v_norm ->> 'job_title',
+            case when v_norm ->> 'hire_date' is null then null else (v_norm ->> 'hire_date')::date end,
+            v_norm ->> 'contract_type', 'active', auth.uid())
+    returning id into v_id;
+  exception when unique_violation then
+    raise exception 'الرقم الوظيفي مستخدم بالفعل في شركتك' using errcode = '23505';
+  end;
+  insert into public.hr_employee_status_history (company_id, employee_id, from_status, to_status, reason, changed_by)
+  values (v_company, v_id, null, 'active', 'إنشاء ملف الموظف', auth.uid());
+  perform public._hr_audit(v_company, 'employee.created', 'employee', v_id, v_id, null,
+    jsonb_build_object('employee_number', v_num, 'full_name', v_norm ->> 'full_name'), null);
+  return jsonb_build_object('employee_id', v_id, 'employee_number', v_num);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_employee_detail(p_employee_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company  uuid;
+  v_admin    boolean;
+  v_can_view boolean;
+  v_self_id  uuid;
+  v_scope    uuid;
+  e          public.hr_employees;
+  v_show_full boolean;
+begin
+  v_company := public._hr_gate('hr_employees', false);
+  v_admin := public._hr_is_company_admin(v_company);
+  v_can_view := public._hr_has_permission(v_company, 'hr.employees.view');
+  v_self_id := public._hr_my_employee_id(v_company);
+  v_scope := case when v_admin then null else public._hr_dept_scope(v_company) end;
+  select * into e from public.hr_employees where id = p_employee_id and company_id = v_company;
+  if not found then
+    raise exception 'الموظف غير موجود' using errcode = 'P0002';
+  end if;
+  if not v_can_view and e.id <> v_self_id then
+    raise exception 'الموظف غير موجود' using errcode = 'P0002';
+  end if;
+  if v_can_view and v_scope is not null
+     and e.department_id is distinct from v_scope and e.manager_employee_id is distinct from v_self_id then
+    raise exception 'الموظف غير موجود' using errcode = 'P0002';
+  end if;
+  v_show_full := v_admin or exists (
+    select 1 from public.hr_role_assignments r
+     where r.company_id = v_company and r.user_id = auth.uid()
+       and r.role in ('hr_manager', 'hr_officer') and r.revoked_at is null);
+  return jsonb_build_object(
+    'id', e.id, 'employee_number', e.employee_number, 'full_name', e.full_name,
+    'phone', e.phone, 'email', e.email,
+    'national_id', case when v_show_full then e.national_id else public._hr_mask_national_id(e.national_id) end,
+    'date_of_birth', e.date_of_birth, 'address', e.address, 'emergency_contact', e.emergency_contact,
+    'department_id', e.department_id,
+    'department_name', (select name from public.hr_departments where id = e.department_id),
+    'branch_id', e.branch_id,
+    'branch_name', (select name from public.hr_branches where id = e.branch_id),
+    'position_id', e.position_id,
+    'position_name', (select name from public.hr_positions where id = e.position_id),
+    'manager_employee_id', e.manager_employee_id,
+    'manager_name', (select full_name from public.hr_employees where id = e.manager_employee_id),
+    'job_title', e.job_title, 'hire_date', e.hire_date, 'contract_type', e.contract_type,
+    'employment_status', e.employment_status, 'linked', e.user_id is not null,
+    'notes', e.notes, 'created_at', e.created_at, 'updated_at', e.updated_at,
+    'archived_at', e.archived_at, 'archive_reason', e.archive_reason,
+    'status_history', coalesce((select jsonb_agg(jsonb_build_object(
+        'from_status', h.from_status, 'to_status', h.to_status, 'reason', h.reason,
+        'created_at', h.created_at) order by h.created_at desc)
+      from (select * from public.hr_employee_status_history where employee_id = e.id
+             order by created_at desc limit 10) h), '[]'::jsonb));
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_employee_reactivate(p_employee_id uuid, p_reason text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  v_reason  text;
+  e         public.hr_employees;
+begin
+  v_company := public._hr_gate('hr_employees', true);
+  if not public._hr_has_permission(v_company, 'hr.employees.manage') then
+    raise exception 'لا تملك صلاحية إدارة الموظفين' using errcode = '42501';
+  end if;
+  if not public._hr_can_archive(v_company) then
+    raise exception 'إعادة التفعيل لمالك الشركة ومدير HR فقط' using errcode = '42501';
+  end if;
+  v_reason := public._reason_check(p_reason);
+  select * into e from public.hr_employees where id = p_employee_id and company_id = v_company;
+  if not found then
+    raise exception 'الموظف غير موجود' using errcode = 'P0002';
+  end if;
+  if e.archived_at is null then
+    raise exception 'الموظف غير مؤرشف' using errcode = '22023';
+  end if;
+  update public.hr_employees set employment_status = 'active', archived_at = null,
+    archived_by = null, archive_reason = null where id = e.id;
+  insert into public.hr_employee_status_history (company_id, employee_id, from_status, to_status, reason, changed_by)
+  values (v_company, e.id, 'terminated', 'active', v_reason, auth.uid());
+  perform public._hr_audit(v_company, 'employee.reactivated', 'employee', e.id, e.id,
+    jsonb_build_object('employment_status', 'terminated'),
+    jsonb_build_object('employment_status', 'active'), v_reason);
+  return jsonb_build_object('employee_id', e.id, 'employment_status', 'active');
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_employee_set_status(p_employee_id uuid, p_status text, p_reason text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  v_reason  text;
+  e         public.hr_employees;
+begin
+  v_company := public._hr_gate('hr_employees', true);
+  if not public._hr_has_permission(v_company, 'hr.employees.manage') then
+    raise exception 'لا تملك صلاحية إدارة الموظفين' using errcode = '42501';
+  end if;
+  v_reason := public._reason_check(p_reason);
+  if p_status not in ('active', 'on_leave', 'suspended') then
+    raise exception 'الحالة تُغيَّر إلى نشط أو في إجازة أو موقوف فقط — الإنهاء عبر الأرشفة' using errcode = '22023';
+  end if;
+  select * into e from public.hr_employees where id = p_employee_id and company_id = v_company;
+  if not found then
+    raise exception 'الموظف غير موجود' using errcode = 'P0002';
+  end if;
+  if e.archived_at is not null then
+    raise exception 'الموظف مؤرشف — أعد تفعيله أولًا' using errcode = '22023';
+  end if;
+  if e.employment_status = p_status then
+    return jsonb_build_object('employee_id', e.id, 'employment_status', p_status, 'changed', false);
+  end if;
+  if e.employment_status = 'terminated' then
+    raise exception 'الموظف منتهٍ — أعد تفعيله أولًا' using errcode = '22023';
+  end if;
+  update public.hr_employees set employment_status = p_status where id = e.id;
+  insert into public.hr_employee_status_history (company_id, employee_id, from_status, to_status, reason, changed_by)
+  values (v_company, e.id, e.employment_status, p_status, v_reason, auth.uid());
+  perform public._hr_audit(v_company, 'employee.status_changed', 'employee', e.id, e.id,
+    jsonb_build_object('employment_status', e.employment_status),
+    jsonb_build_object('employment_status', p_status), v_reason);
+  return jsonb_build_object('employee_id', e.id, 'employment_status', p_status, 'changed', true);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_employee_update(p_employee_id uuid, p_full_name text default null, p_phone text default null, p_email text default null, p_national_id text default null, p_department_id uuid default null, p_branch_id uuid default null, p_position_id uuid default null, p_manager_employee_id uuid default null, p_job_title text default null, p_hire_date date default null, p_contract_type text default null, p_date_of_birth date default null, p_address text default null, p_emergency_contact jsonb default null)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  e         public.hr_employees;
+  v_name    text;
+  v_phone   text;
+  v_email   text;
+  v_nid     text;
+  v_job     text;
+  v_addr    text;
+  v_mgr     uuid;
+  v_old     jsonb;
+  v_new     jsonb;
+  v_walk    uuid;
+  v_seen    uuid[] := '{}'::uuid[];
+begin
+  v_company := public._hr_gate('hr_employees', true);
+  if not public._hr_has_permission(v_company, 'hr.employees.manage') then
+    raise exception 'لا تملك صلاحية إدارة الموظفين' using errcode = '42501';
+  end if;
+  select * into e from public.hr_employees where id = p_employee_id and company_id = v_company;
+  if not found then
+    raise exception 'الموظف غير موجود' using errcode = 'P0002';
+  end if;
+  if e.archived_at is not null then
+    raise exception 'الموظف مؤرشف — أعد تفعيله أولًا قبل التعديل' using errcode = '22023';
+  end if;
+  v_name := case when p_full_name is null then e.full_name else btrim(p_full_name) end;
+  v_phone := case when p_phone is null then e.phone when btrim(p_phone) = '' then null else btrim(p_phone) end;
+  v_email := case when p_email is null then e.email when btrim(p_email) = '' then null else btrim(p_email) end;
+  v_nid := case when p_national_id is null then e.national_id when btrim(p_national_id) = '' then null else btrim(p_national_id) end;
+  v_job := case when p_job_title is null then e.job_title when btrim(p_job_title) = '' then null else btrim(p_job_title) end;
+  v_addr := case when p_address is null then e.address when btrim(p_address) = '' then null else btrim(p_address) end;
+  v_mgr := coalesce(p_manager_employee_id, e.manager_employee_id);
+  if char_length(v_name) < 2 then
+    raise exception 'الاسم مطلوب (حرفان على الأقل)' using errcode = '22023';
+  end if;
+  if v_phone is not null and (char_length(v_phone) < 7 or char_length(v_phone) > 20 or v_phone !~ '^\+?[0-9][0-9 ()-]*$') then
+    raise exception 'رقم هاتف غير صالح' using errcode = '22023';
+  end if;
+  if v_email is not null and (char_length(v_email) > 320 or v_email !~ '^[^\s@]+@[^\s@]+\.[^\s@]+$') then
+    raise exception 'بريد إلكتروني غير صالح' using errcode = '22023';
+  end if;
+  if v_email is not null and exists (select 1 from public.hr_employees x where x.company_id = v_company and x.id <> e.id and lower(x.email) = lower(v_email)) then
+    raise exception 'البريد الإلكتروني مستخدم بالفعل في شركتك' using errcode = '22023';
+  end if;
+  if v_nid is not null and (char_length(v_nid) < 10 or char_length(v_nid) > 20) then
+    raise exception 'الرقم القومي بين 10 و20 حرفًا' using errcode = '22023';
+  end if;
+  if v_nid is not null and exists (select 1 from public.hr_employees x where x.company_id = v_company and x.id <> e.id and x.national_id = v_nid) then
+    raise exception 'الرقم القومي مستخدم بالفعل في شركتك' using errcode = '22023';
+  end if;
+  if coalesce(p_hire_date, e.hire_date) is not null and coalesce(p_hire_date, e.hire_date) > current_date then
+    raise exception 'تاريخ التعيين لا يكون في المستقبل' using errcode = '22023';
+  end if;
+  if coalesce(p_contract_type, e.contract_type) is not null
+     and coalesce(p_contract_type, e.contract_type) not in ('full_time', 'part_time', 'contract', 'intern', 'temporary') then
+    raise exception 'نوع عقد غير صالح' using errcode = '22023';
+  end if;
+  if coalesce(p_date_of_birth, e.date_of_birth) is not null and coalesce(p_date_of_birth, e.date_of_birth) > current_date then
+    raise exception 'تاريخ الميلاد لا يكون في المستقبل' using errcode = '22023';
+  end if;
+  if p_department_id is not null and not exists (select 1 from public.hr_departments where id = p_department_id and company_id = v_company) then
+    raise exception 'القسم غير موجود' using errcode = 'P0002';
+  end if;
+  if p_branch_id is not null and not exists (select 1 from public.hr_branches where id = p_branch_id and company_id = v_company) then
+    raise exception 'الفرع غير موجود' using errcode = 'P0002';
+  end if;
+  if p_position_id is not null and not exists (select 1 from public.hr_positions where id = p_position_id and company_id = v_company) then
+    raise exception 'المسمى الوظيفي غير موجود' using errcode = 'P0002';
+  end if;
+  if p_manager_employee_id is not null then
+    if p_manager_employee_id = e.id then
+      raise exception 'لا يمكن أن يكون الموظف مديرًا لنفسه' using errcode = '22023';
+    end if;
+    if not exists (select 1 from public.hr_employees where id = p_manager_employee_id and company_id = v_company and archived_at is null) then
+      raise exception 'المدير غير موجود' using errcode = 'P0002';
+    end if;
+    -- منع حلقة الإدارة: المشي صعودًا من المدير الجديد يجب ألا يصل للموظف.
+    v_walk := p_manager_employee_id;
+    loop
+      if v_walk = any(v_seen) then
+        raise exception 'حلقة إدارة: المدير الجديد يدير هذا الموظف عبر سلسلة' using errcode = '22023';
+      end if;
+      if v_walk = e.id then
+        raise exception 'حلقة إدارة: المدير الجديد يدير هذا الموظف عبر سلسلة' using errcode = '22023';
+      end if;
+      v_seen := v_seen || v_walk;
+      select manager_employee_id into v_walk from public.hr_employees where id = v_walk;
+      if v_walk is null then exit; end if;
+    end loop;
+  end if;
+  v_old := jsonb_build_object('full_name', e.full_name, 'phone', e.phone, 'email', e.email,
+    'national_id', e.national_id, 'department_id', e.department_id, 'branch_id', e.branch_id,
+    'position_id', e.position_id, 'manager_employee_id', e.manager_employee_id,
+    'job_title', e.job_title, 'hire_date', e.hire_date, 'contract_type', e.contract_type,
+    'date_of_birth', e.date_of_birth, 'address', e.address);
+  update public.hr_employees set
+    full_name = v_name, phone = v_phone, email = v_email, national_id = v_nid,
+    department_id = coalesce(p_department_id, e.department_id),
+    branch_id = coalesce(p_branch_id, e.branch_id),
+    position_id = coalesce(p_position_id, e.position_id),
+    manager_employee_id = v_mgr,
+    job_title = v_job, hire_date = coalesce(p_hire_date, e.hire_date),
+    contract_type = coalesce(p_contract_type, e.contract_type),
+    date_of_birth = coalesce(p_date_of_birth, e.date_of_birth),
+    address = v_addr,
+    emergency_contact = coalesce(p_emergency_contact, e.emergency_contact)
+  where id = e.id
+  returning jsonb_build_object('full_name', full_name, 'phone', phone, 'email', email,
+    'national_id', national_id, 'department_id', department_id, 'branch_id', branch_id,
+    'position_id', position_id, 'manager_employee_id', manager_employee_id,
+    'job_title', job_title, 'hire_date', hire_date, 'contract_type', contract_type,
+    'date_of_birth', date_of_birth, 'address', address) into v_new;
+  perform public._hr_audit(v_company, 'employee.updated', 'employee', e.id, e.id, v_old, v_new, null);
+  return jsonb_build_object('employee_id', e.id, 'changed', v_old is distinct from v_new);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_employees_count()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company  uuid;
+  v_admin    boolean;
+  v_can_view boolean;
+  v_self_id  uuid;
+  v_scope    uuid;
+begin
+  v_company := public._hr_gate('hr_employees', false);
+  v_admin := public._hr_is_company_admin(v_company);
+  v_can_view := public._hr_has_permission(v_company, 'hr.employees.view');
+  v_self_id := public._hr_my_employee_id(v_company);
+  if not v_can_view and v_self_id is null then
+    raise exception 'لا تملك صلاحية عرض الموظفين' using errcode = '42501';
+  end if;
+  v_scope := case when v_admin then null else public._hr_dept_scope(v_company) end;
+  return (select jsonb_build_object(
+      'total', count(*),
+      'active', count(*) filter (where e.employment_status = 'active'),
+      'on_leave', count(*) filter (where e.employment_status = 'on_leave'),
+      'suspended', count(*) filter (where e.employment_status = 'suspended'),
+      'terminated', count(*) filter (where e.employment_status = 'terminated'),
+      'pending_data', count(*) filter (where e.employment_status = 'pending_data'),
+      'linked', count(*) filter (where e.user_id is not null))
+    from public.hr_employees e
+   where e.company_id = v_company
+     and (v_can_view or e.id = v_self_id)
+     and (v_scope is null or e.department_id = v_scope or e.manager_employee_id = v_self_id));
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_employees_list(p_page integer default 1, p_page_size integer default 20, p_search text default null, p_status text default null, p_department_id uuid default null, p_branch_id uuid default null, p_include_archived boolean default false)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company  uuid;
+  v_page     int := greatest(coalesce(p_page, 1), 1);
+  v_size     int := least(greatest(coalesce(p_page_size, 20), 1), 100);
+  v_term     text := nullif(btrim(coalesce(p_search, '')), '');
+  v_admin    boolean;
+  v_can_view boolean;
+  v_self_id  uuid;
+  v_scope    uuid;
+begin
+  v_company := public._hr_gate('hr_employees', false);
+  v_admin := public._hr_is_company_admin(v_company);
+  v_can_view := public._hr_has_permission(v_company, 'hr.employees.view');
+  v_self_id := public._hr_my_employee_id(v_company);
+  if not v_can_view and v_self_id is null then
+    raise exception 'لا تملك صلاحية عرض الموظفين' using errcode = '42501';
+  end if;
+  v_scope := case when v_admin then null else public._hr_dept_scope(v_company) end;
+  if p_status is not null and p_status not in ('active', 'on_leave', 'suspended', 'terminated', 'pending_data') then
+    raise exception 'حالة غير صالحة' using errcode = '22023';
+  end if;
+  if v_term is not null then
+    v_term := replace(replace(replace(v_term, '\', '\\'), '%', '\%'), '_', '\_');
+  end if;
+  return (
+    with f as (
+      select e.* from public.hr_employees e
+       where e.company_id = v_company
+         and (coalesce(p_include_archived, false) or e.employment_status <> 'terminated')
+         and (p_status is null or e.employment_status = p_status)
+         and (p_department_id is null or e.department_id = p_department_id)
+         and (p_branch_id is null or e.branch_id = p_branch_id)
+         and (v_can_view or e.id = v_self_id)
+         and (v_scope is null or e.department_id = v_scope or e.manager_employee_id = v_self_id)
+         and (v_term is null
+              or e.full_name ilike '%' || v_term || '%' escape '\'
+              or e.employee_number ilike '%' || v_term || '%' escape '\'
+              or coalesce(e.phone, '') ilike '%' || v_term || '%' escape '\')
+    )
+    select jsonb_build_object(
+      'rows', coalesce((select jsonb_agg(jsonb_build_object(
+          'id', s.id, 'employee_number', s.employee_number, 'full_name', s.full_name,
+          'phone', s.phone, 'email', s.email,
+          'national_id', public._hr_mask_national_id(s.national_id),
+          'department_id', s.department_id, 'department_name', s.department_name,
+          'branch_id', s.branch_id, 'branch_name', s.branch_name,
+          'position_id', s.position_id, 'position_name', s.position_name,
+          'manager_employee_id', s.manager_employee_id, 'manager_name', s.manager_name,
+          'job_title', s.job_title, 'hire_date', s.hire_date, 'contract_type', s.contract_type,
+          'employment_status', s.employment_status, 'linked', s.user_id is not null,
+          'created_at', s.created_at)
+        order by s.full_name)
+        from (select f.*,
+                     (select name from public.hr_departments where id = f.department_id) department_name,
+                     (select name from public.hr_branches where id = f.branch_id) branch_name,
+                     (select name from public.hr_positions where id = f.position_id) position_name,
+                     (select full_name from public.hr_employees where id = f.manager_employee_id) manager_name
+                from f order by f.full_name limit v_size offset (v_page - 1) * v_size) s), '[]'::jsonb),
+      'total', (select count(*) from f),
+      'total_count', (select count(*) from f),
+      'page', v_page, 'page_size', v_size));
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_import_employees(p_rows jsonb, p_idempotency_key uuid, p_file_name text default null)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company      uuid;
+  v_total        int;
+  v_run          public.hr_import_runs;
+  v_results_map  jsonb := '{}'::jsonb;
+  v_candidates   jsonb := '[]'::jsonb;
+  v_todo         jsonb := '[]'::jsonb;
+  v_next_todo    jsonb;
+  v_seen_numbers text[] := '{}'::text[];
+  v_seen_emails  text[] := '{}'::text[];
+  v_seen_nids    text[] := '{}'::text[];
+  v_file_numbers text[] := '{}'::text[];
+  v_num_to_id    jsonb := '{}'::jsonb;
+  v_row          jsonb;
+  v_norm         jsonb;
+  v_val          jsonb;
+  v_line         int;
+  v_num          text;
+  v_mgr          text;
+  v_id           uuid;
+  v_inserted     int := 0;
+  v_dup          int := 0;
+  v_inv          int := 0;
+  v_progress     boolean;
+  v_status       text;
+  v_results      jsonb := '[]'::jsonb;
+  i              int;
+  j              int;
+begin
+  v_company := public._hr_gate('hr_employees', true);
+  if not public._hr_has_permission(v_company, 'hr.import') then
+    raise exception 'لا تملك صلاحية الاستيراد الجماعي' using errcode = '42501';
+  end if;
+  if p_idempotency_key is null then
+    raise exception 'مفتاح عدم التكرار مطلوب' using errcode = '22023';
+  end if;
+  -- إعادة التشغيل ترجع النتيجة المخزنة دون إعادة تنفيذ أو إعادة تحقق
+  -- (على نمط owner_account_transfer في 129).
+  select * into v_run from public.hr_import_runs
+   where company_id = v_company and idempotency_key = p_idempotency_key;
+  if found then
+    return jsonb_build_object('run_id', v_run.id, 'replayed', true, 'status', v_run.status,
+      'total', v_run.total_rows, 'inserted', v_run.inserted_count,
+      'duplicate', v_run.duplicate_count, 'invalid', v_run.invalid_count,
+      'results', v_run.results);
+  end if;
+  if p_rows is null or jsonb_typeof(p_rows) <> 'array' then
+    raise exception 'صفوف الاستيراد مصفوفة JSON' using errcode = '22023';
+  end if;
+  v_total := jsonb_array_length(p_rows);
+  if v_total = 0 then
+    raise exception 'الملف لا يحتوي على أي صفوف' using errcode = '22023';
+  end if;
+  if v_total > 100 then
+    raise exception 'الملف يتجاوز 100 صف — قسّمه إلى دفعات' using errcode = '54000';
+  end if;
+  for i in 0 .. v_total - 1 loop
+    v_num := nullif(btrim(coalesce(p_rows -> i ->> 'employee_number', '')), '');
+    if v_num is not null then
+      v_file_numbers := v_file_numbers || v_num;
+    end if;
+  end loop;
+  select coalesce(jsonb_object_agg(employee_number, id::text), '{}'::jsonb) into v_num_to_id
+    from public.hr_employees where company_id = v_company;
+
+  -- المرحلة 1 — تحقق خادمًا لكل صف (قاعدة التحقق الواحدة _hr_validate_employee_row).
+  for i in 0 .. v_total - 1 loop
+    v_row := p_rows -> i;
+    v_line := case when (v_row ->> 'line') ~ '^\d+$' then (v_row ->> 'line')::int else i + 1 end;
+    v_val := public._hr_validate_employee_row(v_row, v_company);
+    if (v_val ->> 'valid')::boolean then
+      v_candidates := v_candidates || jsonb_build_object('line', v_line, 'normalized', v_val -> 'normalized');
+    elsif (v_val ->> 'code') = 'unknown_manager'
+          and (v_val -> 'normalized' ->> 'manager_employee_number') = any(v_file_numbers) then
+      -- المدير صف في الملف نفسه: يُؤجَّل حله لمرحلة الإدخال (ترتيب طوبولوجي).
+      v_candidates := v_candidates || jsonb_build_object('line', v_line, 'normalized', v_val -> 'normalized');
+    else
+      v_results_map := v_results_map || jsonb_build_object(v_line::text, jsonb_build_object(
+        'line', v_line, 'employee_number', v_row ->> 'employee_number',
+        'status', 'invalid', 'reason', v_val ->> 'reason', 'code', v_val ->> 'code'));
+      v_inv := v_inv + 1;
+    end if;
+  end loop;
+
+  -- المرحلة 2 — التكرار داخل الملف (الرقم/البريد/القومي) على المرشحين فقط.
+  for i in 0 .. jsonb_array_length(v_candidates) - 1 loop
+    v_row := v_candidates -> i;
+    v_norm := v_row -> 'normalized';
+    v_line := (v_row ->> 'line')::int;
+    v_num := v_norm ->> 'employee_number';
+    if v_num is not null and v_num = any(v_seen_numbers) then
+      v_results_map := v_results_map || jsonb_build_object(v_line::text, jsonb_build_object(
+        'line', v_line, 'employee_number', v_num, 'status', 'duplicate',
+        'reason', 'الرقم الوظيفي مكرر داخل الملف', 'code', 'duplicate_in_file'));
+      v_dup := v_dup + 1;
+      continue;
+    end if;
+    if (v_norm ->> 'email') is not null and lower(v_norm ->> 'email') = any(v_seen_emails) then
+      v_results_map := v_results_map || jsonb_build_object(v_line::text, jsonb_build_object(
+        'line', v_line, 'employee_number', v_num, 'status', 'duplicate',
+        'reason', 'البريد الإلكتروني مكرر داخل الملف', 'code', 'duplicate_in_file'));
+      v_dup := v_dup + 1;
+      continue;
+    end if;
+    if (v_norm ->> 'national_id') is not null and (v_norm ->> 'national_id') = any(v_seen_nids) then
+      v_results_map := v_results_map || jsonb_build_object(v_line::text, jsonb_build_object(
+        'line', v_line, 'employee_number', v_num, 'status', 'duplicate',
+        'reason', 'الرقم القومي مكرر داخل الملف', 'code', 'duplicate_in_file'));
+      v_dup := v_dup + 1;
+      continue;
+    end if;
+    if v_num is not null then v_seen_numbers := v_seen_numbers || v_num; end if;
+    if (v_norm ->> 'email') is not null then v_seen_emails := v_seen_emails || lower(v_norm ->> 'email'); end if;
+    if (v_norm ->> 'national_id') is not null then v_seen_nids := v_seen_nids || (v_norm ->> 'national_id'); end if;
+    v_todo := v_todo || v_row;
+  end loop;
+
+  -- المرحلة 3 — إدخال الصالحين في تمريرات: صف يُدخل حين يُحلّ مديره
+  -- (في قاعدة البيانات أو في تمريرة سابقة من الملف نفسه).
+  while jsonb_array_length(v_todo) > 0 loop
+    v_progress := false;
+    v_next_todo := '[]'::jsonb;
+    for j in 0 .. jsonb_array_length(v_todo) - 1 loop
+      v_row := v_todo -> j;
+      v_norm := v_row -> 'normalized';
+      v_line := (v_row ->> 'line')::int;
+      v_mgr := v_norm ->> 'manager_employee_number';
+      if v_mgr is null or (v_num_to_id ? v_mgr) then
+        v_num := v_norm ->> 'employee_number';
+        if v_num is null then
+          v_num := public._hr_next_employee_number(v_company);
+        end if;
+        begin
+          insert into public.hr_employees
+            (company_id, employee_number, full_name, phone, email, national_id,
+             department_id, branch_id, position_id, manager_employee_id,
+             job_title, hire_date, contract_type, employment_status, created_by)
+          values (v_company, v_num, v_norm ->> 'full_name', v_norm ->> 'phone', v_norm ->> 'email',
+                  v_norm ->> 'national_id',
+                  (v_norm ->> 'department_id')::uuid, (v_norm ->> 'branch_id')::uuid,
+                  (v_norm ->> 'position_id')::uuid,
+                  case when v_mgr is null then null else (v_num_to_id ->> v_mgr)::uuid end,
+                  v_norm ->> 'job_title',
+                  case when v_norm ->> 'hire_date' is null then null else (v_norm ->> 'hire_date')::date end,
+                  v_norm ->> 'contract_type', v_norm ->> 'employment_status', auth.uid())
+          returning id into v_id;
+        exception when unique_violation then
+          v_results_map := v_results_map || jsonb_build_object(v_line::text, jsonb_build_object(
+            'line', v_line, 'employee_number', v_num, 'status', 'duplicate',
+            'reason', 'الرقم الوظيفي مستخدم بالفعل في شركتك', 'code', 'duplicate_employee_number'));
+          v_dup := v_dup + 1;
+          v_progress := true;
+          continue;
+        end;
+        v_num_to_id := v_num_to_id || jsonb_build_object(v_num, v_id::text);
+        insert into public.hr_employee_status_history (company_id, employee_id, from_status, to_status, reason, changed_by)
+        values (v_company, v_id, null, v_norm ->> 'employment_status', 'استيراد جماعي', auth.uid());
+        v_results_map := v_results_map || jsonb_build_object(v_line::text, jsonb_build_object(
+          'line', v_line, 'employee_number', v_num, 'status', 'inserted', 'reason', null));
+        v_inserted := v_inserted + 1;
+        v_progress := true;
+      else
+        v_next_todo := v_next_todo || v_row;
+      end if;
+    end loop;
+    v_todo := v_next_todo;
+    exit when not v_progress;
+  end loop;
+
+  -- المرحلة 4 — ما بقي بلا مدير محلول: حلقة إن كان المدير ما زال معلّقًا
+  -- في الملف، وإلا مدير غير موجود (صفه كان مرفوضًا أو مكررًا).
+  for j in 0 .. jsonb_array_length(v_todo) - 1 loop
+    v_row := v_todo -> j;
+    v_norm := v_row -> 'normalized';
+    v_line := (v_row ->> 'line')::int;
+    v_mgr := v_norm ->> 'manager_employee_number';
+    if exists (select 1 from jsonb_array_elements(v_todo) t
+                where t -> 'normalized' ->> 'employee_number' = v_mgr) then
+      v_results_map := v_results_map || jsonb_build_object(v_line::text, jsonb_build_object(
+        'line', v_line, 'employee_number', v_norm ->> 'employee_number', 'status', 'invalid',
+        'reason', 'حلقة إدارة: المدير يعتمد على هذا الصف أو على صف معلّق', 'code', 'manager_cycle'));
+    else
+      v_results_map := v_results_map || jsonb_build_object(v_line::text, jsonb_build_object(
+        'line', v_line, 'employee_number', v_norm ->> 'employee_number', 'status', 'invalid',
+        'reason', 'الرقم الوظيفي للمدير غير موجود: ' || v_mgr, 'code', 'unknown_manager'));
+    end if;
+    v_inv := v_inv + 1;
+  end loop;
+
+  -- التقرير النهائي مرتبًا حسب رقم السطر الأصلي (قد لا يبدأ من 1 حين تحمل
+  -- الصفوف أرقام سطور الملف)، ثم حفظ التشغيل والتدقيق.
+  select coalesce(jsonb_agg(v order by (v ->> 'line')::int), '[]'::jsonb) into v_results
+    from (select value as v from jsonb_each(v_results_map)) s;
+  v_status := case when v_inserted = v_total then 'completed'
+                   when v_inserted = 0 then 'failed'
+                   else 'partial' end;
+  insert into public.hr_import_runs
+    (company_id, idempotency_key, initiated_by, file_name, status,
+     total_rows, inserted_count, duplicate_count, invalid_count, results, completed_at)
+  values (v_company, p_idempotency_key, auth.uid(), p_file_name, v_status,
+          v_total, v_inserted, v_dup, v_inv, v_results, now())
+  returning id into v_id;
+  perform public._hr_audit(v_company, 'import.completed', 'import_run', v_id, null, null,
+    jsonb_build_object('run_id', v_id, 'file_name', p_file_name, 'total', v_total,
+      'inserted', v_inserted, 'duplicate', v_dup, 'invalid', v_inv), null);
+  return jsonb_build_object('run_id', v_id, 'replayed', false, 'status', v_status,
+    'total', v_total, 'inserted', v_inserted, 'duplicate', v_dup, 'invalid', v_inv,
+    'results', v_results);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_import_run_detail(p_run_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  r         public.hr_import_runs;
+begin
+  v_company := public._hr_gate('hr_employees', false);
+  if not public._hr_has_permission(v_company, 'hr.import') then
+    raise exception 'لا تملك صلاحية الاستيراد الجماعي' using errcode = '42501';
+  end if;
+  select * into r from public.hr_import_runs where id = p_run_id and company_id = v_company;
+  if not found then
+    raise exception 'تشغيل الاستيراد غير موجود' using errcode = 'P0002';
+  end if;
+  return jsonb_build_object('id', r.id, 'file_name', r.file_name, 'status', r.status,
+    'total_rows', r.total_rows, 'inserted_count', r.inserted_count,
+    'duplicate_count', r.duplicate_count, 'invalid_count', r.invalid_count,
+    'results', r.results, 'created_at', r.created_at, 'completed_at', r.completed_at);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_import_runs_list(p_page integer default 1, p_page_size integer default 20)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  v_page    int := greatest(coalesce(p_page, 1), 1);
+  v_size    int := least(greatest(coalesce(p_page_size, 20), 1), 100);
+begin
+  v_company := public._hr_gate('hr_employees', false);
+  if not public._hr_has_permission(v_company, 'hr.import') then
+    raise exception 'لا تملك صلاحية الاستيراد الجماعي' using errcode = '42501';
+  end if;
+  return (select jsonb_build_object(
+      'rows', coalesce(jsonb_agg(jsonb_build_object(
+          'id', r.id, 'file_name', r.file_name, 'status', r.status, 'total_rows', r.total_rows,
+          'inserted_count', r.inserted_count, 'duplicate_count', r.duplicate_count,
+          'invalid_count', r.invalid_count, 'created_at', r.created_at, 'completed_at', r.completed_at)
+        order by r.created_at desc), '[]'::jsonb),
+      'total', (select count(*) from public.hr_import_runs where company_id = v_company),
+      'page', v_page, 'page_size', v_size)
+    from (select * from public.hr_import_runs where company_id = v_company
+           order by created_at desc limit v_size offset (v_page - 1) * v_size) r);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_in_my_scope(p_company_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select auth.uid() is not null
+     and not coalesce(public.is_banned(), false)
+     and public.current_company_id() = p_company_id;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_link_employee_account(p_employee_id uuid, p_user_id uuid, p_reason text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  v_reason  text;
+  e         public.hr_employees;
+  p         public.profiles;
+  v_member  boolean;
+begin
+  v_company := public._hr_gate('hr_employees', true);
+  if not public._hr_has_permission(v_company, 'hr.link_account') then
+    raise exception 'لا تملك صلاحية ربط الموظفين بالحسابات' using errcode = '42501';
+  end if;
+  v_reason := public._reason_check(p_reason);
+  -- (1) الموظف في الشركة الحالية وغير مؤرشف.
+  select * into e from public.hr_employees where id = p_employee_id and company_id = v_company;
+  if not found then
+    raise exception 'الموظف غير موجود' using errcode = 'P0002';
+  end if;
+  if e.archived_at is not null then
+    raise exception 'الموظف مؤرشف — لا يُربط بحساب' using errcode = '22023';
+  end if;
+  if e.user_id is not null then
+    raise exception 'الموظف مرتبط بحساب بالفعل — فك الربط أولًا' using errcode = '22023';
+  end if;
+  -- (2) الهدف ملف فعلي في profiles (لا ملف مختلق is_fallback).
+  select * into p from public.profiles where id = p_user_id;
+  if not found then
+    raise exception 'الحساب غير موجود' using errcode = 'P0002';
+  end if;
+  -- (3) الهدف له عضوية نشطة في نفس الشركة أو هو مالكها.
+  v_member := exists (select 1 from public.company_memberships m
+                       where m.company_id = v_company and m.user_id = p_user_id
+                         and m.status = 'active')
+              or exists (select 1 from public.companies c
+                          where c.id = v_company and c.user_id = p_user_id);
+  if not v_member then
+    raise exception 'الحساب ليس عضوًا في هذه الشركة' using errcode = '42501';
+  end if;
+  -- (4) الهدف ليس من طاقم المنصة.
+  if coalesce(p.role, 'user') in ('platform_owner', 'admin', 'support') then
+    raise exception 'لا يُربط حساب من طاقم المنصة بملف موظف' using errcode = '42501';
+  end if;
+  -- (5) الهدف غير محظور.
+  if coalesce(public.is_banned(p_user_id), false) then
+    raise exception 'الحساب محظور' using errcode = '42501';
+  end if;
+  -- (6) الهدف غير مرتبط بموظف آخر في نفس الشركة (موظف واحد لكل حساب).
+  if exists (select 1 from public.hr_employees x
+              where x.company_id = v_company and x.user_id = p_user_id and x.id <> e.id) then
+    raise exception 'الحساب مرتبط بموظف آخر في الشركة بالفعل' using errcode = '22023';
+  end if;
+  update public.hr_employees set user_id = p_user_id where id = e.id;
+  -- ملف الموظف المرتبط بصاحب الدور (لتحديد «الذات» ونطاق القسم).
+  update public.hr_role_assignments set employee_id = e.id
+   where company_id = v_company and user_id = p_user_id and revoked_at is null;
+  perform public._hr_audit(v_company, 'employee.linked', 'employee', e.id, e.id,
+    jsonb_build_object('user_id', null), jsonb_build_object('user_id', p_user_id), v_reason);
+  insert into public.notifications (user_id, title, message, type, link, category)
+  values (p_user_id, 'تم ربط ملفك الوظيفي',
+          'ربطت شركتك ملفك الوظيفي بحسابك في مدعوم — يمكنك الآن الوصول لبياناتك وطلباتك من لوحة الشركة.',
+          'info', '/company-dashboard/#hr-employees', 'hr');
+  return jsonb_build_object('employee_id', e.id, 'user_id', p_user_id, 'linked', true);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_link_employee_unlink(p_employee_id uuid, p_reason text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  v_reason  text;
+  e         public.hr_employees;
+begin
+  v_company := public._hr_gate('hr_employees', true);
+  if not public._hr_has_permission(v_company, 'hr.link_account') then
+    raise exception 'لا تملك صلاحية ربط الموظفين بالحسابات' using errcode = '42501';
+  end if;
+  v_reason := public._reason_check(p_reason);
+  select * into e from public.hr_employees where id = p_employee_id and company_id = v_company;
+  if not found then
+    raise exception 'الموظف غير موجود' using errcode = 'P0002';
+  end if;
+  if e.user_id is null then
+    raise exception 'الموظف غير مرتبط بأي حساب' using errcode = '22023';
+  end if;
+  update public.hr_role_assignments set employee_id = null
+   where company_id = v_company and user_id = e.user_id and employee_id = e.id;
+  update public.hr_employees set user_id = null where id = e.id;
+  perform public._hr_audit(v_company, 'employee.unlinked', 'employee', e.id, e.id,
+    jsonb_build_object('user_id', e.user_id), jsonb_build_object('user_id', null), v_reason);
+  return jsonb_build_object('employee_id', e.id, 'user_id', null, 'linked', false);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_my_employee()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  v_id      uuid;
+begin
+  v_company := public._hr_gate('hr_employees', false);
+  v_id := public._hr_my_employee_id(v_company);
+  if v_id is null then
+    return null;
+  end if;
+  return public.hr_employee_detail(v_id);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_position_archive(p_id uuid, p_reason text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  v_reason  text;
+  p         public.hr_positions;
+  v_kids    int;
+  v_emps    int;
+begin
+  v_company := public._hr_gate('hr_employees', true);
+  if not (public._hr_has_permission(v_company, 'hr.departments.manage')
+          or public._hr_has_permission(v_company, 'hr.employees.manage')) then
+    raise exception 'لا تملك صلاحية إدارة الهيكل التنظيمي' using errcode = '42501';
+  end if;
+  v_reason := public._reason_check(p_reason);
+  select * into p from public.hr_positions where id = p_id and company_id = v_company;
+  if not found then
+    raise exception 'المسمى غير موجود' using errcode = 'P0002';
+  end if;
+  if p.archived_at is not null then
+    raise exception 'المسمى مؤرشف بالفعل' using errcode = '22023';
+  end if;
+  select count(*) into v_kids from public.hr_positions where parent_id = p.id and archived_at is null;
+  select count(*) into v_emps from public.hr_employees where position_id = p.id and archived_at is null;
+  if v_kids > 0 or v_emps > 0 then
+    raise exception 'لا يمكن أرشفة المسمى: تحته % مسميات غير مؤرشفة و% موظفين نشطين', v_kids, v_emps using errcode = '22023';
+  end if;
+  update public.hr_positions set archived_at = now() where id = p.id;
+  perform public._hr_audit(v_company, 'position.archived', 'position', p.id, null,
+    jsonb_build_object('name', p.name), jsonb_build_object('archived', true), v_reason);
+  return jsonb_build_object('id', p.id, 'archived', true);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_position_create(p_name text, p_parent_id uuid default null, p_description text default null, p_manager_employee_id uuid default null, p_department_id uuid default null, p_level integer default null, p_sort_order integer default 0)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  v_name    text := btrim(coalesce(p_name, ''));
+  v_id      uuid;
+begin
+  v_company := public._hr_gate('hr_employees', true);
+  if not (public._hr_has_permission(v_company, 'hr.departments.manage')
+          or public._hr_has_permission(v_company, 'hr.employees.manage')) then
+    raise exception 'لا تملك صلاحية إدارة الهيكل التنظيمي' using errcode = '42501';
+  end if;
+  if char_length(v_name) < 2 or char_length(v_name) > 120 then
+    raise exception 'اسم المسمى بين حرفين و120 حرفًا' using errcode = '22023';
+  end if;
+  if p_level is not null and (p_level < 1 or p_level > 10) then
+    raise exception 'درجة المسمى بين 1 و10' using errcode = '22023';
+  end if;
+  if p_parent_id is not null and not exists (select 1 from public.hr_positions where id = p_parent_id and company_id = v_company and archived_at is null) then
+    raise exception 'المسمى الأب غير موجود أو مؤرشف' using errcode = 'P0002';
+  end if;
+  if p_department_id is not null and not exists (select 1 from public.hr_departments where id = p_department_id and company_id = v_company and archived_at is null) then
+    raise exception 'القسم غير موجود أو مؤرشف' using errcode = 'P0002';
+  end if;
+  if p_manager_employee_id is not null and not exists (select 1 from public.hr_employees where id = p_manager_employee_id and company_id = v_company and archived_at is null) then
+    raise exception 'مدير المسمى غير موجود' using errcode = 'P0002';
+  end if;
+  begin
+    insert into public.hr_positions (company_id, parent_id, name, description, manager_employee_id, department_id, level, sort_order, created_by)
+    values (v_company, p_parent_id, v_name, nullif(btrim(coalesce(p_description, '')), ''), p_manager_employee_id,
+            p_department_id, p_level, coalesce(p_sort_order, 0), auth.uid())
+    returning id into v_id;
+  exception when unique_violation then
+    raise exception 'اسم المسمى مستخدم بالفعل تحت نفس الأب' using errcode = '23505';
+  end;
+  perform public._hr_audit(v_company, 'position.created', 'position', v_id, null, null,
+    jsonb_build_object('name', v_name, 'parent_id', p_parent_id), null);
+  return jsonb_build_object('id', v_id, 'name', v_name);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_position_update(p_id uuid, p_name text default null, p_parent_id uuid default null, p_description text default null, p_manager_employee_id uuid default null, p_department_id uuid default null, p_level integer default null, p_is_active boolean default null, p_sort_order integer default null)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  p         public.hr_positions;
+  v_name    text;
+begin
+  v_company := public._hr_gate('hr_employees', true);
+  if not (public._hr_has_permission(v_company, 'hr.departments.manage')
+          or public._hr_has_permission(v_company, 'hr.employees.manage')) then
+    raise exception 'لا تملك صلاحية إدارة الهيكل التنظيمي' using errcode = '42501';
+  end if;
+  select * into p from public.hr_positions where id = p_id and company_id = v_company;
+  if not found then
+    raise exception 'المسمى غير موجود' using errcode = 'P0002';
+  end if;
+  if p.archived_at is not null then
+    raise exception 'المسمى مؤرشف' using errcode = '22023';
+  end if;
+  v_name := case when p_name is null then p.name else btrim(p_name) end;
+  if char_length(v_name) < 2 or char_length(v_name) > 120 then
+    raise exception 'اسم المسمى بين حرفين و120 حرفًا' using errcode = '22023';
+  end if;
+  if coalesce(p_level, p.level) is not null and (coalesce(p_level, p.level) < 1 or coalesce(p_level, p.level) > 10) then
+    raise exception 'درجة المسمى بين 1 و10' using errcode = '22023';
+  end if;
+  if p_parent_id is not null then
+    if p_parent_id = p.id then
+      raise exception 'لا يمكن أن يكون المسمى أبًا لنفسه' using errcode = '22023';
+    end if;
+    if not exists (select 1 from public.hr_positions where id = p_parent_id and company_id = v_company and archived_at is null) then
+      raise exception 'المسمى الأب غير موجود أو مؤرشف' using errcode = 'P0002';
+    end if;
+  end if;
+  if p_department_id is not null and not exists (select 1 from public.hr_departments where id = p_department_id and company_id = v_company and archived_at is null) then
+    raise exception 'القسم غير موجود أو مؤرشف' using errcode = 'P0002';
+  end if;
+  if p_manager_employee_id is not null and not exists (select 1 from public.hr_employees where id = p_manager_employee_id and company_id = v_company and archived_at is null) then
+    raise exception 'مدير المسمى غير موجود' using errcode = 'P0002';
+  end if;
+  begin
+    update public.hr_positions set
+      name = v_name, parent_id = coalesce(p_parent_id, p.parent_id),
+      description = case when p_description is null then p.description when btrim(p_description) = '' then null else btrim(p_description) end,
+      manager_employee_id = coalesce(p_manager_employee_id, p.manager_employee_id),
+      department_id = coalesce(p_department_id, p.department_id),
+      level = coalesce(p_level, p.level),
+      is_active = coalesce(p_is_active, p.is_active),
+      sort_order = coalesce(p_sort_order, p.sort_order)
+    where id = p.id;
+  exception when unique_violation then
+    raise exception 'اسم المسمى مستخدم بالفعل تحت نفس الأب' using errcode = '23505';
+  end;
+  perform public._hr_audit(v_company, 'position.updated', 'position', p.id, null,
+    jsonb_build_object('name', p.name), jsonb_build_object('name', v_name), null);
+  return jsonb_build_object('id', p.id, 'name', v_name);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_positions_list(p_include_archived boolean default false)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  v_rows    jsonb;
+begin
+  v_company := public._hr_gate('hr_employees', false);
+  if not public._hr_has_permission(v_company, 'hr.employees.view') then
+    raise exception 'لا تملك صلاحية عرض الموظفين' using errcode = '42501';
+  end if;
+  with recursive tree as (
+    select p.*, 1 as depth from public.hr_positions p
+     where p.company_id = v_company and p.parent_id is null
+       and (coalesce(p_include_archived, false) or p.archived_at is null)
+    union all
+    select p.*, t.depth + 1 from public.hr_positions p
+      join tree t on p.parent_id = t.id
+     where p.company_id = v_company
+       and (coalesce(p_include_archived, false) or p.archived_at is null)
+  )
+  select coalesce(jsonb_agg(jsonb_build_object(
+      'id', s.id, 'parent_id', s.parent_id, 'name', s.name, 'description', s.description,
+      'manager_employee_id', s.manager_employee_id,
+      'manager_name', (select full_name from public.hr_employees where id = s.manager_employee_id),
+      'department_id', s.department_id,
+      'department_name', (select name from public.hr_departments where id = s.department_id),
+      'level', s.level, 'is_active', s.is_active, 'sort_order', s.sort_order, 'depth', s.depth,
+      'archived_at', s.archived_at, 'employees_count', s.employees_count)
+    order by s.depth, s.sort_order, s.name), '[]'::jsonb)
+    into v_rows
+    from (select t.*, (select count(*) from public.hr_employees e
+                        where e.position_id = t.id and e.archived_at is null) employees_count
+            from tree t) s;
+  return jsonb_build_object('rows', v_rows, 'total', jsonb_array_length(v_rows));
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_settings_get()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  s         public.hr_settings;
+begin
+  v_company := public._hr_gate('hr_employees', false);
+  if not public._hr_has_permission(v_company, 'hr.employees.view') then
+    raise exception 'لا تملك صلاحية عرض الموظفين' using errcode = '42501';
+  end if;
+  select * into s from public.hr_settings where company_id = v_company;
+  if not found then
+    return jsonb_build_object('company_id', v_company, 'employee_number_prefix', '',
+      'employee_number_next', 1, 'default_probation_months', 3,
+      'audit_retention_months', 24, 'settings', '{}'::jsonb);
+  end if;
+  return jsonb_build_object('company_id', s.company_id, 'employee_number_prefix', s.employee_number_prefix,
+    'employee_number_next', s.employee_number_next, 'default_probation_months', s.default_probation_months,
+    'audit_retention_months', s.audit_retention_months, 'settings', s.settings, 'updated_at', s.updated_at);
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_settings_update(p_employee_number_prefix text default null, p_default_probation_months integer default null, p_audit_retention_months integer default null, p_settings jsonb default null)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_company uuid;
+  s         public.hr_settings;
+  v_prefix  text;
+  v_prob    int;
+  v_ret     int;
+  v_set     jsonb;
+begin
+  v_company := public._hr_gate('hr_employees', true);
+  if not public._hr_has_permission(v_company, 'hr.settings.manage') then
+    raise exception 'لا تملك صلاحية إعدادات الموارد البشرية' using errcode = '42501';
+  end if;
+  insert into public.hr_settings (company_id) values (v_company)
+    on conflict (company_id) do nothing;
+  select * into s from public.hr_settings where company_id = v_company;
+  v_prefix := case when p_employee_number_prefix is null then s.employee_number_prefix else btrim(p_employee_number_prefix) end;
+  v_prob := coalesce(p_default_probation_months, s.default_probation_months);
+  v_ret := coalesce(p_audit_retention_months, s.audit_retention_months);
+  v_set := case when p_settings is null then s.settings else s.settings || p_settings end;
+  if char_length(v_prefix) > 10 then
+    raise exception 'بادئة الرقم الوظيفي 10 أحرف حدًا أقصى' using errcode = '22023';
+  end if;
+  if v_prob < 0 or v_prob > 12 then
+    raise exception 'فترة التجربة الافتراضية بين 0 و12 شهرًا' using errcode = '22023';
+  end if;
+  if v_ret < 6 or v_ret > 120 then
+    raise exception 'مدة الاحتفاظ بالسجل بين 6 و120 شهرًا' using errcode = '22023';
+  end if;
+  update public.hr_settings set
+    employee_number_prefix = v_prefix, default_probation_months = v_prob,
+    audit_retention_months = v_ret, settings = v_set, updated_by = auth.uid()
+  where company_id = v_company;
+  perform public._hr_audit(v_company, 'settings.changed', 'settings', v_company, null,
+    jsonb_build_object('employee_number_prefix', s.employee_number_prefix,
+      'default_probation_months', s.default_probation_months, 'audit_retention_months', s.audit_retention_months),
+    jsonb_build_object('employee_number_prefix', v_prefix,
+      'default_probation_months', v_prob, 'audit_retention_months', v_ret), null);
+  return public.hr_settings_get();
+end 
+$function$
+;
+CREATE OR REPLACE FUNCTION public.hr_unlink_employee_account(p_employee_id uuid, p_reason text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  return public.hr_link_employee_unlink(p_employee_id, p_reason);
+end 
 $function$
 ;
 
