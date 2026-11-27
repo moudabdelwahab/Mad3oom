@@ -33,6 +33,7 @@ export const COMPANY_PAGES = Object.freeze({
     permissions:     { label: 'الأدوار والصلاحيات' },
     accessLog:       { label: 'سجل وصول مدعوم' },
     subscriptions:   { label: 'الاشتراكات' },
+    refundPolicy:    { label: 'سياسة الإلغاء والاسترداد' },
     entitlements:    { label: 'الخدمات والامتيازات' },
     usage:           { label: 'الاستخدام والحدود' },
     integrations:    { label: 'التكاملات' },
@@ -68,7 +69,7 @@ export const COMPANY_GROUPS = Object.freeze([
     {
         key: 'billing', label: 'الاشتراك والفوترة',
         description: 'باقات الشركة، والخدمات التي تتيحها، ورصيد التذاكر هذا الشهر.',
-        pages: ['subscriptions', 'entitlements', 'usage']
+        pages: ['subscriptions', 'refundPolicy', 'entitlements', 'usage']
     },
     {
         key: 'connect', label: 'التكاملات وواجهة API',

@@ -56,6 +56,7 @@ test('الروابط القديمة تبقى صالحة، والمجهول يع�
         assert.equal(routeFromHash(`#${legacy}`), legacy, `رابط قديم انكسر: #${legacy}`);
     }
     assert.equal(routeFromHash('#usage'), 'usage');
+    assert.equal(routeFromHash('#refundPolicy'), 'refundPolicy');
     assert.equal(routeFromHash(''), 'overview');
     assert.equal(routeFromHash('#admin'), 'overview');
     assert.equal(routeFromHash('#../../etc'), 'overview');
@@ -73,7 +74,7 @@ test('الإتاحة حسب الدور: صفحات المدير لا تظهر ل
     assert.equal(pageAvailable('customers', { viewerRole: 'agent' }), false);
     // صفحات الجميع
     for (const page of ['overview', 'tickets', 'customerTickets', 'support', 'members', 'entitlements',
-                        'usage', 'integrations', 'reports', 'activity', 'notifications', 'company',
+                        'refundPolicy', 'usage', 'integrations', 'reports', 'activity', 'notifications', 'company',
                         'profile', 'security']) {
         assert.equal(pageAvailable(page, { viewerRole: 'agent' }), true, page);
     }
@@ -89,6 +90,7 @@ test('صندوق الرسائل لا يظهر إلا حين ترد القاعد�
 test('مسار التنقّل ثلاثي في المجالات، وثنائي حين يطابق المجال الصفحة', () => {
     assert.deepEqual(breadcrumbFor('customerTickets'), ['لوحة الشركة', 'الدعم والتذاكر', 'تذاكر العملاء']);
     assert.deepEqual(breadcrumbFor('usage'), ['لوحة الشركة', 'الاشتراك والفوترة', 'الاستخدام والحدود']);
+    assert.deepEqual(breadcrumbFor('refundPolicy'), ['لوحة الشركة', 'الاشتراك والفوترة', 'سياسة الإلغاء والاسترداد']);
     assert.deepEqual(breadcrumbFor('overview'), ['لوحة الشركة', 'نظرة عامة']);
     assert.deepEqual(breadcrumbFor('notifications'), ['لوحة الشركة', 'الإشعارات']);
     assert.deepEqual(breadcrumbFor('company'), ['لوحة الشركة', 'بيانات الشركة']);
@@ -106,6 +108,11 @@ test('رأس المجال: الصفحات الشقيقة المتاحة فقط،
     assert.equal(pageHeadFor('overview', { viewerRole: 'admin' }), null);
     assert.deepEqual(siblingsOf('tickets', { viewerRole: 'admin', inbox: true }),
         ['tickets', 'customerTickets', 'inbox', 'support']);
+    // صفحة السياسة: في مجال الاشتراك والفوترة بعد الاشتراكات، متاحة لكل الأدوار
+    assert.deepEqual(siblingsOf('refundPolicy', { viewerRole: 'agent' }),
+        ['refundPolicy', 'entitlements', 'usage']);
+    assert.deepEqual(siblingsOf('refundPolicy', { viewerRole: 'admin' }),
+        ['subscriptions', 'refundPolicy', 'entitlements', 'usage']);
 });
 
 /* ── تنبيهات النظرة العامة ──────────────────────────────────────────────── */

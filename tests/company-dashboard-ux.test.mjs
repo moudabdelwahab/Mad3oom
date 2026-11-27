@@ -74,12 +74,14 @@ test('isUnknownHash: الفارغ والمعروف ليسا مجهولين، و�
 
 /* ── (ج) ضوابط ثابتة على التعديلات ─────────────────────────────────────── */
 
-test('LOADERS يغطي الآن 27 صفحة من 27: مُحمِّلان لـ subscriptions وentitlements', () => {
+test('LOADERS يغطي الآن 28 صفحة من 28: مُحمِّلان لـ subscriptions وentitlements', () => {
     const src = read('assets/js/company/company-dashboard.js');
     for (const page of ['subscriptions', 'entitlements']) {
         assert.match(src, new RegExp(`${page}:\\s*\\(\\)\\s*=>`),
             `القسم ${page} ما زال بلا مُحمِّل`);
     }
+    // سياسة الإلغاء والاسترداد محتوى ثابت: مُحمِّلها لا يقرأ شيئًا
+    assert.match(src, /refundPolicy: \(\) => Promise\.resolve\(\)/);
     // كل صفحة معلَنة في الخريطة لها مُحمِّل
     for (const page of COMPANY_ROUTES) {
         assert.match(src, new RegExp(`${page}:\\s*\\(\\)\\s*=>`), `القسم ${page} بلا مُحمِّل`);

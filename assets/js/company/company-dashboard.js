@@ -276,6 +276,9 @@ const LOADERS = {
     // الإقلاع ولا يُعاد تحميلهما أبدًا. مُحمِّلاهما يعيدان قراءة الحمولة.
     subscriptions: () => loadSubscriptionsSection(),
     entitlements: () => loadEntitlementsSection(),
+    // سياسة الإلغاء والاسترداد محتوى ثابت في الصفحة — لا بيانات تُحمَّل؛
+    // المُحمِّل موجود لأن كل صفحة معلَنة في الخريطة يلزمها مُحمِّل.
+    refundPolicy: () => Promise.resolve(),
     company: () => loadCompanyPage(),
     notifications: () => loadCompanyNotifications(),
     profile: () => loadCompanyProfile(),
@@ -2164,6 +2167,9 @@ function openCancelModal(planName, endDate) {
             سيبقى اشتراكك فعّالًا حتى <strong>${escapeHtml(formatDate(endDate))}</strong>، ثم ينتهي
             ولا يتجدّد. يمكنك التراجع عن الإلغاء قبل ذلك التاريخ من اللوحة نفسها.
         </p>
+        <p style="margin:0 0 1rem; font-size:.85rem; line-height:1.9;">
+            <a href="#refundPolicy" data-policy-link>اطّلع على سياسة الإلغاء والاسترداد</a> قبل التأكيد — ومنها شروط الاسترداد الكامل والتناسبي.
+        </p>
         <div style="margin-bottom:1rem;">
             <label style="display:block; font-size:.85rem; font-weight:700; margin-bottom:.4rem;">سبب الإلغاء (اختياري)</label>
             <textarea id="coCancelReason" maxlength="500" rows="3" placeholder="مثال: لن نحتاج الخدمة بعد هذا الشهر"
@@ -2171,6 +2177,8 @@ function openCancelModal(planName, endDate) {
         </div>
         ${modalFooterHtml('تأكيد الإلغاء')}`);
     box.querySelector('[data-modal-cancel]').addEventListener('click', () => close(null));
+    // رابط السياسة يغلق النافذة بلا إلغاء؛ تغيير الهاش ينقلك إلى قسم السياسة.
+    box.querySelector('[data-policy-link]')?.addEventListener('click', () => close(null));
     box.querySelector('[data-modal-confirm]').addEventListener('click', () => {
         close(box.querySelector('#coCancelReason')?.value?.trim() || '');
     });
