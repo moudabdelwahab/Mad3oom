@@ -84,6 +84,8 @@ END $$;
 \i migrations/118_ecommerce_store_accounts.sql
 \i migrations/119_shopify_store_integration.sql
 \i migrations/119_shopify_store_integration.sql
+-- 149: تقرير المتجر بلا تعريفات إنجليزية (يُطبَّق هنا فيُفحَص التقرير بنسخته الجديدة في ⑧، وتراجعه في ⑬)
+\i migrations/149_store_report_no_english_definitions.sql
 SET search_path = public, extensions;
 
 -- ── متجران وشركة عادية ────────────────────────────────────────────────────
@@ -421,6 +423,7 @@ BEGIN
   r := t.call(t.s('SS'), 'public.store_report(30)');
   PERFORM t.ok((r->>'ticket_volume')::int = 1 and (r->>'order_related_tickets')::int = 1
                and (r->'categories'->>'shipping_delay')::int = 1 and (r->'requests_by_kind'->>'refund_inquiry')::int = 1, '⑧ التقرير من البيانات: ' || r::text);
+  PERFORM t.ok(not (r ? 'definitions'), '⑧ التقرير بلا تعريفات إنجليزية');
   -- الامتياز
   UPDATE public.whatsapp_subscriptions SET end_date = now() - interval '1 minute' WHERE user_id = t.s('ST') AND plan = 'store';
   PERFORM t.ok(t.errd(t.s('SS'), 'public.store_requests_list()') LIKE '42501|%not_entitled%', '⑧ المنتهي: لا أدوات متجر');
@@ -549,4 +552,24 @@ BEGIN
   PERFORM t.ok(to_regclass('public.ihub_sync_jobs') is not null and exists (select 1 from public.ihub_providers where key = 'shopify' and not enabled), '⑫ إعادة التطبيق');
   RAISE NOTICE 'PASS ⑫ التراجع يرفض مع بيانات، يعيد نص الإنتاج حرفيًا، وإعادة التطبيق تنجح';
   RAISE NOTICE 'ALL 119 SHOPIFY STORE INTEGRATION TESTS PASSED';
+END $$;
+
+-- ══ ⑬ تراجع 149 وإعادة تطبيقه ═════════════════════════════════════════════
+\i migrations/_rollback/149_store_report_no_english_definitions.down.sql
+SET search_path = public, extensions;
+DO $$
+DECLARE r jsonb;
+BEGIN
+  r := t.call(t.s('SS'), 'public.store_report(30)');
+  PERFORM t.ok(r ? 'definitions', '⑬ التراجع يعيد التعريفات الإنجليزية');
+END $$;
+\i migrations/149_store_report_no_english_definitions.sql
+SET search_path = public, extensions;
+DO $$
+DECLARE r jsonb;
+BEGIN
+  r := t.call(t.s('SS'), 'public.store_report(30)');
+  PERFORM t.ok(not (r ? 'definitions'), '⑬ إعادة التطبيق تزيلها ثانيةً');
+  RAISE NOTICE 'PASS ⑬ تراجع 149 يعيد التعريفات، وإعادة التطبيق تزيلها';
+  RAISE NOTICE 'ALL 149 STORE REPORT NO ENGLISH DEFINITIONS TESTS PASSED';
 END $$;

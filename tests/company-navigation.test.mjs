@@ -956,7 +956,16 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         يظهر في أي رد؛ بهما يقرأ إجراء metrics مقاييس Northflank
     //         (CPU/RAM/uptime) لكل خدمة. مقيسٌ في
     //         tests/sql/agent-northflank-148.test.sql.
-    assert.equal(migrations[migrations.length - 1], '148_agent_northflank_token.sql',
+    //   149 — تقرير المتجر بلا مصطلحات إنجليزية (2026-11-26، بطلب المالك
+    //         من لقطة صفحة التقارير): `store_report()` (من 119) كان يرجع
+    //         مفتاح `definitions` بأربع جمل إنجليزية تظهر حرفيًا تحت بطاقات
+    //         التقارير، والواجهة كانت تعرضها كـ hint مع حاشية تقنية
+    //         «محسوبة في القاعدة». الترحيل يحذف المفتاح من الرد؛ والواجهة
+    //         تحذف الـ hints والحاشية، بلا تغيير في الأرقام أو النوافذ أو
+    //         الصلاحيات. بلا تطبيق حي. مقيسٌ في tests/store-model.test.mjs
+    //         و tests/ecommerce-store.render.test.mjs (اختبار 149) و
+    //         tests/sql/shopify-store-integration.test.sql (بلا definitions).
+    assert.equal(migrations[migrations.length - 1], '149_store_report_no_english_definitions.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

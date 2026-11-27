@@ -105,7 +105,11 @@ function storeFx({ store = true, connection = CONNECTION, overview = {}, rpc = {
             store_report: { days: 30, from: '2026-09-28T00:00:00Z', to: '2026-10-28T00:00:00Z', ticket_volume: 5, first_response_minutes_median: 42,
                             tickets_with_response: 4, resolution_hours_median: 6.5, tickets_resolved: 3, unresolved_tickets: 2, order_related_tickets: 3,
                             categories: { shipping_delay: 2, uncategorized: 3 }, requests_by_kind: { return: 1 }, requests_by_status: { recorded: 1 },
-                            integration: { webhook_events: { processed: 12 }, sync_jobs: { succeeded: 2 } }, definitions: {} },
+                            integration: { webhook_events: { processed: 12 }, sync_jobs: { succeeded: 2 } },
+                            definitions: { ticket_volume: 'company tickets created in the window that the viewer may see',
+                                           first_response_minutes_median: 'median of first_response_at - created_at over tickets with a first response',
+                                           resolution_hours_median: 'median of resolved_at - created_at over tickets with resolved_at',
+                                           order_related_tickets: 'tickets in the window linked to a store order or carrying an order request' } },
             ihub_prepare_connection: { id: CONN, provider: 'shopify', status: 'pending' },
             ihub_store_record_context: { record_id: 'rec-1', cached: true, tickets: [], requests: [], linked_customer: null, conversations: [] },
             fetch_inbox_summary: null,
@@ -366,4 +370,15 @@ test('صفحات المتجر على الجوال: بلا تمرير أفقي', 
         assert.deepEqual(errors, [], hash);
         await context.close();
     }
+});
+
+test('149: تقارير المتجر بلا مصطلحات إنجليزية ولا حاشية تقنية — حتى مع definitions في الرد', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openDashboard(storeFx(), '#storeReports');
+    await page.waitForSelector('#storeReportsBody .kpi-grid');
+    const text = await page.textContent('#storeReportsBody');
+    assert.equal(await page.locator('#storeReportsBody .kpi-hint').count(), 0, 'لا سطر تعريف تحت أي بطاقة');
+    assert.ok(!text.includes('محسوبة في القاعدة'), 'لا حاشية تقنية');
+    assert.ok(!/median of|company tickets created|tickets in the window/i.test(text), 'لا جملة إنجليزية');
+    assert.deepEqual(errors, []);
+    await context.close();
 });

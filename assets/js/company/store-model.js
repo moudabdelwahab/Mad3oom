@@ -256,13 +256,11 @@ export function reportCards(r) {
     if (!r) return [];
     const v = (x, suffix = '') => (x === null || x === undefined ? '—' : `${x}${suffix}`);
     return [
-        { key: 'ticket_volume', label: 'التذاكر الجديدة', value: v(r.ticket_volume), hint: r.definitions?.ticket_volume },
-        { key: 'first_response', label: 'وسيط أول رد', value: v(r.first_response_minutes_median, ' دقيقة'),
-          hint: `${r.definitions?.first_response_minutes_median || ''} (${v(r.tickets_with_response)} تذكرة)` },
-        { key: 'resolution', label: 'وسيط زمن الحل', value: v(r.resolution_hours_median, ' ساعة'),
-          hint: `${r.definitions?.resolution_hours_median || ''} (${v(r.tickets_resolved)} تذكرة)` },
+        { key: 'ticket_volume', label: 'التذاكر الجديدة', value: v(r.ticket_volume) },
+        { key: 'first_response', label: 'وسيط أول رد', value: v(r.first_response_minutes_median, ' دقيقة') },
+        { key: 'resolution', label: 'وسيط زمن الحل', value: v(r.resolution_hours_median, ' ساعة') },
         { key: 'unresolved', label: 'تذاكر غير محلولة الآن', value: v(r.unresolved_tickets) },
-        { key: 'order_related', label: 'تذاكر مرتبطة بطلبات', value: v(r.order_related_tickets), hint: r.definitions?.order_related_tickets }
+        { key: 'order_related', label: 'تذاكر مرتبطة بطلبات', value: v(r.order_related_tickets) }
     ];
 }
 

@@ -642,8 +642,7 @@ export async function loadStoreReports() {
             ${dist('طلبات المتابعة حسب النوع', distributionRows(d.requests_by_kind, REQUEST_KINDS))}
             ${dist('طلبات المتابعة حسب الحالة', distributionRows(d.requests_by_status, Object.fromEntries(Object.entries(REQUEST_STATUSES).map(([k, v]) => [k, v.label]))))}
             ${dist('أحداث Shopify', distributionRows(d.integration?.webhook_events))}
-        </div>
-        <p class="field-hint">الأرقام محسوبة في القاعدة من تذاكر الشركة التي تملك رؤيتها، من ${esc(formatDateTime(d.from))} إلى ${esc(formatDateTime(d.to))}.</p>`;
+        </div>`;
     $('storeReportDays').addEventListener('change', (e) => { reportDays = Number(e.currentTarget.value); loadStoreReports(); });
 }
 
