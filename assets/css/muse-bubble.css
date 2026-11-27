@@ -208,61 +208,13 @@
 .muse-bubble .mb-agent-chip:focus-visible,
 .muse-bubble .mb-new-chat:focus-visible,
 .muse-bubble .mb-send:focus-visible,
+.muse-bubble .mb-quota-btn:focus-visible,
 .muse-bubble .mb-retry:focus-visible,
 .muse-bubble .mb-full-link:focus-visible,
 .muse-bubble .mb-input:focus-visible,
 .muse-bubble .mb-search:focus-visible {
     outline: none;
     box-shadow: var(--mb-focus);
-}
-
-/* الكوتة: سطر مضغوط في الترويسة — من لقطة الجلسة النشطة فقط، بلا رقم مخترع. */
-.muse-bubble .mb-quota {
-    margin-top: 4px;
-    font-size: 11px;
-    color: var(--mb-text-2);
-}
-
-.muse-bubble .mb-quota-bar {
-    height: 5px;
-    margin-top: 3px;
-    border-radius: 999px;
-    background: var(--mb-surface-2);
-    overflow: hidden;
-}
-
-.muse-bubble .mb-quota-bar-fill {
-    display: block;
-    height: 100%;
-    border-radius: 999px;
-    background: var(--mb-accent);
-}
-
-.muse-bubble .mb-quota.is-low .mb-quota-bar-fill {
-    background: var(--mb-danger);
-}
-
-.muse-bubble .mb-quota.is-low .mb-quota-value {
-    color: var(--mb-danger);
-}
-
-.muse-bubble .mb-quota-value {
-    font-weight: 800;
-    color: var(--mb-accent);
-}
-
-.muse-bubble .mb-quota-low,
-.muse-bubble .mb-quota-stale {
-    margin-top: 2px;
-    font-weight: 700;
-}
-
-.muse-bubble .mb-quota-low {
-    color: var(--mb-danger);
-}
-
-.muse-bubble .mb-quota-stale {
-    color: var(--mb-warning);
 }
 
 /* ── اختيار الوكيل وقائمة الجلسات ── */
@@ -588,6 +540,7 @@
 }
 
 .muse-bubble .mb-form {
+    position: relative;
     display: flex;
     gap: 8px;
     align-items: center;
@@ -625,6 +578,136 @@
 .muse-bubble .mb-input:disabled {
     opacity: 0.6;
     cursor: default;
+}
+
+/* ── دائرة الكوتة بجانب زر الإرسال ──
+   حلقة SVG تعرض المتبقي % بنظرة واحدة (أحمر تحت 20%)؛ الضغطة الأولى
+   تفتح التفاصيل في نافذة فوق المؤلّف، والثانية تغلقها. لا قسم علوي بعد
+   اليوم — مساحة المحادثة تستعيد ما كان يأخذه سطر الكوتة في الترويسة. */
+.muse-bubble .mb-quota-btn {
+    box-sizing: border-box;
+    position: relative;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: 1px solid var(--mb-border);
+    border-radius: 50%;
+    background: var(--mb-surface-2);
+    color: var(--mb-text);
+    cursor: pointer;
+}
+
+.muse-bubble .mb-quota-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--mb-focus);
+}
+
+.muse-bubble .mb-quota-ring {
+    display: block;
+    width: 30px;
+    height: 30px;
+    transform: rotate(-90deg);
+}
+
+.muse-bubble .mb-quota-ring-track,
+.muse-bubble .mb-quota-ring-fill {
+    fill: none;
+    stroke-width: 3;
+}
+
+.muse-bubble .mb-quota-ring-track {
+    stroke: var(--mb-border);
+}
+
+.muse-bubble .mb-quota-ring-fill {
+    stroke: var(--mb-accent);
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.3s ease;
+}
+
+.muse-bubble .mb-quota-btn.is-low .mb-quota-ring-fill {
+    stroke: var(--mb-danger);
+}
+
+.muse-bubble .mb-quota-num {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--mb-accent);
+    pointer-events: none;
+}
+
+.muse-bubble .mb-quota-btn.is-low .mb-quota-num {
+    color: var(--mb-danger);
+}
+
+/* نافذة تفاصيل الكوتة: فوق المؤلّف مباشرة، مؤقتة — تُغلق بالتبديل أو
+   Escape أو ضغطة خارجها، فلا تغطي الرسائل دائمًا. */
+.muse-bubble .mb-quota-pop {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    z-index: 5;
+    max-height: 190px;
+    overflow-y: auto;
+    padding: 10px 12px;
+    border: 1px solid var(--mb-border);
+    border-radius: 12px;
+    background: var(--mb-surface);
+    box-shadow: var(--mb-shadow);
+    font-size: 12px;
+    color: var(--mb-text-2);
+}
+
+.muse-bubble .mb-qpop-bar {
+    height: 5px;
+    margin-top: 6px;
+    border-radius: 999px;
+    background: var(--mb-surface-2);
+    overflow: hidden;
+}
+
+.muse-bubble .mb-qpop-bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--mb-accent);
+}
+
+.muse-bubble .mb-quota-pop.is-low .mb-qpop-bar-fill {
+    background: var(--mb-danger);
+}
+
+.muse-bubble .mb-qpop-value {
+    font-weight: 800;
+    color: var(--mb-accent);
+}
+
+.muse-bubble .mb-quota-pop.is-low .mb-qpop-value {
+    color: var(--mb-danger);
+}
+
+.muse-bubble .mb-qpop-low,
+.muse-bubble .mb-qpop-stale {
+    margin-top: 4px;
+    font-weight: 700;
+}
+
+.muse-bubble .mb-qpop-low {
+    color: var(--mb-danger);
+}
+
+.muse-bubble .mb-qpop-stale {
+    color: var(--mb-warning);
 }
 
 .muse-bubble .mb-foot {

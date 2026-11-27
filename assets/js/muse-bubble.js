@@ -27,6 +27,7 @@ import {
     MUSE_MODEL_ID,
     POLL_MS, MESSAGES_LIMIT, mergeMessages, pollRetryDelay, isRealtimeLive,
     parseQuota, quotaSnapshotState, quotaMissingText, QUOTA_STALE_TEXT,
+    formatQuota,
     formatWaitSeconds, formatReplyTook, secondsBetween, waitingSince,
     agentForModelId, agentModelIds, sortSessions, pickActiveSession,
     deriveSmartTitle, hasUserMessage, ACTIVE_SESSION_KEY,
@@ -55,6 +56,11 @@ let pollFailures = 0;
 let realtimeLive = false;
 let realtimeChannel = null;
 let lastQuotaRefreshAt = 0;
+/** آخر كوتة للجلسة النشطة (خام + محللة) — تحرّك حلقة الزر ونافذة التفاصيل معًا. */
+let lastQuotaRaw = null;
+let lastQuotaParsed = null;
+let lastQuotaSnapshot = null;
+let quotaPopOpen = false;
 let switchToken = 0;
 let avatar = null;
 let waitTimer = null;
@@ -141,7 +147,6 @@ function buildDom() {
                 <div class="mb-head-titles">
                     <h2 class="mb-title" id="mb-title">Muse — الوكيل الداخلي</h2>
                     <p class="mb-status" id="mb-status" role="status">جاهز — اكتب رسالتك بالأسفل.</p>
-                    <div class="mb-quota" id="mb-quota" role="status" hidden></div>
                 </div>
                 <button type="button" class="mb-close" id="mb-close" aria-label="إغلاق">✕</button>
             </header>
@@ -168,7 +173,15 @@ function buildDom() {
             <form class="mb-form" id="mb-form" novalidate>
                 <label class="mb-visually-hidden" for="mb-input">اكتب رسالتك لـ Muse</label>
                 <input type="text" class="mb-input" id="mb-input" placeholder="اكتب رسالتك لـ Muse…" autocomplete="off" maxlength="2000">
+                <button type="button" class="mb-quota-btn" id="mb-quota-btn" aria-label="الكوتة غير متاحة بعد" aria-expanded="false" aria-controls="mb-quota-pop" title="الكوتة غير متاحة بعد">
+                    <svg class="mb-quota-ring" viewBox="0 0 36 36" aria-hidden="true">
+                        <circle class="mb-quota-ring-track" cx="18" cy="18" r="15.9155"></circle>
+                        <circle class="mb-quota-ring-fill" cx="18" cy="18" r="15.9155"></circle>
+                    </svg>
+                    <span class="mb-quota-num" id="mb-quota-num" aria-hidden="true">؟</span>
+                </button>
                 <button type="submit" class="mb-send" id="mb-send">إرسال</button>
+                <div class="mb-quota-pop" id="mb-quota-pop" role="status" hidden></div>
             </form>
             <div class="mb-foot">
                 <a class="mb-full-link" href="/owner/muse-chat.html">فتح الصفحة الكاملة ↗</a>
@@ -184,6 +197,16 @@ function wireEvents() {
     });
     $('mb-close').addEventListener('click', () => closePanel());
     $('mb-form').addEventListener('submit', (e) => { e.preventDefault(); sendMessage(); });
+    $('mb-quota-btn').addEventListener('click', (e) => { e.stopPropagation(); toggleQuotaPop(); });
+    // ضغطة خارج النافذة المنبثقة (لا الزر نفسه) تغلقها — فلا تغطي الرسائل دائمًا.
+    document.addEventListener('click', (e) => {
+        if (!quotaPopOpen) return;
+        const pop = $('mb-quota-pop');
+        const btn = $('mb-quota-btn');
+        if (pop && pop.contains(e.target)) return;
+        if (btn && btn.contains(e.target)) return;
+        setQuotaPop(false);
+    });
     $('mb-input').addEventListener('focus', () => { if (avatar) avatar.setState('attention'); });
     $('mb-retry').addEventListener('click', () => { hideSendError(); sendMessage(); });
     $('mb-new-chat').addEventListener('click', () => { newChat(); });
@@ -194,10 +217,12 @@ function wireEvents() {
     document.querySelectorAll('#mb-root .mb-agent-chip').forEach((chip) => {
         chip.addEventListener('click', () => { openAgent(chip.dataset.modelId); });
     });
-    // Escape يغلق اللوحة فقط عندما يكون التركيز داخل الفقاعة — ويعيد
-    // التركيز لمشغّل الإطلاق.
+    // Escape يغلق نافذة الكوتة أولًا إن كانت مفتوحة (من أي تركيز)، ثم
+    // يغلق اللوحة فقط عندما يكون التركيز داخل الفقاعة — ويعيد التركيز
+    // لمشغّل الإطلاق.
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape' || !isOpen) return;
+        if (quotaPopOpen) { setQuotaPop(false); return; }
         const root = $('mb-root');
         if (root && root.contains(document.activeElement)) closePanel();
     });
@@ -229,6 +254,7 @@ function closePanel() {
     const panel = $('mb-panel');
     const launcher = $('mb-launcher');
     if (!panel || !launcher || !isOpen) return;
+    setQuotaPop(false);
     isOpen = false;
     panel.classList.remove('mb-open');
     launcher.setAttribute('aria-expanded', 'false');
@@ -423,35 +449,82 @@ function lastAssistantAt() {
 }
 
 /**
- * عرض الكوتة من الجلسة النشطة extensions.quota فقط — أو رسالة صريحة عند
- * غياب اللقطة، وتحذير صريح بقدمها إن كانت أقدم من آخر رد مساعد. لا رقم
- * من أي مصدر آخر ولا رقم مخترع.
+ * الكوتة الآن دائرة بجانب زر الإرسال لا قسم علوي: الحلقة تعرض المتبقي %
+ * بنظرة واحدة، والتفاصيل الكاملة (المتبقي، الخطة، التجديد، تحذير النفاد،
+ * تحذير القدم) تظهر في نافذة منبثقة فوق المؤلّف عند الضغط على الدائرة فقط.
+ * البيانات والمنطق كما هي: parseQuota من الجلسة النشطة extensions.quota.
  */
-function updateQuotaDisplay(session) {
-    const el = $('mb-quota');
-    if (!el) return;
-    const quota = session?.extensions?.quota;
-    const parsed = parseQuota(quota);
-    const snapshotState = quotaSnapshotState(quota, lastAssistantAt());
-    el.hidden = false;
-    if (!parsed) {
-        el.classList.remove('is-low');
-        el.innerHTML = `<span>${esc(quotaMissingText(!!lastAssistantAt()))}</span>`;
+function quotaSummaryLabel() {
+    const text = formatQuota(lastQuotaRaw);
+    if (text) return lastQuotaParsed?.low ? `${text} — الكوتة أوشكت على النفاد` : text;
+    return quotaMissingText(!!lastAssistantAt());
+}
+
+function renderQuotaRing() {
+    const btn = $('mb-quota-btn');
+    const num = $('mb-quota-num');
+    const fill = document.querySelector('#mb-quota-btn .mb-quota-ring-fill');
+    if (!btn || !num || !fill) return;
+    const label = quotaSummaryLabel();
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+    if (!lastQuotaParsed || lastQuotaParsed.pct === null) {
+        btn.classList.remove('is-low');
+        fill.style.strokeDasharray = '0 100';
+        num.textContent = '؟';
         return;
     }
+    btn.classList.toggle('is-low', !!lastQuotaParsed.low);
+    fill.style.strokeDasharray = `${lastQuotaParsed.pct} 100`;
+    num.textContent = lastQuotaParsed.remainingPct !== null
+        ? String(lastQuotaParsed.remainingPct)
+        : String(lastQuotaParsed.remainingLabel).slice(0, 4);
+}
+
+function renderQuotaPop() {
+    const pop = $('mb-quota-pop');
+    if (!pop) return;
+    if (!lastQuotaParsed) {
+        pop.classList.remove('is-low');
+        pop.innerHTML = `<span>${esc(quotaMissingText(!!lastAssistantAt()))}</span>`;
+        return;
+    }
+    const parsed = lastQuotaParsed;
     const bar = parsed.pct !== null
-        ? `<div class="mb-quota-bar" role="progressbar" aria-valuenow="${parsed.pct}" aria-valuemin="0" aria-valuemax="100" aria-label="المتبقي من الكوتة"><span class="mb-quota-bar-fill" style="width:${parsed.pct}%"></span></div>`
+        ? `<div class="mb-qpop-bar" role="progressbar" aria-valuenow="${parsed.pct}" aria-valuemin="0" aria-valuemax="100" aria-label="المتبقي من الكوتة"><span class="mb-qpop-bar-fill" style="width:${parsed.pct}%"></span></div>`
         : '';
     const meta = [
         parsed.planLabel ? `الخطة: ${esc(parsed.planLabel)}` : '',
         parsed.resetLabel ? `التجديد: ${esc(parsed.resetLabel)}` : '',
     ].filter(Boolean).join(' • ');
-    el.classList.toggle('is-low', parsed.low);
-    el.innerHTML = `
-        <span>المتبقي من الكوتة: <strong class="mb-quota-value">${esc(parsed.remainingLabel)}</strong>${meta ? ` — ${meta}` : ''}</span>
+    pop.classList.toggle('is-low', !!parsed.low);
+    pop.innerHTML = `
+        <span>المتبقي من الكوتة: <strong class="mb-qpop-value">${esc(parsed.remainingLabel)}</strong>${meta ? ` — ${meta}` : ''}</span>
         ${bar}
-        ${parsed.low ? '<div class="mb-quota-low">الكوتة أوشكت على النفاد — أقل من 20% متبقٍ.</div>' : ''}
-        ${snapshotState === 'stale' ? `<div class="mb-quota-stale">${esc(QUOTA_STALE_TEXT)}</div>` : ''}`;
+        ${parsed.low ? '<div class="mb-qpop-low">الكوتة أوشكت على النفاد — أقل من 20% متبقٍ.</div>' : ''}
+        ${lastQuotaSnapshot === 'stale' ? `<div class="mb-qpop-stale">${esc(QUOTA_STALE_TEXT)}</div>` : ''}`;
+}
+
+function setQuotaPop(open) {
+    const pop = $('mb-quota-pop');
+    const btn = $('mb-quota-btn');
+    if (!pop || !btn) return;
+    quotaPopOpen = !!open;
+    pop.hidden = !quotaPopOpen;
+    btn.setAttribute('aria-expanded', quotaPopOpen ? 'true' : 'false');
+    if (quotaPopOpen) renderQuotaPop();
+}
+
+function toggleQuotaPop() { setQuotaPop(!quotaPopOpen); }
+
+/** تحديث حلقة الكوتة (وتفاصيلها إن كانت النافذة مفتوحة) من الجلسة النشطة. */
+function updateQuotaDisplay(session) {
+    const quota = session?.extensions?.quota;
+    lastQuotaRaw = quota || null;
+    lastQuotaParsed = parseQuota(quota);
+    lastQuotaSnapshot = quotaSnapshotState(quota, lastAssistantAt());
+    renderQuotaRing();
+    if (quotaPopOpen) renderQuotaPop();
 }
 
 /** إعادة قراءة extensions للجلسة النشطة — الجسر يحدّث quota فيها. */
@@ -796,6 +869,7 @@ async function sendMessage() {
     const text = input.value.trim();
     if (!text || sending || !sessionId) return;
     hideSendError();
+    setQuotaPop(false);
     setSending(true);
     const isFirstUserMessage = !hasUserMessage(messages);
     const activeSession = sessions.find((s) => s.id === sessionId);
