@@ -48,6 +48,12 @@ import { ui } from '/ui-service.js';
 import { renderCompanyDocuments } from '/assets/js/company/company-documents.js';
 import { initCompanyMoves } from '/assets/js/company/company-moves.js';
 import { fetchInboxSummary, applyInboxBadge, loadCompanyInbox } from '/assets/js/company/company-inbox.js';
+import { initCompanyWorkspace, loadCompanyWorkspace } from '/assets/js/company/company-workspace.js';
+// المرحلة ب: الأقسام الثلاثة الباقية داخل لوحة الشركة (146) — لا استيراد
+// من لوحة الإدارة هنا إلا نموذج الأداء الخالص (يستورده تبويب الفريق نفسه)
+import { initCompanyContinuity, loadCompanyContinuity } from '/assets/js/company/company-continuity.js';
+import { initCompanyCustomerHistory, loadCompanyCustomerHistory } from '/assets/js/company/company-customer-history.js';
+import { initCompanyTeamPerformance, loadCompanyTeamPerformance } from '/assets/js/company/company-team-performance.js';
 import {
     COMPANY_ROUTES, routeFromHash, isUnknownHash, pageAvailable, breadcrumbFor, pageHeadFor, COMPANY_PAGES
 } from '/assets/js/company/company-routes.js';
@@ -204,6 +210,29 @@ async function init() {
         onNavigate: showSection,
         onOpenTicket: openTicketInItsStream
     });
+    // مساحة العمل: إرساء فوق المسارين وصندوق الرسائل — تقرأ صفوفهما كما هي، بلا جلب ثانٍ
+    initCompanyWorkspace({
+        getCustomerRows: () => customerTickets.rows(),
+        getPlatformRows: () => platformTickets.rows(),
+        getInboxSummary: () => inboxSummary,
+        getCompanyId: () => dashboard?.company?.id,
+        ensureStreams: () => Promise.all([
+            ensureStreamLoaded('tickets', platformTickets),
+            ensureStreamLoaded('customerTickets', customerTickets)
+        ]),
+        onOpenTicket: openTicketInItsStream
+    });
+    // المرحلة ب: الاستمرارية تقرأ أسماء الأعضاء من القائمة المحمّلة، وسجل
+    // العميل يقرأ صفوف مسار العملاء ويفتح التذكرة في مسارها — بلا جلب ثانٍ
+    initCompanyContinuity({
+        getMembers: () => companyMembers,
+        getCurrentUserId: () => currentUserId
+    });
+    initCompanyCustomerHistory({
+        getCustomerRows: () => customerTickets.rows(),
+        onOpenTicket: openTicketInItsStream
+    });
+    initCompanyTeamPerformance();
 
     wireForm();
     wireAddMember();
@@ -265,6 +294,13 @@ const LOADERS = {
     tickets: () => ensureStreamLoaded('tickets', platformTickets),
     customerTickets: () => ensureStreamLoaded('customerTickets', customerTickets),
     inbox: () => loadCompanyInbox(),
+    workspace: () => loadCompanyWorkspace(),
+    // المرحلة ب: الفشل يمسح القسم من loadedOnce فيُعاد تحميله عند فتحه
+    // مجددًا (نمط loadReports/loadSubscriptionsSection) — وزر «إعادة
+    // المحاولة» في حالة الخطأ يمرّ عبر reloadPage بالمفتاح نفسه.
+    continuity: () => loadCompanyContinuity().then(ok => { if (!ok) loadedOnce.delete('continuity'); }),
+    customerHistory: () => loadCompanyCustomerHistory().then(ok => { if (!ok) loadedOnce.delete('customerHistory'); }),
+    teamPerformance: () => loadCompanyTeamPerformance().then(ok => { if (!ok) loadedOnce.delete('teamPerformance'); }),
     support: () => loadCompanySupport(),
     users: () => loadUsersPage(),
     members: () => ensureMembers(),

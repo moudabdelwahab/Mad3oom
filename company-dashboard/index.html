@@ -392,6 +392,36 @@
                 </section>
             </section>
 
+            <!-- ═══ سجل العميل (المرحلة ب) ════════════════════════════════
+                 سجلّ كل عميل من تذاكره ورسائله داخل الشركة (146).
+                 ليس «الاطلاع التاريخي» (101) داخل قسم العملاء: ذاك طلب عبور
+                 بين الشركات بموافقة العميل، وهذا سجلّ داخلي للشركة. -->
+            <section class="tab-content" id="customerHistoryTabContent">
+                <section class="panel" aria-labelledby="companyCustomerHistoryHeading">
+                    <div class="panel-header">
+                        <div>
+                            <h2 class="panel-title" id="companyCustomerHistoryHeading">سجل العميل</h2>
+                            <p class="panel-subtitle">سجلّ كل عميل من تذاكره ورسائله داخل الشركة.</p>
+                        </div>
+                    </div>
+                    <div id="companyCustomerHistory"></div>
+                </section>
+            </section>
+
+            <!-- ═══ أداء الفريق (المرحلة ب) ════════════════════════════════
+                 مقاييس أعضاء فريق الشركة (146) — نداء واحد للقاعدة. -->
+            <section class="tab-content" id="teamPerformanceTabContent">
+                <section class="panel" aria-labelledby="companyTeamPerformanceHeading">
+                    <div class="panel-header">
+                        <div>
+                            <h2 class="panel-title" id="companyTeamPerformanceHeading">أداء الفريق</h2>
+                            <p class="panel-subtitle">مقاييس أعضاء فريق الشركة في تذاكر الشركة.</p>
+                        </div>
+                    </div>
+                    <div id="companyTeamPerformance"></div>
+                </section>
+            </section>
+
             <!-- ═══ الأدوار والصلاحيات (098) ═══════════════════════════════
                  قراءة company_permissions_matrix لمدير الشركة؛ التعديل لا يُتاح إلا والمفتاح مفعّل في القاعدة. -->
             <section class="tab-content" id="permissionsTabContent">
@@ -677,6 +707,13 @@
                 </section>
             </section>
 
+            <!-- ═══ مساحة العمل ═══════════════════════════════════════════
+                 إرساء (dock) فوق المسارين الموجودين: تذاكر العملاء وصندوق
+                 الرسائل، بلا أي تضمين لصفحة إدارة — الترتيب في localStorage. -->
+            <section class="tab-content" id="workspaceTabContent">
+                <div id="companyWorkspace"></div>
+            </section>
+
             <section class="tab-content" id="ticketsTabContent">
                 <div id="companyTickets"></div>
             </section>
@@ -726,6 +763,20 @@
                             </form>
                         </div>
                     </div>
+                </section>
+            </section>
+
+            <!-- ═══ الاستمرارية (المرحلة ب) ═══════════════════════════════
+                 متابعة العملاء بعد إغلاق التذاكر (146) — مساحة الشركة وحدها. -->
+            <section class="tab-content" id="continuityTabContent">
+                <section class="panel" aria-labelledby="companyContinuityHeading">
+                    <div class="panel-header">
+                        <div>
+                            <h2 class="panel-title" id="companyContinuityHeading">الاستمرارية</h2>
+                            <p class="panel-subtitle">متابعة العملاء بعد إغلاق التذاكر — سجلات شركتك وحدها.</p>
+                        </div>
+                    </div>
+                    <div id="companyContinuity"></div>
                 </section>
             </section>
 

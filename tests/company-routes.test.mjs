@@ -72,13 +72,29 @@ test('الإتاحة حسب الدور: صفحات المدير لا تظهر ل
     // العملاء: للمدير (الدعوة) والمشرف (القائمة)، لا لموظف الدعم
     assert.equal(pageAvailable('customers', { viewerRole: 'supervisor' }), true);
     assert.equal(pageAvailable('customers', { viewerRole: 'agent' }), false);
+    // أداء الفريق: كالعملاء تمامًا — للمدير والمشرف، لا لموظف الدعم
+    assert.equal(pageAvailable('teamPerformance', { viewerRole: 'admin' }), true);
+    assert.equal(pageAvailable('teamPerformance', { viewerRole: 'supervisor' }), true);
+    assert.equal(pageAvailable('teamPerformance', { viewerRole: 'agent' }), false);
     // صفحات الجميع
     for (const page of ['overview', 'tickets', 'customerTickets', 'support', 'members', 'entitlements',
                         'refundPolicy', 'usage', 'integrations', 'reports', 'activity', 'notifications', 'company',
-                        'profile', 'security']) {
+                        'profile', 'security', 'workspace', 'continuity', 'customerHistory']) {
         assert.equal(pageAvailable(page, { viewerRole: 'agent' }), true, page);
     }
     assert.equal(pageAvailable('nope', { viewerRole: 'admin' }), false);
+});
+
+test('الأقسام الخمسة من لوحة الإدارة: مكانها في لوحة الشركة', () => {
+    assert.equal(groupOf('workspace').key, 'support', 'مساحة العمل مع الدعم والتذاكر');
+    assert.equal(groupOf('continuity').key, 'support', 'الاستمرارية مع الدعم والتذاكر');
+    assert.equal(groupOf('customerHistory').key, 'team', 'سجل العميل مع الفريق');
+    assert.equal(groupOf('teamPerformance').key, 'team', 'أداء الفريق مع الفريق');
+    assert.deepEqual(breadcrumbFor('workspace'), ['لوحة الشركة', 'الدعم والتذاكر', 'مساحة العمل']);
+    assert.deepEqual(breadcrumbFor('teamPerformance'), ['لوحة الشركة', 'الفريق والصلاحيات', 'أداء الفريق']);
+    for (const page of ['workspace', 'continuity', 'customerHistory', 'teamPerformance']) {
+        assert.equal(routeFromHash(`#${page}`), page);
+    }
 });
 
 test('صندوق الرسائل لا يظهر إلا حين ترد القاعدة بصندوق', () => {
@@ -99,15 +115,15 @@ test('مسار التنقّل ثلاثي في المجالات، وثنائي ح
 test('رأس المجال: الصفحات الشقيقة المتاحة فقط، والحالية معلَّمة', () => {
     const head = pageHeadFor('members', { viewerRole: 'agent' });
     assert.equal(head.title, 'الفريق والصلاحيات');
-    assert.deepEqual(head.tabs.map(t => t.page), ['users', 'members'], 'موظف الدعم يرى صفحات المدير في رأس المجال');
+    assert.deepEqual(head.tabs.map(t => t.page), ['users', 'members', 'customerHistory'], 'موظف الدعم يرى صفحات المدير في رأس المجال');
     const admin = pageHeadFor('permissions', { viewerRole: 'admin' });
-    assert.deepEqual(admin.tabs.map(t => t.page), ['users', 'members', 'customers', 'permissions', 'accessLog']);
+    assert.deepEqual(admin.tabs.map(t => t.page), ['users', 'members', 'customers', 'customerHistory', 'teamPerformance', 'permissions', 'accessLog']);
     assert.deepEqual(admin.tabs.filter(t => t.current).map(t => t.page), ['permissions']);
     // المجال ذو الصفحة الواحدة بلا رأس (لا عنوان مكرّر فوق عنوان لوحته)
     assert.equal(pageHeadFor('notifications', { viewerRole: 'admin' }), null);
     assert.equal(pageHeadFor('overview', { viewerRole: 'admin' }), null);
     assert.deepEqual(siblingsOf('tickets', { viewerRole: 'admin', inbox: true }),
-        ['tickets', 'customerTickets', 'inbox', 'support']);
+        ['workspace', 'tickets', 'customerTickets', 'inbox', 'continuity', 'support']);
     // صفحة السياسة: في مجال الاشتراك والفوترة بعد الاشتراكات، متاحة لكل الأدوار
     assert.deepEqual(siblingsOf('refundPolicy', { viewerRole: 'agent' }),
         ['refundPolicy', 'entitlements', 'usage']);

@@ -12,6 +12,10 @@ const ROOT = path.resolve(import.meta.dirname, '..');
 // assets/js/continuity: حالات سجلات الاستمرارية مجال منفصل عن التذاكر، قيمها مثبّتة
 // بقيد CHECK في migrations/073 ومطابقتها مقيسة في tests/continuity-contract.test.mjs.
 const SKIP = new Set(['node_modules', 'tests', 'migrations', 'supabase', '.git', 'docs', 'mcp', 'continuity']);
+// 146: نفس المجال في لوحة الشركة — company-continuity-model.js يحمل حالات سجلات
+// الاستمرارية ('in_progress' حالة سجل، لا حالة تذكرة) كما يفرضها عقد
+// company_continuity_* في migrations/146؛ لا يحمل أي حالة تذكرة.
+const FILE_SKIP = new Set(['assets/js/company/company-continuity-model.js']);
 
 function* walk(dir) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -23,8 +27,10 @@ function* walk(dir) {
 test('مفيش in_progress كحالة تذكرة في الواجهة', () => {
     const offenders = [];
     for (const file of walk(ROOT)) {
+        const rel = path.relative(ROOT, file);
+        if (FILE_SKIP.has(rel)) continue;
         const text = fs.readFileSync(file, 'utf8');
-        if (/\bin_progress\b/.test(text)) offenders.push(path.relative(ROOT, file));
+        if (/\bin_progress\b/.test(text)) offenders.push(rel);
     }
     assert.deepEqual(offenders, []);
 });

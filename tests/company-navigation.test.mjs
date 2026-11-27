@@ -27,6 +27,8 @@ const COMPANY_SURFACE = [
     'assets/components/company-sidebar.html',
     'assets/js/company/company-dashboard.js',
     'assets/js/company/company-tickets.js',
+    'assets/js/company/company-workspace.js',
+    'assets/js/company/company-workspace-model.js',
     'assets/js/company/company-support.js',
     'assets/js/company/company-notifications.js',
     'assets/js/company/company-account.js',
@@ -119,6 +121,10 @@ const FUNCTION_INVENTORY = [
     { name: 'تذاكري مع مدعوم',  section: 'tickets' },
     { name: 'تذاكر العملاء',    section: 'customerTickets' },
     { name: 'صندوق الرسائل',    section: 'inbox' },
+    { name: 'مساحة العمل',      section: 'workspace' },
+    { name: 'الاستمرارية',      section: 'continuity' },
+    { name: 'سجل العميل',       section: 'customerHistory' },
+    { name: 'أداء الفريق',      section: 'teamPerformance' },
     { name: 'مركز الدعم',       section: 'support' },
     { name: 'مقالات المساعدة',  section: 'support' },
     { name: 'حالة النظام',      section: 'support' },
@@ -178,12 +184,61 @@ test('كل قسم معلَن له حاوية في الصفحة ومُحمِّل 
     }
 
     // الأقسام التي تُحمَّل عند الفتح لازم تكون مسجّلة في LOADERS
-    for (const section of ['overview', 'tickets', 'customerTickets', 'inbox', 'support', 'notifications',
+    for (const section of ['overview', 'tickets', 'customerTickets', 'inbox', 'workspace', 'support', 'notifications',
                            'users', 'members', 'customers', 'permissions', 'accessLog', 'usage', 'company',
-                           'api', 'integrations', 'reports', 'activity', 'profile', 'security']) {
+                           'api', 'integrations', 'reports', 'activity', 'profile', 'security',
+                           'continuity', 'customerHistory', 'teamPerformance']) {
         assert.match(js, new RegExp(`${section}:\\s*\\(\\)\\s*=>`),
             `القسم ${section} بلا مُحمِّل — سيفتح فارغًا`);
     }
+});
+
+/**
+ * أقسام المرحلة ب (continuity/customerHistory/teamPerformance): لها مُحمِّلات
+ * وحاويات بلا placeholder، ووحداتها RPC فقط — بلا تنقّل إلى لوحة الإدارة
+ * وبلا استعلام مباشر عن الجداول.
+ */
+test('أقسام المرحلة ب لها مُحمِّلات وحاويات بلا placeholder، وبلا تنقّل خارج اللوحة', () => {
+    const html = read('company-dashboard/index.html');
+    const js = read('assets/js/company/company-dashboard.js');
+    for (const section of ['continuity', 'customerHistory', 'teamPerformance']) {
+        assert.ok(html.includes(`id="${section}TabContent"`), `القسم ${section} بلا حاوية`);
+        const start = html.indexOf(`id="${section}TabContent"`);
+        assert.doesNotMatch(html.slice(start, start + 800), /قيد الإعداد/, `القسم ${section} ما زال placeholder`);
+        assert.match(js, new RegExp(`${section}:\\s*\\(\\)\\s*=>`), `القسم ${section} بلا مُحمِّل`);
+    }
+    // الوحدات الجديدة: بلا تنقّل إلى /admin/ (الاستيراد وحده مستثنى: نموذج
+    // الأداء الخالص في assets/js/admin/ يُستورَد لا يُنقَّل إليه — والاستيراد
+    // قد يمتد على أسطر، فيُحذف كاملًا قبل الفحص)، وبلا استعلام مباشر
+    // عن الجداول — القراءة كلها عبر RPC في company-data.js.
+    for (const file of ['assets/js/company/company-continuity.js', 'assets/js/company/company-customer-history.js',
+                        'assets/js/company/company-team-performance.js',
+                        'assets/js/company/company-continuity-model.js',
+                        'assets/js/company/company-customer-history-model.js',
+                        'assets/js/company/company-team-performance-model.js']) {
+        const src = read(file);
+        const body = src.replace(/import[\s\S]*?;/g, '');
+        assert.doesNotMatch(body, /\/admin\//, `${file} ينقّل إلى لوحة الإدارة`);
+        assert.doesNotMatch(src, /supabase\.from\(\s*['"](tickets|profiles|chat_sessions)['"]\s*\)/,
+            `${file} يستعلم الجداول مباشرة`);
+    }
+    // أسماء RPC كما في 146 تمامًا — بلا إعادة تسمية وبلا اختراع
+    const data = read('assets/js/company/company-data.js');
+    for (const rpc of ['company_continuity_my_access', 'company_continuity_list', 'company_continuity_get',
+                       'company_continuity_create', 'company_continuity_update', 'company_continuity_transition',
+                       'company_continuity_assign', 'company_continuity_note_add', 'company_continuity_notes_for',
+                       'company_continuity_events_for', 'company_customer_history', 'company_team_performance']) {
+        assert.ok(data.includes(`'${rpc}'`), `غلاف ${rpc} مفقود من company-data.js`);
+    }
+    // أداء الفريق يستورد نموذج الأداء المشترك كما هو ولا ينسخه
+    const perf = read('assets/js/company/company-team-performance.js');
+    assert.match(perf, /from '\/assets\/js\/admin\/team-performance-model\.js'/);
+    assert.doesNotMatch(perf, /function buildTeamPerformance|function dailyResolved|function sortRows/,
+        'نسخة مكررة من نموذج الأداء في تبويب الشركة');
+    // سجل العميل لا يطابق واتساب برقم الهاتف، وروابطه داخل اللوحة فقط
+    const history = read('assets/js/company/company-customer-history.js');
+    assert.doesNotMatch(history, /whatsapp/i, 'سجل العميل يذكر واتساب');
+    assert.doesNotMatch(history, /\/admin\//, 'سجل العميل يربط لوحة الإدارة');
 });
 
 /* ── المنطق مشترك، الواجهة مستقلة ───────────────────────────────────────── */
@@ -196,7 +251,12 @@ test('أقسام الشركة تُبنى فوق الوحدات المشتركة�
         'assets/js/company/company-activity.js': ['customer-data.js', 'activity-model.js'],
         'assets/js/company/company-support.js': ['/tickets-service.js', 'customer-data.js', 'service-status-model.js', 'help-data.js'],
         'assets/js/company/company-notifications.js': ['/notifications-service.js', 'notification-router.js'],
-        'assets/js/company/company-account.js': ['/assets/js/account/account-settings.js', 'customer-data.js', 'activity-model.js']
+        'assets/js/company/company-account.js': ['/assets/js/account/account-settings.js', 'customer-data.js', 'activity-model.js'],
+        // المرحلة ب: الوحدات الجديدة فوق company-data.js ونماذجها الخالصة
+        // والمشترك الموجود — بلا نسخ لمنطق الإدارة أو التقارير
+        'assets/js/company/company-continuity.js': ['company-data.js', 'company-continuity-model.js', 'fetchContinuityList'],
+        'assets/js/company/company-customer-history.js': ['company-data.js', 'company-customer-history-model.js', 'byCustomer', 'transferRowInfo'],
+        'assets/js/company/company-team-performance.js': ['company-data.js', 'company-team-performance-model.js', 'sortRows', 'formatHours']
     };
 
     for (const [file, imports] of Object.entries(shared)) {
@@ -866,6 +926,20 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         لتذاكر العميل القديمة بعد النقل وإعادة فتحها/إغلاقها، فالتضييق
     //         عبر العضوية الأساسية يحفظها. بلا تطبيق حي. مقيسٌ في
     //         tests/sql/supervises-same-company-145.test.sql.
+    //   146 — الأقسام الخمسة داخل لوحة الشركة (workspace, inbox, continuity،
+    //         سجل العميل، أداء الفريق)، بالرقم المخصَّص في التكليف
+    //         (2026-11-26): التبويبات الخمسة تُبنى داخل لوحة الشركة لا في
+    //         لوحة الإدارة (قاعدة 2026-11-26: لا زر/رابط داخل أي لوحة ينتقل
+    //         إلى لوحة مختلفة)، وهذا الترحيل جزؤها الخاص بقاعدة البيانات:
+    //         استمرارية الشركة على جداول الاستمرارية نفسها بمساحة company
+    //         (بلا handover/مشاركات/سياسات/تطهير)، وسجل العميل، وأداء
+    //         الفريق — والشركة تُشتق من auth.uid() وحدها بلا معامل company_id،
+    //         وبلا اعتماد على فرع supervises() المسرِّب. الصندوق نفسه بلا
+    //         تغيير خادم: دوال 102 قائمة وترد null والمفتاح
+    //         company_inbox_enabled مطفأ، فتفعيله قرار مالك منفصل. بلا
+    //         تطبيق حي. مقيسٌ في tests/sql/company-five-sections.test.sql.
+    //         (142 محجوز لفرع saas-cancel-refund-142، و143 لفرع hr-module —
+    //         غير مدموجة؛ و145 مدموج.)
     //   147 — دوال المالك لعرض لوحة المالك بلا تحويل إلى لوحة الإدارة
     //         (2026-11-26): سبع دوال مالك جديدة بالأسماء التي تناديها
     //         مجموعات الواجهة (حالة الخدمات وتغييرها، نظرة متجر شركة،

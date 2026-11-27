@@ -74,7 +74,7 @@ test('isUnknownHash: الفارغ والمعروف ليسا مجهولين، و�
 
 /* ── (ج) ضوابط ثابتة على التعديلات ─────────────────────────────────────── */
 
-test('LOADERS يغطي الآن 28 صفحة من 28: مُحمِّلان لـ subscriptions وentitlements', () => {
+test('LOADERS يغطي الآن 32 صفحة من 32: مُحمِّلان لـ subscriptions وentitlements', () => {
     const src = read('assets/js/company/company-dashboard.js');
     for (const page of ['subscriptions', 'entitlements']) {
         assert.match(src, new RegExp(`${page}:\\s*\\(\\)\\s*=>`),
@@ -82,9 +82,14 @@ test('LOADERS يغطي الآن 28 صفحة من 28: مُحمِّلان لـ sub
     }
     // سياسة الإلغاء والاسترداد محتوى ثابت: مُحمِّلها لا يقرأ شيئًا
     assert.match(src, /refundPolicy: \(\) => Promise\.resolve\(\)/);
-    // كل صفحة معلَنة في الخريطة لها مُحمِّل
+    // كل صفحة معلَنة في الخريطة لها مُحمِّل — بلا استثناءات بعد المرحلة ب.
     for (const page of COMPANY_ROUTES) {
         assert.match(src, new RegExp(`${page}:\\s*\\(\\)\\s*=>`), `القسم ${page} بلا مُحمِّل`);
+    }
+    // مُحمِّلات المرحلة ب تمسح القسم من loadedOnce عند الفشل فيُعاد تحميله
+    for (const page of ['continuity', 'customerHistory', 'teamPerformance']) {
+        assert.match(src, new RegExp(`${page}:\\s*\\(\\)\\s*=>[^\\n]*loadedOnce\\.delete\\('${page}'\\)`),
+            `مُحمِّل ${page} لا يمسح القسم من loadedOnce عند الفشل`);
     }
     // المُحمِّلان يعيدان قراءة الحمولة مع حالة خطأ وزر إعادة محاولة بمفتاح القسم
     assert.match(src, /async function loadSubscriptionsSection\(\)[\s\S]*?refreshDashboardPayload\(\)[\s\S]*?retry: 'subscriptions'/);

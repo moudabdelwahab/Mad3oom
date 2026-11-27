@@ -727,3 +727,53 @@ export const updateMemberAccount = (userId, { fullName, phone, email }) => invok
 
 export const sendMemberPasswordReset = (userId) => invokeMemberAdmin(
     { action: 'password_reset', user_id: userId }, 'تعذّر إرسال الرابط. حاول مرة أخرى.');
+
+/* ── الأقسام الخمسة داخل لوحة الشركة (migrations/146) ───────────────────
+ *
+ * الاستمرارية وسجل العميل وأداء الفريق: الشركة تُشتق من auth.uid() في
+ * القاعدة، ولا دالة هنا تقبل company_id معاملًا إطلاقًا. القراءة بلا وصول
+ * ترد null (نمط rpcOrNull: قبل 146، أو بلا عضوية فريق، أو عميل ليس لشركتك)،
+ * والكتابة بلا وصول ترفعها القاعدة (P0002 بلا كشف وجود، 40001 تعارض نسخة،
+ * 0A000 ميزة مؤجَّلة كالتسليم) فيعرضها safe كـ { ok:false, error }.
+ */
+export const fetchContinuityAccess = () => rpcOrNull('continuityAccess', 'company_continuity_my_access');
+export const fetchContinuityList = (filters = {}) => rpcOrNull('continuityList', 'company_continuity_list', { p_filters: filters });
+export const fetchContinuityRecord = (recordId) => rpcOrNull('continuityGet', 'company_continuity_get', { p_record: recordId });
+export const createContinuityRecord = (request) => safe('continuityCreate', async () => {
+    const { data, error } = await supabase.rpc('company_continuity_create', { p_request: request });
+    if (error) throw error;
+    return data;
+});
+export const updateContinuityRecord = (recordId, patch, expectedVersion) => safe('continuityUpdate', async () => {
+    const { data, error } = await supabase.rpc('company_continuity_update',
+        { p_record: recordId, p_patch: patch, p_expected_version: expectedVersion });
+    if (error) throw error;
+    return data;
+});
+export const transitionContinuityRecord = (recordId, to, details, expectedVersion) => safe('continuityTransition', async () => {
+    const { data, error } = await supabase.rpc('company_continuity_transition',
+        { p_record: recordId, p_to: to, p_details: details || {}, p_expected_version: expectedVersion });
+    if (error) throw error;
+    return data;
+});
+export const assignContinuityRecord = (recordId, ownerId, expectedVersion) => safe('continuityAssign', async () => {
+    const { data, error } = await supabase.rpc('company_continuity_assign',
+        { p_record: recordId, p_owner: ownerId || null, p_expected_version: expectedVersion });
+    if (error) throw error;
+    return data;
+});
+export const addContinuityNote = (recordId, body) => safe('continuityNoteAdd', async () => {
+    const { data, error } = await supabase.rpc('company_continuity_note_add', { p_record: recordId, p_body: body });
+    if (error) throw error;
+    return data;
+});
+export const fetchContinuityNotes = (recordId) => rpcOrNull('continuityNotes', 'company_continuity_notes_for', { p_record: recordId });
+export const fetchContinuityEvents = (recordId, before = null, limit = 50) => rpcOrNull('continuityEvents',
+    'company_continuity_events_for', { p_record: recordId, p_before: before, p_limit: limit });
+
+/** سجل عميل الشركة: null حين لا وصول أو العميل ليس عميلًا نشطًا لشركتك. */
+export const fetchCustomerHistory = (customerId) => rpcOrNull('customerHistory', 'company_customer_history', { p_customer_id: customerId });
+
+/** أداء فريق الشركة: null حين الدور ليس admin/supervisor، أو قبل 146. */
+export const fetchTeamPerformance = (from, to) => rpcOrNull('teamPerformance', 'company_team_performance',
+    { p_from: from || null, p_to: to || null });

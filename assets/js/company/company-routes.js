@@ -26,10 +26,14 @@ export const COMPANY_PAGES = Object.freeze({
     tickets:         { label: 'تذاكري مع مدعوم' },
     customerTickets: { label: 'تذاكر العملاء' },
     inbox:           { label: 'صندوق الرسائل' },
+    workspace:       { label: 'مساحة العمل' },
+    continuity:      { label: 'الاستمرارية' },
     support:         { label: 'فتح تذكرة ومساعدة' },
     users:           { label: 'المستخدمون' },
     members:         { label: 'أعضاء الفريق' },
     customers:       { label: 'عملاء الشركة' },
+    customerHistory: { label: 'سجل العميل' },
+    teamPerformance: { label: 'أداء الفريق' },
     permissions:     { label: 'الأدوار والصلاحيات' },
     accessLog:       { label: 'سجل وصول مدعوم' },
     subscriptions:   { label: 'الاشتراكات' },
@@ -57,14 +61,14 @@ export const COMPANY_GROUPS = Object.freeze([
     },
     {
         key: 'support', label: 'الدعم والتذاكر',
-        description: 'تذاكرك مع فريق مدعوم، وطلبات عملاء شركتك، وفتح تذكرة جديدة.',
-        pages: ['tickets', 'customerTickets', 'inbox', 'support']
+        description: 'مساحة عمل تجمع مسارَي التذاكر وصندوق الرسائل، وتذاكرك مع فريق مدعوم، وطلبات عملاء شركتك، واستمرارية المتابعة، وفتح تذكرة جديدة.',
+        pages: ['workspace', 'tickets', 'customerTickets', 'inbox', 'continuity', 'support']
     },
     {
         key: 'team', label: 'الفريق والصلاحيات',
-        description: 'أعضاء الشركة وأدوارهم، والعملاء، ومن يصل إلى بيانات الشركة.',
+        description: 'أعضاء الشركة وأدوارهم، والعملاء وسجلّ كل عميل، وأداء الفريق، ومن يصل إلى بيانات الشركة.',
         // users: الأعضاء والعملاء والدعوات في مكان واحد بالبحث والفلاتر وقائمة «خيارات»
-        pages: ['users', 'members', 'customers', 'permissions', 'accessLog']
+        pages: ['users', 'members', 'customers', 'customerHistory', 'teamPerformance', 'permissions', 'accessLog']
     },
     {
         key: 'billing', label: 'الاشتراك والفوترة',
@@ -99,8 +103,8 @@ const ADMIN_PAGES = new Set(['permissions', 'accessLog', 'shopify']);
  * هل تستحق الصفحة رابطًا لهذا الناظر؟
  * ctx: { viewerRole: 'admin'|'supervisor'|'agent', inbox: boolean, store: boolean }
  * - inbox: يظهر فقط حين ترد القاعدة بصندوق لهذا الحساب (company_inbox_summary).
- * - store: صفحات المتجر لحساب ecommerce_store وحده (my_account_type()).
  * - customers: للمدير (الدعوات) والمشرف (القائمة)؛ لا شيء لموظف الدعم فيها.
+ * - teamPerformance: للمدير والمشرف؛ لا شيء لموظف الدعم فيها — كـ customers تمامًا.
  */
 export function pageAvailable(page, { viewerRole = 'admin', inbox = false, store = false } = {}) {
     if (!COMPANY_ROUTES.includes(page)) return false;
@@ -110,6 +114,7 @@ export function pageAvailable(page, { viewerRole = 'admin', inbox = false, store
     if (ADMIN_PAGES.has(page) && viewerRole !== 'admin') return false;
     if (page === 'inbox' && inbox !== true) return false;
     if (page === 'customers' && !['admin', 'supervisor'].includes(viewerRole)) return false;
+    if (page === 'teamPerformance' && !['admin', 'supervisor'].includes(viewerRole)) return false;
     return true;
 }
 

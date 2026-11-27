@@ -446,6 +446,62 @@ test('095: المدير يرى اللوحة كاملة كما كانت (viewer_r
     await context.close();
 });
 
+/* ── الأقسام الخمسة من لوحة الإدارة ─────────────────────────────────────── */
+
+test('الأقسام الخمسة: أداء الفريق للمدير والمشرف لا لموظف الدعم، والباقي للجميع', async () => {
+    const agentPayload = companyPayload({ company: { is_owner: false, cr_number: null, tax_id: null } });
+    agentPayload.viewer_role = 'agent';
+    agentPayload.registration = null;
+    agentPayload.subscriptions = [];
+    agentPayload.access = { active_plans: [], has_active_subscription: true };
+    const { page, context } = await openCompanyDashboard(browser, baseUrl,
+        fixtures(agentPayload, { rpc: { my_account_kind: 'company_employee' } }));
+
+    for (const tab of ['workspace', 'continuity', 'customerHistory']) {
+        assert.equal(await page.locator(`.sidebar-item[data-tab="${tab}"]`).isHidden(), false, `قسم ${tab} مخفي عن موظف الدعم`);
+    }
+    assert.equal(await page.locator('.sidebar-item[data-tab="teamPerformance"]').isHidden(), true, 'أداء الفريق ظاهر لموظف الدعم');
+    // الرابط المباشر لقسم لا يخص الدور يعود للنظرة العامة
+    await page.evaluate(() => { window.location.hash = '#teamPerformance'; });
+    await page.waitForTimeout(150);
+    assert.equal(await page.locator('#teamPerformanceTabContent').evaluate(el => el.classList.contains('active')), false);
+    await context.close();
+
+    const adminPayload = companyPayload();
+    adminPayload.viewer_role = 'admin';
+    const admin = await openCompanyDashboard(browser, baseUrl,
+        fixtures(adminPayload, { rpc: { my_account_kind: 'company_admin' } }));
+    assert.equal(await admin.page.locator('.sidebar-item[data-tab="teamPerformance"]').isHidden(), false);
+    await admin.context.close();
+});
+
+test('مساحة العمل: لوحتا التذاكر والصندوق جنبًا إلى جنب من صفوف المسارين', async () => {
+    const payload = companyPayload();
+    payload.viewer_role = 'admin';
+    const fx = fixtures(payload, {
+        rpc: {
+            my_account_kind: 'company_admin',
+            company_inbox_summary: { scope: 'all', open: 1, unread: 0 }
+        },
+        tables: { tickets: [] }
+    });
+    const { page, context, errors } = await openCompanyDashboard(browser, baseUrl, fx);
+
+    await page.evaluate(() => { window.location.hash = '#workspace'; });
+    await page.waitForSelector('#workspaceTabContent.active', { timeout: 5000 });
+    await page.waitForSelector('#companyWorkspaceDock .company-workspace-group', { timeout: 5000 });
+
+    const dock = await page.locator('#companyWorkspaceDock').textContent();
+    assert.match(dock, /تذاكر العملاء/);
+    assert.match(dock, /صندوق الرسائل/);
+    assert.match(dock, /1 مفتوحة/, 'عدد الصندوق من ملخص الإقلاع لا من جلب ثانٍ');
+    assert.match(dock, /لا توجد تذاكر من عملائك بعد/);
+    assert.equal(await page.locator('#companyWorkspaceToolbar [data-ws-add="platformTickets"]').count(), 1,
+        'لوحة تذاكري مع مدعوم تُضاف من شريط الأدوات');
+    assert.equal(errors.length, 0, `أخطاء في الصفحة: ${errors.join(' | ')}`);
+    await context.close();
+});
+
 /* ── 096: عملاء الشركة ودعواتهم ─────────────────────────────────────────── */
 
 /** اللوحة في قسم «المستخدمون»: نفتحه كما يفعل المستخدم. */
