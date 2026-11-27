@@ -106,6 +106,7 @@ export function searchTerm(value) {
 export const STORE_FEATURE_LABELS = Object.freeze({
     integrations_hub: 'مركز التكاملات',
     shopify_integration: 'تكامل Shopify',
+    shopify_management: 'إدارة المتجر',
     store_support: 'دعم المتجر'
 });
 
