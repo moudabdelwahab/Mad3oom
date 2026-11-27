@@ -563,6 +563,13 @@ body.customer-shell .modal-content.modal-lg {
     -webkit-overflow-scrolling: touch;
 }
 
+/* جداول توثيق الـ API في تبويب الشركة (company-api.js) تستخدم .table-wrap
+   بلا تعريف — تمرير أفقي بدل تمديد الصفحة على الجوال. */
+.table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 .report-table {
     width: 100%;
     border-collapse: collapse;

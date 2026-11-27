@@ -42,11 +42,12 @@
         .sidebar-item:hover, .sidebar-item.active { background: rgba(255,255,255,0.05); color: white; border-right-color: var(--color-accent); }
         .menu-toggle { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: white; padding: 0.5rem; border-radius: 0.5rem; cursor: pointer; }
         .admin-main { flex: 1; padding: 2rem 1.5rem; max-width: 1400px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+        @media (max-width: 480px) { .admin-main { padding: 1rem; } }
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
         .stat-card { background: var(--color-surface); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--color-border); box-shadow: var(--shadow-sm); }
         .stat-label { color: var(--color-text-secondary); margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 600; }
         .stat-value { font-size: 2rem; font-weight: 800; color: var(--color-accent); }
-        .table-container { background: var(--color-surface); border-radius: 1rem; border: 1px solid var(--color-border); overflow: hidden; }
+        .table-container { background: var(--color-surface); border-radius: 1rem; border: 1px solid var(--color-border); overflow: hidden; overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; }
         th { background: var(--color-muted); padding: 1rem; text-align: right; font-weight: 700; }
         td { padding: 1rem; border-bottom: 1px solid var(--color-border); }

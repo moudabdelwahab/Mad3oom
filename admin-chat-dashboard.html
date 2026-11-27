@@ -343,15 +343,36 @@
             }
         }
 
+        /* زر الرجوع لقائمة المحادثات — يظهر على الجوال فقط */
+        .mobile-back-btn { display: none; }
+
         @media (max-width: 768px) {
             .admin-chat-container {
                 padding: 0.5rem;
                 gap: 0.5rem;
             }
 
-            .conversations-panel {
+            /* على الجوال: قائمة المحادثات طبقة كاملة فوق الدردشة،
+               وتُخفى عند اختيار محادثة (يزيل JS الصنف mobile-show-list) */
+            .admin-chat-container.mobile-show-list .chat-panel {
                 display: none;
             }
+            .admin-chat-container.mobile-show-list .conversations-panel {
+                display: block;
+                position: fixed;
+                inset: 0;
+                z-index: 100;
+                width: 100%;
+                max-height: none;
+                border-radius: 0;
+            }
+            .admin-chat-container:not(.mobile-show-list) .conversations-panel {
+                display: none;
+            }
+            .mobile-back-btn { display: inline-flex; }
+
+            /* رأس المحادثة: التفاف بدل ضغط زر الرجوع + العنوان + الإجراءات في سطر واحد */
+            .chat-header { flex-wrap: wrap; gap: 0.5rem; }
 
             .chat-panel {
                 border-radius: 8px;
@@ -363,7 +384,7 @@
   <script src="/assets/responsive-global.js" defer></script>
 </head>
 <body>
-    <div class="admin-chat-container">
+    <div class="admin-chat-container mobile-show-list">
         <!-- قائمة المحادثات -->
         <div class="conversations-panel">
             <div class="conversations-header">

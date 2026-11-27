@@ -1887,7 +1887,7 @@ body.customer-shell .nav-right { min-width: 0; flex-shrink: 1; }
 @media (max-width: 480px) {
     body.customer-shell .nav-container { padding: 0 var(--sp-2); gap: var(--sp-1); }
     body.customer-shell .admin-nav .nav-btn,
-    body.customer-shell .admin-nav .menu-toggle { width: 2.1rem; height: 2.1rem; }
+    body.customer-shell .admin-nav .menu-toggle { width: 2.75rem; height: 2.75rem; }
 }
 
 @media (max-width: 360px) {
