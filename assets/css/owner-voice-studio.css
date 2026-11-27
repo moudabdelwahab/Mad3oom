@@ -322,6 +322,11 @@
 [data-owner-page="voice-studio"] .vs-seek { width: 100%; accent-color: var(--color-accent); }
 [data-owner-page="voice-studio"] .vs-volume-wrap { display: flex; align-items: center; gap: var(--sp-2); }
 [data-owner-page="voice-studio"] .vs-volume { width: 5rem; accent-color: var(--color-accent); }
+@media (max-width: 480px) {
+    [data-owner-page="voice-studio"] .vs-player-body { flex-wrap: wrap; }
+    [data-owner-page="voice-studio"] .vs-volume-wrap { flex: 1 1 100%; }
+    [data-owner-page="voice-studio"] .vs-intro { flex-wrap: wrap; }
+}
 
 /* ── السجل ── */
 [data-owner-page="voice-studio"] .vs-history { display: flex; flex-direction: column; gap: var(--sp-2); }

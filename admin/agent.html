@@ -194,6 +194,10 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-.01e
 .envvar-remove{width:30px;height:30px;border-radius:.5rem;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-danger);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;}
 .envvar-remove:hover{background:var(--pill-red-bg);}
 .add-row-btn{align-self:flex-start;}
+@media (max-width:560px){
+.envvar-row{grid-template-columns:1fr;}
+.metrics-row{grid-template-columns:repeat(2,1fr);}
+}
 
 .metrics-tab-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem;}
 @media (max-width:560px){.metrics-tab-grid{grid-template-columns:repeat(2,1fr);}}

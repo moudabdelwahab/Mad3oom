@@ -390,7 +390,7 @@
             .toast.show { transform: translateY(0); }
             .dev-tabs { flex-direction: column; }
         }
-        @media (max-width: 380px) { .stats-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 380px) { .stats-grid { grid-template-columns: 1fr; } .page-intro .btn { white-space: normal; text-align: center; line-height: 1.5; } }
 
         /* ==================== Tools & Dynamic Auth ==================== */
         .btn-tools { background: #e0e7ff; color: #3730a3; }
@@ -812,7 +812,7 @@
                     </div>
 
                     <div id="stdioFields" class="full" style="display:none;">
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                        <div class="form-grid">
                             <div class="form-group">
                                 <label>أمر التشغيل (command)</label>
                                 <input type="text" id="fCommand" placeholder="npx -y @modelcontextprotocol/server-filesystem" dir="ltr">

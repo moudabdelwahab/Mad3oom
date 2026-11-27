@@ -90,8 +90,17 @@ class AdminChatDashboard {
    */
   selectConversation(conversation) {
     this.currentConversation = conversation;
+    // على الجوال: إخفاء قائمة المحادثات وإظهار الدردشة المختارة
+    document.querySelector('.admin-chat-container')?.classList.remove('mobile-show-list');
     this.loadConversation(conversation.id);
     this.loadConversations(); // لتحديث الحالة النشطة
+  }
+
+  /**
+   * الرجوع إلى قائمة المحادثات (الجوال)
+   */
+  showConversations() {
+    document.querySelector('.admin-chat-container')?.classList.add('mobile-show-list');
   }
 
   /**
@@ -109,6 +118,7 @@ class AdminChatDashboard {
 
     content.innerHTML = `
       <div class="chat-header">
+        <button class="action-btn mobile-back-btn" onclick="dashboard.showConversations()">‹ المحادثات</button>
         <div class="chat-header-info">
           <h3>${this.escapeHtml(conv.subject)}</h3>
           <p>${conv.customerName || 'عميل'} • ${conv.customerEmail || ''}</p>
@@ -187,6 +197,8 @@ class AdminChatDashboard {
     if (confirm('هل تريد إغلاق هذه المحادثة؟')) {
       chatService.closeConversation(this.currentConversation.id, this.adminId);
       this.currentConversation = null;
+      // على الجوال: الرجوع إلى قائمة المحادثات بعد الإغلاق
+      document.querySelector('.admin-chat-container')?.classList.add('mobile-show-list');
       document.getElementById('chatContent').innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">✓</div>

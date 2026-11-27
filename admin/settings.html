@@ -645,6 +645,7 @@
             كل طلب بيتوقع بتوقيع HMAC-SHA256 في هيدر <code>X-Mad3oom-Signature</code> عشان تتأكد إنه جاي فعلاً من مدعوم.
         </p>
  
+        <div class="table-responsive">
         <table class="rules-table" id="webhooksTable">
             <thead>
                 <tr>
@@ -659,6 +660,7 @@
                 <tr><td colspan="5" style="text-align:center; padding:2rem;">جاري التحميل...</td></tr>
             </tbody>
         </table>
+        </div>
  
         <div id="webhookFormModal" style="display: none; background: var(--color-muted); padding: 1.5rem; border-radius: 1rem; margin-top: 1.5rem;">
             <h3 style="margin-top: 0;" id="webhookModalTitle">إضافة Webhook جديد</h3>
@@ -789,6 +791,7 @@
                     <div class="card-body">
                         <p style="margin-bottom: 1.5rem; color: var(--color-text-secondary);">إنشاء قواعد تلقائية لتصنيف وإدارة التذاكر بناءً على شروط معينة</p>
                         
+                        <div class="table-responsive">
                         <table class="rules-table" id="rulesTable">
                             <thead>
                                 <tr>
@@ -806,6 +809,7 @@
                                 </tr>
                             </tbody>
                         </table>
+                        </div>
 
                         <div id="ruleFormModal" style="display: none; background: var(--color-muted); padding: 1.5rem; border-radius: 1rem; margin-top: 1.5rem;">
                             <h3 style="margin-top: 0;" id="ruleModalTitle">إضافة قاعدة جديدة</h3><input type="hidden" id="editRuleId">
@@ -957,6 +961,7 @@
                     <div class="card-body">
                         <!-- Roles Table -->
                         <h3 style="font-size: 1.1rem; margin-bottom: 1rem;">الأدوار المتاحة</h3>
+                        <div class="table-responsive">
                         <table class="rules-table" id="rolesTable">
                             <thead>
                                 <tr>
@@ -972,11 +977,13 @@
                                 </tr>
                             </tbody>
                         </table>
+                        </div>
 
                         <hr class="section-divider">
 
                         <!-- Users Table -->
                         <h3 style="font-size: 1.1rem; margin-bottom: 1rem;">المستخدمين</h3>
+                        <div class="table-responsive">
                         <table class="rules-table" id="usersTable">
                             <thead>
                                 <tr>
@@ -992,6 +999,7 @@
                                 </tr>
                             </tbody>
                         </table>
+                        </div>
 
                         <!-- Role Form Modal -->
                         <div id="roleFormModal" style="display: none; background: var(--color-muted); padding: 1.5rem; border-radius: 1rem; margin-top: 1.5rem;">
@@ -1245,6 +1253,7 @@
             كل مفتاح له <code>API Key</code> ظاهر دائمًا و<code>API Secret</code> يُعرض مرة واحدة فقط عند الإنشاء أو التجديد.
         </p>
 
+        <div class="table-responsive">
         <table class="rules-table" id="apiTokensTable">
             <thead>
                 <tr>
@@ -1262,6 +1271,7 @@
                 <tr><td colspan="8" style="text-align:center; padding:2rem;">جاري التحميل...</td></tr>
             </tbody>
         </table>
+        </div>
 
         <!-- Create token modal -->
         <div id="apiTokenFormModal" style="display: none; background: var(--color-muted); padding: 1.5rem; border-radius: 1rem; margin-top: 1.5rem;">
@@ -1302,6 +1312,7 @@
 
         <hr class="section-divider">
         <h3 style="font-size: 1.05rem; margin-bottom: 1rem;">سجل الاستخدام (Audit Log)</h3>
+        <div class="table-responsive">
         <table class="rules-table" id="apiUsageLogTable">
             <thead>
                 <tr>
@@ -1317,6 +1328,7 @@
                 <tr><td colspan="6" style="text-align:center; padding:1.5rem;">جاري التحميل...</td></tr>
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 

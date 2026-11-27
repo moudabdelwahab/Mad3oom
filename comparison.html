@@ -38,12 +38,14 @@
             background: var(--color-surface);
             border-radius: 2rem;
             overflow: hidden;
+            overflow-x: auto;
             box-shadow: var(--shadow);
             border: 1px solid var(--color-border);
         }
         
         .comp-table {
             width: 100%;
+            min-width: 560px;
             border-collapse: collapse;
             text-align: right;
         }
@@ -51,6 +53,9 @@
         .comp-table th, .comp-table td {
             padding: 1.5rem;
             border-bottom: 1px solid var(--color-border);
+        }
+        @media (max-width: 480px) {
+            .comp-table th, .comp-table td { padding: 0.75rem; }
         }
         
         .comp-table th {

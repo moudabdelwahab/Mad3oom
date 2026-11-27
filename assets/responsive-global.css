@@ -124,7 +124,7 @@ input, select, textarea { min-width: 0; }
      نضمن مربّع 44×44 مع توسيط الأيقونة بداخله. */
   button.icon-btn, .icon-btn, .nav-btn, .menu-toggle, .sidebar-close,
   .close-btn, .back-btn, .password-toggle, .input-toggle,
-  .portal-search-close, .modal-close, button.close,
+  .portal-search-close, .modal-close, .close-modal, button.close,
   .ib-mini, .mail-list-refresh, .palette-trigger, #sidebarClose,
   .action-btn {
     min-width: var(--tap-min);
