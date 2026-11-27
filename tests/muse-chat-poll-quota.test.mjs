@@ -18,12 +18,30 @@ import { fileURLToPath } from 'node:url';
 import {
     POLL_MS, POLL_BACKOFF_BASE_MS, POLL_BACKOFF_MAX_MS,
     pollRetryDelay, isRealtimeLive,
-    quotaSnapshotState, quotaMissingText, QUOTA_STALE_TEXT, parseQuota,
+    quotaSnapshotState, quotaMissingText, QUOTA_STALE_TEXT, QUOTA_STALE_RESET_TEXT,
+    parseQuota, formatQuota, parseAdditionalTokens, formatAdditionalTokens,
 } from '../assets/js/owner/muse-chat-state.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const chatJs = () => read('assets/js/owner/pages/muse-chat.js');
+const bubbleJs = () => read('assets/js/muse-bubble.js');
+
+/**
+ * طابع ISO بتوقيت القاهرة — «YYYY-MM-DD HH:MM EET» كما يدمجه الجسر.
+ * يُحسب ديناميكيًا لأن «حديثة» تُقاس مقابل الآن: تاريخ ثابت في
+ * الماضي كان سيُصنَّف قديمًا بقاعدة مضي التجديد.
+ */
+const isoEET = (d) => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false, hourCycle: 'h23',
+    }).formatToParts(d);
+    const get = (t) => parts.find((p) => p.type === t).value;
+    return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')} EET`;
+};
+const futureReset = () => isoEET(new Date(Date.now() + 7 * 86400e3));
+const pastReset = () => isoEET(new Date(Date.now() - 86400e3));
 
 /* ─────────────────── مهلة backoff ─────────────────── */
 
@@ -63,7 +81,7 @@ test('حياة Realtime: SUBSCRIBED وحدها حيّة', () => {
 
 const freshQuota = {
     plan: 'free', used: '49%', remaining: '51%',
-    reset: '2026-11-26 23:15 EET', updated_at: '2026-11-25T10:00:00Z',
+    reset: futureReset(), updated_at: '2026-11-25T10:00:00Z',
 };
 
 test('لقطة الكوتة: غائبة بلا لقطة أو بلا remaining', () => {
@@ -102,6 +120,67 @@ test('نص تحذير اللقطة القديمة صريح ولا يخفي ال�
     assert.match(QUOTA_STALE_TEXT, /قبل آخر رد من الوكيل/);
     // الأرقام الأخيرة نفسها تُحلل كما قبل — التحذير إضافة لا بديل.
     assert.equal(parseQuota(freshQuota).remainingLabel, '51%');
+});
+
+/* ─────────────────── التوكنز الإضافية ─────────────────── */
+
+test('التوكنز الإضافية: تُحلَّل نسبتها ومتبقيها من الشكل الحي', () => {
+    const live = parseAdditionalTokens('2% used (13B tokens left)');
+    assert.equal(live.usedPct, 2);
+    assert.equal(live.leftover, '13B');
+    const old = parseAdditionalTokens('4% used (6.7B tokens left)');
+    assert.equal(old.usedPct, 4);
+    assert.equal(old.leftover, '6.7B');
+    const short = parseAdditionalTokens('2% used (979M left)');
+    assert.equal(short.usedPct, 2);
+    assert.equal(short.leftover, '979M');
+});
+
+test('التوكنز الإضافية: غائبة أو غير نصية ترجع null — بلا رقم مخترع', () => {
+    assert.equal(parseAdditionalTokens(undefined), null);
+    assert.equal(parseAdditionalTokens(null), null);
+    assert.equal(parseAdditionalTokens(''), null);
+    assert.equal(parseAdditionalTokens(120), null);
+    assert.equal(parseQuota(freshQuota).additionalTokens, null);
+});
+
+test('التوكنز الإضافية: تُعرض بالعربية في نص الكوتة، وتُحذف بغيابها', () => {
+    const withTokens = { ...freshQuota, additional_tokens: '2% used (13B tokens left)' };
+    assert.equal(
+        formatAdditionalTokens(parseAdditionalTokens('2% used (13B tokens left)')),
+        '2% مستخدمة (متبقٍ 13B)');
+    assert.match(formatQuota(withTokens), /توكنز إضافية: 2% مستخدمة \(متبقٍ 13B\)/);
+    assert.doesNotMatch(formatQuota(freshQuota), /توكنز إضافية/);
+});
+
+/* ─────────────────── مضي تاريخ التجديد ─────────────────── */
+
+test('لقطة الكوتة: قديمة إن مضى تاريخ تجديدها ولو لم يرد الوكيل بعدها', () => {
+    const past = { ...freshQuota, reset: pastReset() };
+    assert.equal(quotaSnapshotState(past, null), 'stale');
+    assert.equal(quotaSnapshotState(past, '2026-11-25T09:00:00Z'), 'stale');
+    assert.equal(parseQuota(past).resetPast, true);
+    assert.equal(parseQuota(freshQuota).resetPast, false);
+});
+
+test('نص تحذير مضي التجديد يذكر الفترة المنتهية لا آخر رد', () => {
+    assert.match(QUOTA_STALE_RESET_TEXT, /تاريخ تجديد/);
+    assert.match(QUOTA_STALE_RESET_TEXT, /فترة/);
+    assert.notEqual(QUOTA_STALE_RESET_TEXT, QUOTA_STALE_TEXT);
+});
+
+test('الصفحة الكاملة: بطاقة الكوتة تعرض التوكنز الإضافية وتحذير مضي التجديد', () => {
+    const js = chatJs();
+    assert.match(js, /muse-quota-tokens/);
+    assert.match(js, /formatAdditionalTokens\(parsed\.additionalTokens\)/);
+    assert.match(js, /QUOTA_STALE_RESET_TEXT/);
+});
+
+test('الفقاعة: نافذة الكوتة تعرض التوكنز الإضافية وتحذير مضي التجديد', () => {
+    const js = bubbleJs();
+    assert.match(js, /mb-qpop-tokens/);
+    assert.match(js, /formatAdditionalTokens\(parsed\.additionalTokens\)/);
+    assert.match(js, /QUOTA_STALE_RESET_TEXT/);
 });
 
 /* ─────────────────── الربط في الصفحة ─────────────────── */

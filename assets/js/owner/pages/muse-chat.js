@@ -67,7 +67,8 @@ import {
 import {
     MUSE_MODEL_ID,
     POLL_MS, MESSAGES_LIMIT, mergeMessages, pollRetryDelay, isRealtimeLive,
-    quotaSnapshotState, quotaMissingText, QUOTA_STALE_TEXT,
+    quotaSnapshotState, quotaMissingText, QUOTA_STALE_TEXT, QUOTA_STALE_RESET_TEXT,
+    formatAdditionalTokens,
     formatWaitSeconds, formatReplyTook, secondsBetween, waitingSince,
     agentForModelId, agentModelIds, sortSessions, pickActiveSession,
     deriveSmartTitle, isRenamed, withRenamed, withoutRenamed, shouldAutoTitle,
@@ -661,6 +662,10 @@ function updateQuotaDisplay(session) {
         parsed.resetLabel ? `التجديد: ${esc(parsed.resetLabel)}` : '',
         parsed.updatedAt ? `آخر تحديث: ${esc(formatQuotaDate(parsed.updatedAt) || '')}` : '',
     ].filter(Boolean).join(' • ');
+    const tokensText = formatAdditionalTokens(parsed.additionalTokens);
+    const tokensBar = parsed.additionalTokens?.usedPct !== null && parsed.additionalTokens?.usedPct !== undefined
+        ? `<div class="muse-quota-tokens-bar" role="progressbar" aria-valuenow="${parsed.additionalTokens.usedPct}" aria-valuemin="0" aria-valuemax="100" aria-label="التوكنز الإضافية المستخدَمة"><span class="muse-quota-tokens-fill" style="width:${parsed.additionalTokens.usedPct}%"></span></div>`
+        : '';
     el.classList.toggle('is-low', parsed.low);
     el.innerHTML = `
         <div class="muse-quota-top">
@@ -669,8 +674,9 @@ function updateQuotaDisplay(session) {
         </div>
         ${bar}
         ${meta ? `<div class="muse-quota-meta">${meta}</div>` : ''}
+        ${tokensText ? `<div class="muse-quota-tokens"><span>توكنز إضافية: ${esc(tokensText)}</span>${tokensBar}</div>` : ''}
         ${parsed.low ? '<div class="muse-quota-low">الكوتة أوشكت على النفاد — أقل من 20% متبقٍ.</div>' : ''}
-        ${snapshotState === 'stale' ? `<div class="muse-quota-stale">${esc(QUOTA_STALE_TEXT)}</div>` : ''}`;
+        ${snapshotState === 'stale' ? `<div class="muse-quota-stale">${esc(parsed.resetPast ? QUOTA_STALE_RESET_TEXT : QUOTA_STALE_TEXT)}</div>` : ''}`;
 }
 
 /** إعادة قراءة extensions للجلسة النشطة — الجسر يحدّث quota فيها. */

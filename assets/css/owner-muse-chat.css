@@ -127,6 +127,28 @@
     color: var(--color-warning);
 }
 
+/* التوكنز الإضافية في البطاقة: سطر نص + شريط مستخدَم صغير. */
+.muse-quota-tokens {
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--color-text-secondary);
+}
+
+.muse-quota-tokens-bar {
+    height: 5px;
+    margin-top: 4px;
+    border-radius: 999px;
+    background: var(--color-surface-2);
+    overflow: hidden;
+}
+
+.muse-quota-tokens-fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--color-accent);
+}
+
 .muse-quota.is-low .muse-quota-bar-fill {
     background: var(--color-danger);
 }

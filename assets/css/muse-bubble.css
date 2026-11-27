@@ -599,6 +599,26 @@
     color: var(--mb-warning);
 }
 
+/* التوكنز الإضافية في نافذة التفاصيل: سطر نص + شريط مستخدَم صغير. */
+.muse-bubble .mb-qpop-tokens {
+    margin-top: 6px;
+}
+
+.muse-bubble .mb-qpop-tokens-bar {
+    height: 5px;
+    margin-top: 4px;
+    border-radius: 999px;
+    background: var(--mb-surface-2);
+    overflow: hidden;
+}
+
+.muse-bubble .mb-qpop-tokens-fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--mb-accent);
+}
+
 .muse-bubble .mb-foot {
     padding: 8px 12px calc(10px + env(safe-area-inset-bottom, 0px));
     text-align: center;

@@ -190,7 +190,7 @@ export function deriveSmartTitle(text, max = SMART_TITLE_MAX) {
 /**
  * تحليل لقطة الكوتة إلى بنية عرض، ونصها في سطر واحد — من
  * ai_sessions.extensions.quota فقط، بالشكل الذي يدمجه الجسر:
- * {plan, used, remaining, reset, updated_at}. الصيغتان الحيّتان
+ * {plan, used, remaining, reset, updated_at, additional_tokens}. الصيغتان الحيّتان
  * مقبولتان: النسب تُستخرج من "51%" أو من "67% of free weekly limit"،
  * وتاريخ التجديد يُحلَّل من "2026-11-26 23:15 EET" أو من
  * "Nov 26 at 11:15 PM EET" إلى تاريخ عربي. ترجع null عند غياب quota
@@ -208,6 +208,34 @@ export function parseQuotaPercent(value) {
     if (!m) return null;
     const n = Number(m[1]);
     return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : null;
+}
+
+/**
+ * تحليل التوكنز الإضافية من اللقطة: "2% used (13B tokens left)".
+ * تُستخرج النسبة المستخدَمة (%) والمتبقي (13B / 979M)، ويُحتفظ بالنص
+ * الخام كاملًا للصيغ غير المتوقعة — فلا يُخترع رقم ولا يُحذف نص.
+ * ترجع null عند غياب القيمة أو عدم كونها نصًا.
+ */
+export function parseAdditionalTokens(value) {
+    if (typeof value !== 'string' || !value.trim()) return null;
+    const usedPct = parseQuotaPercent(value);
+    const left = value.match(/\(\s*([\d.]+[BMK]?)\s*(?:tokens?\s+)?left\s*\)/i);
+    return { usedPct, leftover: left ? left[1] : null, raw: value.trim() };
+}
+
+/**
+ * نص التوكنز الإضافية بالعربية — "2% مستخدمة (متبقٍ 13B)"؛
+ * بلا نسبة يُعرض المتبقي وحده، وبلا أي جزء محلَّل يُعرض النص الخام كما هو.
+ */
+export function formatAdditionalTokens(at) {
+    if (!at || typeof at !== 'object') return null;
+    const used = at.usedPct !== null && at.usedPct !== undefined
+        ? `${at.usedPct}% مستخدمة` : null;
+    const left = at.leftover ? `متبقٍ ${at.leftover}` : null;
+    if (used && left) return `${used} (${left})`;
+    if (used) return used;
+    if (left) return left;
+    return at.raw || null;
 }
 
 /** أشهر إنجليزية قصيرة → رقم الشهر، لتحليل "Nov 26 at 11:15 PM EET". */
@@ -283,7 +311,9 @@ export const QUOTA_LOW_THRESHOLD = 20;
  * تحليل لقطة الكوتة إلى بنية عرض. البنية: remainingLabel (نص العرض،
  * مثل "51%")، remainingPct وusedPct (أرقام للشريط أو null)، pct (النسبة
  * المتبقية للشريط — من used عند غياب remaining المئوية)، low (أقل من
- * الحد)، planLabel وresetLabel (عربي)، updatedAt (Date أو null).
+ * الحد)، planLabel وresetLabel (عربي)، updatedAt (Date أو null)،
+ * resetDate (Date أو null) وresetPast (مضى تاريخ التجديد؟)،
+ * additionalTokens (محلَّلة أو null عند غيابها — فلا تُعرض).
  */
 export function parseQuota(quota) {
     if (!quota || typeof quota !== 'object') return null;
@@ -306,14 +336,19 @@ export function parseQuota(quota) {
         resetLabel: resetDate
             ? (formatQuotaDate(resetDate, resetHasTime) || resetRaw)
             : (resetRaw || null),
+        resetDate: resetDate || null,
+        resetPast: !!resetDate && !Number.isNaN(resetDate.getTime()) && resetDate.getTime() < Date.now(),
         updatedAt: updatedDate && !Number.isNaN(updatedDate) ? updatedDate : null,
+        additionalTokens: parseAdditionalTokens(quota.additional_tokens),
     };
 }
 
 /**
  * نص الكوتة في سطر واحد — من parseQuota نفسه، فالنص والبطاقة لا يختلفان
  * أبدًا: «المتبقي من الكوتة: 51% — الخطة: المجانية (أسبوعية) — التجديد:
- * 26 نوفمبر 2026 في 11:15 م». ترجع null عند غياب quota أو غياب remaining.
+ * 26 نوفمبر 2026 في 11:15 م — توكنز إضافية: 2% مستخدمة (متبقٍ 13B)».
+ * لقطة بلا additional_tokens تُعرض كما قبل تمامًا. ترجع null عند غياب
+ * quota أو غياب remaining.
  */
 export function formatQuota(quota) {
     const parsed = parseQuota(quota);
@@ -321,6 +356,8 @@ export function formatQuota(quota) {
     let text = `المتبقي من الكوتة: ${parsed.remainingLabel}`;
     if (parsed.planLabel) text += ` — الخطة: ${parsed.planLabel}`;
     if (parsed.resetLabel) text += ` — التجديد: ${parsed.resetLabel}`;
+    const tokens = formatAdditionalTokens(parsed.additionalTokens);
+    if (tokens) text += ` — توكنز إضافية: ${tokens}`;
     return text;
 }
 
@@ -356,10 +393,12 @@ export function isRealtimeLive(status) {
  * حالة لقطة الكوتة مقارنة بآخر رد مساعد — القراءة الاحتياطية المباشرة
  * من ai_sessions.extensions نفسها:
  *  • 'missing' — لا لقطة أصلًا (أو بلا remaining): لا رقم يُعرض.
- *  • 'fresh' — اللقطة محدَّثة (طابعها بعد آخر رد مساعد، أو لا رد بعد).
- *  • 'stale' — اللقطة أقدم من آخر رد مساعد، أو بلا طابع تحديث: الجسر
- *    ردّ دون أن يحدّثها، أي أن قراءة الاشتراك الحي فشلت آخر مرة —
- *    فتُعرض الأرقام الأخيرة مع تحذير صريح بقدمها، لا تُخفى بصمت.
+ *  • 'fresh' — اللقطة محدَّثة (طابعها بعد آخر رد مساعد، أو لا رد بعد)
+ *    وتاريخ تجديدها لم يمضِ بعد.
+ *  • 'stale' — اللقطة أقدم من آخر رد مساعد، أو بلا طابع تحديث، أو
+ *    مضى تاريخ تجديدها: الفترة التي تنتمي إليها الأرقام انتهت ولم
+ *    تأتِ لقطة جديدة بعد — فتُعرض الأرقام الأخيرة مع تحذير صريح
+ *    بقدمها، لا تُخفى بصمت.
  * لا مصدر كوتة آخر موثوق في القاعدة: ai_usage_events أحداث نداءات
  * مزوّدين (توكنات بلا حد اشتراك)، فلن يُشتق منها «متبقٍ» أبدًا.
  */
@@ -371,6 +410,10 @@ export function quotaSnapshotState(quota, lastAssistantAt) {
     // Number.isNaN(date) لا يكشف التاريخ الفاسد (كائن Date ليس NaN) — فحص getTime.
     if (!updated || Number.isNaN(updated.getTime())) return 'stale';
     if (lastReply && !Number.isNaN(lastReply.getTime()) && updated < lastReply) return 'stale';
+    // تاريخ التجديد مضى: الفترة التي تنتمي إليها الأرقام انتهت ولم
+    // تأتِ لقطة جديدة بعد — فالأرقام قديمة حتى لو لم يرد الوكيل بعدها.
+    const resetDate = parseQuotaReset(quota.reset, quota.updated_at);
+    if (resetDate && !Number.isNaN(resetDate.getTime()) && resetDate.getTime() < Date.now()) return 'stale';
     return 'fresh';
 }
 
@@ -386,6 +429,9 @@ export function quotaMissingText(hasAssistantReply) {
 
 /** نص تحذير اللقطة القديمة — يُعرض مع الأرقام الأخيرة، لا بدلها. */
 export const QUOTA_STALE_TEXT = 'تنبيه: هذه اللقطة قديمة — آخر تحديث لها قبل آخر رد من الوكيل؛ الجسر لم يتمكن من قراءة الاشتراك في آخر رد.';
+
+/** نص تحذير اللقطة القديمة بسبب مضي تاريخ التجديد — يُعرض مع الأرقام الأخيرة. */
+export const QUOTA_STALE_RESET_TEXT = 'تنبيه: تاريخ تجديد هذه اللقطة مضى — الأرقام من فترة اشتراك انتهت؛ ستُحدَّث عند قراءة الاشتراك التالية.';
 
 /** أقصى رسائل تُحفظ في الذاكرة وتُعرض من الجلسة. */
 export const MESSAGES_LIMIT = 200;

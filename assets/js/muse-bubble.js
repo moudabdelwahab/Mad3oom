@@ -26,8 +26,8 @@ import { supabase } from '/api-config.js';
 import {
     MUSE_MODEL_ID,
     POLL_MS, MESSAGES_LIMIT, mergeMessages, pollRetryDelay, isRealtimeLive,
-    parseQuota, quotaSnapshotState, quotaMissingText, QUOTA_STALE_TEXT,
-    formatQuota,
+    parseQuota, quotaSnapshotState, quotaMissingText, QUOTA_STALE_TEXT, QUOTA_STALE_RESET_TEXT,
+    formatQuota, formatAdditionalTokens,
     formatWaitSeconds, formatReplyTook, secondsBetween, waitingSince,
     agentForModelId, agentModelIds, sortSessions, pickActiveSession,
     deriveSmartTitle, hasUserMessage, ACTIVE_SESSION_KEY,
@@ -449,12 +449,17 @@ function renderQuotaPop() {
         parsed.planLabel ? `الخطة: ${esc(parsed.planLabel)}` : '',
         parsed.resetLabel ? `التجديد: ${esc(parsed.resetLabel)}` : '',
     ].filter(Boolean).join(' • ');
+    const tokensText = formatAdditionalTokens(parsed.additionalTokens);
+    const tokensBar = parsed.additionalTokens?.usedPct !== null && parsed.additionalTokens?.usedPct !== undefined
+        ? `<div class="mb-qpop-tokens-bar" role="progressbar" aria-valuenow="${parsed.additionalTokens.usedPct}" aria-valuemin="0" aria-valuemax="100" aria-label="التوكنز الإضافية المستخدَمة"><span class="mb-qpop-tokens-fill" style="width:${parsed.additionalTokens.usedPct}%"></span></div>`
+        : '';
     pop.classList.toggle('is-low', !!parsed.low);
     pop.innerHTML = `
         <span>المتبقي من الكوتة: <strong class="mb-qpop-value">${esc(parsed.remainingLabel)}</strong>${meta ? ` — ${meta}` : ''}</span>
         ${bar}
+        ${tokensText ? `<div class="mb-qpop-tokens"><span>توكنز إضافية: ${esc(tokensText)}</span>${tokensBar}</div>` : ''}
         ${parsed.low ? '<div class="mb-qpop-low">الكوتة أوشكت على النفاد — أقل من 20% متبقٍ.</div>' : ''}
-        ${lastQuotaSnapshot === 'stale' ? `<div class="mb-qpop-stale">${esc(QUOTA_STALE_TEXT)}</div>` : ''}`;
+        ${lastQuotaSnapshot === 'stale' ? `<div class="mb-qpop-stale">${esc(parsed.resetPast ? QUOTA_STALE_RESET_TEXT : QUOTA_STALE_TEXT)}</div>` : ''}`;
 }
 
 function setQuotaPop(open) {
