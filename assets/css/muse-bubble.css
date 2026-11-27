@@ -211,13 +211,12 @@
 .muse-bubble .mb-quota-btn:focus-visible,
 .muse-bubble .mb-retry:focus-visible,
 .muse-bubble .mb-full-link:focus-visible,
-.muse-bubble .mb-input:focus-visible,
-.muse-bubble .mb-search:focus-visible {
+.muse-bubble .mb-input:focus-visible {
     outline: none;
     box-shadow: var(--mb-focus);
 }
 
-/* ── اختيار الوكيل وقائمة الجلسات ── */
+/* ── اختيار الوكيل ── */
 
 .muse-bubble .mb-agent-row {
     display: flex;
@@ -244,30 +243,6 @@
     color: var(--mb-accent);
 }
 
-.muse-bubble .mb-sessions {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 10px 12px 0;
-}
-
-.muse-bubble .mb-session-row {
-    display: flex;
-    gap: 8px;
-}
-
-.muse-bubble .mb-search {
-    flex: 1;
-    min-width: 0;
-    padding: 7px 10px;
-    border: 1px solid var(--mb-border);
-    border-radius: 10px;
-    background: var(--mb-input-bg);
-    color: var(--mb-text);
-    font-family: inherit;
-    font-size: 13px;
-}
-
 .muse-bubble .mb-new-chat {
     flex: none;
     padding: 7px 12px;
@@ -279,92 +254,6 @@
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
-}
-
-.muse-bubble .mb-session-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    max-height: 110px;
-    overflow-y: auto;
-}
-
-.muse-bubble .mb-session-item {
-    border: 1px solid var(--mb-border);
-    border-radius: 10px;
-    background: var(--mb-surface-2);
-    overflow: hidden;
-}
-
-.muse-bubble .mb-session-item.is-active {
-    border-color: var(--mb-accent);
-    background: var(--mb-accent-soft);
-}
-
-.muse-bubble .mb-session-open {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1px;
-    width: 100%;
-    padding: 7px 10px;
-    border: 0;
-    background: transparent;
-    color: var(--mb-text);
-    font-family: inherit;
-    text-align: right;
-    cursor: pointer;
-}
-
-.muse-bubble .mb-session-title-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    max-width: 100%;
-}
-
-.muse-bubble .mb-session-dot {
-    width: 8px;
-    height: 8px;
-    flex: none;
-    border-radius: 50%;
-    background: var(--mb-text-2);
-}
-
-.muse-bubble .mb-session-dot--waiting {
-    background: var(--mb-warning);
-}
-
-.muse-bubble .mb-session-dot--answered {
-    background: var(--color-success, #28a745);
-}
-
-.muse-bubble .mb-session-title {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 13px;
-    font-weight: 700;
-}
-
-.muse-bubble .mb-session-preview {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 12px;
-    color: var(--mb-text-2);
-}
-
-.muse-bubble .mb-sessions-empty {
-    margin: 0;
-    font-size: 12px;
-    color: var(--mb-text-2);
-    text-align: center;
 }
 
 /* ── الرسائل ── */

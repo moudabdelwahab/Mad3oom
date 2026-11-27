@@ -33,7 +33,6 @@ import {
     deriveSmartTitle, hasUserMessage, ACTIVE_SESSION_KEY,
     shouldAutoTitle, RENAMED_SESSIONS_KEY,
     thinkingStage, formatMessageTime, formatReplyDuration, replyTookFor,
-    previewOfLastMessage, formatRelativeTime,
 } from '/assets/js/owner/muse-chat-state.js';
 import { createMuseAvatar, museAvatarSvg } from '/assets/js/owner/muse-avatar.js';
 
@@ -48,8 +47,6 @@ let sessionId = null;
 let activeModelId = MUSE_MODEL_ID;
 let sessions = [];
 let messages = [];
-let sessionPreviews = new Map();
-let searchQuery = '';
 let sending = false;
 let pollTimeout = null;
 let pollFailures = 0;
@@ -155,14 +152,6 @@ function buildDom() {
                 <button type="button" class="mb-agent-chip" data-model-id="muse-assistant" aria-pressed="false">المساعد العام</button>
                 <button type="button" class="mb-new-chat" id="mb-new-chat">+ محادثة جديدة</button>
             </div>
-            <div class="mb-sessions">
-                <div class="mb-session-row">
-                    <label class="mb-visually-hidden" for="mb-search">ابحث في المحادثات</label>
-                    <input type="search" class="mb-search" id="mb-search" placeholder="ابحث في المحادثات…" autocomplete="off">
-                </div>
-                <ul class="mb-session-list" id="mb-session-list" aria-label="قائمة المحادثات"></ul>
-                <p class="mb-sessions-empty" id="mb-sessions-empty" hidden>لا محادثات بعد — ابدأ محادثة جديدة.</p>
-            </div>
             <div class="mb-messages" id="mb-messages" role="log" aria-live="polite" aria-label="رسائل المحادثة">
                 <div class="mb-empty">جارٍ تحميل المحادثة…</div>
             </div>
@@ -210,10 +199,6 @@ function wireEvents() {
     $('mb-input').addEventListener('focus', () => { if (avatar) avatar.setState('attention'); });
     $('mb-retry').addEventListener('click', () => { hideSendError(); sendMessage(); });
     $('mb-new-chat').addEventListener('click', () => { newChat(); });
-    $('mb-search').addEventListener('input', (e) => {
-        searchQuery = e.target.value;
-        renderSessionList();
-    });
     document.querySelectorAll('#mb-root .mb-agent-chip').forEach((chip) => {
         chip.addEventListener('click', () => { openAgent(chip.dataset.modelId); });
     });
@@ -277,37 +262,6 @@ async function loadSessionsList() {
         .order('last_active_at', { ascending: false });
     if (error) throw error;
     sessions = sortSessions(data || []);
-    renderSessionList();
-    await loadSessionPreviews();
-}
-
-/**
- * آخر رسالة لكل جلسة — استعلام واحد لكل جلسة بالتوازي عند التحميل فقط،
- * لمعاينة البطاقة وحالتها. فشل جلسة لا يوقف الباقيات.
- */
-async function loadSessionPreviews() {
-    const results = await Promise.allSettled(sessions.map(async (session) => {
-        const { data, error } = await supabase.from('ai_session_messages')
-            .select('role, content, created_at')
-            .eq('session_id', session.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-        if (error) throw error;
-        return [session.id, data || null];
-    }));
-    for (const result of results) {
-        if (result.status === 'fulfilled' && result.value[1]) {
-            sessionPreviews.set(result.value[0], result.value[1]);
-        }
-    }
-    renderSessionList();
-}
-
-/** آخر رسالة لجلسة: من رسائل الجلسة النشطة المحملة، أو من المعاينة المخزنة. */
-function lastMessageFor(session) {
-    if (session.id === sessionId && messages.length) return messages[messages.length - 1];
-    return sessionPreviews.get(session.id) || null;
 }
 
 /** إنشاء جلسة جديدة للوكيل — بتوجيهه وترحيبه من MUSE_AGENTS (بلا إعادة كتابة). */
@@ -334,7 +288,6 @@ async function createSession(modelId) {
         console.error('[MuseBubble] greeting insert failed:', err?.message || err);
     }
     sessions = sortSessions([data, ...sessions]);
-    renderSessionList();
     return data;
 }
 
@@ -373,7 +326,7 @@ async function loadMessages() {
     renderMessages($('mb-messages'));
 }
 
-/** التبديل لجلسة: الرسائل والعدّاد والترويسة والقائمة تتبع الجلسة الجديدة. */
+/** التبديل لجلسة: الرسائل والعدّاد والترويسة تتبع الجلسة الجديدة. */
 async function switchSession(id) {
     const target = sessions.find((s) => s.id === id);
     if (!target) return;
@@ -386,7 +339,6 @@ async function switchSession(id) {
     subscribeRealtime();
     updateHeader();
     renderAgentChips();
-    renderSessionList();
     try {
         await loadMessages();
         if (token !== switchToken) return;
@@ -402,7 +354,7 @@ async function switchSession(id) {
     }
 }
 
-/** اختيار وكيل: يفتح أحدث جلساته أو ينشئ واحدة — وقائمة الجلسات تبقى شاملة. */
+/** اختيار وكيل: يفتح أحدث جلساته أو ينشئ واحدة — والتبديل بين المحادثات القديمة يبقى في الصفحة الكاملة. */
 async function openAgent(modelId) {
     if (!agentModelIds().includes(modelId)) return;
     activeModelId = modelId;
@@ -427,7 +379,7 @@ async function newChat() {
     }
 }
 
-/* ─────────────────── قائمة الجلسات واختيار الوكيل والكوتة ─────────────────── */
+/* ─────────────────── اختيار الوكيل والكوتة ─────────────────── */
 
 function updateHeader() {
     const agent = agentForModelId(activeModelId);
@@ -553,48 +505,6 @@ function renderAgentChips() {
     });
 }
 
-function sessionItemNode(session) {
-    const last = lastMessageFor(session);
-    const status = !last ? 'empty' : (last.role === 'user' ? 'waiting' : 'answered');
-    const statusLabel = status === 'waiting' ? 'بانتظار رد' : status === 'answered' ? 'تم الرد' : 'بلا رسائل';
-    const preview = previewOfLastMessage(last);
-    const li = document.createElement('li');
-    li.className = 'mb-session-item';
-    if (session.id === sessionId) li.classList.add('is-active');
-    li.dataset.sessionId = session.id;
-    const openBtn = document.createElement('button');
-    openBtn.type = 'button';
-    openBtn.className = 'mb-session-open';
-    openBtn.setAttribute('aria-current', session.id === sessionId ? 'true' : 'false');
-    openBtn.innerHTML = `
-        <span class="mb-session-title-row">
-            <span class="mb-session-dot mb-session-dot--${status}" title="${esc(statusLabel)}" aria-label="${esc(statusLabel)}"></span>
-            <span class="mb-session-title">${esc(session.title || 'جلسة جديدة')}</span>
-        </span>
-        ${preview ? `<span class="mb-session-preview">${esc(preview)}</span>` : ''}
-        <span class="mb-session-preview">${esc(formatRelativeTime(session.last_active_at || session.created_at))}</span>`;
-    openBtn.addEventListener('click', () => { switchSession(session.id); });
-    li.appendChild(openBtn);
-    return li;
-}
-
-function renderSessionList() {
-    const list = $('mb-session-list');
-    if (!list) return;
-    list.innerHTML = '';
-    const query = searchQuery.trim().toLowerCase();
-    const visible = !query ? sessions : sessions.filter((session) => {
-        const haystack = `${session.title || ''} ${previewOfLastMessage(lastMessageFor(session))}`.toLowerCase();
-        return haystack.includes(query);
-    });
-    for (const session of visible) list.appendChild(sessionItemNode(session));
-    const empty = $('mb-sessions-empty');
-    if (empty) {
-        empty.hidden = visible.length > 0;
-        empty.textContent = query ? 'لا نتائج مطابقة للبحث.' : 'لا محادثات بعد — ابدأ محادثة جديدة.';
-    }
-}
-
 /* ─────────────────── الرسائل ─────────────────── */
 
 function nearBottom(box) {
@@ -679,11 +589,6 @@ async function pollMessages() {
             appendNew($('mb-messages'), messages, renderedIds);
             renderMessages.renderedIds = renderedIds;
             refreshQuota();
-            const last = messages[messages.length - 1];
-            if (last) {
-                sessionPreviews.set(sessionId, last);
-                renderSessionList();
-            }
         }
         // الكوتة قد تتحدّث بلا رسائل جديدة (لقطة الجسر) — حدّثها كل 30 ثانية.
         if (Date.now() - lastQuotaRefreshAt > QUOTA_REFRESH_MS) refreshQuota();
@@ -888,7 +793,7 @@ async function sendMessage() {
         renderMessages.renderedIds = renderedIds;
         input.value = '';
         // أول رسالة في الجلسة تسمّيها بعنوان ذكي من محتواها. تحديث آخر
-        // نشاط أيضًا حتى تبقى الجلسة في أعلى القائمة.
+        // نشاط أيضًا حتى يبقى ترتيب الجلسة محدثًا في الصفحة الكاملة.
         try {
             const patch = { last_active_at: new Date().toISOString() };
             const title = isFirstUserMessage && shouldAutoTitle(activeSession, renamedIds)
@@ -901,8 +806,6 @@ async function sendMessage() {
             if (patchError) throw patchError;
             sessions = sessions.map((s) => (s.id === sessionId
                 ? { ...s, ...(title ? { title } : {}), last_active_at: patch.last_active_at } : s));
-            sessionPreviews.set(sessionId, data);
-            renderSessionList();
         } catch (err) {
             console.error('[MuseBubble] auto-title failed:', err?.message || err);
         }
