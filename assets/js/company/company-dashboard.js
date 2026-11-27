@@ -31,6 +31,11 @@ import {
     PAYMENT_METHODS, PAYMENT_METHOD_LABELS, EXTERNAL_PAYMENT_METHODS
 } from '/whatsapp-subscription-service.js';
 import { formatMoney } from '/assets/js/plan-pricing-model.js';
+import {
+    isRefundablePlan, REFUND_RULES_TEXT, REFUND_TRANSFER_METHODS,
+    REFUND_TRANSFER_METHOD_LABELS, refundQuoteView, refundRequestArgs,
+    refundTransferArgs, refundStatusView, formatEgp
+} from '/assets/js/cancel-refund-model.js';
 import { piCompanyLimitation } from '/assets/js/company/company-invoices-model.js';
 import { initCompanyActivity, loadCompanyActivity } from '/assets/js/company/company-activity.js';
 import { initCompanyIntegrations, loadCompanyIntegrations, oauthCompletion } from '/assets/js/company/company-integrations.js';
@@ -81,6 +86,10 @@ import {
     cancelSubscriptionRequest,
     cancelActiveSubscription,
     resumeSubscription,
+    fetchRefundQuote,
+    requestCancelRefund,
+    fetchMyRefundRequests,
+    submitRefundTransferDetails,
     linkSubscriptionToCompany,
     fetchCompanyCustomers,
     fetchCompanyInvitations,
@@ -1924,6 +1933,9 @@ function renderSubscriptions() {
     container.querySelectorAll('[data-sub-resume]').forEach(btn => {
         btn.addEventListener('click', () => onResumeSubscription(btn));
     });
+
+    // 142: قسم «طلبات التعويض» — إلغاء الفائقة مع تعويض، وبيانات التحويل.
+    renderRefundSection(container);
 }
 
 /**
@@ -2316,6 +2328,12 @@ async function onCancelActiveSubscription(btn) {
     const endDate = btn.getAttribute('data-end');
     if (!id || !endDate) return;
 
+    // 142: الباقة المدفوعة لها مسارها — عرض التعويض أولًا، ثم طلب الإلغاء معه.
+    if (isRefundablePlan(btn.getAttribute('data-plan'))) {
+        await onCancelWithRefund(btn, planName, endDate);
+        return;
+    }
+
     const reason = await openCancelModal(planName, endDate);
     if (reason === null) return;
 
@@ -2331,6 +2349,203 @@ async function onCancelActiveSubscription(btn) {
     ui.showToast(`سيبقى اشتراك «${planName}» فعّالًا حتى ${formatDate(endDate)}، ثم ينتهي ولا يتجدّد. يمكنك التراجع عن الإلغاء قبل ذلك التاريخ.`, 'success');
     const refreshed = await refreshDashboardPayload();
     if (!refreshed) ui.showToast('أُلغي الاشتراك، لكن تعذّر تحديث القائمة. أعد تحميل الصفحة.', 'warning');
+}
+
+/* ── إلغاء اشتراك مدفوع مع تعويض (142) ────────────────────────────────────
+ *
+ * زر «إلغاء مع تعويض» لا يلغي مباشرةً: يعرض أولًا المبلغ المحسوب والأيام
+ * المتبقية ونوع التعويض (كامل أو تناسبي) من عرض القاعدة (refund_quote)،
+ * مع نص صريح أن الإلغاء والتعويض لا يُنفَّذان تلقائيًا وأن الطلب يذهب
+ * للمالك للمراجعة والقرار. التأكيد يرسل طلبًا واحدًا
+ * (request_cancel_refund) يلغي الاشتراك في نهاية مدته وينشئ طلب
+ * التعويض معًا — والاشتراك يبقى فعّالًا حتى انتهاء مدته. بلا موافقة
+ * مالك لا يُدفع شيء.
+ */
+function openRefundCancelModal(planName, endDate, view) {
+    const { box, close, promise } = buildCompanyModal(`إلغاء «${planName}» مع طلب تعويض`, `
+        <dl class="company-facts">
+            <div class="company-fact"><dt>المبلغ المدفوع عن المدة الحالية</dt><dd>${escapeHtml(formatEgp(view.amountPaid))}</dd></div>
+            <div class="company-fact"><dt>الأيام المتبقية من المدة</dt><dd>${escapeHtml(String(view.remainingDays))} من ${escapeHtml(String(view.cycleDays))} يومًا</dd></div>
+            <div class="company-fact"><dt>نوع التعويض</dt><dd><strong>${escapeHtml(view.refundKindLabel || 'تعويض')}</strong>${view.refundKind === 'full' ? ' — المبلغ المدفوع كاملًا (اشتراك جديد في أول 7 أيام)' : ''}</dd></div>
+            <div class="company-fact"><dt>التعويض المحسوب</dt><dd><strong>${escapeHtml(formatEgp(view.refundAmount))}</strong></dd></div>
+            ${view.ticketsUsed != null && view.ticketLimit != null ? `<div class="company-fact"><dt>التذاكر المستخدمة منذ بداية المدة</dt><dd>${escapeHtml(String(view.ticketsUsed))} من حد ${escapeHtml(String(view.ticketLimit))} للتعويض الكامل</dd></div>` : ''}
+            <div class="company-fact"><dt>الاشتراك يبقى فعّالًا حتى</dt><dd>${escapeHtml(formatDate(endDate))}</dd></div>
+        </dl>
+        <p style="margin:0 0 1rem; font-size:.9rem; line-height:1.9;">${escapeHtml(REFUND_RULES_TEXT)}</p>
+        ${view.amountMismatch ? `<p style="margin:0 0 1rem; font-size:.9rem; line-height:1.9;" class="is-warning">تنبيه: المبلغ المحسوب محليًا يختلف عن رقم القاعدة — المعتمد هو رقم القاعدة المعروض أعلاه.</p>` : ''}
+        <div style="margin-bottom:1rem;">
+            <label style="display:block; font-size:.85rem; font-weight:700; margin-bottom:.4rem;">سبب الإلغاء (اختياري)</label>
+            <textarea id="coRefundCancelReason" maxlength="500" rows="3" placeholder="مثال: لن نحتاج الخدمة بعد هذا الشهر"
+                style="width:100%; padding:.6rem; border-radius:.5rem; border:1px solid var(--color-border); background:var(--color-surface); color:var(--color-text); font-family:inherit; resize:vertical;"></textarea>
+        </div>
+        ${modalFooterHtml('تأكيد الإلغاء وطلب التعويض')}`);
+    box.querySelector('[data-modal-cancel]').addEventListener('click', () => close(null));
+    box.querySelector('[data-modal-confirm]').addEventListener('click', () => {
+        close(box.querySelector('#coRefundCancelReason')?.value?.trim() || '');
+    });
+    return promise;
+}
+
+async function onCancelWithRefund(btn, planName, endDate) {
+    const id = btn.getAttribute('data-sub-id');
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    const quoteRes = await fetchRefundQuote(id);
+    if (!quoteRes.ok || !quoteRes.data) {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        ui.showToast(quoteRes.error || 'تعذّر حساب عرض التعويض. تحقق من اتصالك ثم أعد المحاولة.', 'error');
+        return;
+    }
+    const view = refundQuoteView(quoteRes.data);
+    if (!view.eligible) {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        ui.showToast(view.message || 'لا يمكن طلب تعويض إلغاء لهذا الاشتراك.', 'error');
+        return;
+    }
+    btn.disabled = false;
+    btn.removeAttribute('aria-busy');
+
+    const reason = await openRefundCancelModal(planName, endDate, view);
+    if (reason === null) return;
+    const check = refundRequestArgs({ subscriptionId: id, reason });
+    if (check.error) { ui.showToast(check.error, 'error'); return; }
+
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    const result = await requestCancelRefund(check.args.p_subscription_id, check.args.p_reason);
+    if (!result.ok) {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        ui.showToast(result.error || 'تعذّر إرسال طلب الإلغاء مع التعويض', 'error');
+        return;
+    }
+    ui.showToast(`أُرسل طلب إلغاء «${planName}» مع ${view.refundKindLabel || 'تعويض'} محسوب ${formatEgp(view.refundAmount)} إلى المالك للمراجعة. اشتراكك يبقى فعّالًا حتى ${formatDate(endDate)}، ولا يُدفع شيء تلقائيًا.`, 'success');
+    const refreshed = await refreshDashboardPayload();
+    if (!refreshed) ui.showToast('أُرسل الطلب، لكن تعذّر تحديث القائمة. أعد تحميل الصفحة.', 'warning');
+}
+
+/**
+ * قسم «طلبات التعويض» في تبويب الاشتراكات (142) — للمالك وحده (التبويب
+ * نفسه للمدير وحده). يعرض كل طلب: المبلغ والأيام ونوع التعويض والسبب
+ * والحالة والتذكرة والمهل، ونموذج بيانات التحويل حين يوافق المالك ويفتح
+ * التذكرة. فشل القراءة لا يُسقط التبويب: القسم يعرض حالته وخطأه
+ * مستقلًا، وقبل تطبيق 142 تعود الدالة null فيُعرض «غير متاح بعد» بدل خطأ.
+ */
+async function renderRefundSection(container) {
+    const section = document.createElement('section');
+    section.className = 'panel';
+    section.setAttribute('aria-labelledby', 'companyRefundHeading');
+    section.innerHTML = `
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title" id="companyRefundHeading">طلبات تعويض إلغاء الاشتراك</h2>
+                <p class="panel-subtitle">${escapeHtml(REFUND_RULES_TEXT)}</p>
+            </div>
+        </div>
+        <div id="companyRefundBody" aria-live="polite"></div>`;
+    container.appendChild(section);
+    const body = section.querySelector('#companyRefundBody');
+    renderSkeletonLines(body, 3);
+
+    const result = await fetchMyRefundRequests();
+    if (!result.ok || !result.data) {
+        body.innerHTML = `
+            <div class="state-block">
+                <p class="state-title">طلبات التعويض غير متاحة حاليًا</p>
+                <p class="state-text">${result.ok
+                    ? 'لم تُفعَّل بعد على المنصة — جرّب لاحقًا أو راجع الدعم.'
+                    : 'تعذّر تحميل طلبات التعويض. تحقق من اتصالك ثم أعد المحاولة.'}</p>
+                <button type="button" class="btn btn-outline" id="companyRefundRetry">إعادة المحاولة</button>
+            </div>`;
+        body.querySelector('#companyRefundRetry')?.addEventListener('click', () => {
+            section.remove();
+            renderRefundSection(container);
+        });
+        return;
+    }
+
+    const view = refundStatusView(result.data);
+    if (!view.requests.length) {
+        body.innerHTML = `
+            <div class="state-block">
+                <p class="state-title">لا توجد طلبات تعويض بعد</p>
+                <p class="state-text">عند إلغاء اشتراك مدفوع من زر «إلغاء مع تعويض» يظهر هنا طلب التعويض: المبلغ المحسوب والأيام المتبقية وحالته لدى المالك.</p>
+            </div>`;
+        return;
+    }
+
+    body.innerHTML = `
+        <ul class="company-sub-list">
+            ${view.requests.map(r => `
+            <li class="company-sub">
+                <div class="company-sub-main">
+                    <p class="company-sub-plan">${escapeHtml(r.refundKindLabel || 'تعويض')} ${escapeHtml(formatEgp(r.refund_amount))}</p>
+                    <p class="company-sub-dates">
+                        ${escapeHtml(String(r.remaining_days))} ${r.remaining_days === 1 ? 'يوم' : 'أيام'} متبقية من ${escapeHtml(String(r.cycle_days))} يومًا
+                        · المدفوع ${escapeHtml(formatEgp(r.amount_paid))}
+                        ${r.transfer_fee > 0 ? ` · رسوم تحويل ${escapeHtml(formatEgp(r.transfer_fee))} · الصافي ${escapeHtml(formatEgp(r.refund_net))}` : ''}
+                        ${r.requested_at ? ` · طُلب في ${escapeHtml(formatDate(r.requested_at))}` : ''}
+                    </p>
+                    ${r.cancel_reason ? `<p class="company-sub-dates">السبب: ${escapeHtml(r.cancel_reason)}</p>` : ''}
+                    ${r.status === 'rejected' && r.decision_reason ? `<p class="company-sub-dates">سبب الرفض: ${escapeHtml(r.decision_reason)}</p>` : ''}
+                    ${r.status === 'closed' && r.close_reason ? `<p class="company-sub-dates">أُغلق: ${escapeHtml(r.close_reason)}</p>` : ''}
+                    ${r.status === 'pending' && r.reply_due_at ? `<p class="company-sub-dates">مهلة رد المالك حتى ${escapeHtml(formatDate(r.reply_due_at))}.</p>` : ''}
+                    ${r.status === 'approved' && r.payment_due_at ? `<p class="company-sub-dates">مهلة التحويل حتى ${escapeHtml(formatDate(r.payment_due_at))}.</p>` : ''}
+                    ${r.status === 'approved' && r.ticket_id ? `
+                    <p class="company-sub-dates">تذكرة التعويض ${r.ticket_number ? `#${escapeHtml(String(r.ticket_number))}` : ''}
+                        — <a class="panel-link" href="/company-dashboard/#tickets" data-tab="tickets">عرض التذكرة</a></p>` : ''}
+                    ${r.status === 'approved' && !r.ticket_id ? `<p class="company-sub-dates">وافق المالك — بانتظار فتح تذكرة التعويض لطلب بيانات التحويل.</p>` : ''}
+                    ${r.transfer_details_submitted_at ? `
+                    <p class="company-sub-dates">أُرسلت بيانات التحويل (${escapeHtml(r.transfer_method_label || r.transfer_method || '')})
+                        في ${escapeHtml(formatDate(r.transfer_details_submitted_at))} — بانتظار تسجيل المالك للدفع.</p>` : ''}
+                    ${r.status === 'paid' && r.paid_at ? `<p class="company-sub-dates">سُجّل الدفع في ${escapeHtml(formatDate(r.paid_at))}.</p>` : ''}
+                </div>
+                <div class="company-sub-side">
+                    <span class="pill ${r.isPending ? 'status-tone-warning' : r.isApproved ? 'status-tone-accent' : r.isPaid ? 'status-tone-success' : 'status-neutral'}">${escapeHtml(r.statusLabel)}</span>
+                    ${r.needsTransferDetails ? `
+                    <form class="company-form" data-refund-transfer="${escapeHtml(r.id)}" novalidate>
+                        <div class="form-field">
+                            <label for="refundMethod-${escapeHtml(r.id)}">وسيلة التحويل</label>
+                            <select class="form-control" id="refundMethod-${escapeHtml(r.id)}">
+                                ${REFUND_TRANSFER_METHODS.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(REFUND_TRANSFER_METHOD_LABELS[m])}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label for="refundAccount-${escapeHtml(r.id)}">رقم/حساب التحويل</label>
+                            <input type="text" class="form-control" id="refundAccount-${escapeHtml(r.id)}" maxlength="100" autocomplete="off" dir="ltr">
+                        </div>
+                        <p class="state-text">لا ترسل بيانات بطاقة ولا كلمة مرور — بيانات التحويل وحدها، وتُحفظ على طلب التعويض.</p>
+                        <button type="submit" class="btn btn-primary btn-sm">إرسال بيانات التحويل</button>
+                        <p class="state-text" role="status" aria-live="polite"></p>
+                    </form>` : ''}
+                </div>
+            </li>`).join('')}
+        </ul>`;
+
+    body.querySelectorAll('[data-refund-transfer]').forEach((form) => {
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const requestId = form.getAttribute('data-refund-transfer');
+            const method = form.querySelector(`#refundMethod-${CSS.escape(requestId)}`)?.value;
+            const account = form.querySelector(`#refundAccount-${CSS.escape(requestId)}`)?.value;
+            const message = form.querySelector('[role="status"]');
+            const check = refundTransferArgs({ requestId, method, account });
+            if (check.error) { if (message) message.textContent = check.error; return; }
+            const submit = form.querySelector('button[type=submit]');
+            submit.disabled = true;
+            const res = await submitRefundTransferDetails(check.args.p_request, check.args.p_transfer_method, check.args.p_transfer_account);
+            if (!res.ok) {
+                submit.disabled = false;
+                if (message) message.textContent = res.error || 'تعذّر إرسال بيانات التحويل.';
+                return;
+            }
+            ui.showToast('أُرسلت بيانات التحويل إلى المالك — سيراجع الطلب ويسجّل الدفع بعد التحويل.', 'success');
+            section.remove();
+            renderRefundSection(container);
+        });
+    });
 }
 
 async function onResumeSubscription(btn) {
@@ -2353,7 +2568,11 @@ async function onResumeSubscription(btn) {
         ui.showToast(result.error || 'تعذّر التراجع عن الإلغاء', 'error');
         return;
     }
-    ui.showToast('تم التراجع عن الإلغاء. اشتراكك مستمر كالمعتاد.', 'success');
+    const giftDays = Number(result.data?.gift_days_added || 0);
+    const closedCount = Number(result.data?.refund_requests_closed || 0);
+    ui.showToast('تم التراجع عن الإلغاء. اشتراكك مستمر كالمعتاد.'
+        + (giftDays > 0 ? ` أُضيفت ${giftDays} يومًا هدية لاشتراكك السنوي.` : '')
+        + (closedCount > 0 ? ' أُغلق طلب التعويض تلقائيًا.' : ''), 'success');
     const refreshed = await refreshDashboardPayload();
     if (!refreshed) ui.showToast('تم التراجع، لكن تعذّر تحديث القائمة. أعد تحميل الصفحة.', 'warning');
 }
@@ -2482,7 +2701,7 @@ function subscriptionRow(row) {
             + (sub.end_date ? `data-end="${escapeHtml(sub.end_date)}" ` : '');
         if (key === 'renew') return `<button type="button" class="btn btn-secondary btn-sm" data-sub-renew data-kind="renew" ${attrs}>تجديد</button>`;
         if (key === 'change-plan') return `<button type="button" class="btn btn-secondary btn-sm" data-sub-change ${attrs}>تغيير الباقة</button>`;
-        if (key === 'cancel') return `<button type="button" class="btn btn-secondary btn-sm" data-sub-cancel ${attrs}>إلغاء الاشتراك</button>`;
+        if (key === 'cancel') return `<button type="button" class="btn btn-secondary btn-sm" data-sub-cancel ${attrs}>${isRefundablePlan(sub.plan) ? 'إلغاء مع تعويض' : 'إلغاء الاشتراك'}</button>`;
         if (key === 'resume') return `<button type="button" class="btn btn-secondary btn-sm" data-sub-resume ${attrs}>تراجع عن الإلغاء</button>`;
         return '';
     };

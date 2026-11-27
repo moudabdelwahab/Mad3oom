@@ -669,6 +669,42 @@ export async function cancelSaasTrial(requestId) {
     });
 }
 
+/* ── تعويض إلغاء الاشتراكات المدفوعة (الترحيل 142) ───────────────────────
+ * عرض التعويض قراءة فقط (الأيام المتبقية والمبلغ — تناسبي أو كامل)؛
+ * وطلب الإلغاء مع التعويض يلغي الاشتراك في نهاية مدته (136) وينشئ طلبًا
+ * معلّقًا للمالك — بلا إلغاء فوري وبلا صرف مال. بيانات التحويل تُرسل بعد
+ * موافقة المالك وفتح تذكرة التعويض، فتُحفظ على الطلب. قبل 142: الدوال
+ * غير موجودة فتعود الحالة null بلا خطأ (rpcOrNull) والطلب يرفض بخطأ
+ * القاعدة. */
+export const fetchRefundQuote = (subscriptionId) =>
+    rpcOrNull('refundQuote', 'refund_quote', { p_subscription_id: subscriptionId });
+
+export async function requestCancelRefund(subscriptionId, reason) {
+    return safe('requestCancelRefund', async () => {
+        const { data, error } = await supabase.rpc('request_cancel_refund', {
+            p_subscription_id: subscriptionId,
+            p_reason: reason || null
+        });
+        if (error) throw error;
+        return data || null;
+    });
+}
+
+export const fetchMyRefundRequests = () =>
+    rpcOrNull('myRefundRequests', 'my_refund_requests');
+
+export async function submitRefundTransferDetails(requestId, method, account) {
+    return safe('submitRefundTransferDetails', async () => {
+        const { data, error } = await supabase.rpc('submit_refund_transfer_details', {
+            p_request: requestId,
+            p_transfer_method: method,
+            p_transfer_account: account
+        });
+        if (error) throw error;
+        return data || null;
+    });
+}
+
 /* ── إدارة أعضاء الشركة (migrations/113_company_member_management.sql) ───────
  *
  * كل دالة للمدير وحده (المالك + sub_users، خارج المعاينة)، والشركة تُحدَّد في القاعدة. العضو من شركة أخرى

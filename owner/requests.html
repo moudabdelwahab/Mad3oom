@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>الطلبات - لوحة المالك - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-workspace.css">
+    <link rel="stylesheet" href="/assets/css/portal-notifications.css">
+    <link rel="stylesheet" href="/assets/css/owner-pages.css">
+    <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في لوحة المالك — الثيم وحالة الطي قبل أول رسم. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body class="customer-shell owner-shell dash-layout" data-owner-page="requests">
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main" id="ownerMain">
+        <!-- بوابة العرض: سبب المنع بدل صفحة فارغة. القرار الحقيقي في القاعدة (owner_capability('owner_only')). -->
+        <section class="panel" id="ownerGate" hidden>
+            <div class="state-block" id="ownerGateBody"></div>
+        </section>
+
+        <div id="ownerContent" hidden>
+            <header class="owner-banner owner-page-banner">
+                <div class="owner-banner-main">
+                    <span class="owner-level-tag">لوحة المالك · التشغيل</span>
+                    <h1 class="owner-title">الطلبات</h1>
+                    <p class="owner-meta">كل الطلبات في مكان واحد — طلبات الشركات والإدارة والعملاء — من جداولها
+                        القائمة وحدها، بلا جدول جديد. كل صف يفتح التفاصيل والإجراء في صفحته الأصلية؛
+                        القرار نفسه هناك، لا هنا.</p>
+                </div>
+                <div class="owner-banner-side">
+                    <a class="btn btn-outline btn-sm owner-crumb" href="/owner-dashboard.html#overview">لوحة المالك</a>
+                    <button type="button" class="btn btn-outline btn-sm" id="requestsRefresh">تحديث</button>
+                </div>
+            </header>
+            <div class="kpi-grid" id="requestsKpis" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+
+            <div class="owner-page-stack">
+                <section class="panel" aria-labelledby="requestsHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="requestsHeading">كل الطلبات</h2>
+                        <p class="panel-subtitle">الطلبات المعلّقة أولًا — «فتح التفاصيل» ينقلك إلى صفحة الطلب الأصلية
+                            حيث يُتَّخذ القرار بتحقق حديث وسبب مسجَّل.</p>
+                    </div></div>
+                    <form class="toolbar owner-filters" id="requestsFilters" role="search" novalidate>
+                        <label class="visually-hidden" for="requestsType">نوع الطلب</label>
+                        <select class="form-control owner-filter-select" id="requestsType">
+                            <option value="">كل الأنواع</option>
+                            <option value="company_account">إنشاء حساب شركة</option>
+                            <option value="trial">تجربة مجانية</option>
+                            <option value="refund">تعويض إلغاء الفائقة</option>
+                            <option value="deletion">حذف حساب</option>
+                            <option value="suggestion">اقتراح</option>
+                        </select>
+                        <label class="visually-hidden" for="requestsSource">المصدر</label>
+                        <select class="form-control owner-filter-select" id="requestsSource">
+                            <option value="">كل المصادر</option>
+                            <option value="companies">طلبات الشركات</option>
+                            <option value="management">طلبات الإدارة</option>
+                            <option value="customers">طلبات العملاء</option>
+                        </select>
+                        <label class="visually-hidden" for="requestsStatus">حالة الطلب</label>
+                        <select class="form-control owner-filter-select" id="requestsStatus">
+                            <option value="">كل الحالات</option>
+                            <option value="pending" selected>معلّقة</option>
+                            <option value="approved">موافَق عليها</option>
+                            <option value="rejected">مرفوضة</option>
+                            <option value="paid">مدفوعة</option>
+                            <option value="closed">مغلقة (تراجع العميل)</option>
+                            <option value="expired">منتهية</option>
+                            <option value="cancelled">ملغاة</option>
+                            <option value="executed">منفَّذة</option>
+                            <option value="reviewed">قيد المراجعة</option>
+                            <option value="implemented">مطبَّقة</option>
+                        </select>
+                    </form>
+                    <div id="requestsTable" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                </section>
+
+                <section class="panel" aria-labelledby="requestsRulesHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="requestsRulesHeading">قواعد التجميع</h2>
+                        <p class="panel-subtitle">ما يضمنه الترحيل 142 — لا صف هنا يخرج عنها.</p>
+                    </div></div>
+                    <ul>
+                        <li>بلا جدول جديد: المجمّع قراءة فقط (UNION) على جداول الطلبات القائمة — حساب الشركة، والتجربة، والتعويض، وحذف الحساب، والاقتراحات.</li>
+                        <li>بلا تكرار: طلب تعويض إلغاء اشتراك مدفوع يظهر مرة واحدة كمصدر واحد؛ وطلب المتجر الإلكتروني المعلّق هو الصف نفسه في طلبات حساب الشركة، وتشير شارته إلى وجوده في قائمة المتاجر.</li>
+                        <li>كل صف برابط عميق لصفحته الأصلية: التجارب إلى صفحة التجارب، والتعويض إلى صفحة التعويض، وطلب المتجر المعلّق إلى قائمة المتاجر، وطلب حساب الشركة إلى صفحة المراجعة، وطلب الحذف إلى شجرة الحسابات، والاقتراح إلى صفحة الاقتراحات.</li>
+                        <li>طلب حذف الحساب تنفيذه يدوي من المالك وفق سياسة الترحيل 140 — الطلب المعلّق لا يحذف شيئًا ولا يوقف الشركة.</li>
+                        <li>التعويض يغطي كل الباقات المدفوعة (المتقدمة والفائقة والواتساب والشاملة)؛ وباقة المتجر الإلكتروني ليست منها.</li>
+                    </ul>
+                </section>
+            </div>
+
+            <details class="owner-limits">
+                <summary>ما لا تفعله هذه الصفحة</summary>
+                <ul>
+                    <li>لا تقرر أي طلب من هنا: لا موافقة ولا رفض ولا دفع ولا حذف — القرار في الصفحة الأصلية لكل نوع، بتحقق حديث وسبب مسجَّل.</li>
+                    <li>لا تنشئ طلبًا ولا تعدّل حالة ولا تحوّل مالًا — قراءة وتجميع وروابط فقط.</li>
+                    <li>لا تنسخ البيانات في جداول جديدة: ما يُعرض يُقرأ من جداول الطلبات نفسها لحظة فتح الصفحة.</li>
+                </ul>
+            </details>
+            <p class="owner-sie-status ows-toast" id="pageStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
+        </div>
+    </main>
+
+    <script type="module" src="/assets/js/owner/pages/requests.js"></script>
+</body>
+</html>

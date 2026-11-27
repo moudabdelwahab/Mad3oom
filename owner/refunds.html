@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <script src="/error-tracker.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="noindex, nofollow">
+    <title>طلبات تعويض إلغاء الاشتراكات - لوحة المالك - منصة مدعوم</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/assets/js/admin/admin-style.css">
+    <link rel="stylesheet" href="/assets/css/customer-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-dashboard.css">
+    <link rel="stylesheet" href="/assets/css/owner-workspace.css">
+    <link rel="stylesheet" href="/assets/css/portal-notifications.css">
+    <link rel="stylesheet" href="/assets/css/owner-pages.css">
+    <link rel="stylesheet" href="/assets/css/dashboard-layout.css">
+    <script>
+        /* نفس سكربت ما قبل الرسم في لوحة المالك — الثيم وحالة الطي قبل أول رسم. */
+        (function () {
+            var root = document.documentElement;
+            try {
+                var theme = localStorage.getItem('theme-preference')
+                    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                root.setAttribute('data-theme', theme);
+                if (localStorage.getItem('mad3oom-sidebar-collapsed') === '1') {
+                    root.setAttribute('data-sidebar', 'collapsed');
+                }
+            } catch (e) {
+                root.setAttribute('data-theme', 'dark');
+            }
+            root.classList.add('no-transition');
+            window.addEventListener('DOMContentLoaded', function () {
+                requestAnimationFrame(function () { root.classList.remove('no-transition'); });
+            });
+        })();
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="/theme-manager.js" defer></script>
+    <script src="/language-manager.js"></script>
+    <link rel="stylesheet" href="/assets/responsive-global.css">
+    <script src="/assets/responsive-global.js" defer></script>
+</head>
+<body class="customer-shell owner-shell dash-layout" data-owner-page="refunds">
+    <div id="sidebar-container"></div>
+
+    <main class="admin-main" id="ownerMain">
+        <!-- بوابة العرض: سبب المنع بدل صفحة فارغة. القرار الحقيقي في القاعدة (owner_capability('owner_only')). -->
+        <section class="panel" id="ownerGate" hidden>
+            <div class="state-block" id="ownerGateBody"></div>
+        </section>
+
+        <div id="ownerContent" hidden>
+            <header class="owner-banner owner-page-banner">
+                <div class="owner-banner-main">
+                    <span class="owner-level-tag">لوحة المالك · التشغيل</span>
+                    <h1 class="owner-title">طلبات تعويض إلغاء الاشتراكات</h1>
+                    <p class="owner-meta">تعويض عن الأيام المتبقية من أي اشتراك مدفوع (المتقدمة والفائقة والواتساب والشاملة)
+                        عند إلغائه في نهاية مدته — تناسبيًا، أو كاملًا لاشتراك جديد في أول 7 أيام باستهلاك تذاكر
+                        ≤ 10% من الحد الشهري للباقة. لا إلغاء فوري للاشتراك ولا صرف مال تلقائيًا: الطلب للمراجعة
+                        والقرار فقط، والدفع الفعلي خارج النظام ويسجَّله المالك يدويًا بعد وصول بيانات التحويل من العميل.</p>
+                </div>
+                <div class="owner-banner-side">
+                    <a class="btn btn-outline btn-sm owner-crumb" href="/owner-dashboard.html#overview">لوحة المالك</a>
+                    <button type="button" class="btn btn-outline btn-sm" id="refundRefresh">تحديث</button>
+                </div>
+            </header>
+            <div class="kpi-grid" id="refundKpis" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+
+            <div class="owner-page-stack">
+                <section class="panel" aria-labelledby="refundRequestsHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="refundRequestsHeading">طلبات التعويض</h2>
+                        <p class="panel-subtitle">الطلبات المعلّقة أولًا — الموافقة لا تدفع شيئًا، بل تفتح باب تذكرة التعويض
+                            وبيانات التحويل؛ والرفض بسبب مسجَّل يرفض التعويض وحده ويبقي الإلغاء في نهاية مدته كما طلبه العميل.</p>
+                    </div></div>
+                    <form class="toolbar owner-filters" id="refundFilters" role="search" novalidate>
+                        <label class="visually-hidden" for="refundStatus">حالة الطلب</label>
+                        <select class="form-control owner-filter-select" id="refundStatus">
+                            <option value="">كل الحالات</option>
+                            <option value="pending" selected>معلّقة</option>
+                            <option value="approved">موافَق عليها</option>
+                            <option value="rejected">مرفوضة</option>
+                            <option value="paid">مدفوعة</option>
+                            <option value="closed">مغلقة (تراجع العميل)</option>
+                        </select>
+                    </form>
+                    <div id="refundRequests" aria-live="polite"><div class="skeleton skeleton-card"></div></div>
+                </section>
+
+                <section class="panel" aria-labelledby="refundRulesHeading">
+                    <div class="panel-header"><div>
+                        <h2 class="panel-title" id="refundRulesHeading">قواعد التعويض</h2>
+                        <p class="panel-subtitle">ما يضمنه الترحيل 142 — لا قرار هنا يخرج عنها.</p>
+                    </div></div>
+                    <ul>
+                        <li>التعويض تناسبي: المبلغ المدفوع × الأيام المتبقية / إجمالي أيام المدة، مقربًا لقرشين — وقيد في القاعدة يفرض المعادلة على كل طلب. وكاملًا (المبلغ المدفوع كاملًا) لاشتراك جديد في أول 7 أيام باستهلاك تذاكر ≤ 10% من الحد الشهري للباقة (المتقدمة 30، الواتساب 2، الفائقة والشاملة 30).</li>
+                        <li>كل الباقات المدفوعة: المتقدمة (999 شهري / 9999 سنوي) والفائقة (1999/19999) والواتساب (1299/12999) والشاملة (2099/22999) بالجنيه المصري. التجربة المجانية بلا مبلغ مدفوع فلا تعويض عليها، وباقة المتجر ليست من الباقات المشمولة.</li>
+                        <li>المهل: رد المالك خلال 48 ساعة عمل (الأحد–الخميس) من الطلب، والتحويل خلال 14 يوم عمل للبنك والإنستاباي و3 أيام عمل للمحفظة الإلكترونية من وصول بيانات التحويل.</li>
+                        <li>رسوم التحويل الفعلية وحدها تُخصم من التعويض عند تسجيل الدفع (الصافي = الإجمالي − الرسوم)؛ بلا رسوم يبقى الصافي مساويًا للإجمالي.</li>
+                        <li>التراجع عن الإلغاء قبل نهاية المدة يغلق طلب التعويض المفتوح تلقائيًا، والاشتراك السنوي يضيف 14 يومًا هدية مرة واحدة لكل مدة.</li>
+                        <li>لا إلغاء فوري: الاشتراك يبقى فعّالًا حتى نهاية مدته، والخدمات لا تُسحب قبلها — الإلغاء في نهاية المدة نفسه من الترحيل 136.</li>
+                        <li>لا صرف مال تلقائيًا: لا بوابة دفع ولا تحويل في أي دالة. بعد الموافقة تفتح تذكرة تعويض من حساب العميل تطلب بيانات التحويل، وبعد وصولها يسجّل المالك الدفع يدويًا بملاحظة مسجَّلة.</li>
+                        <li>بيانات التحويل (وسيلة + رقم/حساب) تُحفظ على طلب التعويض وحده — لا تُكتب في أي تذكرة أو ردّ.</li>
+                    </ul>
+                </section>
+            </div>
+
+            <details class="owner-limits">
+                <summary>ما لا تفعله هذه الصفحة</summary>
+                <ul>
+                    <li>لا تلغي اشتراكًا فورًا ولا تسحب خدمات قبل نهاية المدة — الإلغاء تمّ في نهاية المدة عند طلب العميل أصلًا.</li>
+                    <li>لا تحوّل مالًا ولا تخصم من أي حساب — زر «تسجيل الدفع» تسجيل فقط لتحويل تمّ خارج النظام.</li>
+                    <li>لا توافق تلقائيًا: كل طلب يبقى معلّقًا حتى قرارك هنا، بتحقق حديث وسبب مسجَّل للرفض وملاحظة مسجَّلة للدفع.</li>
+                </ul>
+            </details>
+            <p class="owner-sie-status ows-toast" id="pageStatus" role="status" aria-live="polite" title="إخفاء" hidden></p>
+        </div>
+    </main>
+
+    <script type="module" src="/assets/js/owner/pages/refunds.js"></script>
+</body>
+</html>
