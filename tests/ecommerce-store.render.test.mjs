@@ -255,6 +255,39 @@ test('صفحة Shopify: الصلاحيات الناقصة تطلب إعادة ا
     await context.close();
 });
 
+test('صفحة Shopify: فصل المتجر بعد التأكيد ينادي ihub_disconnect مرة واحدة', { skip: !chromiumPath }, async () => {
+    // انحدار: المعالج كان يقرأ e.currentTarget بعد await حوار التأكيد،
+    // فيعيد المتصفح null ويرمي TypeError فيموت قبل النداء — «تأكيد بلا أي أثر».
+    const { page, context, errors } = await openDashboard(
+        storeFx({ rpc: { ihub_disconnect: { disconnected: true, provider: 'shopify', records_deleted: 0 } } }), '#shopify');
+    await page.waitForSelector('#shopifyDisconnect');
+    await page.click('#shopifyDisconnect');
+    await page.waitForSelector('.ui-dialog');
+    await page.locator('.ui-dialog button:has-text("فصل المتجر")').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'ihub_disconnect'));
+    assert.deepEqual(await called(page, 'ihub_disconnect'), [{ p_connection: CONN }]);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('طلبات المتابعة: إغلاق طلب بتأكيد ينادي store_request_update', { skip: !chromiumPath }, async () => {
+    // نفس انحدار زر الفصل: e.currentTarget بعد await حوار التأكيد null.
+    const { page, context, errors } = await openDashboard(
+        storeFx({ rpc: { store_request_update: { updated: true } } }), '#storeRequests');
+    await page.waitForSelector('tr[data-req="q1"] [data-save]');
+    await page.selectOption('tr[data-req="q1"] [data-status]', 'resolved');
+    await page.click('tr[data-req="q1"] [data-save]');
+    await page.waitForSelector('.ui-dialog');
+    await page.locator('.ui-dialog button:has-text("إغلاق الطلب")').click();
+    await page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'store_request_update'));
+    const args = await called(page, 'store_request_update');
+    assert.equal(args.length, 1);
+    assert.equal(args[0].p_request, 'q1');
+    assert.equal(args[0].p_status, 'resolved');
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
 test('ربط Shopify: النطاق يُفحص قبل أي نداء، والتحويل إلى المتجر نفسه فقط، والبصمة في تبويب البداية', { skip: !chromiumPath }, async () => {
     const fx = storeFx({ connection: null });
     const { page, context, errors } = await openDashboard(fx, '#shopify');

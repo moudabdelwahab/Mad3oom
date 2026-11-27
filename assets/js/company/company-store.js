@@ -315,11 +315,15 @@ export async function loadShopifyPage() {
         toast(t.ok ? 'تم الحفظ.' : msg(t.code, t.error), t.ok ? 'success' : 'error');
     });
     $('shopifyDisconnect')?.addEventListener('click', async (e) => {
+        // الزر يُلتقط قبل أي await: بعد انتظار حوار التأكيد ينتهي توزيع الحدث
+        // فيعيد المتصفح e.currentTarget إلى null، فكان الوصول إليه بعده يرمي
+        // TypeError ويُسقط المعالج قبل نداء الفصل — «تأكيد بلا أي أثر».
+        const btn = e.currentTarget;
         const okToGo = await ui.showConfirm('فصل متجر Shopify',
             'تُحذف الرموز والنسخ المخزّنة من مدعوم فورًا، وتبقى التذاكر وطلبات المتابعة. لإيقاف وصول التطبيق نهائيًا أزله أيضًا من لوحة Shopify (الإعدادات ← التطبيقات).',
             { confirmLabel: 'فصل المتجر', cancelLabel: 'تراجع' });
         if (!okToGo) return;
-        e.currentTarget.disabled = true;
+        btn.disabled = true;
         const t = await disconnectConnection(conn.id);
         toast(t.ok ? 'فُصل المتجر.' : msg(t.code, t.error), t.ok ? 'success' : 'error');
         loadShopifyPage();
@@ -562,6 +566,9 @@ export async function loadStoreRequests() {
         loadStoreRequests();
     }));
     c.querySelectorAll('tr[data-req]').forEach((tr) => tr.querySelector('[data-save]').addEventListener('click', async (e) => {
+        // كزر الفصل أعلاه: الزر يُلتقط قبل أي await، فانتظار حوار التأكيد
+        // (عند إغلاق طلب) يُعيد e.currentTarget إلى null بعده.
+        const btn = e.currentTarget;
         const id = tr.getAttribute('data-req');
         const q = items.find((x) => x.id === id);
         const status = tr.querySelector('[data-status]').value;
@@ -573,7 +580,7 @@ export async function loadStoreRequests() {
             if (!ok) return;
             resolutionNote = 'أُغلق من لوحة المتجر';
         }
-        e.currentTarget.disabled = true;
+        btn.disabled = true;
         const res = await updateRequest(id, {
             status: status !== q.status ? status : null, resolutionNote,
             assignedTo: assignee && assignee !== q.assigned_to ? assignee : null, unassign: !assignee && !!q.assigned_to
