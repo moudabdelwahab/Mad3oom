@@ -49,10 +49,14 @@ test('البوابة لا تحمل شراء باقات ولا أقسام الش�
     const js = readFileSync(new URL('../assets/js/portal/portal.js', import.meta.url), 'utf8')
         + readFileSync(new URL('../assets/js/portal/portal-moves.js', import.meta.url), 'utf8')
         + readFileSync(new URL('../assets/js/portal/portal-messages.js', import.meta.url), 'utf8');
-    for (const forbidden of ['subscriptions.html', 'payment.html', 'chat-widget', '/company-dashboard/',
+    for (const forbidden of ['subscriptions.html', 'payment.html', '/company-dashboard/',
                              'get_my_company_dashboard', 'company_members', 'api-token', 'integrations']) {
         assert.ok(!html.includes(forbidden) && !js.includes(forbidden), `البوابة تشير إلى ${forbidden}`);
     }
+    // قرار محمود 2026-11-27: فقاعة الدعم (SIE) في كل اللوحات، ومنها البوابة —
+    // 'chat-widget' لم يعد محظورًا هنا؛ البوابة يجب أن تحمله.
+    assert.ok(html.includes('/chat-widget.js'), 'البوابة يجب أن تحمل ويدجت الدعم chat-widget.js');
+    assert.ok(html.includes('/chat-widget.css'), 'البوابة يجب أن تحمل أنماط ويدجت الدعم chat-widget.css');
 });
 
 test('096: محوّل الشركات من رد الخادم', () => {

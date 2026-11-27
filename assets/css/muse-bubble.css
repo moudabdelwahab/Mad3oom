@@ -1,0 +1,782 @@
+/* ============================================================================
+   muse-bubble.css — فقاعة Muse العائمة في لوحتي المالك والإدارة فقط
+   (owner-dashboard.html + owner/*.html و admin-dashboard.html + admin/*.html،
+   ما عدا صفحات الشات الكاملة).
+
+   التعايش مع فقاعة SIE (chat-widget.css، المهمة 1 — موجودة على هذه الصفحات):
+   • مشغّل SIE ثابت أسفل اليسار (اليسار الفيزيائي): bottom var(--cw-gap)
+     ‏(24px على سطح المكتب، 16px على الجوال)، z-index 9998، ارتفاعه 56px.
+   • مشغّل Muse على الجهة نفسها، فوق مشغّل SIE مباشرة:
+     bottom calc(var(--cw-gap) + 72px) ‏(56px ارتفاع SIE + ‏16px فجوة)،
+     left var(--cw-gap)، z-index 9999.
+   • لوحة Muse فوق الاثنين: bottom calc(var(--cw-gap) + 72px + 56px + 12px)،
+     left var(--cw-gap)، z-index 10000 — فلا يغطيها مشغّل SIE أبدًا.
+   • على الجوال (<=640px): اللوحة ورقة سفلية (bottom sheet) بعرض كامل
+     و max-height ~75vh وحشوة safe-area؛ المشغّلان يبقيان مكدّسين فوق
+     بعضهما ولا يغطيان حقل الإدخال أو التنقل لأنهما في الركن السفلي فقط.
+
+   الثيم: كل الألوان من متغيرات اللوحة (‎--color-*‎) مع بدائل، ونسخة داكنة
+   تحت ‎[data-theme="dark"]‎ — لا لوحة فاتحة مثبتة أبدًا.
+   النطاق: كل محدد هنا تحت ‎.muse-bubble‎ فلا يعيد تنسيق صفحة المضيف.
+   ========================================================================== */
+
+/* قاعدة عامة: أي عنصر بلا display صريح يهزم [hidden] — منها شريط الخطأ
+   (display:flex) ولوحة الفقاعة نفسها. بدونها يظهر عنصر مخفي فارغًا. */
+.muse-bubble [hidden] {
+    display: none !important;
+}
+
+.muse-bubble {
+    --mb-surface: var(--color-surface, #ffffff);
+    --mb-surface-2: var(--color-surface-2, #f5f7fa);
+    --mb-text: var(--color-text, #333333);
+    --mb-text-2: var(--color-text-secondary, #777777);
+    --mb-border: var(--color-border, #dddddd);
+    --mb-accent: var(--color-accent, #0077cc);
+    --mb-accent-soft: var(--color-accent-soft, rgba(0, 119, 204, 0.1));
+    --mb-danger: var(--color-danger, #d9534f);
+    --mb-warning: var(--color-warning, #e0a800);
+    --mb-input-bg: var(--input-bg, var(--mb-surface));
+    --mb-shadow: 0 24px 60px -12px rgba(0, 28, 58, 0.28), 0 4px 14px rgba(0, 28, 58, 0.08);
+    --mb-launcher-shadow: 0 10px 26px -6px rgba(109, 40, 217, 0.5);
+    --mb-focus: 0 0 0 3px rgba(124, 58, 237, 0.3);
+    direction: rtl;
+    font-family: 'Cairo', system-ui, sans-serif;
+    line-height: 1.5;
+}
+
+[data-theme="dark"] .muse-bubble {
+    --mb-surface-2: var(--color-surface-2, #142236);
+    --mb-accent-soft: var(--color-accent-soft, rgba(0, 136, 221, 0.16));
+    --mb-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.6), 0 4px 14px rgba(0, 0, 0, 0.4);
+    --mb-launcher-shadow: 0 10px 26px -6px rgba(124, 58, 237, 0.55);
+}
+
+/* تسمية مخفية بصريًا (لقارئ الشاشة فقط) — معرّفة هنا لأن صفحات الإدارة
+   لا تحمّل customer-dashboard.css حيث يعيش .visually-hidden العام. */
+.muse-bubble .mb-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ── مشغّل Muse: فوق مشغّل SIE على الجهة نفسها ── */
+
+.muse-bubble .mb-launcher {
+    position: fixed;
+    bottom: calc(var(--cw-gap, 24px) + 72px);
+    left: var(--cw-gap, 24px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 56px;
+    padding: 6px;
+    padding-inline-start: 8px;
+    padding-inline-end: 16px;
+    border: 0;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 55%, #2563eb 100%);
+    color: #ffffff;
+    box-shadow: var(--mb-launcher-shadow);
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.muse-bubble .mb-launcher:hover {
+    transform: translateY(-2px);
+}
+
+.muse-bubble .mb-launcher:active {
+    transform: translateY(0) scale(0.97);
+}
+
+.muse-bubble .mb-launcher:focus-visible {
+    outline: none;
+    box-shadow: var(--mb-launcher-shadow), var(--mb-focus);
+}
+
+.muse-bubble .mb-launcher-avatar {
+    width: 44px;
+    height: 44px;
+    flex: none;
+    border-radius: 50%;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.muse-bubble .mb-launcher-avatar .muse-avatar-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.muse-bubble .mb-launcher-label {
+    white-space: nowrap;
+}
+
+/* ── اللوحة: حوار مضغوط فوق المشغّلين ── */
+
+.muse-bubble .mb-panel {
+    position: fixed;
+    left: var(--cw-gap, 24px);
+    bottom: calc(var(--cw-gap, 24px) + 72px + 56px + 12px);
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    width: min(380px, calc(100vw - 2 * var(--cw-gap, 24px)));
+    height: min(600px, calc(100dvh - 190px));
+    min-height: 0;
+    border: 1px solid var(--mb-border);
+    border-radius: 18px;
+    background: var(--mb-surface);
+    color: var(--mb-text);
+    box-shadow: var(--mb-shadow);
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(12px) scale(0.98);
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+}
+
+.muse-bubble .mb-panel.mb-open {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+}
+
+/* ── ترويسة اللوحة: الأفاتار المتحرك + العنوان والحالة ── */
+
+.muse-bubble .mb-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--mb-border);
+}
+
+.muse-bubble .mb-head-titles {
+    flex: 1;
+    min-width: 0;
+}
+
+.muse-bubble .mb-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--mb-text);
+}
+
+.muse-bubble .mb-status {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--mb-text-2);
+}
+
+.muse-bubble .mb-status.is-waiting {
+    color: var(--mb-accent);
+}
+
+.muse-bubble .mb-close {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--mb-text-2);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.muse-bubble .mb-close:hover {
+    background: var(--mb-surface-2);
+    color: var(--mb-text);
+}
+
+.muse-bubble .mb-close:focus-visible,
+.muse-bubble .mb-agent-chip:focus-visible,
+.muse-bubble .mb-new-chat:focus-visible,
+.muse-bubble .mb-send:focus-visible,
+.muse-bubble .mb-retry:focus-visible,
+.muse-bubble .mb-full-link:focus-visible,
+.muse-bubble .mb-input:focus-visible,
+.muse-bubble .mb-search:focus-visible {
+    outline: none;
+    box-shadow: var(--mb-focus);
+}
+
+/* الكوتة: سطر مضغوط في الترويسة — من لقطة الجلسة النشطة فقط، بلا رقم مخترع. */
+.muse-bubble .mb-quota {
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--mb-text-2);
+}
+
+.muse-bubble .mb-quota-bar {
+    height: 5px;
+    margin-top: 3px;
+    border-radius: 999px;
+    background: var(--mb-surface-2);
+    overflow: hidden;
+}
+
+.muse-bubble .mb-quota-bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--mb-accent);
+}
+
+.muse-bubble .mb-quota.is-low .mb-quota-bar-fill {
+    background: var(--mb-danger);
+}
+
+.muse-bubble .mb-quota.is-low .mb-quota-value {
+    color: var(--mb-danger);
+}
+
+.muse-bubble .mb-quota-value {
+    font-weight: 800;
+    color: var(--mb-accent);
+}
+
+.muse-bubble .mb-quota-low,
+.muse-bubble .mb-quota-stale {
+    margin-top: 2px;
+    font-weight: 700;
+}
+
+.muse-bubble .mb-quota-low {
+    color: var(--mb-danger);
+}
+
+.muse-bubble .mb-quota-stale {
+    color: var(--mb-warning);
+}
+
+/* ── اختيار الوكيل وقائمة الجلسات ── */
+
+.muse-bubble .mb-agent-row {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px 0;
+}
+
+.muse-bubble .mb-agent-chip {
+    flex: 1;
+    padding: 7px 8px;
+    border: 1px solid var(--mb-border);
+    border-radius: 10px;
+    background: var(--mb-surface-2);
+    color: var(--mb-text);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.muse-bubble .mb-agent-chip.is-active {
+    background: var(--mb-accent-soft);
+    border-color: var(--mb-accent);
+    color: var(--mb-accent);
+}
+
+.muse-bubble .mb-sessions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px 0;
+}
+
+.muse-bubble .mb-session-row {
+    display: flex;
+    gap: 8px;
+}
+
+.muse-bubble .mb-search {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 10px;
+    border: 1px solid var(--mb-border);
+    border-radius: 10px;
+    background: var(--mb-input-bg);
+    color: var(--mb-text);
+    font-family: inherit;
+    font-size: 13px;
+}
+
+.muse-bubble .mb-new-chat {
+    flex: none;
+    padding: 7px 12px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--mb-accent);
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.muse-bubble .mb-session-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 110px;
+    overflow-y: auto;
+}
+
+.muse-bubble .mb-session-item {
+    border: 1px solid var(--mb-border);
+    border-radius: 10px;
+    background: var(--mb-surface-2);
+    overflow: hidden;
+}
+
+.muse-bubble .mb-session-item.is-active {
+    border-color: var(--mb-accent);
+    background: var(--mb-accent-soft);
+}
+
+.muse-bubble .mb-session-open {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    width: 100%;
+    padding: 7px 10px;
+    border: 0;
+    background: transparent;
+    color: var(--mb-text);
+    font-family: inherit;
+    text-align: right;
+    cursor: pointer;
+}
+
+.muse-bubble .mb-session-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+}
+
+.muse-bubble .mb-session-dot {
+    width: 8px;
+    height: 8px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--mb-text-2);
+}
+
+.muse-bubble .mb-session-dot--waiting {
+    background: var(--mb-warning);
+}
+
+.muse-bubble .mb-session-dot--answered {
+    background: var(--color-success, #28a745);
+}
+
+.muse-bubble .mb-session-title {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.muse-bubble .mb-session-preview {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--mb-text-2);
+}
+
+.muse-bubble .mb-sessions-empty {
+    margin: 0;
+    font-size: 12px;
+    color: var(--mb-text-2);
+    text-align: center;
+}
+
+/* ── الرسائل ── */
+
+.muse-bubble .mb-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    min-height: 0;
+    padding: 12px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.muse-bubble .mb-msg {
+    max-width: 85%;
+    padding: 8px 12px;
+    border: 1px solid var(--mb-border);
+    border-radius: 14px;
+    background: var(--mb-surface-2);
+    color: var(--mb-text);
+    align-self: flex-start;
+}
+
+.muse-bubble .mb-msg--user {
+    align-self: flex-end;
+    background: var(--mb-accent-soft);
+    border-color: var(--mb-accent);
+}
+
+.muse-bubble .mb-msg--assistant {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.muse-bubble .mb-msg-avatar {
+    width: 26px;
+    height: 26px;
+    flex: none;
+    margin-top: 2px;
+}
+
+.muse-bubble .mb-msg-avatar .muse-avatar-svg {
+    border-radius: 8px;
+}
+
+.muse-bubble .mb-msg-body {
+    min-width: 0;
+}
+
+.muse-bubble .mb-msg-text {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    line-height: 1.7;
+    font-size: 14px;
+}
+
+.muse-bubble .mb-msg-time {
+    display: block;
+    margin-top: 3px;
+    font-size: 11px;
+    color: var(--mb-text-2);
+}
+
+.muse-bubble .mb-msg-took {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--mb-text-2);
+}
+
+.muse-bubble .mb-empty {
+    margin: auto;
+    font-size: 13px;
+    color: var(--mb-text-2);
+    text-align: center;
+}
+
+/* فقاعة الانتظار: نقاط نابضة + مرحلة + عدّاد ثوانٍ حي. */
+.muse-bubble .mb-thinking {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    align-self: flex-start;
+    max-width: 85%;
+    padding: 8px 12px;
+    border: 1px solid var(--mb-border);
+    border-radius: 14px;
+    background: var(--mb-surface-2);
+    color: var(--mb-text);
+}
+
+.muse-bubble .mb-thinking-text {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.muse-bubble .mb-thinking-stage {
+    font-size: 12px;
+    color: var(--mb-text-2);
+}
+
+.muse-bubble .mb-thinking-timer {
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--mb-accent-soft);
+    color: var(--mb-accent);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.muse-bubble .mb-thinking-dots {
+    display: inline-flex;
+    gap: 3px;
+}
+
+.muse-bubble .mb-thinking-dots i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--mb-accent);
+    animation: mb-thinking-bounce 1.2s ease-in-out infinite;
+}
+
+.muse-bubble .mb-thinking-dots i:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.muse-bubble .mb-thinking-dots i:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes mb-thinking-bounce {
+    0%, 100% { transform: translateY(0); opacity: 0.4; }
+    50% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* ── شريط الخطأ والإدخال والرابط الكامل ── */
+
+.muse-bubble .mb-error {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 8px 12px 0;
+    padding: 9px 12px;
+    border: 1px solid var(--mb-danger);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--mb-danger) 8%, transparent);
+}
+
+.muse-bubble .mb-error p {
+    margin: 0;
+    flex: 1;
+    min-width: 180px;
+    font-size: 13px;
+}
+
+.muse-bubble .mb-retry {
+    flex: none;
+    padding: 6px 12px;
+    border: 1px solid var(--mb-border);
+    border-radius: 8px;
+    background: var(--mb-surface);
+    color: var(--mb-text);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.muse-bubble .mb-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 10px 12px 0;
+    padding-top: 10px;
+    border-top: 1px solid var(--mb-border);
+}
+
+.muse-bubble .mb-input {
+    flex: 1;
+    min-width: 0;
+    padding: 9px 12px;
+    border: 1px solid var(--mb-border);
+    border-radius: 10px;
+    background: var(--mb-input-bg);
+    color: var(--mb-text);
+    font-family: inherit;
+    font-size: 14px;
+}
+
+.muse-bubble .mb-send {
+    flex: none;
+    padding: 9px 16px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--mb-accent);
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.muse-bubble .mb-send:disabled,
+.muse-bubble .mb-input:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.muse-bubble .mb-foot {
+    padding: 8px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    text-align: center;
+}
+
+.muse-bubble .mb-full-link {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--mb-accent);
+    text-decoration: none;
+}
+
+.muse-bubble .mb-full-link:hover {
+    text-decoration: underline;
+}
+
+/* ── الأفاتار المتحرك ──
+   الحد الأدنى من قواعد ‎.muse-avatar‎ من assets/css/owner-muse-chat.css
+   (الأسطر ~146–242)، منسوخة هنا بنطاق ‎.muse-bubble‎ حتى لا تُحمَّل الصفحة
+   الكاملة على كل لوحة ولا تعيد تنسيق أي أفاتار خارج الفقاعة.
+   أسماء الحركات أُعيدت تسميتها بـ mb- لتفادي التصادم إن حُمّل الملفان معًا. */
+
+.muse-bubble .muse-avatar {
+    width: 48px;
+    height: 48px;
+    flex: none;
+    border-radius: 16px;
+    position: relative;
+}
+
+.muse-bubble .muse-avatar-body {
+    width: 100%;
+    height: 100%;
+    will-change: transform;
+}
+
+.muse-bubble .muse-avatar-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* حلقة توهج أثناء التفكير — مؤشر حالة فقط، يظهر مع الحالة ويختفي معها. */
+.muse-bubble .muse-avatar--thinking .muse-avatar-body {
+    animation: mb-avatar-ring 1s ease-in-out infinite;
+}
+
+@keyframes mb-avatar-ring {
+    0%, 100% { filter: drop-shadow(0 0 0 rgba(77, 163, 255, 0)); }
+    50% { filter: drop-shadow(0 0 10px rgba(77, 163, 255, 0.55)); }
+}
+
+/* نقاط التفكير فوق رأس الأفاتار — مخفية إلا في حالة التفكير، وتنبض بتتابع. */
+.muse-bubble .muse-avatar-thinking-dots {
+    opacity: 0;
+}
+
+.muse-bubble .muse-avatar--thinking .muse-avatar-thinking-dots {
+    opacity: 1;
+}
+
+.muse-bubble .muse-avatar--thinking .muse-avatar-thinking-dots circle {
+    animation: mb-avatar-think-dot 1.2s ease-in-out infinite;
+}
+
+.muse-bubble .muse-avatar--thinking .muse-avatar-thinking-dots circle:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.muse-bubble .muse-avatar--thinking .muse-avatar-thinking-dots circle:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes mb-avatar-think-dot {
+    0%, 100% { opacity: 0.25; }
+    50% { opacity: 1; }
+}
+
+.muse-bubble .muse-avatar-eyes {
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: transform 70ms ease-in;
+}
+
+.muse-bubble .muse-avatar.is-blinking .muse-avatar-eyes {
+    transform: scaleY(0.08);
+}
+
+.muse-bubble .muse-avatar-mouth {
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: scaleY(0);
+}
+
+.muse-bubble .muse-avatar-smile {
+    transition: opacity 120ms ease;
+}
+
+.muse-bubble .muse-avatar--speaking .muse-avatar-smile {
+    opacity: 0;
+}
+
+/* الحركة موقوفة: الجسم ثابت والفم مغلق مهما كانت الحالة. */
+.muse-bubble .muse-avatar--off .muse-avatar-body {
+    transform: none !important;
+    animation: none !important;
+}
+
+.muse-bubble .muse-avatar--off .muse-avatar-mouth {
+    transform: scaleY(0) !important;
+}
+
+.muse-bubble .muse-avatar--off .muse-avatar-thinking-dots {
+    opacity: 0 !important;
+}
+
+.muse-bubble .muse-avatar--off .muse-avatar-thinking-dots circle {
+    animation: none !important;
+}
+
+/* ── الشاشات الصغيرة: اللوحة ورقة سفلية ── */
+
+@media (max-width: 640px) {
+    .muse-bubble .mb-launcher {
+        bottom: calc(var(--cw-gap, 16px) + 72px);
+        left: var(--cw-gap, 16px);
+    }
+
+    .muse-bubble .mb-panel,
+    .muse-bubble .mb-panel.mb-open {
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        height: auto;
+        max-height: 75vh;
+        max-height: 75dvh;
+        border-radius: 18px 18px 0 0;
+    }
+
+    .muse-bubble .mb-input {
+        font-size: 16px; /* يمنع تكبير iOS التلقائي */
+    }
+}
+
+/* احترام تقليل الحركة: الانتقال يختفي، وحركة الأفاتار نفسها يحكمها
+   createMuseAvatar عبر prefers-reduced-motion. */
+@media (prefers-reduced-motion: reduce) {
+    .muse-bubble .mb-panel,
+    .muse-bubble .mb-launcher {
+        transition: none;
+    }
+}

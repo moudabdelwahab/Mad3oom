@@ -258,6 +258,7 @@ h1,h2,h3,h4{font-family:var(--font-display);font-weight:800;letter-spacing:-.01e
   <!-- الأساس المتجاوب: يضمن عمل الصفحة على شاشات الجوال -->
   <link rel="stylesheet" href="/assets/responsive-global.css">
   <script src="/assets/responsive-global.js" defer></script>
+    <link rel="stylesheet" href="/chat-widget.css">
 </head>
 <body class="dash-layout">
 <div id="sidebar-container"></div>
@@ -691,5 +692,6 @@ if (user) {
     console.log('[DEBUG] checkAdminAuth() returned null/undefined — should redirect to login.html');
 }
 </script>
+    <script type="module" src="/chat-widget.js"></script>
 </body>
 </html>
