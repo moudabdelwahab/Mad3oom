@@ -116,7 +116,7 @@ Each management operation checks **its own scope** against `ihub_connections.gra
 
 ## 5. Database migration 120 (additive)
 
-- Feature flag `shopify_management` — **not granted to any plan**; allowed as a pilot override; `owner_store_test_management()` grants it to the platform owner's own test store only (≤ 30 days, reason, step-up).
+- Feature flag `shopify_management` — **not granted to any plan**; allowed as a pilot override; `owner_store_test_management()` grants it to the platform owner's own test store only (≤ 30 days, reason, step-up). Since 151 the grant has a button on the owner page («المتاجر وشوبيفاي» → «متجر الاختبار» → «منح إدارة المتجر للاختبار»), and `owner_store_test_status()` lists it, so its state is visible there; before 151 the RPC had no UI and management could not be enabled from the dashboard.
 - Permission catalog keys (default **off** for supervisor and agent; the store admin has them): `store.catalog`, `store.inventory`, `store.orders_manage`, `store.customers_manage`, `store.discounts`, `store.fulfillment`, `store.returns`.
 - `_ihub_shopify_op(key)` — the server-side operation catalog (permission, risk, confirmation, required scope). The Edge catalog is tested to match it.
 - `ihub_shopify_confirmations` — one-time confirmation tokens (hash only) bound to user + connection + operation + input hash, 5 minutes.

@@ -10,7 +10,9 @@
  *   • owner_ihub_sync_request / owner_ihub_events_retry (133): إجراءان تشغيليان للمالك على روابط
  *     Shopify — بلا سياق مدير المتجر، ومدقَّقان في _ihub_audit. إعادة التفويض للمدير وحده:
  *     الربط reauth_required بلا زر مزامنة.
- *   • owner_store_test_status (133): حالة امتياز متجر الاختبار من شركة المالك مباشرة — بلا بحث نصي.
+ *   • owner_store_test_status (133، و151 يضم shopify_management): حالة امتياز متجر الاختبار من شركة المالك مباشرة — بلا بحث نصي.
+ *   • owner_store_test_management (120، زرها هنا منذ 151): منح/سحب امتياز إدارة المتجر لمتجر الاختبار وحده
+ *     (≤ 30 يومًا، سبب ≥ 10 أحرف، owner_critical_ok) — بلا الزر كانت الدالة بلا واجهة، فكانت الإدارة غير قابلة للتفعيل من اللوحة.
  *   • owner_store_grant_exception / owner_store_subscription / owner_store_set_end_date / owner_store_pause /
  *     owner_store_resume / owner_store_change_cycle (133): إدارة اشتراك متجر كاستثناء من المالك — owner_critical_ok()
  *     وسبب ≥10 أحرف ومدقَّقة في privileged_audit و subscription_audit_log؛ المتوقف لا يُعامل فعّالًا، والاستئناف
@@ -859,6 +861,26 @@ function openRevokeModal() {
     });
 }
 
+function openMgmtRevokeModal() {
+    const modal = openModal({
+        title: 'سحب إدارة المتجر للاختبار',
+        html: `<p class="panel-subtitle">ستُسحب إدارة المتجر عن متجر الاختبار فورًا، وتعود عمليات الكتابة في شوبيفاي مرفوضة. يمكن منحها من جديد بعد ذلك.</p>
+            <div class="form-actions">
+                <button type="button" class="btn btn-danger btn-sm" id="confirmMgmtRevoke">سحب إدارة المتجر</button>
+            </div>
+            <p class="owner-sie-status" id="mgmtRevokeStatus" role="status" aria-live="polite" hidden></p>`
+    });
+    modal.body.querySelector('#confirmMgmtRevoke').addEventListener('click', async (e) => {
+        e.currentTarget.disabled = true;
+        const { error } = await rpc('owner_store_test_management', { p_enable: false, p_days: 1, p_reason: null });
+        if (error) { announce(modal.body.querySelector('#mgmtRevokeStatus'), friendlyError(error), 'error'); e.currentTarget.disabled = false; return; }
+        modal.close();
+        say('سُحبت إدارة المتجر.', 'success');
+        loadTestStore();
+        loadDiagnostics();
+    });
+}
+
 async function loadTestStore() {
     const box = $('testStore');
     box.innerHTML = loadingBlock();
@@ -897,6 +919,23 @@ async function loadTestStore() {
                     <button type="button" class="btn btn-outline btn-sm" id="testRevoke" data-critical>سحبها</button>
                 </div>
                 <p class="owner-sie-status" id="testGrantStatus" role="status" aria-live="polite" hidden></p>
+            </form>
+            <form class="owner-action-form" id="testMgmtForm" novalidate>
+                <div class="form-field">
+                    <label for="testMgmtDays">مدة إدارة المتجر</label>
+                    <select id="testMgmtDays" class="form-control owner-filter-select"><option value="1">يوم</option><option value="7" selected>7 أيام</option><option value="30">30 يومًا</option></select>
+                </div>
+                <div class="form-field">
+                    <label for="testMgmtReason">السبب (يُسجَّل في تدقيق المالك)</label>
+                    <input type="text" class="form-control" id="testMgmtReason" maxlength="300" autocomplete="off" required
+                        value="اختبار إدارة المتجر على شركة المالك">
+                </div>
+                <p class="panel-subtitle">تفعيل «إدارة المتجر» وحده لا يكفي: بعد المنح أعد تفويض Shopify من صفحة المتجر في لوحة الشركة لمنح التطبيق نطاقات الكتابة (إدارة المتجر تتطلب النطاقات التسعة عشر).</p>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary btn-sm" data-critical>منح إدارة المتجر للاختبار</button>
+                    <button type="button" class="btn btn-outline btn-sm" id="testMgmtRevoke" data-critical>سحب إدارة المتجر</button>
+                </div>
+                <p class="owner-sie-status" id="testMgmtStatus" role="status" aria-live="polite" hidden></p>
             </form>` : ''}` : ''}
         <h3 class="panel-title">معاينة لوحة المتجر</h3>
         <p class="panel-subtitle">معاينة متجر أي شركة من قسم «معاينة متجر شركة» أدناه — قراءة فقط، بلا تبديل سياق. واجهة «معاينة عضو» تعرض اللوحة كعضو؛ الكتابة وبيانات شوبيفاي الحية مرفوضة في القاعدة أثناء المعاينة.</p>`;
@@ -920,6 +959,23 @@ async function loadTestStore() {
         loadDiagnostics();
     });
     $('testRevoke')?.addEventListener('click', openRevokeModal);
+    $('testMgmtForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.currentTarget;
+        const status = (t, tone) => announce(form.querySelector('#testMgmtStatus'), t, tone);
+        const reason = form.querySelector('#testMgmtReason').value;
+        const err = storeReasonError(reason);
+        if (err) { status(err, 'error'); return; }
+        const btn = form.querySelector('button[type=submit]');
+        btn.disabled = true;
+        const { data, error } = await rpc('owner_store_test_management', { p_enable: true, p_days: Number(form.querySelector('#testMgmtDays').value), p_reason: reason });
+        btn.disabled = false;
+        if (error) { status(friendlyError(error), 'error'); return; }
+        say(`مُنحت إدارة المتجر حتى ${when(data?.expires_at)}.`, 'success');
+        loadTestStore();
+        loadDiagnostics();
+    });
+    $('testMgmtRevoke')?.addEventListener('click', openMgmtRevokeModal);
 }
 
 function renderKpis() {

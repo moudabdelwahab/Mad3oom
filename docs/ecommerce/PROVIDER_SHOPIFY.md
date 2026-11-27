@@ -111,7 +111,7 @@ Management (120) — schema-valid, never executed:
 
 ## Development-store testing steps (management)
 Prerequisites (each needs separate approval): 118/119 applied (done), **120 applied**, Edge Functions redeployed with `shopify-admin.js`, app created with the toml scopes, secrets set.
-1. Owner → own test company → store account → `owner_store_test_entitlements(true, 7, reason)` and `owner_store_test_management(true, 7, reason)` (own store only, ≤ 30 days, step-up).
+1. Owner → own test company → store account → `owner_store_test_entitlements(true, 7, reason)` and `owner_store_test_management(true, 7, reason)` (own store only, ≤ 30 days, step-up). Since 151 both are granted from the owner page «المتاجر وشوبيفاي» → «متجر الاختبار» (the management form, with its status line from `owner_store_test_status()`); the RPCs remain the underlying calls. Enabling the flag alone is not enough — step 3 (re-authorize for the 19 scopes) must follow.
 2. Enable the provider for the test window only (`update ihub_providers set enabled = true where key = 'shopify'`).
 3. Connect (or re-authorize) a Shopify **development store**: the authorize URL must list the 19 scopes; afterwards `ihub_connections.granted_scopes` covers them and «إدارة المتجر» shows no "re-authorize" notice.
 4. Optional: run `integrations/shopify/schema-check.mjs` against an introspection taken from the dev store.

@@ -614,6 +614,7 @@ test('المتاجر: نافذة السجل تعيد محاولة الأحداث
         entitlements: [
             { feature_key: 'integrations_hub', granted: false, active: false, granted_at: null, expires_at: null, days_remaining: null },
             { feature_key: 'shopify_integration', granted: true, active: true, granted_at: '2026-10-26T00:00:00Z', expires_at: future, days_remaining: 6 },
+            { feature_key: 'shopify_management', granted: false, active: false, granted_at: null, expires_at: null, days_remaining: null },
             { feature_key: 'store_support', granted: false, active: false, granted_at: null, expires_at: null, days_remaining: null }] };
     const second = await openPage(browser, baseUrl, 'stores', fx2);
     await second.page.waitForSelector('#testGrantForm');
@@ -635,6 +636,27 @@ test('المتاجر: نافذة السجل تعيد محاولة الأحداث
     await second.page.waitForFunction(() => (window.__RPC_ARGS__ || []).filter(([n]) => n === 'owner_store_test_entitlements').length === 2);
     assert.deepEqual(await rpcCalls(second.page, 'owner_store_test_entitlements'),
         [{ p_enable: true, p_days: 7, p_reason: 'اختبار المنح التجريبي' },
+         { p_enable: false, p_days: 1, p_reason: null }]);
+
+    // نموذج إدارة المتجر: حالته معروضة، والسبب القصير لا يُرسل، والكامل يمنح، والسحب بتأكيد
+    await second.page.waitForSelector('#testMgmtForm');
+    assert.match(await second.page.textContent('#testStore'), /إدارة المتجر: غير ممنوح/);
+    await second.page.fill('#testMgmtReason', 'قصير');
+    await second.page.click('#testMgmtForm button[type=submit]');
+    assert.match(await second.page.textContent('#testMgmtStatus'), /10 أحرف/);
+    assert.deepEqual(await rpcCalls(second.page, 'owner_store_test_management'), []);
+    await second.page.fill('#testMgmtReason', 'اختبار إدارة المتجر');
+    await second.page.click('#testMgmtForm button[type=submit]');
+    await second.page.waitForFunction(() => (window.__RPC_ARGS__ || []).some(([n]) => n === 'owner_store_test_management'));
+    assert.deepEqual(await rpcCalls(second.page, 'owner_store_test_management'),
+        [{ p_enable: true, p_days: 7, p_reason: 'اختبار إدارة المتجر' }]);
+    await second.page.waitForSelector('#testMgmtRevoke');
+    await second.page.click('#testMgmtRevoke');
+    await second.page.waitForSelector('#confirmMgmtRevoke');
+    await second.page.click('#confirmMgmtRevoke');
+    await second.page.waitForFunction(() => (window.__RPC_ARGS__ || []).filter(([n]) => n === 'owner_store_test_management').length === 2);
+    assert.deepEqual(await rpcCalls(second.page, 'owner_store_test_management'),
+        [{ p_enable: true, p_days: 7, p_reason: 'اختبار إدارة المتجر' },
          { p_enable: false, p_days: 1, p_reason: null }]);
     await second.context.close();
 });
