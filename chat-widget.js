@@ -131,6 +131,13 @@ class ChatWidget {
     /* ==================== تهيئة عامة (بتحصل مرة واحدة عند تحميل الصفحة) ==================== */
 
     async init() {
+        // لا ويدجت داخل إطار مضمّن: الفقاعة العائمة تخص الصفحة المضيفة وحدها.
+        // الوصول إلى window.top مرفوض (أصل آخر) ⇒ مضمّن أيضًا.
+        try {
+            if (window.self !== window.top) return;
+        } catch {
+            return;
+        }
         this.createWidgetHTML();
         this.attachEventListeners();
 

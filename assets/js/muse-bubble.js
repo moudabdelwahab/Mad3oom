@@ -863,6 +863,13 @@ function destroy() {
 }
 
 async function init() {
+    // لا فقاعة داخل إطار مضمّن: الفقاعة العائمة تخص الصفحة المضيفة وحدها.
+    // الوصول إلى window.top مرفوض (أصل آخر) ⇒ مضمّن أيضًا.
+    try {
+        if (window.self !== window.top) return;
+    } catch {
+        return;
+    }
     if ($('mb-root')) return;
     // حارس إضافي: لا فقاعة على صفحات الشات الكاملة أبدًا.
     const path = window.location.pathname || '';
