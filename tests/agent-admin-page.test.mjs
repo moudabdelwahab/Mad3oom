@@ -251,3 +251,56 @@ test('لا مكان آخر في ملفات الوكلاء يقدّم Hermes كم
     assert.doesNotMatch(pageJs, /Hermes بلا endpoint|بلا اتصال أصلاً/);
     assert.doesNotMatch(html, /Hermes بلا endpoint|بلا اتصال أصلاً/);
 });
+
+/* ─────────── مرآة المالك: owner/agents.html = admin/agent.html بقشرة المالك ─────────── */
+
+const ownerHtml = () => read('owner/agents.html');
+const ownerJs = () => read('assets/js/owner/pages/agents.js');
+
+test('مرآة المالك: كل عنصر يطلبه agent.js بالـ id موجود في owner/agents.html أيضاً', () => {
+    const html = ownerHtml();
+    const js = agentJs();
+    const ids = [...js.matchAll(/getElementById\('([^']+)'\)/g)].map((m) => m[1]);
+    const dynamic = new Set(['lastErrorNote']);
+    const missing = [...new Set(ids)].filter((id) => !dynamic.has(id) && !html.includes(`id="${id}"`));
+    assert.deepEqual(missing, [], `عناصر مفقودة من صفحة المالك: ${missing.join(', ')}`);
+});
+
+test('مرآة المالك: نفس الـ DOM ids ونفس كتلة الأنماط حرفيًا', () => {
+    const admin = agentHtml();
+    const owner = ownerHtml();
+    // كل id="..." في صفحة الإدارة موجود في صفحة المالك (لا حقل ناقص ولا زائد يُخفيه الاختلاف).
+    const ids = [...new Set([...admin.matchAll(/id="([^"]+)"/g)].map((m) => m[1]))];
+    assert.ok(ids.length > 50, `توقعنا عشرات الـ ids، وجدنا ${ids.length}`);
+    const missing = ids.filter((id) => !owner.includes(`id="${id}"`));
+    assert.deepEqual(missing, [], `ids ناقصة من صفحة المالك: ${missing.join(', ')}`);
+    // كتلة الأنماط نفسها حرفيًا — فالنافذة (3000) والتنبيهات (4000) تعلو القائمة هنا أيضًا.
+    const styleOf = (h) => h.match(/<style>[\s\S]*?<\/style>/)?.[0];
+    assert.ok(styleOf(admin), 'لا كتلة أنماط في صفحة الإدارة');
+    assert.equal(styleOf(owner), styleOf(admin), 'كتلة الأنماط في صفحة المالك ليست نسخة حرفية من الإدارة');
+    // كتلة ثانية منفصلة لقشرة المالك وحدها: body.customer-shell .modal في
+    // customer-dashboard.css يخفي صندوق الحوار (display:none) — لا ينطبق في
+    // الإدارة لأن body بلا customer-shell. بلا هذه القاعدة تُفتح النافذة فارغة.
+    assert.match(owner, /body\.customer-shell \.modal-overlay \.modal \{/);
+    assert.match(owner, /قشرة المالك فقط/);
+});
+
+test('مرآة المالك: قشرة المالك لا قشرة الإدارة، وبوابة المالك لا تحقق الأدمن', () => {
+    const html = ownerHtml();
+    const js = ownerJs();
+    assert.match(html, /data-owner-page="agents"/);
+    assert.match(html, /id="sidebar-container"/);
+    assert.match(html, /id="ownerGate"/);
+    assert.match(html, /id="ownerContent"/);
+    assert.match(html, /src="\/assets\/js\/owner\/pages\/agents\.js"/);
+    assert.match(html, /الوكلاء - لوحة المالك/);
+    assert.doesNotMatch(html, /checkAdminAuth|initSidebar|assets\/js\/admin\/auth\.js/);
+    assert.doesNotMatch(html, /href="\/admin\/[^"]*\.html"/);
+    assert.match(js, /bootOwnerPage/);
+    assert.match(js, /platformAuthority/);
+    assert.match(js, /initAgentAdminPage/);
+    // لا منطق صلاحيات جديد: البوابة الإدارية نفسها في agent-manager (is_admin).
+    // (ذكر checkAdminAuth في تعليق يشرح ما استُبدل لا يُحتسب استخدامًا.)
+    assert.doesNotMatch(js, /import[^;]*checkAdminAuth|checkAdminAuth\(/);
+    assert.doesNotMatch(js, /role === 'admin'|role == 'admin'/);
+});

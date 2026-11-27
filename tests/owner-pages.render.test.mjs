@@ -168,7 +168,24 @@ function fixtures({ context = 'owner', owner = true } = {}) {
                 { key: 'settings.manage', category: 'platform', label: 'تعديل إعدادات التشغيل', description: XSS, enforced_on: 'RLS: advanced_settings',
                   owner_step_up: true, admin: true, support: true },
                 { key: 'tickets.reply', category: 'support', label: 'الرد على التذاكر', description: 'رد', enforced_on: 'RLS: ticket_replies',
-                  owner_step_up: false, admin: true, support: false }] }
+                  owner_step_up: false, admin: true, support: false }] },
+            // الوكلاء (owner/agents.html): platformAuthority يسأل القاعدة — المالك في سياقه إداري (is_admin منذ 040)
+            is_admin: true,
+            is_platform_staff: true,
+            has_elevated_authority: false,
+            is_platform_owner: true,
+            active_context: 'owner',
+            can_manage_central_wallet: false
+        },
+        functions: {
+            // agent-manager: قائمة الوكلاء — Muse بلا endpoint (كما هو حيًا) + Hermes باتصال مباشر
+            'agent-manager': { byOp: { list: { data: { agents: [
+                { id: 'ag-muse', name: 'Muse', slug: 'muse', type: 'muse', version: '1.0.0', status: 'stopped', enabled: true,
+                  description: 'الوكيل الداخلي', endpoint: null, health_endpoint: null, last_heartbeat: null, last_error: null },
+                { id: 'ag-hermes', name: 'Hermes', slug: 'hermes', type: 'hermes', version: '1.0.0', status: 'running', enabled: true,
+                  description: 'وكيل Hermes', endpoint: 'https://hermes.internal:8080', health_endpoint: 'https://hermes.internal:8080/health',
+                  last_heartbeat: '2026-11-27T00:00:00Z', last_error: null }
+            ] } } } }
         },
         tables: {
             profiles: [
@@ -250,6 +267,7 @@ const PAGES = {
     'muse-chat': '#museChatForm',
     'voice-studio': '#vsSectionVoice',
     'muse-activity-log': '#museLogTable table',
+    agents: '#agentsGrid .agent-card',
     'muse-activations': '#museAccountsTable table',
     permissions: '#permMatrix table',
     security: '#secKpis .kpi',
@@ -390,6 +408,54 @@ for (const [file, ready] of Object.entries(PAGES)) {
 }
 
 /* ── العمليات ──────────────────────────────────────────────────────────── */
+
+test('الوكلاء: كرتا Muse بلا endpoint وHermes، والإحصائيات، ونافذة الإعدادات بكل الحقول', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await openPage(browser, baseUrl, 'agents', fixtures());
+    await page.waitForSelector('#agentsGrid .agent-card');
+    assert.equal(await page.isHidden('#ownerGate'), true);
+    // الإحصائيات: وكيلان، واحد نشط
+    assert.equal(await page.textContent('#statTotal'), '2');
+    assert.equal(await page.textContent('#statActive'), '1');
+    // الكرتان: Muse بلا endpoint كمعلومة محايدة، وHermes يعمل
+    assert.equal(await page.locator('#agentsGrid .agent-card').count(), 2);
+    assert.match(await page.textContent('#agentsGrid'), /Muse/);
+    assert.match(await page.textContent('#agentsGrid'), /Hermes/);
+    assert.match(await page.textContent('#agentsGrid'), /بلا endpoint/);
+    assert.match(await page.textContent('#agentsGrid'), /يعمل/);
+    // البحث يصفّي
+    await page.fill('#searchInput', 'Hermes');
+    assert.equal(await page.locator('#agentsGrid .agent-card').count(), 1);
+    await page.fill('#searchInput', '');
+    assert.equal(await page.locator('#agentsGrid .agent-card').count(), 2);
+
+    // نافذة Hermes: كل الحقول معبأة من الكاش، بلا نداء get إضافي
+    await page.click('#agentsGrid > [data-open-agent="ag-hermes"]');
+    await page.waitForSelector('#agentModal.open');
+    assert.equal(await page.inputValue('#fName'), 'Hermes');
+    assert.equal(await page.inputValue('#fSlug'), 'hermes');
+    assert.equal(await page.inputValue('#fType'), 'hermes');
+    assert.equal(await page.inputValue('#fEndpoint'), 'https://hermes.internal:8080');
+    assert.equal(await page.inputValue('#fHealthEndpoint'), 'https://hermes.internal:8080/health');
+    // الملاحظة داخل تبويب الحالة (مخفي حتى يُفتح التبويب)، فالصحيح فحص خاصية hidden لا الرؤية
+    assert.equal(await page.evaluate(() => document.getElementById('noEndpointNote').hidden), true);
+    assert.equal(await page.isDisabled('#btnRefreshStatus'), false);
+    // كل التبويبات التسعة موجودة، وشبكتا الموارد والصلاحيات معبأتان
+    assert.equal(await page.locator('#modalTabs .tab-btn').count(), 9);
+    assert.ok(await page.locator('#resourcesGrid .check-item').count() > 0);
+    assert.ok(await page.locator('#permissionsGrid .check-item').count() > 0);
+    await page.click('#modalCloseBtn');
+    assert.equal(await page.locator('#agentModal.open').count(), 0);
+
+    // نافذة Muse: بلا endpoint — الملاحظة ظاهرة وزر التحديث معطّل
+    await page.click('#agentsGrid > [data-open-agent="ag-muse"]');
+    await page.waitForSelector('#agentModal.open');
+    assert.equal(await page.inputValue('#fName'), 'Muse');
+    assert.equal(await page.inputValue('#fEndpoint'), '');
+    assert.equal(await page.evaluate(() => document.getElementById('noEndpointNote').hidden), false);
+    assert.equal(await page.isDisabled('#btnRefreshStatus'), true);
+    assert.deepEqual(errors, []);
+    await context.close();
+});
 
 test('التذاكر: المحادثة نصّ لا HTML، وتغيير الحالة والمسؤول يُرسل الحقول المتغيرة مع الفاعل', { skip: !chromiumPath }, async () => {
     const { page, context, errors } = await openPage(browser, baseUrl, 'tickets', fixtures());

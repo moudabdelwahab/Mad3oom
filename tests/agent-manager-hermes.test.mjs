@@ -10,8 +10,8 @@
  *  • فحوص ساكنة على المصدر (نفس نمط api-token-function-static.test.mjs):
  *    الإجراءات الجديدة، ومسارات Hermes، وإسقاط Authorization عن /health،
  *    وبدء/إيقاف Hermes بلا /control، وlogs غير المدعومة، وافتراضيات
- *    model/provider قبل النشر (لا model بلا provider أبدًا)، وحفظ سلوك
- *    غير-Hermes حرفيًا.
+ *    model/provider قبل النشر (الافتراضي "hermes-agent" بلا provider)،
+ *    وحفظ سلوك غير-Hermes حرفيًا.
  *  • اختبارات وحدة حقيقية للدوال النقية المستخرَجة من المصدر نفسه
  *    (parseSseDataPayloads وapplyHermesModelDefaults ومساعدات المسارات
  *    وتمرير الجسم): تُستخرج الدوال
@@ -20,8 +20,9 @@
  *    في توقيع دالة يُفشل التجريد بصوت عالٍ بدل اختبار نسخة قديمة بصمت.
  *
  * بلا أي نداء حيّ: لا مفاتيح، لا chat/runs فعلية — المحادثة مؤكدة حيًا
- * من Mahmoud (2026-11-27) بالزوج العامل nvidia فقط؛ النموذج الافتراضي
- * للخادم لم يُضبط بعد، فإرسال "hermes-agent" وحدها يفشل.
+ * من Mahmoud (2026-11-27): إرسال "hermes-agent" وحدها يعمل (رد حقيقي
+ * بالمفتاح، يبقى بعد إعادة التشغيل) بعد إصلاح النموذج الافتراضي للخادم؛
+ * الزوج nvidia (model + provider معًا) تجاوز متاح، لا افتراضي.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -42,18 +43,16 @@ function codeOnly(src) {
 
 const CODE = codeOnly(SRC);
 
-/* ── أجسام اختبار: الزوج الافتراضي العامل (nvidia) ───────────────────── */
-// الزوج العامل الافتراضي، مؤكد حيًا 2026-11-27: المحادثة تعمل فقط
-// بـ model + provider معًا. "hermes-agent" تسمية فقط من GET /v1/models
-// وليست قيمة نموذج عاملة — إرسالها وحدها يفشل.
+/* ── أجسام اختبار: الافتراضي "hermes-agent" بلا provider ─────────────── */
+// النموذج الافتراضي، مؤكد حيًا 2026-11-27: إرسال "hermes-agent" وحدها
+// يعمل بعد إصلاح النموذج الافتراضي للخادم (رد حقيقي بالمفتاح).
 const DEFAULT_CHAT_BODY = {
-    model: 'nvidia/nemotron-3-ultra-550b-a55b',
-    provider: 'nvidia',
+    model: 'hermes-agent',
     messages: [{ role: 'user', content: 'مرحبًا' }],
     stream: false,
 };
 
-// تجاوز نموذج محدد يتطلب model + provider معًا — لا model وحده.
+// تجاوز نموذج محدد يمرّر model + provider معًا بلا مساس.
 const OVERRIDE_CHAT_BODY = {
     model: 'nvidia/nemotron-3-ultra-550b-a55b',
     provider: 'nvidia',
@@ -197,9 +196,9 @@ test('تجاوز المسارات من settings، و"/" تُضاف لو غابت
 
 /* ── تمرير الجسم: بلا أي تعديل (اختبارات وحدة حقيقية) ────────────────── */
 
-test('جسم المحادثة الافتراضي يستخدم الزوج العامل nvidia (model + provider معًا)', () => {
-    assert.equal(DEFAULT_CHAT_BODY.model, 'nvidia/nemotron-3-ultra-550b-a55b');
-    assert.equal(DEFAULT_CHAT_BODY.provider, 'nvidia');
+test('جسم المحادثة الافتراضي يستخدم "hermes-agent" بلا provider', () => {
+    assert.equal(DEFAULT_CHAT_BODY.model, 'hermes-agent');
+    assert.ok(!('provider' in DEFAULT_CHAT_BODY));
     assert.equal(DEFAULT_CHAT_BODY.stream, false);
 });
 
@@ -249,11 +248,13 @@ test('الافتراضيات فقط عبر applyHermesModelDefaults — لا ك�
     for (const field of ['model_options', 'stream', 'messages']) {
         assert.ok(!helperMatch[0].includes(field), `المساعد يمسّ ${field}`);
     }
-    assert.match(helperMatch[0], /"hermes-agent"/, 'المساعد لا يعالج تسمية hermes-agent');
-    assert.match(helperMatch[0], /nvidia\/nemotron-3-ultra-550b-a55b/);
-    // ولا حقن للتسمية كقيمة نموذج في أي مكان — "hermes-agent" ليست قيمة عاملة.
+    // الافتراضي هو "hermes-agent" نفسها — تُحقن كقيمة model عند غياب الاثنين.
+    assert.match(helperMatch[0], /out\.model = "hermes-agent"/, 'المساعد لا يحقن الافتراضي hermes-agent');
+    // ولا زوج nvidia في المساعد — الزوج تجاوز اختياري يُرسله المتصل، لا افتراضي.
+    assert.doesNotMatch(helperMatch[0], /nvidia\/nemotron-3-ultra-550b-a55b/);
+    assert.doesNotMatch(helperMatch[0], /out\.provider = "nvidia"/);
+    // ولا حقن model ككائن حرفي في أي مكان من كود index.ts.
     assert.doesNotMatch(CODE, /model:\s*"hermes-agent"/);
-    assert.doesNotMatch(CODE, /out\.model = "hermes-agent"/);
     // والمحادثة والتشغيل يمرّران الجسم المُعدَّل مباشرةً لنداء Hermes.
     assert.match(CODE, /hermesFetchJson\(agent, url, "POST", chatBody\)/);
     assert.match(CODE, /hermesFetchSse\(agent, url, timeoutMs, "POST", chatBody\)/);
@@ -262,23 +263,23 @@ test('الافتراضيات فقط عبر applyHermesModelDefaults — لا ك�
 
 /* ── افتراضيات model/provider (اختبارات وحدة حقيقية) ─────────────────── */
 
-test('لا model ولا provider → الزوج الافتراضي العامل كاملًا', () => {
+test('لا model ولا provider → الافتراضي "hermes-agent" بلا provider', () => {
     const out = applyHermesModelDefaults({ messages: [{ role: 'user', content: 'مرحبًا' }] });
-    assert.equal(out.model, 'nvidia/nemotron-3-ultra-550b-a55b');
-    assert.equal(out.provider, 'nvidia');
+    assert.equal(out.model, 'hermes-agent');
+    assert.ok(!('provider' in out));
     assert.deepEqual(out.messages, [{ role: 'user', content: 'مرحبًا' }]);
 });
 
-test('model وحده (نموذج حقيقي) → provider يُكمَّل بـ "nvidia"', () => {
+test('model وحده يمرّ بلا مساس — لا provider يُضاف', () => {
     const out = applyHermesModelDefaults({ model: 'nvidia/nemotron-3-ultra-550b-a55b', messages: [] });
     assert.equal(out.model, 'nvidia/nemotron-3-ultra-550b-a55b');
-    assert.equal(out.provider, 'nvidia');
+    assert.ok(!('provider' in out));
 });
 
-test('provider وحده → model يُكمَّل بالنموذج الافتراضي', () => {
+test('provider وحده يمرّ بلا مساس — لا model يُضاف', () => {
     const out = applyHermesModelDefaults({ provider: 'nvidia', messages: [] });
-    assert.equal(out.model, 'nvidia/nemotron-3-ultra-550b-a55b');
     assert.equal(out.provider, 'nvidia');
+    assert.ok(!('model' in out));
 });
 
 test('model + provider معًا → يُمرَّران بلا أي مساس (تجاوز كامل)', () => {
@@ -286,15 +287,15 @@ test('model + provider معًا → يُمرَّران بلا أي مساس (ت�
     assert.deepEqual(applyHermesModelDefaults(body), body);
 });
 
-test('model "hermes-agent" وحده → يُستبدل بالزوج الافتراضي ولا يُرسَل أبدًا', () => {
+test('model "hermes-agent" وحده يمرّ بلا مساس — هو الافتراضي العامل الآن', () => {
     const out = applyHermesModelDefaults({ model: 'hermes-agent', messages: [] });
-    assert.equal(out.model, 'nvidia/nemotron-3-ultra-550b-a55b');
-    assert.equal(out.provider, 'nvidia');
+    assert.equal(out.model, 'hermes-agent');
+    assert.ok(!('provider' in out));
 });
 
-test('"hermes-agent" مع provider مُرسَل → النموذج يُستبدل والـ provider يبقى', () => {
+test('"hermes-agent" مع provider مُرسَل → يُمرَّران بلا أي مساس', () => {
     const out = applyHermesModelDefaults({ model: 'hermes-agent', provider: 'nvidia', messages: [] });
-    assert.equal(out.model, 'nvidia/nemotron-3-ultra-550b-a55b');
+    assert.equal(out.model, 'hermes-agent');
     assert.equal(out.provider, 'nvidia');
 });
 
@@ -307,8 +308,8 @@ test('القيم الفارغة تُعامَل كمفقودة، وباقي ال�
         messages: [{ role: 'user', content: 'مرحبًا' }],
     };
     const out = applyHermesModelDefaults(body);
-    assert.equal(out.model, 'nvidia/nemotron-3-ultra-550b-a55b');
-    assert.equal(out.provider, 'nvidia');
+    assert.equal(out.model, 'hermes-agent');
+    assert.ok(!('provider' in out));
     assert.deepEqual(out.model_options, { reasoning_effort: 'high', service_tier: 'flex' });
     assert.equal(out.stream, true);
     assert.deepEqual(out.messages, [{ role: 'user', content: 'مرحبًا' }]);

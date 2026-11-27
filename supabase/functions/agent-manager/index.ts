@@ -29,15 +29,12 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 //     chat_completions_path (افتراضي /v1/chat/completions) وruns_path (افتراضي /v1/runs).
 //   - نموذج المحادثة والتشغيل: جسم OpenAI يُمرَّر كما هو، ثم تُطبَّق
 //     افتراضيات model/provider (applyHermesModelDefaults) قبل النشر:
-//     الزوج العامل الافتراضي model "nvidia/nemotron-3-ultra-550b-a55b"
-//     مع provider "nvidia" — مؤكد حيًا 2026-11-27: المحادثة تعمل فقط
-//     بهما معًا. إرسال "hermes-agent" وحده يفشل لأن النموذج الافتراضي
-//     للخادم لم يُضبط بعد، فتُعامَل "hermes-agent" كمفقودة وتُستبدل
-//     بالزوج العامل؛ "hermes-agent" تسمية فقط كما يعلنها GET /v1/models
-//     وليست قيمة نموذج عاملة. التجاوز يتطلب "model" و"provider" معًا
-//     (كل حقل مفقود يُكمَّل من الزوج الافتراضي)، ولا يُرسَل model بلا
-//     provider أبدًا. باقي الحقول (model_options وstream وmessages)
-//     تُمرَّر بلا أي تعديل.
+//     الافتراضي model "hermes-agent" بلا provider — مؤكد حيًا 2026-11-27
+//     (Mahmoud اختبره بالمفتاح: رد حقيقي، والإعداد يبقى بعد إعادة التشغيل)
+//     بعد إصلاح النموذج الافتراضي على الخادم. أي قيمة مرسَلة تمرّ بلا مساس،
+//     والتجاوز بإرسال "model" و"provider" معًا ما زال متاحًا (مثال الزوج
+//     "nvidia/nemotron-3-ultra-550b-a55b" مع provider "nvidia").
+//     باقي الحقول (model_options وstream وmessages) تُمرَّر بلا أي تعديل.
 //   - مسار معروف لم يُبنَ له عميل بعد: /api/sessions/{id}/chat (يحترم
 //     model/provider أيضًا) — خارج نطاق v1 الحالي، فلا كود له هنا.
 //
@@ -343,24 +340,22 @@ function hermesPassthroughBody(body: Record<string, any>): Record<string, unknow
 // (نفس نمط parseSseDataPayloads: تُستخرج من هذا الملف وتُنفَّذ في Node).
 // ملاحظة للاختبار: جسم الدالة بلا أي صياغة TypeScript عدا تعليقات النوع
 // البسيطة (المعامل ونوع الإرجاع ونوع النسخة) حتى يبقى تجريدها آليًا.
-// القواعد بالترتيب:
-//   أ. model === "hermes-agent" يُعامَل كمفقود (تسمية GET /v1/models فقط،
-//      وليست قيمة نموذج عاملة — إرسالها وحدها يفشل لأن النموذج الافتراضي
-//      للخادم لم يُضبط بعد، مؤكد حيًا 2026-11-27).
-//   ب. model مفقود/فارغ بعد (أ) → النموذج العامل "nvidia/nemotron-3-ultra-550b-a55b".
-//   ج. provider مفقود/فارغ → "nvidia".
-//   د. model وprovider معًا (وmodel ليست "hermes-agent") → يُمرَّران بلا مساس.
-//   هـ. أي حقل آخر (model_options وstream وmessages...) بلا أي مساس،
+// القواعد:
+//   أ. لا model ولا provider (مفقود/فارغ بعد التقليم) → model "hermes-agent"
+//      بلا provider — النموذج الافتراضي للخادم أُصلح، وإرسال "hermes-agent"
+//      وحدها يعمل (مؤكد حيًا 2026-11-27: رد حقيقي بالمفتاح، يبقى بعد إعادة
+//      التشغيل). provider الفارغ في هذه الحالة يُحذف من النسخة فلا يُرسَل.
+//   ب. أي قيمة مرسَلة (model وحده، أو provider وحده، أو model + provider
+//      معًا، بما فيها "hermes-agent" نفسها) تمرّ بلا أي مساس.
+//   ج. أي حقل آخر (model_options وstream وmessages...) بلا أي مساس،
 //      والدخل نفسه لا يُعدَّل — تُعاد نسخة جديدة.
 export function applyHermesModelDefaults(body: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = { ...body };
   const model = typeof out.model === "string" ? out.model.trim() : "";
-  if (!model || model === "hermes-agent") {
-    out.model = "nvidia/nemotron-3-ultra-550b-a55b";
-  }
   const provider = typeof out.provider === "string" ? out.provider.trim() : "";
-  if (!provider) {
-    out.provider = "nvidia";
+  if (!model && !provider) {
+    out.model = "hermes-agent";
+    delete out.provider;
   }
   return out;
 }
