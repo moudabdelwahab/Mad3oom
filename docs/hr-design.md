@@ -411,7 +411,7 @@ hr_gate(p_section_key text) RETURNS boolean  -- دالة داخلية (بلا GR
 | الدالة | التوقيع | الحماية والسلوك |
 |---|---|---|
 | `hr_settings_get` | `()` → `jsonb` | بوابة + `hr.employees.view`. تُرجع صف `hr_settings` أو الافتراضيات إن لم يوجد |
-| `hr_settings_update` | `(p_employee_number_prefix text DEFAULT NULL, p_default_probation_months integer DEFAULT NULL, p_audit_retention_months integer DEFAULT NULL)` → `jsonb` | بوابة + `hr.settings.manage`. تحقق من النطاقات (§2.3) + تدقيق `settings.changed` |
+| `hr_settings_update` | `(p_employee_number_prefix text DEFAULT NULL, p_default_probation_months integer DEFAULT NULL, p_audit_retention_months integer DEFAULT NULL, p_settings jsonb DEFAULT NULL, p_employee_number_next integer DEFAULT NULL)` → `jsonb` | بوابة + `hr.settings.manage`. تحقق من النطاقات (§2.3) + تدقيق `settings.changed`. المعامل الخامس (153): يضبط عدّاد الترقيم التلقائي (1 حدًا أدنى، null بلا تغيير) — نموذج «يبدأ الترقيم من» في لوحة الشركة. |
 | `hr_role_grant` | `(p_user_id uuid, p_role text, p_department_id uuid DEFAULT NULL, p_employee_id uuid DEFAULT NULL)` → `jsonb` | بوابة + `hr.roles.manage` (مالك الشركة أو مدير HR). يتحقق: الهدف له عضوية نشطة في الشركة أو هو مالكها، وليس من طاقم المنصة؛ `dept_manager` يتطلب `p_department_id`؛ يرفض الدور المكرر النشط. تدقيق |
 | `hr_role_revoke` | `(p_assignment_id uuid, p_reason text)` → `jsonb` | بوابة + `hr.roles.manage`. إبطال (ختم `revoked_at`) لا حذف + تدقيق. يسري على الاستدعاء التالي |
 | `hr_roles_list` | `()` → `jsonb` | بوابة + `hr.roles.manage` أو `hr.audit.view`. قائمة التعيينات النشطة + السجل المبطل |

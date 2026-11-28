@@ -29,7 +29,7 @@ const $ = (id) => document.getElementById(id);
 const say = (text, tone = 'info') => announce($('pageStatus'), text, tone);
 const PAGE_SIZE = 25;
 
-const SECTION_KEYS = ['hr_leave', 'hr_payroll', 'hr_tasks', 'hr_attendance', 'hr_reports'];
+const SECTION_KEYS = ['hr_employees', 'hr_leave', 'hr_payroll', 'hr_tasks', 'hr_attendance', 'hr_reports'];
 
 let companiesPage = 1;
 let companiesSearch = '';

@@ -719,7 +719,7 @@ export async function loadHrSettings() {
         <form class="hr-form" data-hr-settings-form>
             <div class="form-grid">
                 <label>بادئة الرقم الوظيفي <input name="prefix" dir="ltr" value="${esc(s.employee_number_prefix || 'EMP')}"></label>
-                <label>يبدأ الترقيم من <input name="startFrom" type="number" min="0" value="${esc(String(s.employee_number_start_from ?? 0))}"></label>
+                <label>يبدأ الترقيم من <input name="startFrom" type="number" min="1" value="${esc(String(s.employee_number_next ?? 1))}"></label>
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn-primary">حفظ الإعدادات</button>

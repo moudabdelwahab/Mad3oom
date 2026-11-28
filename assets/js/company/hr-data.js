@@ -2,7 +2,7 @@
  * hr-data.js — طبقة استدعاءات RPC لوحدة الموارد البشرية (الترحيل 143).
  *
  *   RPCs المستخدمة (الترحيل 143_hr_module_employees.sql):
- *   - hr_employees_list(p_page, p_page_size, p_search, p_status, p_department_id, p_branch_id, p_include_terminated)
+ *   - hr_employees_list(p_page, p_page_size, p_search, p_status, p_department_id, p_branch_id, p_include_archived)
  *     قراءة؛ بوابة hr: مفتاح المنصة hr_module_enabled + استحقاق الشركة 'hr'
  *     أو 'hr_employees' + غير موقوفة، وإذن hr.employees.view أو نطاق قسم.
  *   - hr_employees_count() قراءة؛ نفس البوابة.
@@ -70,7 +70,7 @@ export async function fetchHrEmployees({ page = 1, pageSize = 20, search = '', s
         p_page: page, p_page_size: pageSize,
         p_search: search || null, p_status: status || null,
         p_department_id: departmentId || null, p_branch_id: branchId || null,
-        p_include_terminated: includeTerminated === true
+        p_include_archived: includeTerminated === true
     });
 }
 
@@ -204,7 +204,7 @@ export async function fetchHrSettings() {
 
 export async function updateHrSettings({ prefix = null, startFrom = null, settings = null }) {
     return callRpc('hrSettingsUpdate', 'hr_settings_update', {
-        p_prefix: prefix, p_start_from: startFrom, p_settings: settings
+        p_employee_number_prefix: prefix, p_employee_number_next: startFrom, p_settings: settings
     });
 }
 
