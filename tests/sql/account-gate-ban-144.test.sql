@@ -19,9 +19,9 @@
 --      (067)، وحظر المالك محمي من المنبع بمحفِّز 053.
 --   ⑦ إعادة تطبيق 144 آمنة ولا تُضاعف السياسات؛ وملف التراجع يعيد جسم
 --      042 (المحظور يمرّ ثانيةً)، وإعادة تطبيق 144 بعده تعيد المنع.
---   ⑧ `my_account_gate()` — ألغاه الترحيل 152 (فرع 'banned'): القسم
+--   ⑧ `my_account_gate()` — ألغاه الترحيل 160 (فرع 'banned'): القسم
 --      هنا يثبّت أن المحظور يرى `'banned'` لا `'needs_phone'`، والمصفوفة
---      الكاملة في `tests/sql/account-gate-ban-152.test.sql`.
+--      الكاملة في `tests/sql/account-gate-ban-160.test.sql`.
 --
 -- يحمّل 042 ثم `is_banned()` (نص 029 حرفيًا) ثم 144 — أي أن الاختبار يمرّ
 -- عبر ملف الترحيل نفسه، لا عبر نسخة منسوخة من جسمه.
@@ -390,11 +390,11 @@ BEGIN
 END $$;
 
 -- ════════════════════════════════════════════════════════════════════════
--- ⑧ my_account_gate() — ألغاه 152: الفرع 'banned' (المصفوفة الكاملة في
---    account-gate-ban-152.test.sql). هذا القسم هنا يثبّت أن المحظور لم
---    يعد يرى 'needs_phone' المضللة بعد 152.
+-- ⑧ my_account_gate() — ألغاه 160: الفرع 'banned' (المصفوفة الكاملة في
+--    account-gate-ban-160.test.sql). هذا القسم هنا يثبّت أن المحظور لم
+--    يعد يرى 'needs_phone' المضللة بعد 160.
 -- ════════════════════════════════════════════════════════════════════════
-\i migrations/152_my_account_gate_banned_branch.sql
+\i migrations/160_my_account_gate_banned_branch.sql
 
 DO $$
 DECLARE v_status text;
@@ -405,10 +405,10 @@ BEGIN
   SET LOCAL ROLE authenticated;
   SELECT public.my_account_gate()->>'status' INTO v_status;
   RESET ROLE;
-  -- بعد 152: المحظور في القائمة البيضاء وبهاتف يرى 'banned'، لا 'needs_phone'.
+  -- بعد 160: المحظور في القائمة البيضاء وبهاتف يرى 'banned'، لا 'needs_phone'.
   IF v_status <> 'banned' THEN
-    RAISE EXCEPTION 'FAIL 8: حالة البوابة للمحظور جاءت % لا banned (152)', v_status; END IF;
-  RAISE NOTICE 'PASS 8: my_account_gate() بفرع banned منذ 152 (كان needs_phone قبلها)';
+    RAISE EXCEPTION 'FAIL 8: حالة البوابة للمحظور جاءت % لا banned (160)', v_status; END IF;
+  RAISE NOTICE 'PASS 8: my_account_gate() بفرع banned منذ 160 (كان needs_phone قبلها)';
   UPDATE public.profiles SET ban_status = 'none', ban_until = NULL
    WHERE id = '00000000-0000-0000-0000-0000000000b1';
 END $$;

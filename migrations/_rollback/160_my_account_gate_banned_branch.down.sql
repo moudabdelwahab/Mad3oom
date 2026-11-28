@@ -1,5 +1,5 @@
 -- ============================================================================
--- 152_my_account_gate_banned_branch.down.sql — تراجع 152.
+-- 160_my_account_gate_banned_branch.down.sql — تراجع 160.
 --
 -- يعيد جسم 042 حرفيًا (بلا فرع 'banned' وبلا الحقلين): المحظور يرى
 -- 'needs_phone' ثانيةً. لا يمسّ account_is_active() (144) ولا is_banned()
@@ -34,9 +34,9 @@ declare v_def text;
 begin
   select pg_get_functiondef('public.my_account_gate()'::regprocedure) into v_def;
   if v_def is null or v_def ~ '''banned''' then
-    raise exception 'تراجع 152: جسم 042 لم يعد (ما زال فيه banned)';
+    raise exception 'تراجع 160: جسم 042 لم يعد (ما زال فيه banned)';
   end if;
-  raise notice 'OK rollback 152: my_account_gate() عاد إلى جسم 042';
+  raise notice 'OK rollback 160: my_account_gate() عاد إلى جسم 042';
 end $$;
 
 commit;

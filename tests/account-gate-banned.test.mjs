@@ -1,6 +1,6 @@
-// Static tests for the 'banned' gate branch (migration 152) and its UI.
+// Static tests for the 'banned' gate branch (migration 160) and its UI.
 //
-// The behaviour itself is proven in SQL (tests/sql/account-gate-ban-152
+// The behaviour itself is proven in SQL (tests/sql/account-gate-ban-160
 // .test.sql); these tests pin the wiring that SQL cannot see: the gate page
 // shows a banned step instead of the phone step, and the admin users page
 // bans through the ban-user Edge Function instead of a direct PostgREST
@@ -13,7 +13,7 @@ import path from 'node:path';
 const ROOT = path.resolve(import.meta.dirname, '..');
 const gateHtml = readFileSync(path.join(ROOT, 'account-gate.html'), 'utf8');
 const usersJs = readFileSync(path.join(ROOT, 'assets/js/admin/users.js'), 'utf8');
-const migration = readFileSync(path.join(ROOT, 'migrations/152_my_account_gate_banned_branch.sql'), 'utf8');
+const migration = readFileSync(path.join(ROOT, 'migrations/160_my_account_gate_banned_branch.sql'), 'utf8');
 
 test('شاشة البوابة تعرض خطوة محظور (سبب + نهاية + خروج) بدل شاشة الهاتف', () => {
   assert.ok(gateHtml.includes('id="step-banned"'), 'missing step-banned section');
@@ -55,7 +55,7 @@ test('كل مسارات الكتابة على الحظر تمر عبر ban-user:
   assert.ok(ownerModel.includes('banUserResult'), 'owner model must map ban-user results');
 });
 
-test('الترحيل 152: فرع banned أولًا في my_account_gate() مع الحقلين، والتراجع موجود', () => {
+test('الترحيل 160: فرع banned أولًا في my_account_gate() مع الحقلين، والتراجع موجود', () => {
   assert.ok(migration.includes("when public.is_banned()"), 'gate must check is_banned()');
   assert.ok(migration.includes("then 'banned'"), 'gate must return the banned status');
   assert.ok(
@@ -66,7 +66,7 @@ test('الترحيل 152: فرع banned أولًا في my_account_gate() مع �
   assert.ok(migration.includes("'ban_reason'"), 'gate must expose ban_reason');
   assert.ok(migration.includes('account_is_active()'), 'gate must keep the 144 wiring');
   assert.ok(
-    existsSync(path.join(ROOT, 'migrations/_rollback/152_my_account_gate_banned_branch.down.sql')),
+    existsSync(path.join(ROOT, 'migrations/_rollback/160_my_account_gate_banned_branch.down.sql')),
     'rollback file must exist',
   );
 });

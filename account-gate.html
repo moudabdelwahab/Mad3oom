@@ -226,7 +226,7 @@
       <button type="button" class="btn-ghost" id="phone-logout">تسجيل الخروج</button>
     </section>
 
-    <!-- ══ محظور (الترحيل 152) ══ -->
+    <!-- ══ محظور (الترحيل 160) ══ -->
     <!-- يعرض سبب الحظر ونهايته بدل رسالة «أضف رقم هاتفك» المضللة: المحظور
          موثَّق الهاتف أصلًا، ومشكلته الحظر لا الهاتف. -->
     <section class="step" id="step-banned">
@@ -345,7 +345,7 @@
       return;
     }
 
-    // المحظور (152): سبب الحظر ونهايته من my_account_gate()، لا شاشة الهاتف.
+    // المحظور (160): سبب الحظر ونهايته من my_account_gate()، لا شاشة الهاتف.
     if (status === 'banned') {
       const reason = data?.ban_reason ? String(data.ban_reason) : '';
       $('banned-reason').textContent = reason

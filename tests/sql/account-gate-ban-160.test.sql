@@ -1,7 +1,7 @@
 -- ============================================================================
--- اختبار تنفيذي لـ 152: فرع 'banned' في my_account_gate().
+-- اختبار تنفيذي لـ 160: فرع 'banned' في my_account_gate().
 --
--- يثبّت الخصائص التي جاء 152 ليغلقها، كل واحدة تفشل إن انكسرت:
+-- يثبّت الخصائص التي جاء 160 ليغلقها، كل واحدة تفشل إن انكسرت:
 --
 --   ① المحظور الموثَّق الهاتف في القائمة البيضاء يرى 'banned' (لا
 --      'needs_phone' المضللة)، مع ban_reason وbanned_until في JSON.
@@ -15,10 +15,10 @@
 --   ⑤ رفع الحظر يعيد 'active' فورًا، ويمسح ban_reason/banned_until
 --      من JSON.
 --   ⑥ 144 و029 بلا مساس: تعريفا account_is_active() وis_banned() يحملان
---      علامتيهما؛ وإعادة تطبيق 152 آمنة؛ والتراجع يعيد جسم 042
---      ('needs_phone' ثانيةً)؛ وإعادة 152 بعده تعيد 'banned'.
+--      علامتيهما؛ وإعادة تطبيق 160 آمنة؛ والتراجع يعيد جسم 042
+--      ('needs_phone' ثانيةً)؛ وإعادة 160 بعده تعيد 'banned'.
 --
--- يحمّل 042 ثم `is_banned()` (نص 029 حرفيًا) ثم 144 ثم 152 — أي أن
+-- يحمّل 042 ثم `is_banned()` (نص 029 حرفيًا) ثم 144 ثم 160 — أي أن
 -- الاختبار يمرّ عبر ملفات الترحيل نفسها، لا عبر نسخ منسوخة من أجسامها.
 -- ============================================================================
 \set ON_ERROR_STOP on
@@ -39,7 +39,7 @@ END $$;
 GRANT USAGE ON SCHEMA auth, public, extensions TO authenticated, anon;
 
 -- ── الجداول التي تبني عليها البوابة (كما في account-gate-ban-144.test.sql)
--- مع عمود ban_reason الذي يعرضه 152 (الغائب عن بديل اختبار 144). ────────
+-- مع عمود ban_reason الذي يعرضه 160 (الغائب عن بديل اختبار 144). ────────
 CREATE TABLE public.profiles (
   id uuid PRIMARY KEY, email text, full_name text, phone text,
   role text DEFAULT 'user', super_user_id uuid,
@@ -117,7 +117,7 @@ revoke all on function public.is_banned(uuid) from public, anon;
 grant execute on function public.is_banned(uuid) to authenticated;
 
 \i migrations/144_wire_is_banned_into_account_gate.sql
-\i migrations/152_my_account_gate_banned_branch.sql
+\i migrations/160_my_account_gate_banned_branch.sql
 
 -- ── الحسابات ──────────────────────────────────────────────────────────────
 -- gate_cutoff() = 2026-09-16. «قديم» = قبلها: في القائمة البيضاء بلا إدخال
@@ -165,7 +165,7 @@ END $$;
 DO $$
 DECLARE v_gate jsonb;
 BEGIN
-  -- بلا هاتف وغير محظور → needs_phone كما قبل 152.
+  -- بلا هاتف وغير محظور → needs_phone كما قبل 160.
   PERFORM set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000b2', true);
   SET LOCAL ROLE authenticated;
   SELECT public.my_account_gate() INTO v_gate;
@@ -175,7 +175,7 @@ BEGIN
   IF v_gate->>'ban_reason' IS NOT NULL OR v_gate->>'banned_until' IS NOT NULL THEN
     RAISE EXCEPTION 'FAIL 2: حقول الحظر ظهرت لغير محظور: %', v_gate; END IF;
 
-  -- جديد خارج القائمة البيضاء → waiting_approval كما قبل 152.
+  -- جديد خارج القائمة البيضاء → waiting_approval كما قبل 160.
   PERFORM set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000b3', true);
   SET LOCAL ROLE authenticated;
   SELECT public.my_account_gate() INTO v_gate;
@@ -183,7 +183,7 @@ BEGIN
   IF v_gate->>'status' <> 'waiting_approval' THEN
     RAISE EXCEPTION 'FAIL 2: خارج القائمة رأى % لا waiting_approval', v_gate->>'status'; END IF;
 
-  -- المالك غير المحظور → active كما قبل 152 (بلا هاتف وبلا كود).
+  -- المالك غير المحظور → active كما قبل 160 (بلا هاتف وبلا كود).
   PERFORM set_config('request.jwt.claim.sub','00000000-0000-0000-0000-0000000000a1', true);
   SET LOCAL ROLE authenticated;
   SELECT public.my_account_gate() INTO v_gate;
@@ -265,7 +265,7 @@ BEGIN
 END $$;
 
 -- ════════════════════════════════════════════════════════════════════════
--- ⑥ 144 و029 بلا مساس · إعادة 152 آمنة · التراجع يعيد 042 · وإعادة 152 تعيد banned
+-- ⑥ 144 و029 بلا مساس · إعادة 160 آمنة · التراجع يعيد 042 · وإعادة 160 تعيد banned
 -- ════════════════════════════════════════════════════════════════════════
 DO $$
 DECLARE v_active_def text; v_banned_def text;
@@ -279,7 +279,7 @@ BEGIN
   RAISE NOTICE 'PASS 6: 144 و029 بلا مساس';
 END $$;
 
-\i migrations/152_my_account_gate_banned_branch.sql
+\i migrations/160_my_account_gate_banned_branch.sql
 
 DO $$
 DECLARE v_gate jsonb;
@@ -291,11 +291,11 @@ BEGIN
   SELECT public.my_account_gate() INTO v_gate;
   RESET ROLE;
   IF v_gate->>'status' <> 'banned' THEN
-    RAISE EXCEPTION 'FAIL 6B: إعادة 152 فقدت banned (جاء %)', v_gate->>'status'; END IF;
-  RAISE NOTICE 'PASS 6B: إعادة تطبيق 152 آمنة';
+    RAISE EXCEPTION 'FAIL 6B: إعادة 160 فقدت banned (جاء %)', v_gate->>'status'; END IF;
+  RAISE NOTICE 'PASS 6B: إعادة تطبيق 160 آمنة';
 END $$;
 
-\i migrations/_rollback/152_my_account_gate_banned_branch.down.sql
+\i migrations/_rollback/160_my_account_gate_banned_branch.down.sql
 
 DO $$
 DECLARE v_gate jsonb;
@@ -309,7 +309,7 @@ BEGIN
   RAISE NOTICE 'PASS 6C: التراجع يعيد جسم 042 (needs_phone ثانيةً)';
 END $$;
 
-\i migrations/152_my_account_gate_banned_branch.sql
+\i migrations/160_my_account_gate_banned_branch.sql
 
 DO $$
 DECLARE v_gate jsonb;
@@ -319,10 +319,10 @@ BEGIN
   SELECT public.my_account_gate() INTO v_gate;
   RESET ROLE;
   IF v_gate->>'status' <> 'banned' THEN
-    RAISE EXCEPTION 'FAIL 6D: إعادة 152 بعد التراجع لم تعد banned (جاء %)', v_gate->>'status'; END IF;
+    RAISE EXCEPTION 'FAIL 6D: إعادة 160 بعد التراجع لم تعد banned (جاء %)', v_gate->>'status'; END IF;
   UPDATE public.profiles SET ban_status = 'none', ban_until = NULL, ban_reason = NULL
    WHERE id = '00000000-0000-0000-0000-0000000000b1';
-  RAISE NOTICE 'PASS 6D: إعادة 152 بعد التراجع تعيد banned';
+  RAISE NOTICE 'PASS 6D: إعادة 160 بعد التراجع تعيد banned';
 END $$;
 
 -- مجهول بلا جلسة → 'anonymous' كما في 042.
@@ -338,4 +338,4 @@ BEGIN
   RAISE NOTICE 'PASS 7: بلا جلسة → anonymous';
 END $$;
 
-\echo 'ALL ACCOUNT GATE BAN 152 TESTS PASSED'
+\echo 'ALL ACCOUNT GATE BAN 160 TESTS PASSED'
