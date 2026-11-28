@@ -20,11 +20,12 @@
  */
 
 import { renderState, escapeHtml as esc } from '/assets/js/customer/portal-ui.js';
+import { icon } from '/assets/js/company/company-ui.js';
 import {
     employeeRowForDisplay, employeeStatusInfo, hrPageParams, hrPaginationView,
     parseHrEmployeesCsv, checkHrImportLimit, validateHrImportRows, summarizeHrImportResults,
     hrImportTemplateCsv, hrImportResultsToCsv, buildOrgTree, HR_IMPORT_MAX_ROWS,
-    HR_IMPORT_MAX_FILE_BYTES, validateEmployeeForm, HR_SECTION_LABELS, maskNationalId
+    HR_IMPORT_MAX_FILE_BYTES, HR_PAGE_SIZE_MAX, validateEmployeeForm, HR_SECTION_LABELS, maskNationalId
 } from '/assets/js/company/hr-model.js';
 import {
     fetchHrEmployees, fetchHrEmployeesCount, fetchHrEmployeeDetail,
@@ -55,11 +56,11 @@ function askReason(title) {
         overlay.innerHTML = `<div class="hr-modal" role="dialog" aria-modal="true">
             <h3>${esc(title)}</h3>
             <p class="muted">السبب مطلوب (10 أحرف على الأقل) — يُوثَّق في سجل التدقيق.</p>
-            <textarea data-hr-reason rows="3"></textarea>
+            <textarea class="form-control" data-hr-reason rows="3"></textarea>
             <p class="error-text" data-hr-reason-error hidden></p>
             <div class="form-actions">
-                <button type="button" class="btn-primary" data-hr-reason-ok>تأكيد</button>
-                <button type="button" class="btn-ghost" data-hr-reason-cancel>إلغاء</button>
+                <button type="button" class="btn btn-primary" data-hr-reason-ok>تأكيد</button>
+                <button type="button" class="btn btn-ghost" data-hr-reason-cancel>إلغاء</button>
             </div></div>`;
         document.body.appendChild(overlay);
         const close = (value) => { overlay.remove(); resolve(value); };
@@ -100,7 +101,7 @@ function uuid() {
 }
 
 function pill(statusInfo) {
-    return `<span class="status-pill ${esc(statusInfo.pill)}">${esc(statusInfo.label)}</span>`;
+    return `<span class="pill ${esc(statusInfo.pill)}">${esc(statusInfo.label)}</span>`;
 }
 
 /* ── نظرة عامة ─────────────────────────────────────────────────────────── */
@@ -124,19 +125,47 @@ export async function loadHrOverview() {
     const depts = Array.isArray(deptRes.data) ? deptRes.data : [];
     const branches = Array.isArray(branchRes.data) ? branchRes.data : [];
     const byStatus = counts.by_status || {};
+    const statusTone = { active: 'kpi--success', on_leave: 'kpi--warning', suspended: 'kpi--danger', terminated: '', pending_data: 'kpi--warning' };
+    const statusIcon = { active: 'check', on_leave: 'clock', suspended: 'warning', terminated: 'inbox', pending_data: 'info' };
     const statusCards = Object.entries(byStatus).map(([status, n]) => {
         const info = employeeStatusInfo(status);
-        return `<div class="kpi-card"><div class="kpi-value">${esc(String(n))}</div><div class="kpi-label">${esc(info.label)}</div></div>`;
+        return `<div class="kpi ${statusTone[status] || ''}">
+            <p class="kpi-label">${icon(statusIcon[status] || 'info', 16)}${esc(info.label)}</p>
+            <p class="kpi-value">${esc(String(n))}</p>
+        </div>`;
     }).join('');
     container.innerHTML = `
-        <div class="kpi-row">
-            <div class="kpi-card"><div class="kpi-value">${esc(String(counts.total || 0))}</div><div class="kpi-label">إجمالي الموظفين</div></div>
+        <div class="kpi-grid">
+            <div class="kpi kpi--accent">
+                <p class="kpi-label">${icon('users', 16)}إجمالي الموظفين</p>
+                <p class="kpi-value">${esc(String(counts.total || 0))}</p>
+                <p class="kpi-hint">ملفات موظفين في قاعدة البيانات</p>
+            </div>
             ${statusCards}
-            <div class="kpi-card"><div class="kpi-value">${esc(String(depts.length))}</div><div class="kpi-label">الأقسام</div></div>
-            <div class="kpi-card"><div class="kpi-value">${esc(String(branches.length))}</div><div class="kpi-label">الفروع</div></div>
+            <div class="kpi">
+                <p class="kpi-label">${icon('briefcase', 16)}الأقسام</p>
+                <p class="kpi-value">${esc(String(depts.length))}</p>
+                <p class="kpi-hint">هيكل حتى 6 مستويات</p>
+            </div>
+            <div class="kpi">
+                <p class="kpi-label">${icon('chart', 16)}الفروع</p>
+                <p class="kpi-value">${esc(String(branches.length))}</p>
+                <p class="kpi-hint">فروع الشركة</p>
+            </div>
         </div>
-        <p class="muted">هذه الأرقام من قاعدة البيانات مباشرة. أقسام الإجازات والرواتب والمهام
-        والحضور والتقارير تُفعَّل من المالك كل على حدة، وتظهر هنا حين تُتاح.</p>`;
+        <section class="panel" aria-labelledby="hrNextStepsHeading">
+            <div class="panel-header"><div>
+                <h2 class="panel-title" id="hrNextStepsHeading">الخطوات التالية</h2>
+                <p class="panel-subtitle">أضف موظفين أو استورد ملفًا أو نظّم الهيكل — كل رقم هنا من قاعدة البيانات مباشرة.</p>
+            </div></div>
+            <div class="hr-next-steps">
+                <a class="btn btn-primary" href="/company-dashboard/#hrEmployees">إضافة موظف</a>
+                <a class="btn btn-ghost" href="/company-dashboard/#hrImport">استيراد ملف CSV</a>
+                <a class="btn btn-ghost" href="/company-dashboard/#hrDepartments">إدارة الأقسام والفروع</a>
+                <p class="muted">أقسام الإجازات والرواتب والمهام والحضور والتقارير تُفعَّل من المالك
+                كل على حدة، وتظهر هنا حين تُتاح.</p>
+            </div>
+        </section>`;
 }
 
 /* ── قائمة الموظفين ────────────────────────────────────────────────────── */
@@ -176,18 +205,18 @@ function renderEmployeesToolbar(container) {
     const toolbar = document.getElementById('hrEmployeesToolbar');
     if (!toolbar) return;
     toolbar.innerHTML = `
-        <div class="hr-toolbar-row">
-            <input type="search" id="hrEmpSearch" placeholder="ابحث بالاسم أو الرقم الوظيفي أو الهاتف…" value="${esc(empState.search)}" aria-label="بحث عن موظف">
-            <select id="hrEmpStatus" aria-label="تصفية بالحالة">
+        <div class="toolbar hr-toolbar">
+            <input type="search" class="form-control search-input" id="hrEmpSearch" placeholder="ابحث بالاسم أو الرقم الوظيفي أو الهاتف…" value="${esc(empState.search)}" aria-label="بحث عن موظف">
+            <select class="form-control filter-select" id="hrEmpStatus" aria-label="تصفية بالحالة">
                 <option value="">كل الحالات</option>
                 <option value="active" ${empState.status === 'active' ? 'selected' : ''}>نشط</option>
                 <option value="on_leave" ${empState.status === 'on_leave' ? 'selected' : ''}>في إجازة</option>
                 <option value="suspended" ${empState.status === 'suspended' ? 'selected' : ''}>موقوف</option>
                 <option value="pending_data" ${empState.status === 'pending_data' ? 'selected' : ''}>بيانات ناقصة</option>
             </select>
-            <select id="hrEmpDept" aria-label="تصفية بالقسم">${orgOptions(orgCache.departments, empState.departmentId, 'كل الأقسام')}</select>
+            <select class="form-control filter-select" id="hrEmpDept" aria-label="تصفية بالقسم">${orgOptions(orgCache.departments, empState.departmentId, 'كل الأقسام')}</select>
             <label class="hr-check"><input type="checkbox" id="hrEmpTerminated" ${empState.includeTerminated ? 'checked' : ''}> إظهار المؤرشفين</label>
-            <button type="button" class="btn-primary" id="hrEmpAddBtn">+ إضافة موظف</button>
+            <button type="button" class="btn btn-primary" id="hrEmpAddBtn">+ إضافة موظف</button>
         </div>
         <div id="hrEmpFormSlot"></div>`;
     document.getElementById('hrEmpSearch').addEventListener('input', (e) => {
@@ -244,7 +273,7 @@ async function refreshEmployeesList(container) {
         return;
     }
     list.innerHTML = `
-        <table class="data-table"><thead><tr>
+        <div class="table-scroll hr-table-sticky"><table class="report-table"><thead><tr>
             <th>الرقم الوظيفي</th><th>الاسم</th><th>الهاتف</th><th>البريد</th>
             <th>الرقم القومي</th><th>القسم</th><th>الفرع</th><th>الحالة</th><th>إجراءات</th>
         </tr></thead><tbody>
@@ -253,17 +282,17 @@ async function refreshEmployeesList(container) {
             <td>${esc(r.fullName)}</td><td dir="ltr">${esc(r.phone)}</td><td dir="ltr">${esc(r.email)}</td>
             <td dir="ltr">${esc(r.nationalId)}</td><td>${esc(r.departmentName)}</td><td>${esc(r.branchName)}</td>
             <td>${pill(r.statusInfo)}</td>
-            <td><button type="button" class="btn-ghost" data-hr-view="${esc(r.id)}">عرض</button>
-                <button type="button" class="btn-ghost" data-hr-edit="${esc(r.id)}">تعديل</button>
+            <td><button type="button" class="btn btn-ghost btn-sm" data-hr-view="${esc(r.id)}">عرض</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-hr-edit="${esc(r.id)}">تعديل</button>
                 ${r.status === 'terminated'
-                    ? `<button type="button" class="btn-ghost" data-hr-reactivate="${esc(r.id)}">إعادة تفعيل</button>`
-                    : `<button type="button" class="btn-ghost" data-hr-archive="${esc(r.id)}">أرشفة</button>`}
+                    ? `<button type="button" class="btn btn-ghost btn-sm" data-hr-reactivate="${esc(r.id)}">إعادة تفعيل</button>`
+                    : `<button type="button" class="btn btn-ghost btn-sm" data-hr-archive="${esc(r.id)}">أرشفة</button>`}
             </td></tr>`).join('')}
-        </tbody></table>
+        </tbody></table></div>
         <div class="pager" data-hr-pager>
-            <button type="button" class="btn-ghost" data-hr-prev ${view.hasPrev ? '' : 'disabled'}>السابقة</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-hr-prev ${view.hasPrev ? '' : 'disabled'}>السابقة</button>
             <span>صفحة ${esc(String(view.page))} من ${esc(String(view.totalPages))} — ${esc(String(view.total))} موظفًا</span>
-            <button type="button" class="btn-ghost" data-hr-next ${view.hasNext ? '' : 'disabled'}>التالية</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-hr-next ${view.hasNext ? '' : 'disabled'}>التالية</button>
         </div>`;
     list.querySelector('[data-hr-prev]')?.addEventListener('click', () => { empState.page = view.page - 1; refreshEmployeesList(container); });
     list.querySelector('[data-hr-next]')?.addEventListener('click', () => { empState.page = view.page + 1; refreshEmployeesList(container); });
@@ -287,22 +316,22 @@ async function showEmployeeDetail(employeeId, container) {
     const history = Array.isArray(d.status_history) ? d.status_history : [];
     slot.innerHTML = `
         <div class="hr-detail-card">
-            <h3>${esc(row.fullName)} <small dir="ltr">${esc(row.employeeNumber)}</small></h3>
+            <h3>${esc(row.fullName)} <small dir="ltr">${esc(row.employeeNumber)}</small> ${pill(row.statusInfo)}</h3>
             <dl>
-                <dt>الهاتف</dt><dd dir="ltr">${esc(row.phone)}</dd>
-                <dt>البريد</dt><dd dir="ltr">${esc(row.email)}</dd>
-                <dt>الرقم القومي</dt><dd dir="ltr">${esc(d.national_id || row.nationalId)}</dd>
-                <dt>القسم / الفرع / المسمى</dt><dd>${esc(row.departmentName)} / ${esc(row.branchName)} / ${esc(row.positionName)}</dd>
-                <dt>المدير</dt><dd>${esc(row.managerName)}</dd>
-                <dt>المسمى الحر</dt><dd>${esc(row.jobTitle)}</dd>
-                <dt>تاريخ التعيين</dt><dd>${esc(row.hireDate || '—')}</dd>
-                <dt>نوع العقد</dt><dd>${esc(row.contractType || '—')}</dd>
-                <dt>الحالة</dt><dd>${pill(row.statusInfo)}</dd>
-                <dt>حساب مرتبط</dt><dd>${row.linked ? 'مرتبط بحساب' : 'بلا حساب مرتبط'}</dd>
+                <div><dt>الهاتف</dt><dd dir="ltr">${esc(row.phone)}</dd></div>
+                <div><dt>البريد</dt><dd dir="ltr">${esc(row.email)}</dd></div>
+                <div><dt>الرقم القومي</dt><dd dir="ltr">${esc(d.national_id || row.nationalId)}</dd></div>
+                <div><dt>القسم / الفرع / المسمى</dt><dd>${esc(row.departmentName)} / ${esc(row.branchName)} / ${esc(row.positionName)}</dd></div>
+                <div><dt>المدير</dt><dd>${esc(row.managerName)}</dd></div>
+                <div><dt>المسمى الحر</dt><dd>${esc(row.jobTitle)}</dd></div>
+                <div><dt>تاريخ التعيين</dt><dd>${esc(row.hireDate || '—')}</dd></div>
+                <div><dt>نوع العقد</dt><dd>${esc(row.contractType || '—')}</dd></div>
+                <div><dt>الحالة</dt><dd>${pill(row.statusInfo)}</dd></div>
+                <div><dt>حساب مرتبط</dt><dd>${row.linked ? 'مرتبط بحساب' : 'بلا حساب مرتبط'}</dd></div>
             </dl>
             <h4>سجل الحالات</h4>
             ${history.length ? `<ul>${history.map(h => `<li>${esc(h.created_at || '')} — ${esc(employeeStatusInfo(h.to_status).label)} — ${esc(h.reason || '')}</li>`).join('')}</ul>` : '<p class="muted">لا يوجد سجل حالات بعد.</p>'}
-            <button type="button" class="btn-ghost" data-hr-close-detail>إغلاق</button>
+            <div class="form-actions"><button type="button" class="btn btn-ghost" data-hr-close-detail>إغلاق</button></div>
         </div>`;
     slot.querySelector('[data-hr-close-detail]')?.addEventListener('click', () => { slot.innerHTML = ''; });
 }
@@ -313,28 +342,28 @@ function employeeFormHtml(values, orgs) {
         <form class="hr-form" data-hr-emp-form>
             <h3>${v.id ? 'تعديل موظف' : 'إضافة موظف'}</h3>
             <div class="form-grid">
-                <label>الاسم الكامل <input name="fullName" required value="${esc(v.fullName || '')}"></label>
-                <label>الرقم الوظيفي (اختياري — يُولَّد تلقائيًا) <input name="employeeNumber" dir="ltr" value="${esc(v.employeeNumber || '')}" ${v.id ? 'disabled' : ''}></label>
-                <label>الهاتف <input name="phone" dir="ltr" value="${esc(v.phone || '')}"></label>
-                <label>البريد الإلكتروني <input name="email" type="email" dir="ltr" value="${esc(v.email || '')}"></label>
-                <label>الرقم القومي <input name="nationalId" dir="ltr" value="${esc(v.nationalId || '')}"></label>
-                <label>تاريخ التعيين <input name="hireDate" type="date" value="${esc(v.hireDate || '')}"></label>
-                <label>نوع العقد <select name="contractType">
+                <label>الاسم الكامل <input class="form-control" name="fullName" required value="${esc(v.fullName || '')}"></label>
+                <label>الرقم الوظيفي (اختياري — يُولَّد تلقائيًا) <input class="form-control" name="employeeNumber" dir="ltr" value="${esc(v.employeeNumber || '')}" ${v.id ? 'disabled' : ''}></label>
+                <label>الهاتف <input class="form-control" name="phone" dir="ltr" value="${esc(v.phone || '')}"></label>
+                <label>البريد الإلكتروني <input class="form-control" name="email" type="email" dir="ltr" value="${esc(v.email || '')}"></label>
+                <label>الرقم القومي <input class="form-control" name="nationalId" dir="ltr" value="${esc(v.nationalId || '')}"></label>
+                <label>تاريخ التعيين <input class="form-control" name="hireDate" type="date" value="${esc(v.hireDate || '')}"></label>
+                <label>نوع العقد <select class="form-control" name="contractType">
                     <option value="">—</option>
                     ${['full_time', 'part_time', 'contract', 'intern', 'temporary'].map(c => `<option value="${c}" ${v.contractType === c ? 'selected' : ''}>${esc({ full_time: 'دوام كامل', part_time: 'دوام جزئي', contract: 'عقد', intern: 'تدريب', temporary: 'مؤقت' }[c])}</option>`).join('')}
                 </select></label>
-                <label>القسم <select name="departmentId">${orgOptions(orgs.departments, v.departmentId, 'بلا قسم')}</select></label>
-                <label>الفرع <select name="branchId">${orgOptions(orgs.branches, v.branchId, 'بلا فرع')}</select></label>
-                <label>المسمى الوظيفي <select name="positionId">${orgOptions(orgs.positions, v.positionId, 'بلا مسمى')}</select></label>
-                <label>المسمى الحر <input name="jobTitle" value="${esc(v.jobTitle || '')}"></label>
-                <label>تاريخ الميلاد <input name="dateOfBirth" type="date" value="${esc(v.dateOfBirth || '')}"></label>
-                <label>العنوان <input name="address" value="${esc(v.address || '')}"></label>
+                <label>القسم <select class="form-control" name="departmentId">${orgOptions(orgs.departments, v.departmentId, 'بلا قسم')}</select></label>
+                <label>الفرع <select class="form-control" name="branchId">${orgOptions(orgs.branches, v.branchId, 'بلا فرع')}</select></label>
+                <label>المسمى الوظيفي <select class="form-control" name="positionId">${orgOptions(orgs.positions, v.positionId, 'بلا مسمى')}</select></label>
+                <label>المسمى الحر <input class="form-control" name="jobTitle" value="${esc(v.jobTitle || '')}"></label>
+                <label>تاريخ الميلاد <input class="form-control" name="dateOfBirth" type="date" value="${esc(v.dateOfBirth || '')}"></label>
+                <label>العنوان <input class="form-control" name="address" value="${esc(v.address || '')}"></label>
             </div>
             <p class="muted">الأرشفة وحالة الموظف وتعديل الرقم الوظيفي ليست هنا؛ الحالة من
             إجراءات القائمة، والرقم الوظيفي لا يتغير بعد الإنشاء.</p>
             <div class="form-actions">
-                <button type="submit" class="btn-primary">${v.id ? 'حفظ التعديلات' : 'إضافة الموظف'}</button>
-                <button type="button" class="btn-ghost" data-hr-cancel-form>إلغاء</button>
+                <button type="submit" class="btn btn-primary">${v.id ? 'حفظ التعديلات' : 'إضافة الموظف'}</button>
+                <button type="button" class="btn btn-ghost" data-hr-cancel-form>إلغاء</button>
             </div>
             <p class="error-text" data-hr-form-error hidden></p>
         </form>`;
@@ -445,9 +474,16 @@ async function loadOrgSection(kind, container) {
     const rows = Array.isArray(result.data) ? result.data : [];
     const { tree, errors } = buildOrgTree(rows);
     const renderNode = (node) => `<li>
-        <span>${esc(node.name)}</span>
-        <small class="muted">${esc(String(node.employees_count || 0))} موظفًا · عمق ${esc(String(node.depth))}</small>
-        <button type="button" class="btn-ghost" data-hr-org-archive="${esc(node.id)}" data-hr-org-kind="${kind}">أرشفة</button>
+        <div class="hr-tree-row">
+            <div class="hr-tree-main">
+                <span class="hr-tree-name" title="${esc(node.name)}">${esc(node.name)}</span>
+                <button type="button" class="btn btn-ghost btn-sm" data-hr-org-archive="${esc(node.id)}" data-hr-org-kind="${kind}">أرشفة</button>
+            </div>
+            <div class="hr-tree-meta">
+                <span class="pill status-neutral">${esc(String(node.employees_count || 0))} موظفًا</span>
+                <span class="muted">عمق ${esc(String(node.depth))}</span>
+            </div>
+        </div>
         ${node.children.length ? `<ul>${node.children.map(renderNode).join('')}</ul>` : ''}
     </li>`;
     listEl.innerHTML = `
@@ -455,9 +491,9 @@ async function loadOrgSection(kind, container) {
         ${tree.length ? `<ul class="hr-tree">${tree.map(renderNode).join('')}</ul>`
             : `<p class="muted">لا توجد ${labels[kind]} بعد — أنشئ أول ${labels[kind].slice(0, -1)} من النموذج أدناه.</p>`}
         <form class="hr-inline-form" data-hr-org-form="${kind}">
-            <input name="name" required placeholder="اسم جديد" aria-label="اسم جديد">
-            <select name="parentId" aria-label="الأب">${orgOptions(rows, null, 'بلا أب (مستوى أول)')}</select>
-            <button type="submit" class="btn-primary">إضافة</button>
+            <input class="form-control" name="name" required placeholder="اسم جديد" aria-label="اسم جديد">
+            <select class="form-control" name="parentId" aria-label="الأب">${orgOptions(rows, null, 'بلا أب (مستوى أول)')}</select>
+            <button type="submit" class="btn btn-primary">إضافة</button>
             <span class="error-text" data-hr-org-error hidden></span>
         </form>`;
     listEl.querySelector(`[data-hr-org-form="${kind}"]`)?.addEventListener('submit', async (e) => {
@@ -491,7 +527,8 @@ export async function loadHrDepartments() {
     await Promise.all([
         loadOrgSection('departments', container),
         loadOrgSection('branches', container),
-        loadOrgSection('positions', container)
+        loadOrgSection('positions', container),
+        loadHrSettings()
     ]);
 }
 
@@ -504,16 +541,22 @@ export function loadHrImport() {
     if (!container) return;
     container.innerHTML = `
         <div class="hr-import-intro">
-            <p>استورد ملف CSV بحد أقصى ${HR_IMPORT_MAX_ROWS} صفًا. ترتيب الأعمدة في القالب:
-            الرقم الوظيفي، الاسم، الهاتف، البريد، الرقم القومي، القسم، الفرع، المسمى،
-            رقم المدير، المسمى الحر، تاريخ التعيين، نوع العقد. الرقم الوظيفي الفارغ
-            يُولَّد تلقائيًا، والصف بلا هاتف ولا بريد يُنشأ بحالة «بيانات ناقصة».</p>
-            <p class="muted">الاستيراد لا ينشئ أي حساب دخول أبدًا — ملفات موظفين فقط،
+            <h3>استيراد ملف CSV</h3>
+            <ol class="hr-steps">
+                <li>نزّل القالب واملأ الصفوف (حد أقصى ${HR_IMPORT_MAX_ROWS} صفًا).</li>
+                <li>اختر ملف CSV لرؤية معاينة أولية صفًا صفًا.</li>
+                <li>راجع الصفوف الجاهزة والمرفوضة ثم نفّذ الاستيراد بنداء واحد.</li>
+            </ol>
+            <p class="muted">ترتيب الأعمدة في القالب: الرقم الوظيفي، الاسم، الهاتف، البريد، الرقم القومي،
+            القسم، الفرع، المسمى، رقم المدير، المسمى الحر، تاريخ التعيين، نوع العقد.
+            الرقم الوظيفي الفارغ يُولَّد تلقائيًا، والصف بلا هاتف ولا بريد يُنشأ
+            بحالة «بيانات ناقصة».</p>
+            <p class="hr-import-note">الاستيراد لا ينشئ أي حساب دخول أبدًا — ملفات موظفين فقط،
             والربط بحساب قائم يتم لاحقًا من صفحة الموظفين بموافقة مدقَّقة.</p>
-            <div class="hr-toolbar-row">
-                <button type="button" class="btn-ghost" id="hrImportTemplateBtn">تنزيل القالب</button>
-                <label class="btn-primary">اختيار ملف CSV <input type="file" id="hrImportFile" accept=".csv,text/csv" hidden></label>
-                <button type="button" class="btn-ghost" id="hrImportRunsBtn">سجل عمليات الاستيراد السابقة</button>
+            <div class="form-actions">
+                <button type="button" class="btn btn-ghost" id="hrImportTemplateBtn">تنزيل القالب</button>
+                <label class="btn btn-primary">اختيار ملف CSV <input type="file" id="hrImportFile" accept=".csv,text/csv" hidden></label>
+                <button type="button" class="btn btn-ghost" id="hrImportRunsBtn">سجل عمليات الاستيراد السابقة</button>
             </div>
         </div>
         <div id="hrImportPreview"></div>
@@ -580,22 +623,22 @@ async function handleImportFile(file, container) {
     const rowHtml = (r, ok) => `<tr class="${ok ? '' : 'row-invalid'}">
         <td>${esc(String(r.line))}</td><td dir="ltr">${esc(r.employee_number || '—')}</td>
         <td>${esc(r.full_name)}</td><td dir="ltr">${esc(r.phone || '—')}</td><td dir="ltr">${esc(r.email || '—')}</td>
-        <td>${ok ? 'جاهز' : esc(r.reason || 'مرفوض')}</td></tr>`;
+        <td>${ok ? '<span class="pill status-tone-success">جاهز</span>' : `<span class="pill status-tone-danger">مرفوض</span> <span class="muted">${esc(r.reason || '')}</span>`}</td></tr>`;
     preview.innerHTML = `
         <p class="muted"><strong>تحقق أولي</strong> — بناءً على آخر لقطة محملة؛ القرار النهائي
         لخادم الاستيراد، وقد يرفض صفًا بدا جاهزًا (مثلًا: رقم أُنشئ بعد تحميل الصفحة).</p>
         ${errors.length ? `<p class="error-text">${errors.map(e => `سطر ${e.line}: ${e.reason}`).join(' — ')}</p>` : ''}
-        <p>${valid.length} صفًا جاهزًا من ${rows.length}، و${invalid.length} صفًا مرفوضًا أوليًا.</p>
-        <table class="data-table"><thead><tr>
+        <p class="hr-import-summary"><span class="pill status-tone-success">${valid.length} صفًا جاهزًا</span><span class="pill status-tone-danger">${invalid.length} صفًا مرفوضًا</span><span>من ${rows.length} صفًا</span></p>
+        <div class="table-scroll"><table class="report-table"><thead><tr>
             <th>السطر</th><th>الرقم الوظيفي</th><th>الاسم</th><th>الهاتف</th><th>البريد</th><th>الحالة</th>
         </tr></thead><tbody>
         ${valid.map(r => rowHtml(r, true)).join('')}
         ${invalid.map(r => rowHtml(r, false)).join('')}
-        </tbody></table>
+        </tbody></table></div>
         <div class="form-actions">
-            <button type="button" class="btn-primary" id="hrImportRunBtn" ${valid.length ? '' : 'disabled'}>
+            <button type="button" class="btn btn-primary" id="hrImportRunBtn" ${valid.length ? '' : 'disabled'}>
                 استيراد ${valid.length} صفًا جاهزًا (نداء واحد)</button>
-            <button type="button" class="btn-ghost" id="hrImportCancelBtn">إلغاء</button>
+            <button type="button" class="btn btn-ghost" id="hrImportCancelBtn">إلغاء</button>
         </div>`;
     document.getElementById('hrImportRunBtn')?.addEventListener('click', () => runImport(container));
     document.getElementById('hrImportCancelBtn')?.addEventListener('click', () => {
@@ -632,18 +675,18 @@ async function runImport(container) {
     importState.ran = { results, summary, idempotencyKey: importState.key };
     resultBox.innerHTML = `
         <h3>نتيجة الاستيراد — ${esc(importState.fileName || '')}</h3>
-        <p>أُدخل ${summary.inserted}، مكرر ${summary.duplicate}، مرفوض ${summary.invalid}، من ${summary.total} صفًا.</p>
-        <table class="data-table"><thead><tr>
+        <p class="hr-import-summary"><span class="pill status-tone-success">${summary.inserted} أُدخل</span><span class="pill status-tone-warning">${summary.duplicate} مكرر</span><span class="pill status-tone-danger">${summary.invalid} مرفوض</span><span>من ${summary.total} صفًا</span></p>
+        <div class="table-scroll"><table class="report-table"><thead><tr>
             <th>السطر</th><th>الرقم الوظيفي</th><th>الحالة</th><th>السبب</th>
         </tr></thead><tbody>
         ${results.map(r => `<tr>
             <td>${esc(String(r.line))}</td><td dir="ltr">${esc(r.employee_number || '—')}</td>
-            <td>${r.status === 'inserted' ? 'أُدخل' : r.status === 'duplicate' ? 'مكرر' : 'مرفوض'}</td>
+            <td>${r.status === 'inserted' ? '<span class="pill status-tone-success">أُدخل</span>' : r.status === 'duplicate' ? '<span class="pill status-tone-warning">مكرر</span>' : '<span class="pill status-tone-danger">مرفوض</span>'}</td>
             <td>${esc(r.reason || '')}</td></tr>`).join('')}
-        </tbody></table>
+        </tbody></table></div>
         <div class="form-actions">
-            <button type="button" class="btn-ghost" id="hrImportReportBtn">تنزيل التقرير CSV</button>
-            <button type="button" class="btn-ghost" id="hrImportAgainBtn">استيراد ملف آخر</button>
+            <button type="button" class="btn btn-ghost" id="hrImportReportBtn">تنزيل التقرير CSV</button>
+            <button type="button" class="btn btn-ghost" id="hrImportAgainBtn">استيراد ملف آخر</button>
         </div>`;
     document.getElementById('hrImportReportBtn')?.addEventListener('click', () => {
         downloadText('hr-import-report.csv', hrImportResultsToCsv(results));
@@ -671,7 +714,7 @@ async function loadImportRuns(container) {
         renderState(box, { variant: 'empty', title: 'لا توجد عمليات استيراد سابقة', text: '' });
         return;
     }
-    box.innerHTML = `<table class="data-table"><thead><tr>
+    box.innerHTML = `<div class="table-scroll"><table class="report-table"><thead><tr>
         <th>الملف</th><th>الحالة</th><th>الصفوف</th><th>أُدخل</th><th>مكرر</th><th>مرفوض</th><th>التاريخ</th><th></th>
     </tr></thead><tbody>
     ${rows.map(r => `<tr>
@@ -679,8 +722,8 @@ async function loadImportRuns(container) {
         <td>${esc(String(r.total_rows))}</td><td>${esc(String(r.inserted_count))}</td>
         <td>${esc(String(r.duplicate_count))}</td><td>${esc(String(r.invalid_count))}</td>
         <td>${esc(r.created_at || '')}</td>
-        <td><button type="button" class="btn-ghost" data-hr-run="${esc(r.id)}">التفاصيل</button></td>
-    </tr>`).join('')}</tbody></table>`;
+        <td><button type="button" class="btn btn-ghost btn-sm" data-hr-run="${esc(r.id)}">التفاصيل</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
     box.querySelectorAll('[data-hr-run]').forEach(b => b.addEventListener('click', async () => {
         const detail = await fetchHrImportRunDetail(b.getAttribute('data-hr-run'));
         if (!detail.ok) { window.alert(blockReason(detail)); return; }
@@ -691,15 +734,15 @@ async function loadImportRuns(container) {
         if (!resultBox) return;
         resultBox.innerHTML = `
             <h3>تفاصيل عملية استيراد — ${esc(d.file_name || '')}</h3>
-            <p>أُدخل ${summary.inserted}، مكرر ${summary.duplicate}، مرفوض ${summary.invalid}، من ${summary.total} صفًا.</p>
-            <table class="data-table"><thead><tr>
+            <p class="hr-import-summary"><span class="pill status-tone-success">${summary.inserted} أُدخل</span><span class="pill status-tone-warning">${summary.duplicate} مكرر</span><span class="pill status-tone-danger">${summary.invalid} مرفوض</span><span>من ${summary.total} صفًا</span></p>
+            <div class="table-scroll"><table class="report-table"><thead><tr>
                 <th>السطر</th><th>الرقم الوظيفي</th><th>الحالة</th><th>السبب</th>
             </tr></thead><tbody>
             ${results.map(r => `<tr>
                 <td>${esc(String(r.line))}</td><td dir="ltr">${esc(r.employee_number || '—')}</td>
-                <td>${r.status === 'inserted' ? 'أُدخل' : r.status === 'duplicate' ? 'مكرر' : 'مرفوض'}</td>
+                <td>${r.status === 'inserted' ? '<span class="pill status-tone-success">أُدخل</span>' : r.status === 'duplicate' ? '<span class="pill status-tone-warning">مكرر</span>' : '<span class="pill status-tone-danger">مرفوض</span>'}</td>
                 <td>${esc(r.reason || '')}</td></tr>`).join('')}
-            </tbody></table>`;
+            </tbody></table></div>`;
     }));
 }
 
@@ -717,12 +760,15 @@ export async function loadHrSettings() {
     const s = result.data || {};
     container.innerHTML = `
         <form class="hr-form" data-hr-settings-form>
+            <h3>إعدادات الترقيم</h3>
             <div class="form-grid">
-                <label>بادئة الرقم الوظيفي <input name="prefix" dir="ltr" value="${esc(s.employee_number_prefix || 'EMP')}"></label>
-                <label>يبدأ الترقيم من <input name="startFrom" type="number" min="1" value="${esc(String(s.employee_number_next ?? 1))}"></label>
+                <label>بادئة الرقم الوظيفي <input class="form-control" name="prefix" dir="ltr" value="${esc(s.employee_number_prefix || 'EMP')}"></label>
+                <label>يبدأ الترقيم من <input class="form-control" name="startFrom" type="number" min="1" value="${esc(String(s.employee_number_next ?? 1))}"></label>
             </div>
+            <p class="muted">الرقم الوظيفي التالي يُولَّد من البادئة والعدّاد عند إضافة موظف بلا رقم؛
+            تغيير العدّاد لا يمسّ الأرقام الصادرة من قبل.</p>
             <div class="form-actions">
-                <button type="submit" class="btn-primary">حفظ الإعدادات</button>
+                <button type="submit" class="btn btn-primary">حفظ الإعدادات</button>
             </div>
             <p class="error-text" data-hr-settings-error hidden></p>
         </form>`;

@@ -1,0 +1,439 @@
+/* ============================================================================
+   company-hr.css — الطبقة البصرية لوحدة الموارد البشرية في لوحة الشركة.
+
+   لماذا يوجد هذا الملف: قوالب hr-dashboard.js كانت تستعمل أصنافًا
+   (.kpi-card و .data-table و .status-pill و .hr-* و .muted و .error-text)
+   بلا أي تعريف في أي ملف أنماط في المستودع، فكانت الصفحات تُرسم بإعدادات
+   المتصفح الافتراضية — وهذا أصل «الشكل بدائي».
+
+   المبدأ: لا نخترع نظامًا جديدًا. كل ما له نظير في اللوحة يُستعمل كما هو
+   (.kpi و .pill و .panel و .report-table و .table-scroll و .toolbar
+   و .form-control و .form-grid و .form-actions و .state-block)؛ وهذا الملف
+   يعرّف فقط ما هو خاص بالموارد البشرية فعلًا، وبنفس التوكنز
+   (--color-* و --sp-* و --fs-* و --r-*) فيعمل في الفاتح والداكن معًا.
+   بلا أي تغيير وظيفي: نفس العناصر ونفس المعرفات ونفس المعالجات.
+   ============================================================================ */
+
+/* ── نص ثانوي ونص خطأ (يستعملهما hr-dashboard.js في مواضع كثيرة) ─────── */
+body.company-app .muted {
+    color: var(--color-text-secondary);
+    font-size: var(--fs-sm);
+    line-height: 1.7;
+}
+
+body.company-app .error-text {
+    color: var(--color-danger);
+    font-size: var(--fs-sm);
+    line-height: 1.6;
+    margin: var(--sp-2) 0 0;
+}
+
+/* ── نظرة عامة: بطاقة الخطوات التالية ─────────────────────────────────── */
+body.company-app .hr-next-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    align-items: center;
+    margin-top: var(--sp-4);
+}
+
+body.company-app .hr-next-steps .muted {
+    flex: 1 1 100%;
+    margin: 0;
+}
+
+/* ── شريط أدوات الموظفين: بطاقة تجمع البحث والتصفية ───────────────────── */
+body.company-app .hr-toolbar {
+    background: var(--ca-surface, var(--color-surface));
+    border: 1px solid var(--color-border);
+    border-radius: var(--ca-radius, var(--r-lg));
+    box-shadow: var(--ca-shadow);
+    padding: var(--sp-4);
+    margin-bottom: var(--sp-4);
+}
+
+body.company-app .hr-toolbar .form-control {
+    width: auto;
+    min-width: 0;
+}
+
+body.company-app .hr-toolbar .search-input {
+    flex: 1 1 14rem;
+}
+
+body.company-app .hr-toolbar .filter-select {
+    flex: 0 1 11rem;
+}
+
+body.company-app .hr-check {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+body.company-app .hr-check input {
+    width: 1.05rem;
+    height: 1.05rem;
+    accent-color: var(--company-accent, var(--color-accent));
+    cursor: pointer;
+}
+
+/* ── عمود الإجراءات ثابت أثناء التمرير الأفقي لجدول الموظفين ────────────
+   الجدول 9 أعمدة فلا يتسع كاملًا على الشاشات المتوسطة؛ الإجراءات آخر عمود
+   (الأيسر في RTL) فتثبيته يبقي «عرض/تعديل/أرشفة» في متناول اليد دائمًا. */
+body.company-app .hr-table-sticky .report-table th:last-child,
+body.company-app .hr-table-sticky .report-table td:last-child {
+    position: sticky;
+    left: 0;
+    background: var(--color-surface);
+    box-shadow: 1px 0 0 var(--color-border);
+}
+
+/* ── ترقيم الصفحات أسفل الجدول ────────────────────────────────────────── */
+body.company-app .pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    margin-top: var(--sp-4);
+    font-size: var(--fs-sm);
+    color: var(--color-text-secondary);
+}
+
+/* ── صف مرفوض في معاينة الاستيراد ─────────────────────────────────────── */
+body.company-app .row-invalid {
+    background: var(--tint-danger);
+}
+
+/* ── بطاقة تفاصيل موظف ────────────────────────────────────────────────── */
+body.company-app .hr-detail-card {
+    background: var(--ca-surface, var(--color-surface));
+    border: 1px solid var(--color-border);
+    border-radius: var(--ca-radius, var(--r-lg));
+    box-shadow: var(--ca-shadow);
+    padding: var(--sp-5);
+    margin-top: var(--sp-4);
+}
+
+body.company-app .hr-detail-card h3 {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    margin: 0 0 var(--sp-4);
+    font-size: var(--fs-lg);
+    font-weight: 800;
+    color: var(--color-text);
+}
+
+body.company-app .hr-detail-card h3 small {
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    color: var(--color-text-secondary);
+}
+
+body.company-app .hr-detail-card dl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+    gap: var(--sp-3) var(--sp-5);
+    margin: 0 0 var(--sp-4);
+}
+
+body.company-app .hr-detail-card dl > div {
+    min-width: 0;
+}
+
+body.company-app .hr-detail-card dt {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    margin-bottom: .15rem;
+}
+
+body.company-app .hr-detail-card dd {
+    margin: 0;
+    font-size: var(--fs-base);
+    color: var(--color-text);
+    word-break: break-word;
+}
+
+body.company-app .hr-detail-card h4 {
+    margin: var(--sp-4) 0 var(--sp-2);
+    font-size: var(--fs-sm);
+    font-weight: 800;
+    color: var(--color-text);
+}
+
+body.company-app .hr-detail-card ul {
+    margin: 0 0 var(--sp-4);
+    padding-inline-start: var(--sp-4);
+    font-size: var(--fs-sm);
+    line-height: 1.8;
+    color: var(--color-text-secondary);
+}
+
+/* ── نماذج الموظفين والإعدادات: بطاقة بحقول معنونة ────────────────────── */
+body.company-app .hr-form {
+    background: var(--ca-surface, var(--color-surface));
+    border: 1px solid var(--color-border);
+    border-radius: var(--ca-radius, var(--r-lg));
+    box-shadow: var(--ca-shadow);
+    padding: var(--sp-5);
+    margin-top: var(--sp-4);
+}
+
+body.company-app .hr-form > h3 {
+    margin: 0 0 var(--sp-4);
+    font-size: var(--fs-lg);
+    font-weight: 800;
+    color: var(--color-text);
+}
+
+body.company-app .hr-form .form-grid > label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    min-width: 0;
+}
+
+body.company-app .hr-form .form-grid > label .form-control {
+    font-weight: 400;
+}
+
+body.company-app .hr-form .muted {
+    margin: var(--sp-4) 0 0;
+}
+
+/* ── شبكة لوحات الأقسام والفروع والمسميات ─────────────────────────────── */
+body.company-app .hr-org-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-4);
+    align-items: start;
+}
+
+body.company-app .hr-org-grid > .panel {
+    margin-bottom: 0;
+    min-width: 0;
+}
+
+/* ── شجرة الأقسام/الفروع/المسميات ─────────────────────────────────────── */
+body.company-app .hr-tree {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+body.company-app .hr-tree ul {
+    list-style: none;
+    margin: var(--sp-1) 0 0;
+    padding-inline-start: var(--sp-4);
+    border-inline-start: 2px solid var(--company-border, var(--color-border));
+}
+
+body.company-app .hr-tree-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: .15rem;
+    padding: var(--sp-2) var(--sp-3);
+    border-bottom: 1px solid var(--color-border);
+    border-radius: var(--ca-radius-sm, var(--r-sm));
+}
+
+body.company-app .hr-tree-row:hover {
+    background: var(--hover-bg);
+}
+
+body.company-app .hr-tree li:last-child > .hr-tree-row {
+    border-bottom: 0;
+}
+
+body.company-app .hr-tree-main {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-width: 0;
+}
+
+body.company-app .hr-tree-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+}
+
+body.company-app .hr-tree-meta .muted {
+    font-size: var(--fs-xs);
+}
+
+body.company-app .hr-tree-name {
+    flex: 1 1 auto;
+    font-weight: 700;
+    color: var(--color-text);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.company-app .hr-tree-row .muted {
+    font-size: var(--fs-xs);
+}
+
+/* ── نموذج إضافة قسم/فرع/مسمى (سطر واحد) ─────────────────────────────── */
+body.company-app .hr-inline-form {
+    display: flex;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: var(--sp-4);
+    padding-top: var(--sp-4);
+    border-top: 1px solid var(--color-border);
+}
+
+body.company-app .hr-inline-form input[name="name"] {
+    flex: 1 1 10rem;
+    min-width: 0;
+}
+
+body.company-app .hr-inline-form select[name="parentId"] {
+    flex: 0 1 auto;
+    width: auto;
+    min-width: 9rem;
+}
+
+body.company-app .hr-inline-form .error-text {
+    flex: 1 1 100%;
+    margin: 0;
+}
+
+/* ── الاستيراد: مقدمة بخطوات مرقّمة وتنبيه ────────────────────────────── */
+body.company-app .hr-import-intro {
+    background: var(--ca-surface, var(--color-surface));
+    border: 1px solid var(--color-border);
+    border-radius: var(--ca-radius, var(--r-lg));
+    box-shadow: var(--ca-shadow);
+    padding: var(--sp-5);
+    margin-bottom: var(--sp-4);
+}
+
+body.company-app .hr-import-intro > h3 {
+    margin: 0 0 var(--sp-3);
+    font-size: var(--fs-lg);
+    font-weight: 800;
+    color: var(--color-text);
+}
+
+body.company-app .hr-steps {
+    margin: 0 0 var(--sp-4);
+    padding-inline-start: 1.4rem;
+    font-size: var(--fs-sm);
+    line-height: 1.9;
+    color: var(--color-text);
+}
+
+body.company-app .hr-steps li::marker {
+    font-weight: 800;
+    color: var(--company-accent, var(--color-accent));
+}
+
+body.company-app .hr-import-note {
+    margin: 0 0 var(--sp-4);
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--ca-radius-sm, var(--r-sm));
+    background: var(--company-tint, var(--tint-accent));
+    border-inline-start: 3px solid var(--company-accent, var(--color-accent));
+    font-size: var(--fs-sm);
+    line-height: 1.7;
+    color: var(--color-text);
+}
+
+body.company-app .hr-import-intro .muted {
+    margin: 0 0 var(--sp-4);
+}
+
+body.company-app .hr-import-intro .form-actions {
+    margin-top: 0;
+}
+
+/* ── ملخص المعاينة: عدّادات جاهز/مرفوض ────────────────────────────────── */
+body.company-app .hr-import-summary {
+    display: flex;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    align-items: center;
+    margin: var(--sp-4) 0;
+    font-size: var(--fs-sm);
+    color: var(--color-text);
+}
+
+/* ── نافذة السبب ───────────────────────────────────────────────────────── */
+body.company-app .hr-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--sp-4);
+    background: rgba(8, 15, 30, .55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+body.company-app .hr-modal {
+    width: min(28rem, 100%);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--ca-radius, var(--r-lg));
+    box-shadow: 0 12px 40px -8px rgba(8, 15, 30, .35);
+    padding: var(--sp-5);
+}
+
+body.company-app .hr-modal h3 {
+    margin: 0 0 var(--sp-2);
+    font-size: var(--fs-lg);
+    font-weight: 800;
+    color: var(--color-text);
+}
+
+body.company-app .hr-modal .muted {
+    margin: 0 0 var(--sp-3);
+}
+
+body.company-app .hr-modal textarea {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* ── الجوال: تضييق مسافات البطاقات وشجرة أضيق ─────────────────────────── */
+@media (max-width: 640px) {
+    body.company-app .hr-detail-card,
+    body.company-app .hr-form,
+    body.company-app .hr-import-intro {
+        padding: var(--sp-4);
+    }
+    body.company-app .hr-toolbar {
+        padding: var(--sp-3);
+    }
+    body.company-app .hr-tree ul {
+        padding-inline-start: var(--sp-3);
+    }
+    /* أزرار الإجراءات فوق بعضها في جدول الموظفين حتى لا تأكل الشاشة */
+    body.company-app .hr-table-sticky .report-table td:last-child .btn {
+        display: flex;
+        width: 100%;
+        margin: .15rem 0;
+    }
+}
