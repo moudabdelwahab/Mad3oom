@@ -180,6 +180,8 @@ create policy wa_ticket_links_staff_select
 -- منح القراءة فقط (السياسات أعلاه هي التي تقيّد الصفوف)؛ بلا المنح
 -- ترفض RLS القراءة أصلًا. الكتابة بلا منح إطلاقًا — عبر الـ RPC فقط.
 grant select on public.whatsapp_ticket_links to authenticated;
+revoke all on public.whatsapp_ticket_links from anon, authenticated;
+grant select on public.whatsapp_ticket_links to authenticated;
 
 -- ============================================================================
 -- 2) عمودا المصدر على tickets (قبل تعديل enforce_ticket_quota — فرع

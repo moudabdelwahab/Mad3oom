@@ -165,29 +165,31 @@ async function openDashboard(fx, hash = '', opts) {
 
 /* ── الاشتراكات ─────────────────────────────────────────────────────────── */
 
-test('بطاقة باقة المتاجر بلا سعر: «قريبًا»، زر معطّل، ولا «0» في السعر — بالشهري والسنوي', { skip: !chromiumPath }, async () => {
+// 162: باقة المتاجر المنفصلة أُلغيت — مزاياها في بطاقة الفائقة، وبلا بطاقة ولا زر لها.
+test('لا بطاقة باقة متاجر: بطاقة الفائقة تسرد مزايا المتجر، وجدول المقارنة يشملها', { skip: !chromiumPath }, async () => {
     const { page, context, errors } = await open(customerFx(), '/subscriptions.html');
-    const btn = page.locator('[data-plan-btn="store"]');
-    await btn.waitFor();
-    assert.equal(await btn.isDisabled(), true);
-    assert.equal((await btn.textContent()).trim(), 'قريبًا');
-    assert.equal((await page.textContent('.pricing-card[data-plan="store"] .amount')).trim(), '—');
-    await page.click('#billingToggle [data-period="yearly"]');
-    assert.equal((await page.textContent('.pricing-card[data-plan="store"] .amount')).trim(), '—');
+    await page.waitForSelector('.pricing-card[data-plan="ultimate"]');
+    assert.equal(await page.locator('.pricing-card[data-plan="store"]').count(), 0);
+    assert.equal(await page.locator('[data-plan-btn="store"]').count(), 0);
+    const ult = await page.locator('.pricing-card[data-plan="ultimate"]').innerText();
+    assert.match(ult, /ربط متجر Shopify/);
+    assert.match(ult, /دعم المتاجر/);
+    const row = page.locator('.comparison-table tbody tr', { hasText: 'متاجر Shopify' });
+    assert.match(await row.innerText(), /مشمول في الفائقة/);
     assert.deepEqual(errors, []);
     await context.close();
 });
 
-test('باقة المتاجر مسعّرة ومفعّلة: «اشترك كمتجر» يعرض خيار المتجر وحده، والطلب يحمل النطاق المطبَّع والباقة', { skip: !chromiumPath }, async () => {
-    const plans = PLANS.map((p) => (p.key === 'store' ? { ...p, is_active: true, price_monthly: 500, price_yearly: 5000 } : p));
-    const { page, context, errors } = await open(customerFx({ plans }), '/subscriptions.html');
-    const btn = page.locator('[data-plan-btn="store"]');
-    await page.waitForFunction(() => !document.querySelector('[data-plan-btn="store"]').disabled);
-    assert.equal((await btn.textContent()).trim(), 'اشترك كمتجر');
+// 162: شراء الفائقة كمتجر: نافذة نوع الحساب تعرض الخيارات الثلاثة، وطلب المتجر يحمل الباقة الفائقة.
+test('شراء الفائقة كمتجر: الخيارات الثلاثة في نافذة نوع الحساب، والطلب يحمل النطاق المطبَّع والفائقة', { skip: !chromiumPath }, async () => {
+    const { page, context, errors } = await open(customerFx(), '/subscriptions.html');
+    const btn = page.locator('[data-plan-btn="ultimate"]');
+    await page.waitForFunction(() => !document.querySelector('[data-plan-btn="ultimate"]').disabled);
+    assert.equal((await btn.textContent()).trim(), 'اشترك الآن');
     await btn.click();
     const modal = page.locator('[role="dialog"][aria-label="نوع الحساب"]');
     await modal.waitFor();
-    assert.deepEqual(await modal.locator('[data-account-type]').evaluateAll((els) => els.map((e) => e.dataset.accountType)), ['ecommerce_store']);
+    assert.deepEqual(await modal.locator('[data-account-type]').evaluateAll((els) => els.map((e) => e.dataset.accountType)), ['individual', 'company', 'ecommerce_store']);
     await modal.locator('[data-account-type="ecommerce_store"]').click();
     const form = page.locator('[role="dialog"][aria-label="بيانات المتجر"]');
     await form.waitFor();
@@ -204,7 +206,7 @@ test('باقة المتاجر مسعّرة ومفعّلة: «اشترك كمتج
     assert.match(await form.innerText(), /تم إرسال طلب حساب المتجر/);
     const [args] = await called(page, 'submit_store_account_request');
     assert.equal(args.p_store_domain, 'ward-shop.myshopify.com');
-    assert.equal(args.p_requested_plan, 'store');
+    assert.equal(args.p_requested_plan, 'ultimate');
     assert.deepEqual(await called(page, 'submit_company_account_request'), [], 'not the company path');
     assert.deepEqual(await called(page, 'request_subscription_purchase'), [], 'no payment before the store account exists');
     assert.deepEqual(errors, []);

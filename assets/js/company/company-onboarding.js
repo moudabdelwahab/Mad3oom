@@ -11,8 +11,9 @@
  *       شركة ⇒ يملأ بيانات الشركة وتتبعت كطلب (migrations/068). مفيش دفع ولا
  *              شركة دلوقتي: الإدارة تراجع، وعند الموافقة القاعدة تُنشئ الشركة
  *              فيتحوّل الحساب لحساب شركة، ويرجع يكمل الاشتراك كشركة.
- *       متجر ⇒ نفس طلب الشركة موسومًا ecommerce_store (118). بعد الموافقة يشترك في باقة
- *              المتاجر، ثم يربط Shopify من لوحة الشركة (صفحة «Shopify»).
+ *       متجر ⇒ نفس طلب الشركة موسومًا ecommerce_store (118). بعد الموافقة يشترك في الباقة
+ *              الفائقة (162: مزايا المتجر مشمولة فيها، بلا باقة متاجر منفصلة)،
+ *              ثم يربط Shopify من لوحة الشركة (صفحة «Shopify»).
  *
  * الملف ده ما بيقررش حالة الحساب: وجود الشركة وحالة الطلب جايين من القاعدة،
  * والقاعدة هي اللي بترفض الطلب المكرر أو حساب الشركة اللي يطلب تاني.
@@ -40,23 +41,24 @@ export function validStoreDomain(value) {
 
 /**
  * بأي صفة يشتري العميل؟
- * @param {{plan: string, billingCycle: string, storePlan?: boolean}} purchase الباقة اللي ضغط عليها،
+ * @param {{plan: string, billingCycle: string}} purchase الباقة اللي ضغط عليها،
  *        بتتسجّل مع طلب الشركة عشان إخطار الموافقة يقوله يكمل اشتراكه فيها.
- *        storePlan: باقة جمهورها ecommerce_store — الخيار الوحيد المعروض «متجر إلكتروني».
+ *        خيار «متجر إلكتروني» متاح لكل باقة: طلب حساب المتجر يطلب الباقة
+ *        نفسها (162: باقة المتاجر المنفصلة أُلغيت، والمتجر يشترك في الفائقة).
  * @returns {Promise<{proceed: boolean, asCompany: boolean}>}
  *   proceed=true  → كمّل لنافذة الدفع (asCompany=true: اربط الاشتراك بالشركة)
  *   proceed=false → العميل لغى، أو بعت طلب شركة (النافذة عرضت النتيجة بنفسها)
  */
-export async function choosePurchaseAccount({ plan, billingCycle, storePlan = false } = {}) {
+export async function choosePurchaseAccount({ plan, billingCycle } = {}) {
     if (await hasCompany()) return { proceed: true, asCompany: true };
 
     const last = await fetchMyCompanyAccountRequest();
     const lastRequest = last.ok ? last.data : null;
 
-    const choice = await openAccountTypeModal(lastRequest, { storeOnly: storePlan });
+    const choice = await openAccountTypeModal(lastRequest);
     if (choice === PURCHASE_AS.individual) return { proceed: true, asCompany: false };
     if (choice === PURCHASE_AS.company) await openCompanyModal({ plan, billingCycle, lastRequest });
-    if (choice === PURCHASE_AS.store) await openCompanyModal({ plan: storePlan ? plan : null, billingCycle, lastRequest, kind: PURCHASE_AS.store });
+    if (choice === PURCHASE_AS.store) await openCompanyModal({ plan, billingCycle, lastRequest, kind: PURCHASE_AS.store });
     return { proceed: false, asCompany: false };
 }
 
@@ -134,7 +136,7 @@ const ICONS = {
  * متاح عادي. ولو الطلب السابق اترفض، سبب الرفض بيظهر قبل ما يبعت تاني.
  * @returns {Promise<'individual'|'company'|null>}
  */
-export function openAccountTypeModal(lastRequest = null, { storeOnly = false } = {}) {
+export function openAccountTypeModal(lastRequest = null) {
     return new Promise((resolve) => {
         const pending = lastRequest?.status === 'pending';
         const pendingStore = pending && lastRequest?.account_kind === 'ecommerce_store';
@@ -166,17 +168,17 @@ export function openAccountTypeModal(lastRequest = null, { storeOnly = false } =
             : 'أرسل بيانات شركتك ليراجعها فريق الإدارة، وعند الموافقة يتحوّل حسابك إلى حساب شركة وتكمل الاشتراك باسمها.';
 
         box.innerHTML = `
-            <h3 style="margin:0 0 0.25rem; font-size:1.15rem; font-weight:800;">${storeOnly ? 'باقة المتاجر لحسابات المتاجر الإلكترونية' : 'هل تشترك كفرد أم كشركة أم كمتجر إلكتروني؟'}</h3>
+            <h3 style="margin:0 0 0.25rem; font-size:1.15rem; font-weight:800;">هل تشترك كفرد أم كشركة أم كمتجر إلكتروني؟</h3>
             <p style="margin:0 0 1.25rem; font-size:0.85rem; color:var(--color-text-secondary); line-height:1.7;">
                 اختر نوع الحساب الذي سيُفعَّل عليه الاشتراك.
             </p>
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0.75rem;">
-                ${storeOnly ? '' : option('individual', 'فرد', 'اشترك باسمك الشخصي وأكمل بيانات الدفع الآن.')}
-                ${storeOnly ? '' : option('company', 'شركة', pendingStore ? 'لديك طلب حساب متجر قيد المراجعة.' : companyText,
+                ${option('individual', 'فرد', 'اشترك باسمك الشخصي وأكمل بيانات الدفع الآن.')}
+                ${option('company', 'شركة', pendingStore ? 'لديك طلب حساب متجر قيد المراجعة.' : companyText,
                                           { disabled: pending, badge: pending && !pendingStore ? pendingBadge : '' })}
                 ${option('ecommerce_store', 'متجر إلكتروني', pendingStore
                     ? `طلب حساب المتجر «${escapeHtml(lastRequest.company_name)}» لدى فريق الإدارة الآن، وسنُخطرك فور البت فيه.`
-                    : 'لمتاجر Shopify: لوحة متجر بطلبات عملائك وعملائك ومنتجاتك داخل الدعم. تراجع الإدارة الطلب، ثم تشترك في باقة المتاجر وتربط متجرك.',
+                    : 'لمتاجر Shopify: لوحة متجر بطلبات عملائك وعملائك ومنتجاتك داخل الدعم. تراجع الإدارة الطلب، ثم تشترك في الباقة الفائقة وتربط متجرك.',
                     { disabled: pending, badge: pendingStore ? pendingBadge : '' })}
             </div>
             ${rejected ? `
@@ -230,7 +232,7 @@ export function openCompanyModal({ plan = null, billingCycle = null, lastRequest
                 <h3 style="margin:0 0 0.25rem; font-size:1.15rem; font-weight:800;">${isStore ? 'بيانات المتجر' : 'بيانات الشركة'}</h3>
                 <p style="margin:0 0 1.25rem; font-size:0.85rem; color:var(--color-text-secondary); line-height:1.7;">
                     ${isStore
-                        ? 'أدخل البيانات القانونية لمتجرك. يراجعها فريق الإدارة، وعند الموافقة يصير حسابك حساب متجر إلكتروني بلوحة متجر. بعدها تشترك في باقة المتاجر وتربط Shopify — لا يُربط أي متجر من هذا النموذج.'
+                        ? 'أدخل البيانات القانونية لمتجرك. يراجعها فريق الإدارة، وعند الموافقة يصير حسابك حساب متجر إلكتروني بلوحة متجر. بعدها تشترك في الباقة الفائقة وتربط Shopify — لا يُربط أي متجر من هذا النموذج.'
                         : `أدخل البيانات القانونية الأساسية لشركتك. يراجعها فريق الإدارة، وعند الموافقة
                     يتحوّل حسابك إلى حساب شركة وتظهر لك لوحة الشركة.`}
                 </p>

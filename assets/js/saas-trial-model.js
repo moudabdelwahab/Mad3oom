@@ -13,17 +13,20 @@
  *     والانتهاء يوقف الامتياز ولا يحوّل لاشتراك مدفوع.
  *   • تجربة واحدة لكل شركة وكل باقة: سبق الاستخدام يمنع طلبًا جديدًا.
  *
- * الباقات المشمولة (من subscription_plans): support و ultimate للشركات،
- * و store للمتاجر الإلكترونية فقط. الأسعار لا تخصّ هذا الملف: التجربة
- * مجانية (المبلغ 0 في price_snapshot) والأسعار المدفوعة مصدرها
- * subscription_plans كما هي — لا أرقام مخترعة هنا.
+ * الباقات المشمولة (من subscription_plans): support و ultimate فقط —
+ * باقة المتاجر دُمجت في الفائقة (162) فخرجت من التجربة. التسمية
+ * 'store' باقية في TRIAL_PLAN_LABELS لعرض طلبات قديمة فقط (صفحة
+ * المالك تعرض بها طلب تجربة سابق بباقة store إن وُجد). الأسعار لا
+ * تخصّ هذا الملف: التجربة مجانية (المبلغ 0 في price_snapshot)
+ * والأسعار المدفوعة مصدرها subscription_plans كما هي — لا أرقام مخترعة هنا.
  */
 export const TRIAL_DAYS = 3;
-export const TRIAL_PLAN_KEYS = ['support', 'ultimate', 'store'];
+export const TRIAL_PLAN_KEYS = ['support', 'ultimate'];
 
 export const TRIAL_PLAN_LABELS = {
     support: 'الخطة المتقدمة',
     ultimate: 'الخطة الفائقة',
+    // تسمية عرض لطلبات قديمة فقط — 'store' ليست من باقات التجربة بعد 162.
     store: 'باقة المتاجر الإلكترونية'
 };
 
@@ -41,12 +44,11 @@ export function isTrialPlan(planKey) {
 }
 
 /**
- * هل الباقة متاحة لنوع الحساب؟ store للمتاجر الإلكترونية فقط؛
- * support و ultimate لأي شركة (بما فيها المتجر).
+ * هل الباقة متاحة لنوع الحساب؟ support و ultimate لأي شركة
+ * (بما فيها المتجر)؛ 'store' ليست باقة تجربة بعد 162.
  */
 export function trialPlanAllowed(planKey, accountKind) {
     if (!isTrialPlan(planKey)) return false;
-    if (planKey === 'store') return accountKind === 'ecommerce_store';
     return true;
 }
 
@@ -70,7 +72,7 @@ export function trialLengthDays(start, end) {
  * يُرجع { args } أو { error } برسالة عربية.
  */
 export function trialRequestArgs({ planKey } = {}) {
-    if (!isTrialPlan(planKey)) return { error: 'اختر باقة من باقات التجربة: المتقدمة أو الفائقة أو المتاجر.' };
+    if (!isTrialPlan(planKey)) return { error: 'اختر باقة من باقات التجربة: المتقدمة أو الفائقة.' };
     return { args: { p_plan_key: planKey } };
 }
 

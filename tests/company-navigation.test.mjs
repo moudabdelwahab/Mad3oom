@@ -1099,7 +1099,17 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         بمفتاح الخدمة لا من المتصفح. مقيسٌ في
     //         tests/sql/whatsapp-ticket-161.test.sql. بلا تطبيق حي
     //         (بناء فقط — لا دمج ولا دفع ولا نشر Edge Function).
-    assert.equal(migrations[migrations.length - 1], '161_whatsapp_ticket_links.sql',
+    //   162 — باقة المتاجر تنضم للباقة الفائقة (2026-11-28، البند 2 من
+    //         دفعة المالك: «باقة المتاجر تنضم للباقة الفائقة، ولا تكون باقة
+    //         منفصلة»): مزايا المتجر الثلاثة (integrations_hub و
+    //         shopify_integration وstore_support) تُمنح مع الفائقة عبر
+    //         plan_features، والدوال المتقاعدة (السعر والمنح والحصة) ترفض
+    //         برسالة الدمج، وطلب تجربة store وحساب متجر بباقة store
+    //         مرفوضان، وتحويل دورة اشتراك قائم يسقط إلى سعري اللقطة.
+    //         اشتراكات المتاجر القائمة تُدار كما هي. مقيسٌ في
+    //         tests/store-into-super-162.test.mjs و
+    //         tests/sql/store-into-super-162.test.sql.
+    assert.equal(migrations[migrations.length - 1], '162_store_into_super.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

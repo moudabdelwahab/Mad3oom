@@ -110,81 +110,11 @@ export const STORE_FEATURE_LABELS = Object.freeze({
     store_support: 'دعم المتجر'
 });
 
-/**
- * التحقق من نموذج سعر باقة المتاجر قبل النداء — نسخة من شرط
- * owner_set_store_plan_price() في القاعدة (133): السعران موجبان، بالجنيه.
- * يعيد رسالة خطأ أو null.
- */
-export function storePriceError({ monthly, yearly }) {
-    const m = Number(monthly);
-    const y = Number(yearly);
-    if (!Number.isFinite(m) || m <= 0) return 'السعر الشهري موجب (بالجنيه) — اكتب رقمًا أكبر من صفر.';
-    if (!Number.isFinite(y) || y <= 0) return 'السعر السنوي موجب (بالجنيه) — اكتب رقمًا أكبر من صفر.';
-    return null;
-}
-
-/**
- * حمولة نداء سعر باقة المتاجر — نسخة من قواعد owner_set_store_plan_price()
- * في القاعدة (133/135): التفعيل مع سعرين موجبين، والحفظ العادي كذلك،
- * والإلغاء بسعرين اختياريين (فارغ = إبقاء الحالي). التفعيل والإلغاء معًا
- * مرفوضان. الحقول الاختيارية الفارغة تُحذف من الحمولة، فيبقى نداء الحفظ
- * العادي {p_monthly, p_yearly, p_activate} كما هو. يعيد {args} أو {error}.
- */
-export function storePlanPriceArgs({ monthly, yearly, activate = false, deactivate = false, reason = null } = {}) {
-    if (activate && deactivate) return { error: 'لا يمكن تفعيل باقة المتاجر وإلغاء تفعيلها معًا.' };
-    const m = monthly === '' || monthly === null || monthly === undefined ? null : Number(monthly);
-    const y = yearly === '' || yearly === null || yearly === undefined ? null : Number(yearly);
-    if (deactivate) {
-        if ((m !== null && (!Number.isFinite(m) || m <= 0)) || (y !== null && (!Number.isFinite(y) || y <= 0))) {
-            return { error: 'السعر الشهري والسنوي موجبان (بالجنيه) إن أُرسلا — اكتب رقمًا أكبر من صفر أو اتركهما فارغين.' };
-        }
-        const args = { p_monthly: m, p_yearly: y, p_activate: false, p_deactivate: true };
-        const r = String(reason || '').trim();
-        if (r) args.p_reason = r;
-        return { args };
-    }
-    const err = storePriceError({ monthly, yearly });
-    if (err) return { error: err };
-    return { args: { p_monthly: m, p_yearly: y, p_activate: !!activate } };
-}
-
-/**
- * باقة المتاجر لنموذج السعر من owner_store_plan_config (135): التفعيل
- * والسعران والعملة والمزايا المفعّلة وتعريف الحد — بلا اعتماد على
- * owner_entitlement_diagnostics، فيبقى النموذج وإن فشل التشخيص.
- * يعيد null إن لم تصل بيانات الإعداد.
- */
-export function storePlanFromConfig(planCfg) {
-    if (!planCfg || typeof planCfg !== 'object') return null;
-    return {
-        key: 'store',
-        is_active: planCfg.is_active ?? null,
-        price_monthly: planCfg.price_monthly ?? null,
-        price_yearly: planCfg.price_yearly ?? null,
-        currency: planCfg.currency || 'EGP',
-        features: (Array.isArray(planCfg.features) ? planCfg.features : [])
-            .filter((f) => f?.enabled).map((f) => f.feature_key),
-        ticket_quota_defined: planCfg.quota_defined ?? false
-    };
-}
-
-/**
- * ما سيُعطَّل من مزايا باقة المتاجر عند حفظ نموذج الحصة (135): الفرق بين
- * المفعّلة حاليًا والمختارة للحفظ. يعيد null إن لم يكن في التعطيل ما يستدعي
- * تأكيدًا صريحًا، وإلا {disabling, disablesShopify, disablesAll}:
- * تعطيل shopify_integration أو إلغاء الكل (قائمة مختارة فارغة) يستدعيان
- * التحذير والتأكيد؛ تعطيل ميزة أخرى وحدها لا يستدعيه.
- */
-export function storeQuotaDisableWarning({ currentFeatures = [], selectedFeatures = [] } = {}) {
-    const current = Array.isArray(currentFeatures) ? currentFeatures : [];
-    const selected = Array.isArray(selectedFeatures) ? selectedFeatures : [];
-    const disabling = current.filter((f) => !selected.includes(f));
-    if (!disabling.length) return null;
-    const disablesShopify = disabling.includes('shopify_integration');
-    const disablesAll = selected.length === 0;
-    if (!disablesShopify && !disablesAll) return null;
-    return { disabling, disablesShopify, disablesAll };
-}
+// 162: مساعدات سعر/حصة باقة المتاجر حُذفت مع الباقة نفسها —
+// owner_set_store_plan_price و owner_set_store_plan_quota_features متقاعدتان
+// في القاعدة، ونموذجا السعر والحصة أُزيلا من owner/stores.html. بقي
+// storeResumeBasis (لإدارة اشتراكات المتاجر القائمة) و STORE_FEATURE_LABELS
+// (لامتيازات متجر الاختبار).
 
 /**
  * أساس حساب الانتهاء عند استئناف اشتراك متوقف (135)، من حقول

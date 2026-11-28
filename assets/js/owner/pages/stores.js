@@ -6,30 +6,33 @@
  *   • ihub-api shopify_config: هل قيم إعداد التطبيق موجودة على الخادم؟ (منطقي فقط، لا قيمة)
  *   • owner_set_company_account_kind / owner_store_test_entitlements: owner_critical_ok() — سياق المالك + تحقق
  *     حديث، ومدقّقة في privileged_audit. تعملان على شركة المالك نفسه فقط (متجر الاختبار).
- *   • owner_set_store_plan_price (133): سعر باقة 'store' فقط، بتحقق حديث؛ التفعيل مع السعرين فقط.
+ *   • (162) باقة المتاجر المنفصلة أُلغيت: مزاياها مشمولة في الباقة الفائقة.
+ *     owner_set_store_plan_price و owner_store_grant_exception و
+ *     owner_set_store_plan_quota_features متقاعدة في القاعدة (ترفض برسالة
+ *     الدمج)، ونماذج السعر/الحصة/المنح أُزيلت من هذه الصفحة.
  *   • owner_ihub_sync_request / owner_ihub_events_retry (133): إجراءان تشغيليان للمالك على روابط
  *     Shopify — بلا سياق مدير المتجر، ومدقَّقان في _ihub_audit. إعادة التفويض للمدير وحده:
  *     الربط reauth_required بلا زر مزامنة.
  *   • owner_store_test_status (133، و151 يضم shopify_management): حالة امتياز متجر الاختبار من شركة المالك مباشرة — بلا بحث نصي.
  *   • owner_store_test_management (120، زرها هنا منذ 151): منح/سحب امتياز إدارة المتجر لمتجر الاختبار وحده
  *     (≤ 30 يومًا، سبب ≥ 10 أحرف، owner_critical_ok) — بلا الزر كانت الدالة بلا واجهة، فكانت الإدارة غير قابلة للتفعيل من اللوحة.
- *   • owner_store_grant_exception / owner_store_subscription / owner_store_set_end_date / owner_store_pause /
- *     owner_store_resume / owner_store_change_cycle (133): إدارة اشتراك متجر كاستثناء من المالك — owner_critical_ok()
- *     وسبب ≥10 أحرف ومدقَّقة في privileged_audit و subscription_audit_log؛ المتوقف لا يُعامل فعّالًا، والاستئناف
- *     يمدّد الانتهاء بمدة التوقف، وتحويل الدورة أثناء الإيقاف يبدأ دورة كاملة عند الاستئناف.
- *   • owner_store_alerts / owner_store_requests / owner_store_request_decide / owner_store_plan_config /
- *     owner_set_store_plan_quota_features / owner_store_operations_log / owner_set_shopify_provider_enabled (133):
- *     تنبيهات داخل الصفحة فقط (بلا قناة إشعار — لا آلية مالك عامة موجودة)، وقرارات طلبات المتاجر، وحد التذاكر
- *     والمزايا، وسجل عمليات واحد، ومبدّل مزوّد شوبيفاي. تنبيه: إيقاف المزوّد يمنع مزامنة وربطًا جديدًا ولا يفصل القائم.
+ *   • owner_store_subscription / owner_store_set_end_date / owner_store_pause /
+ *     owner_store_resume / owner_store_change_cycle (133/135): إدارة اشتراك متجر
+ *     قائم من المالك — owner_critical_ok() وسبب ≥10 أحرف ومدقَّقة في
+ *     privileged_audit و subscription_audit_log؛ المتوقف لا يُعامل فعّالًا،
+ *     والاستئناف يمدّد الانتهاء بمدة التوقف، وتحويل الدورة أثناء الإيقاف يبدأ
+ *     دورة كاملة عند الاستئناف. (162: تحويل الدورة يسقط إلى سعري الاشتراك
+ *     المخزّنين حين تكون الباقة بلا سعرين.)
+ *   • owner_store_alerts / owner_store_requests / owner_store_request_decide /
+ *     owner_store_plan_config / owner_store_operations_log / owner_set_shopify_provider_enabled (133):
+ *     تنبيهات داخل الصفحة فقط (بلا قناة إشعار — لا آلية مالك عامة موجودة)، وقرارات طلبات المتاجر،
+ *     وسجل عمليات واحد، ومبدّل مزوّد شوبيفاي. تنبيه: إيقاف المزوّد يمنع مزامنة وربطًا جديدًا ولا يفصل القائم.
+ *     owner_store_plan_config (162: يعيد merged_into='ultimate') لم يعد يُقرأ من هنا.
  *   • owner_accounts_overview (133): فلاتر حالة الاشتراك/شوبيفاي/الإيقاف + بحث بدومين المتجر؛ النداء القديم يعمل كما هو.
- *   • (135) إلغاء تفعيل الباقة: owner_set_store_plan_price بتوقيع جديد (p_deactivate + p_reason) — زر مستقل
- *     بتأكيد وسبب؛ إلغاء تحديد التفعيل في نموذج السعر ما زال يحفظ السعر فقط. بلا تفعيل حي هنا.
  *   • (135) تعديل الانتهاء أثناء الإيقاف تاريخ نهائي: الاستئناف لا يمدّده بمدة التوقف (علامة
  *     end_date_set_while_paused)؛ ونص الاستئناف يتبع أساس الحساب (storeResumeBasis). الأيام المتبقية
  *     للمتوقف تُقرأ من days_remaining في القاعدة (مجمّدة عند الإيقاف) لا من تاريخ الانتهاء وحده.
- *   • (135) نموذج الحصة: تعطيل shopify_integration أو إلغاء كل المزايا يفتح تأكيدًا صريحًا قبل الحفظ.
- *   • (135) التشخيص: نموذج السعر يبني بياناته من owner_store_plan_config لا من owner_entitlement_diagnostics،
- *     وكل قسم في التشخيص يُرسم بنتيجته وخطئه مستقلًا — فشل التشخيص لا يُسقط النموذجين.
+ *   • (135) التشخيص: كل قسم يُرسم بنتيجته وخطئه مستقلًا — فشل التشخيص لا يُسقط ما عداه.
  *   • (135) المزامنة: المهمة القائمة (queued/running/failed) تُعاد كما هي بلا مكرر — في owner_ihub_sync_request
  *     و ihub_sync_request المناظرة؛ وحد الدقيقتين على المهمة المنتهية وحدها.
  *   • المعاينة: سياقات المالك القائمة (040/041) — «مدير شركتي» للتشغيل، و«معاينة عضو» للقراءة فقط.
@@ -40,8 +43,7 @@ import {
     friendlyError, renderPager, writeResult
 } from '/assets/js/owner/owner-page.js';
 import { searchTerm, storeReasonError, testDaysRemaining, STORE_FEATURE_LABELS,
-    BILLING_CYCLE_LABELS, storeEndDateError, toCsv, storePlanPriceArgs, storePlanFromConfig,
-    storeQuotaDisableWarning, storeResumeBasis } from '/assets/js/owner/owner-labels.js';
+    BILLING_CYCLE_LABELS, storeEndDateError, toCsv, storeResumeBasis } from '/assets/js/owner/owner-labels.js';
 import { APPLICANT_TYPE_LABELS, formatProofSize } from '/assets/js/company/company-request-model.js';
 import { fetchStandaloneProofUrl } from '/assets/js/company/company-data.js';
 import {
@@ -388,29 +390,7 @@ async function openManageSub(companyId, companyName) {
                     <li>البداية: ${esc(when(sub.start_date))} · الانتهاء: ${esc(when(sub.end_date))}${days == null ? '' : ` · باقٍ ${esc(num(days))} يوم`}</li>
                     <li>طريقة الدفع: ${esc(sub.payment_method || '—')}</li>
                 </ul>` : '<p class="panel-subtitle">لا اشتراك متجر لهذا المتجر.</p>'}
-            ${!effective ? `<h3 class="panel-title">منح باقة المتاجر كاستثناء</h3>
-                <form class="owner-action-form" id="subGrantForm" novalidate>
-                    <div class="form-field">
-                        <label for="subGrantCycle">الدورة</label>
-                        <select id="subGrantCycle" class="form-control owner-filter-select">
-                            <option value="monthly">شهري — 500 جنيه</option>
-                            <option value="yearly">سنوي — 5000 جنيه</option>
-                        </select>
-                    </div>
-                    <div class="form-field">
-                        <label for="subGrantEnd">تاريخ الانتهاء (خلال سنة كحد أقصى)</label>
-                        <input type="datetime-local" class="form-control" id="subGrantEnd" required>
-                    </div>
-                    <div class="form-field">
-                        <label for="subGrantReason">السبب (10 أحرف على الأقل، يُسجَّل في تدقيق المالك)</label>
-                        <input type="text" class="form-control" id="subGrantReason" maxlength="300" autocomplete="off" required>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary btn-sm" data-critical>منح كاستثناء (مبلغ 0)</button>
-                    </div>
-                    <p class="owner-sie-status" id="subGrantStatus" role="status" aria-live="polite" hidden></p>
-                </form>
-                <p class="field-hint">المنح استثناء بلا شراء: المبلغ 0، وسعر الخطة من باقة المتاجر (500/5000). لا تمنح لتاجر حقيقي إلا بقرار صريح — جرّب أولًا على متجر الاختبار.</p>` : ''}
+            ${!effective ? `<p class="panel-subtitle">باقة المتاجر دُمجت في الباقة الفائقة (162) — لا منح جديد لها. للمتجر الجديد اشتراك في الفائقة من صفحة الاشتراكات.</p>` : ''}
             ${sub ? `<h3 class="panel-title">تعديل تاريخ الانتهاء</h3>
                 <form class="owner-action-form" id="subEndForm" novalidate>
                     <div class="form-field">
@@ -436,24 +416,6 @@ async function openManageSub(companyId, companyName) {
                     تحويل الدورة من اليوم: ${esc(sub.billing_cycle === 'monthly' ? 'سنوي = الانتهاء بعد 365 يومًا' : 'شهري = الانتهاء بعد 30 يومًا')}؛
                     وإن كان متوقفًا يبدأ الانتهاء الجديد من لحظة الاستئناف.</p>` : ''}`;
         const afterOp = (msg) => { say(msg, 'success'); reload(); loadAccounts(accounts.page); loadDiagnostics(); };
-        body.querySelector('#subGrantForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const form = e.currentTarget;
-            const status = (t, tone) => announce(form.querySelector('#subGrantStatus'), t, tone);
-            const reason = form.querySelector('#subGrantReason').value;
-            const end = form.querySelector('#subGrantEnd').value;
-            const err = storeEndDateError(end, { maxDays: 365 }) || storeReasonError(reason);
-            if (err) { status(err, 'error'); return; }
-            const btn = form.querySelector('button[type=submit]');
-            btn.disabled = true;
-            const { error: grantError } = await rpc('owner_store_grant_exception', {
-                p_company: companyId, p_billing_cycle: form.querySelector('#subGrantCycle').value,
-                p_end_date: new Date(end).toISOString(), p_reason: reason
-            });
-            btn.disabled = false;
-            if (grantError) { status(friendlyError(grantError), 'error'); return; }
-            afterOp('مُنحت باقة المتاجر كاستثناء.');
-        });
         body.querySelector('#subEndForm')?.addEventListener('submit', async (e) => {
             e.preventDefault();
             const form = e.currentTarget;
@@ -500,7 +462,7 @@ async function openManageSub(companyId, companyName) {
                 title: `تحويل الدورة إلى ${BILLING_CYCLE_LABELS[toCycle]}`,
                 text: sub.status === 'paused'
                     ? 'الاشتراك متوقف: تُحفظ الدورة الجديدة فقط، ويبدأ الانتهاء الجديد (30 أو 365 يومًا) من لحظة الاستئناف.'
-                    : `تحويل من اليوم: الانتهاء الجديد بعد ${toCycle === 'yearly' ? '365' : '30'} يومًا، وسعر الخطة ${toCycle === 'yearly' ? '5000' : '500'} جنيه.`,
+                    : `تحويل من اليوم: الانتهاء الجديد بعد ${toCycle === 'yearly' ? '365' : '30'} يومًا.`,
                 confirmLabel: `تحويل إلى ${BILLING_CYCLE_LABELS[toCycle]}`, confirmTone: 'btn-primary',
                 onConfirm: async (reason) => {
                     const { error } = await rpc('owner_store_change_cycle', { p_subscription: sub.id, p_billing_cycle: toCycle, p_reason: reason });
@@ -619,19 +581,15 @@ async function openEvents(connectionId) {
 
 async function loadDiagnostics() {
     $('storeDiagnostics').innerHTML = loadingBlock();
-    const [diagRes, cfgRes, planRes] = await Promise.all([
+    const [diagRes, cfgRes] = await Promise.all([
         rpc('owner_entitlement_diagnostics'),
-        supabase.functions.invoke('ihub-api', { body: { action: 'shopify_config' } }).catch((e) => ({ error: e })),
-        rpc('owner_store_plan_config')
+        supabase.functions.invoke('ihub-api', { body: { action: 'shopify_config' } }).catch((e) => ({ error: e }))
     ]);
-    // 135: كل قسم بنتيجته وخطئه مستقلًا — فشل التشخيص لا يُسقط نموذجي السعر
-    // والحصة، وفشل إعداد الخادم أو إعداد الباقة لا يُسقط ما عداه. نموذج السعر
-    // يبني بياناته من owner_store_plan_config (135) لا من التشخيص.
+    // 135: كل قسم بنتيجته وخطئه مستقلًا — فشل التشخيص لا يُسقط إعداد الخادم
+    // ولا العكس. (162: نموذجا السعر والحصة أُزيلا مع تقاعد باقة المتاجر.)
     diagnostics = diagRes.error ? null : diagRes.data;
     const data = diagnostics;
     const conf = cfgRes?.error ? null : cfgRes?.data;
-    const planCfg = planRes.error ? null : planRes.data;
-    const plan = storePlanFromConfig(planCfg);
     const mismatch = data?.live_connection_without_entitlement || [];
     $('storeDiagnostics').innerHTML = `
         <h3 class="panel-title">إعداد تطبيق شوبيفاي على الخادم</h3>
@@ -644,57 +602,10 @@ async function loadDiagnostics() {
             : (cfgRes?.error ? errorBlock(friendlyError(cfgRes.error))
                 : stateBlock({ title: 'تعذّر فحص إعداد الخادم', text: 'الدالة الطرفية ihub-api غير منشورة بهذا الإصدار بعد، أو رفضت الطلب.' }))}
         <h3 class="panel-title">باقة المتاجر</h3>
-        ${plan ? `<p class="panel-subtitle">${plan.is_active ? 'مفعّلة' : 'غير مفعّلة'} · السعر الشهري: ${esc(plan.price_monthly ?? 'لم يُحدد')} ·
-            السنوي: ${esc(plan.price_yearly ?? 'لم يُحدد')} ${esc(plan.currency || '')} · حد التذاكر: ${plan.ticket_quota_defined ? 'محدد' : 'غير محدد'}<br>
-            المزايا: <span dir="ltr">${esc((plan.features || []).join(', '))}</span></p>
-            <form class="owner-action-form" id="storePriceForm" novalidate>
-                <div class="form-field">
-                    <label for="planMonthly">السعر الشهري (جنيه)</label>
-                    <input type="number" class="form-control" id="planMonthly" min="1" step="any" inputmode="decimal" required
-                        value="${esc(plan.price_monthly ?? 500)}">
-                </div>
-                <div class="form-field">
-                    <label for="planYearly">السعر السنوي (جنيه)</label>
-                    <input type="number" class="form-control" id="planYearly" min="1" step="any" inputmode="decimal" required
-                        value="${esc(plan.price_yearly ?? 5000)}">
-                </div>
-                <div class="form-field">
-                    <label><input type="checkbox" id="planActivate" ${plan.is_active ? 'checked' : ''}> تفعيل باقة المتاجر مع هذا السعر</label>
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary btn-sm" data-critical>حفظ سعر الباقة</button>
-                    ${plan.is_active ? '<button type="button" class="btn btn-danger btn-sm" id="planDeactivate" data-critical>إلغاء تفعيل باقة المتاجر</button>' : ''}
-                </div>
-                <p class="owner-sie-status" id="planPriceStatus" role="status" aria-live="polite" hidden></p>
-            </form>
-            <p class="field-hint">السعر والمزايا قرار المالك. القاعدة ترفض تفعيل الباقة بلا سعرين موجبين (subscription_plans_store_priced).
-                الحقلان معبّآن بالسعر المعتمد (500 شهري / 5000 سنوي) — عدّلهما قبل الحفظ إن لزم.
-                إلغاء تحديد التفعيل يحفظ السعر فقط ولا يوقف باقة مفعّلة؛ أوقفها بزر «إلغاء تفعيل باقة المتاجر» بتأكيد وسبب.</p>`
-            : (planRes?.error ? errorBlock(friendlyError(planRes.error))
-                : stateBlock({ text: 'الباقة غير موجودة (118 غير مطبّق).' }))}
-        <h3 class="panel-title">حد التذاكر ومزايا باقة المتاجر</h3>
-        ${planCfg ? `<form class="owner-action-form" id="storeQuotaForm" novalidate>
-                <div class="form-field">
-                    <label for="planQuota">حد التذاكر الشهري (فارغ = بلا حد)</label>
-                    <input type="number" class="form-control" id="planQuota" min="1" step="1" inputmode="numeric"
-                        value="${esc(planCfg.ticket_quota ?? '')}">
-                </div>
-                <div class="form-field">
-                    <span>المزايا المفعّلة</span>
-                    ${(planCfg.features || []).map((f) => `<label><input type="checkbox" class="planFeature" value="${esc(f.feature_key)}" ${f.enabled ? 'checked' : ''}> ${esc(STORE_FEATURE_LABELS[f.feature_key] || f.feature_key)}</label>`).join('')}
-                </div>
-                <div class="form-field">
-                    <label for="planQuotaReason">السبب (10 أحرف على الأقل، يُسجَّل في تدقيق المالك)</label>
-                    <input type="text" class="form-control" id="planQuotaReason" maxlength="300" autocomplete="off" required>
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary btn-sm" data-critical>حفظ حد التذاكر والمزايا</button>
-                </div>
-                <p class="owner-sie-status" id="planQuotaStatus" role="status" aria-live="polite" hidden></p>
-            </form>
-            <p class="field-hint">الحقل فارغ يعني بلا حد للتذاكر — لا حد افتراضي؛ أدخل الرقم بنفسك. الحد الحالي: ${planCfg.ticket_quota == null ? 'بلا حد' : esc(num(planCfg.ticket_quota))}.</p>`
-            : (planRes?.error ? errorBlock(friendlyError(planRes.error))
-                : stateBlock({ text: 'تعذّر تحميل إعداد باقة المتاجر.' }))}
+        <p class="panel-subtitle">باقة المتاجر المنفصلة أُلغيت (162): مزايا المتجر — تكامل Shopify ودعم
+            المتاجر ومركز التكاملات — مشمولة في الباقة الفائقة بلا سعر مستقل
+            وبلا تفعيل منفصل. اشتراكات المتاجر القائمة تُدار من زر «إدارة
+            الاشتراك» بجانب كل متجر في جدول الحسابات أعلاه.</p>
         <h3 class="panel-title">تعارضات الامتياز</h3>
         ${data ? `<ul class="company-list">
             <li>متاجر لها ربط حي بلا امتياز شوبيفاي: <strong>${esc(num(mismatch.length))}</strong>${mismatch.length ? ` — ${mismatch.map((m) => esc(m.company_name)).join('، ')}` : ''}</li>
@@ -703,97 +614,8 @@ async function loadDiagnostics() {
             <li>طلبات حسابات متاجر قيد المراجعة: <strong>${esc(num(data?.pending_store_requests))}</strong> — <a href="#storeRequests">المراجعة في هذه الصفحة</a> · وطلبات الشركات (غير المتاجر) في قسم «طلبات حسابات الشركات» أدناه</li>
         </ul>`
             : errorBlock(friendlyError(diagRes.error))}`;
-    $('storePriceForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const form = e.currentTarget;
-        const status = (t, tone) => announce(form.querySelector('#planPriceStatus'), t, tone);
-        const { args, error: argError } = storePlanPriceArgs({
-            monthly: form.querySelector('#planMonthly').value,
-            yearly: form.querySelector('#planYearly').value,
-            activate: form.querySelector('#planActivate').checked
-        });
-        if (argError) { status(argError, 'error'); return; }
-        const btn = form.querySelector('button[type=submit]');
-        btn.disabled = true;
-        const { data: saved, error: saveError } = await rpc('owner_set_store_plan_price', args);
-        btn.disabled = false;
-        if (saveError) { status(friendlyError(saveError), 'error'); return; }
-        say(saved?.is_active ? 'حُفظ سعر باقة المتاجر وفُعّلت.' : 'حُفظ سعر باقة المتاجر.', 'success');
-        loadDiagnostics();
-    });
-    $('planDeactivate')?.addEventListener('click', () => openSubReasonModal({
-        title: 'إلغاء تفعيل باقة المتاجر',
-        text: 'سيتوقف بيع باقة المتاجر لمتاجر جديدة فورًا (الشراء والترقية يتحققان من تفعيل الباقة)، وتبقى اشتراكات المتاجر القائمة سارية حتى انتهائها. الأسعار المحفوظة تبقى كما هي، ويمكن إعادة التفعيل بها لاحقًا من النموذج نفسه.',
-        confirmLabel: 'إلغاء تفعيل الباقة', confirmTone: 'btn-danger',
-        onConfirm: async (reason) => {
-            // الأسعار المحفوظة لا المدخلات: إلغاء التفعيل وحده لا يغيّر السعرين.
-            const { args, error: argError } = storePlanPriceArgs({
-                monthly: plan.price_monthly, yearly: plan.price_yearly, deactivate: true, reason
-            });
-            if (argError) return { error: { message: argError } };
-            const { error } = await rpc('owner_set_store_plan_price', args);
-            if (!error) { say('أُلغي تفعيل باقة المتاجر — الأسعار المحفوظة باقية.', 'success'); loadDiagnostics(); }
-            return { error };
-        }
-    }));
-    $('storeQuotaForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const form = e.currentTarget;
-        const status = (t, tone) => announce(form.querySelector('#planQuotaStatus'), t, tone);
-        const rawQuota = form.querySelector('#planQuota').value.trim();
-        const quota = rawQuota === '' ? null : Number(rawQuota);
-        if (quota !== null && (!Number.isFinite(quota) || quota <= 0 || !Number.isInteger(quota))) {
-            status('حد التذاكر رقم صحيح موجب، أو اتركه فارغًا بلا حد.', 'error');
-            return;
-        }
-        const features = [...form.querySelectorAll('.planFeature:checked')].map((c) => c.value);
-        const reason = form.querySelector('#planQuotaReason').value;
-        const err = storeReasonError(reason);
-        if (err) { status(err, 'error'); return; }
-        const doSave = async () => {
-            const btn = form.querySelector('button[type=submit]');
-            btn.disabled = true;
-            const { error: quotaError } = await rpc('owner_set_store_plan_quota_features', {
-                p_monthly_quota: quota, p_features: features, p_reason: reason
-            });
-            btn.disabled = false;
-            if (quotaError) { status(friendlyError(quotaError), 'error'); return; }
-            say('حُفظ حد التذاكر ومزايا باقة المتاجر.', 'success');
-            loadDiagnostics();
-        };
-        // 135: تعطيل shopify_integration أو إلغاء كل المزايا لا يمر بصمت.
-        const warning = storeQuotaDisableWarning({
-            currentFeatures: (planCfg?.features || []).filter((f) => f.enabled).map((f) => f.feature_key),
-            selectedFeatures: features
-        });
-        if (warning) { openQuotaDisableConfirm({ warning, onConfirm: doSave }); return; }
-        await doSave();
-    });
+    // 162: نموذجا السعر والحصة ونموذج المنح أُزيلا مع تقاعد باقة المتاجر.
     renderKpis();
-}
-
-/** تأكيد صريح قبل حفظ حصة تعطل shopify_integration أو تلغي كل المزايا (135). */
-function openQuotaDisableConfirm({ warning, onConfirm }) {
-    const names = warning.disabling.map((f) => STORE_FEATURE_LABELS[f] || f).join('، ');
-    const modal = openModal({
-        title: 'تأكيد تعطيل مزايا باقة المتاجر',
-        html: `<p class="panel-subtitle">${warning.disablesAll
-            ? 'أنت على وشك إلغاء كل مزايا باقة المتاجر.'
-            : 'أنت على وشك تعطيل مزايا من باقة المتاجر.'}</p>
-            <p class="panel-subtitle">المزايا التي ستُعطَّل: <strong>${esc(names)}</strong></p>
-            ${warning.disablesShopify ? '<p class="panel-subtitle"><strong>تنبيه:</strong> تعطيل «تكامل Shopify» يوقف امتياز شوبيفاي للمتاجر على هذه الباقة — وستظهر روابطها بلا امتياز في تنبيهات هذه الصفحة.</p>' : ''}
-            <p class="panel-subtitle">هذا الإجراء يُسجَّل في تدقيق المالك مع السبب الذي كتبته، ويمكن التراجع عنه من النموذج نفسه بإعادة تحديد المزايا.</p>
-            <div class="form-actions">
-                <button type="button" class="btn btn-danger btn-sm" id="quotaDisableConfirm">تأكيد الحفظ وتعطيل المزايا</button>
-                <button type="button" class="btn btn-outline btn-sm" id="quotaDisableCancel">إلغاء</button>
-            </div>`
-    });
-    modal.body.querySelector('#quotaDisableConfirm').addEventListener('click', async (e) => {
-        e.currentTarget.disabled = true;
-        modal.close();
-        await onConfirm();
-    });
-    modal.body.querySelector('#quotaDisableCancel').addEventListener('click', () => modal.close());
 }
 
 function entitlementLine(e) {

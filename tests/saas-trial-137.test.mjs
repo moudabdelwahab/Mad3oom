@@ -2,7 +2,8 @@
  * التجربة المجانية 3 أيام (137) — منطق خالص بلا DOM ولا شبكة + فحوص ساكنة
  * على الترحيل والواجهتين:
  *   ① المدة 3 أيام بالضبط، والنهاية = البداية + 3 أيام
- *   ② الباقات المشمولة والجمهور (store للمتاجر فقط)
+ *   ② الباقات المشمولة (162: support وultimate فقط — باقة المتاجر
+ *      أُلغيت، وتسميتها باقية في TRIAL_PLAN_LABELS لعرض الطلبات القديمة)
  *   ③ وسائط الطلب والقرار (رفض بسبب ≥10 أحرف، موافقة بلا حقل دفع)
  *   ④ قراءة الطلب والحالة (جارية/معلّقة/منتهية، والأيام المتبقية)
  *   ⑤ الترحيل نفسه: بلا sandbox في الكود، وبلا عمود دفع/بطاقة، وبلا
@@ -49,9 +50,10 @@ const TABLE_DEF = CODE.slice(CODE.indexOf('create table if not exists public.saa
 // ── ① المدة 3 أيام بالضبط ───────────────────────────────────────────────
 test('① المدة 3 أيام بالضبط: ثابت وباقات وقاعدة النهاية', () => {
     assert.equal(TRIAL_DAYS, 3);
-    assert.deepEqual(TRIAL_PLAN_KEYS, ['support', 'ultimate', 'store']);
+    assert.deepEqual(TRIAL_PLAN_KEYS, ['support', 'ultimate']);
     assert.equal(TRIAL_PLAN_LABELS.support, 'الخطة المتقدمة');
     assert.equal(TRIAL_PLAN_LABELS.ultimate, 'الخطة الفائقة');
+    // 162: تسمية store باقية لعرض طلبات التجربة القديمة فقط، لا كخيار.
     assert.equal(TRIAL_PLAN_LABELS.store, 'باقة المتاجر الإلكترونية');
     assert.equal(trialEndAt('2026-11-25T10:00:00.000Z'), '2026-11-28T10:00:00.000Z');
     assert.equal(trialLengthDays('2026-11-25T10:00:00.000Z', '2026-11-28T10:00:00.000Z'), 3);
@@ -64,16 +66,17 @@ test('① المدة 3 أيام بالضبط: ثابت وباقات وقاعدة
 });
 
 // ── ② الباقات والجمهور ──────────────────────────────────────────────────
-test('② الباقات المشمولة ثلاث فقط، وstore للمتاجر الإلكترونية وحدها', () => {
+test('② الباقات المشمولة اثنتان فقط، وstore ليست باقة تجربة (162)', () => {
     assert.equal(isTrialPlan('support'), true);
     assert.equal(isTrialPlan('ultimate'), true);
-    assert.equal(isTrialPlan('store'), true);
+    assert.equal(isTrialPlan('store'), false);
     assert.equal(isTrialPlan('whatsapp'), false);
     assert.equal(isTrialPlan('bundle'), false);
     assert.equal(isTrialPlan('free'), false);
     assert.equal(trialPlanAllowed('support', 'company'), true);
     assert.equal(trialPlanAllowed('ultimate', 'ecommerce_store'), true);
-    assert.equal(trialPlanAllowed('store', 'ecommerce_store'), true);
+    assert.equal(trialPlanAllowed('ultimate', 'company'), true);
+    assert.equal(trialPlanAllowed('store', 'ecommerce_store'), false);
     assert.equal(trialPlanAllowed('store', 'company'), false);
     assert.equal(trialPlanAllowed('store', 'individual'), false);
     assert.equal(trialPlanAllowed('whatsapp', 'company'), false);
@@ -82,7 +85,7 @@ test('② الباقات المشمولة ثلاث فقط، وstore للمتاج
 // ── ③ وسائط الطلب والقرار ───────────────────────────────────────────────
 test('③ طلب التجربة: خطة صالحة فقط، وبلا أي حقل دفع أو بطاقة', () => {
     assert.deepEqual(trialRequestArgs({ planKey: 'ultimate' }).args, { p_plan_key: 'ultimate' });
-    assert.deepEqual(trialRequestArgs({ planKey: 'store' }).args, { p_plan_key: 'store' });
+    assert.match(trialRequestArgs({ planKey: 'store' }).error, /باقات التجربة/);
     assert.match(trialRequestArgs({ planKey: 'whatsapp' }).error, /باقات التجربة/);
     assert.match(trialRequestArgs({}).error, /باقات التجربة/);
     assert.equal('card' in (trialRequestArgs({ planKey: 'support' }).args || {}), false);
@@ -156,8 +159,7 @@ test('④ حالة الشركة: الجارية والباقات المؤهلة 
         ],
         eligible_plans: [
             { plan_key: 'support', plan_name_ar: 'الخطة المتقدمة', eligible: true },
-            { plan_key: 'ultimate', plan_name_ar: 'الخطة الفائقة', eligible: false, reason: 'سبق أن استخدمت هذه الشركة التجربة المجانية لهذه الباقة' },
-            { plan_key: 'store', plan_name_ar: 'باقة المتاجر الإلكترونية', eligible: false, reason: 'باقة المتاجر متاحة لحسابات المتاجر الإلكترونية فقط' }
+            { plan_key: 'ultimate', plan_name_ar: 'الخطة الفائقة', eligible: false, reason: 'سبق أن استخدمت هذه الشركة التجربة المجانية لهذه الباقة' }
         ]
     }, { now });
     assert.equal(view.hasCompany, true);
@@ -166,7 +168,7 @@ test('④ حالة الشركة: الجارية والباقات المؤهلة 
     assert.equal(view.activeTrial.daysRemaining, 2);
     assert.equal(view.pendingRequests.length, 0);
     assert.deepEqual(view.eligiblePlans.map(p => p.planKey), ['support']);
-    assert.equal(view.ineligiblePlans.length, 2);
+    assert.equal(view.ineligiblePlans.length, 1);
     assert.match(view.ineligiblePlans[0].reason, /سبق أن استخدمت/);
     assert.deepEqual(trialStatusView({ has_company: false }),
         { hasCompany: false, canRequest: false, activeTrial: null, requests: [], eligiblePlans: [] });

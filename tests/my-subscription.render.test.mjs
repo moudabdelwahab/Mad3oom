@@ -168,14 +168,14 @@ test('أيقونة المحفظة في بوابة العميل', { skip: !chromi
     await context.close();
 });
 
-// 118: بطاقة باقة المتاجر رابعة؛ بلا سعر في القاعدة تبقى «قريبًا» (tests/ecommerce-store.render.test.mjs).
-test('صفحة الأسعار: 3 خطط بالجنيه + بطاقة المتاجر، والواتساب مخفي', { skip: !chromiumPath }, async () => {
+// 162: باقة المتاجر المنفصلة أُلغيت — 3 بطاقات فقط (free/support/ultimate)، والواتساب مخفي.
+test('صفحة الأسعار: 3 خطط بالجنيه بلا بطاقة متاجر، والواتساب مخفي', { skip: !chromiumPath }, async () => {
     const fx = fixtures();
     fx.user = null; fx.authUser = null;
     const { page, context } = await open(fx, '/subscriptions.html');
     await page.waitForSelector('.pricing-card[data-plan="ultimate"]');
     const plans = await page.locator('#individuals .pricing-card').evaluateAll(els => els.map(e => e.dataset.plan));
-    assert.deepEqual(plans, ['free', 'support', 'ultimate', 'store']);
+    assert.deepEqual(plans, ['free', 'support', 'ultimate']);
     assert.equal(await page.locator('[data-plan="whatsapp"], [data-plan="bundle"]').count(), 0);
     const adv = page.locator('.pricing-card[data-plan="support"]');
     assert.equal(await adv.locator('.amount').innerText(), '999');
