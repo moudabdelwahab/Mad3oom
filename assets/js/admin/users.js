@@ -308,25 +308,44 @@ async function runAction(id, target) {
         const reason = prompt('سبب الحظر (يُسجَّل ويظهر للحساب):');
         if (reason === null) return;
         if (reason.trim().length < 5) { alert('اكتب سببًا واضحًا (5 أحرف على الأقل)'); return; }
-        // أعمدة الحظر الحقيقية (is_banned) — profiles بلا عمود status. حظر فريق المنصة يتطلب تحقق المالك بخطوتين
-        // (guard_privileged_accounts) وتصل رسالة القاعدة كما هي، وصفر صفوف = رفض RLS لا «تم».
-        const { data, error } = await supabase.from('profiles')
-            .update({ ban_status: 'permanent', ban_until: null, ban_reason: reason.trim() })
-            .eq('id', userId).select('id');
+        // الحظر عبر Edge Function `ban-user` (لا تحديث PostgREST مباشر):
+        // تكتب profiles + تضبط `auth.users.banned_until` عبر Auth Admin API
+        // فيمنع الدخول وتحديث الرمز. حظر فريق المنصة يتطلب تحقق المالك
+        // بخطوتين (owner_critical_ok داخل الدالة)، وحظر المالك نفسه مرفوض
+        // فيها دائمًا. ملاحظة: لا إلغاء فوري للرمز الصادر — الدالة تردّ
+        // sessions.revoked=false مع السبب (لا نقطة نهاية Admin لذلك)؛
+        // التنفيذ الفوري هو بوابة RLS (144) + منع التحديث عبر banned_until.
+        const { data, error } = await supabase.functions.invoke('ban-user', {
+            body: { user_id: userId, action: 'ban', reason: reason.trim() }
+        });
         if (error) alert('خطأ في الحظر: ' + error.message);
-        else if (!data?.length) alert('لم يُنفَّذ الحظر: القاعدة لم تسمح بتعديل هذا الحساب.');
-        else loadUsers();
+        else if (!data?.ok) alert('لم يُنفَّذ الحظر: ' + (data?.error || 'سبب غير معروف'));
+        else {
+            if (!data.auth_ban_applied) {
+                alert('تم الحظر في قاعدة البيانات، لكن ضبط الحظر في المصادقة (Auth) فشل: ' + (data.auth_error || 'سبب غير معروف') + ' — أعد المحاولة من زر الحظر.');
+            } else if (data.sessions && data.sessions.revoked === false) {
+                alert('تم الحظر. ملاحظة: جلسات الحساب الحالية لا تُلغى فورًا من الخادم (لا توجد نقطة نهاية لذلك)، لكن الحساب محجوب عن كل البيانات الآن، ولن يستطيع الدخول أو تحديث جلسته بعد انتهاء رمزه الحالي.');
+            }
+            loadUsers();
+        }
         return;
     }
 
     if (id === 'unban') {
         if (confirm('هل أنت متأكد من إلغاء حظر هذا المستخدم؟')) {
-            const { data, error } = await supabase.from('profiles')
-                .update({ ban_status: 'none', ban_until: null, ban_reason: null })
-                .eq('id', userId).select('id');
+            // رفع الحظر عبر Edge Function `ban-user` أيضًا: يعيد profiles
+            // ويزيل banned_until من Auth، فتعود جلسات الحساب دون إعادة دخول.
+            const { data, error } = await supabase.functions.invoke('ban-user', {
+                body: { user_id: userId, action: 'unban' }
+            });
             if (error) alert('خطأ في إلغاء الحظر: ' + error.message);
-            else if (!data?.length) alert('لم يُرفع الحظر: القاعدة لم تسمح بتعديل هذا الحساب.');
-            else loadUsers();
+            else if (!data?.ok) alert('لم يُرفع الحظر: ' + (data?.error || 'سبب غير معروف'));
+            else {
+                if (!data.auth_ban_applied) {
+                    alert('رُفع الحظر في قاعدة البيانات، لكن إزالة الحظر من المصادقة (Auth) فشلت: ' + (data.auth_error || 'سبب غير معروف') + ' — أعد المحاولة من زر رفع الحظر.');
+                }
+                loadUsers();
+            }
         }
         return;
     }

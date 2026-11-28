@@ -4,9 +4,11 @@
  * لوحة بحث (بريد أو معرّف) + نافذة إجراءات: تغيير الرتبة (مستخدم ↔ مدير)،
  * الحظر/إلغاء الحظر بسبب، تعديل النقاط (قيمة مطلقة)، تجميد/إلغاء تجميد
  * الرصيد. الكتابة عبر دوال الترحيل 147 (owner_set_user_role /
- * owner_ban_user / owner_set_user_points) والتجميد عبر manage_user_points
- * كما هي (134)؛ كل كتابة تسبقها جلسة تحرير (تحقق بخطوتين) كما في
- * owner/accounts.js، والرفض الحقيقي في القاعدة.
+ * owner_set_user_points) والتجميد عبر manage_user_points كما هي (134)،
+ * أما الحظر/إلغاء الحظر فعبر Edge Function `ban-user` (من البند 6):
+ * تكتب profiles وتضبط `auth.users.banned_until` عبر Auth Admin API.
+ * كل كتابة تسبقها جلسة تحرير (تحقق بخطوتين) كما في owner/accounts.js،
+ * والرفض الحقيقي في القاعدة (وفي الدالة للتحقق بخطوتين).
  *
  * بلا تقمّص/عرض-كالمستخدم: إداري السياق وحده (auth-client.js) ولا يُبنى
  * للمالك. بلا تعديل باقة: مكانه تفاصيل الاشتراك (مجموعة F2).
@@ -17,7 +19,7 @@ import {
 import { ensureStepUp } from '/assets/js/security/step-up-modal.js';
 import {
     isBanned, OWNER_USER_ROLES, validateBanReason, validatePointsInput,
-    banPayload, unbanPayload, rolePayload, pointsPayload, freezePayload, rpcJsonResult
+    banUserBody, unbanUserBody, banUserResult, rolePayload, pointsPayload, freezePayload, rpcJsonResult
 } from '/assets/js/owner/owner-user-actions-model.js';
 
 const USER_COLUMNS = 'id, full_name, email, phone, role, points, ban_status, ban_until, ban_reason, created_at';
@@ -136,7 +138,7 @@ export async function openOwnerUserActions({ client, user, frozen = false, onDon
             if (!ok) { showError('أُلغي التحقق بخطوتين — لم يُنفَّذ الإجراء.'); return; }
             const result = await fn();
             if (!result.ok) { showError(result.message); return; }
-            showDone('تم التنفيذ وسُجِّل في التدقيق.');
+            showDone(result.note || 'تم التنفيذ وسُجِّل في التدقيق.');
             onDone?.();
         } catch (err) {
             showError(friendlyError(err));
@@ -161,16 +163,18 @@ export async function openOwnerUserActions({ client, user, frozen = false, onDon
         const until = body.querySelector('#ouaBanUntil').value || null;
         if (!window.confirm(`حظر «${user.full_name || user.email}»${until ? ` حتى ${new Date(until).toLocaleString('ar-EG')}` : ' (دائم)'}؟`)) return;
         await runWrite(e.currentTarget, 'حظر مستخدم', async () => {
-            const { data, error } = await db.rpc('owner_ban_user', banPayload(user.id, check.reason, until));
-            return rpcJsonResult(data, error);
+            // الحظر عبر Edge Function `ban-user` لا RPC owner_ban_user:
+            // الدالة وحدها تضبط banned_until في Auth (الدخول والتحديث).
+            const { data, error } = await db.functions.invoke('ban-user', { body: banUserBody(user.id, check.reason, until) });
+            return banUserResult(data, error);
         });
     });
 
     body.querySelector('#ouaUnban')?.addEventListener('click', async (e) => {
         if (!window.confirm(`إلغاء حظر «${user.full_name || user.email}»؟`)) return;
         await runWrite(e.currentTarget, 'إلغاء الحظر', async () => {
-            const { data, error } = await db.rpc('owner_ban_user', unbanPayload(user.id));
-            return rpcJsonResult(data, error);
+            const { data, error } = await db.functions.invoke('ban-user', { body: unbanUserBody(user.id) });
+            return banUserResult(data, error);
         });
     });
 

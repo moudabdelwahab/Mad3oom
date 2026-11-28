@@ -52,12 +52,20 @@ async function renderBannedUsers() {
         btn.addEventListener('click', async () => {
             const userId = btn.getAttribute('data-user-id');
             if (confirm('هل أنت متأكد من إلغاء حظر هذا المستخدم؟')) {
-                const { data, error } = await supabase.from('profiles')
-                    .update({ ban_status: 'none', ban_until: null, ban_reason: null })
-                    .eq('id', userId).select('id');
+                // رفع الحظر عبر Edge Function `ban-user` (لا تحديث PostgREST
+                // مباشر): يعيد profiles ويزيل banned_until من Auth، فتعود
+                // جلسات الحساب دون إعادة دخول.
+                const { data, error } = await supabase.functions.invoke('ban-user', {
+                    body: { user_id: userId, action: 'unban' }
+                });
                 if (error) alert('خطأ: ' + error.message);
-                else if (!data?.length) alert('لم يُرفع الحظر: القاعدة لم تسمح بتعديل هذا الحساب.');
-                renderBannedUsers();
+                else if (!data?.ok) alert('لم يُرفع الحظر: ' + (data?.error || 'سبب غير معروف'));
+                else {
+                    if (!data.auth_ban_applied) {
+                        alert('رُفع الحظر في قاعدة البيانات، لكن إزالة الحظر من المصادقة (Auth) فشلت: ' + (data.auth_error || 'سبب غير معروف') + ' — أعد المحاولة من زر رفع الحظر.');
+                    }
+                    renderBannedUsers();
+                }
             }
         });
     });
