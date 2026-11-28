@@ -128,8 +128,19 @@ export async function fetchMyHrEmployee() {
 
 /* ── الهيكل التنظيمي ──────────────────────────────────────────────────── */
 
+/* قوائم الهيكل في 143 ترجع مغلفًا {rows, total} لا مصفوفة عارية — تُفكّ
+   هنا إلى مصفوفة؛ وإلا رأى كل مستهلك فراغًا صامتًا (Array.isArray على
+   كائن يرفضه فيعرض 0). تقبل المصفوفة العارية أيضًا. */
+function unwrapOrgRows(result) {
+    if (!result?.ok) return result;
+    const d = result.data;
+    if (Array.isArray(d)) return result;
+    if (d && Array.isArray(d.rows)) return { ...result, data: d.rows };
+    return { ...result, data: [] };
+}
+
 export async function fetchHrDepartments(includeArchived = false) {
-    return callRpc('hrDepartmentsList', 'hr_departments_list', { p_include_archived: includeArchived === true });
+    return unwrapOrgRows(await callRpc('hrDepartmentsList', 'hr_departments_list', { p_include_archived: includeArchived === true }));
 }
 
 export async function createHrDepartment({ name, parentId = null, description = null, managerEmployeeId = null, sortOrder = 0 }) {
@@ -151,7 +162,7 @@ export async function archiveHrDepartment(id, reason) {
 }
 
 export async function fetchHrBranches(includeArchived = false) {
-    return callRpc('hrBranchesList', 'hr_branches_list', { p_include_archived: includeArchived === true });
+    return unwrapOrgRows(await callRpc('hrBranchesList', 'hr_branches_list', { p_include_archived: includeArchived === true }));
 }
 
 export async function createHrBranch({ name, parentId = null, description = null, managerEmployeeId = null, sortOrder = 0 }) {
@@ -173,7 +184,7 @@ export async function archiveHrBranch(id, reason) {
 }
 
 export async function fetchHrPositions(includeArchived = false) {
-    return callRpc('hrPositionsList', 'hr_positions_list', { p_include_archived: includeArchived === true });
+    return unwrapOrgRows(await callRpc('hrPositionsList', 'hr_positions_list', { p_include_archived: includeArchived === true }));
 }
 
 export async function createHrPosition({ name, parentId = null, description = null, managerEmployeeId = null, departmentId = null, level = 1, sortOrder = 0 }) {
