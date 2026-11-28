@@ -87,7 +87,9 @@ export function employeeRowForDisplay(row) {
         contractType: row.contract_type || null,
         status: row.employment_status || 'active',
         statusInfo: employeeStatusInfo(row.employment_status),
-        linked: row.linked === true
+        linked: row.linked === true,
+        linkedUserId: row.linked_user_id || null,
+        linkedAccountName: row.linked_account_name || null
     };
 }
 
@@ -509,4 +511,401 @@ export function checkOrgDepth(parentChainLength) {
         return { ok: false, error: 'العمق الأقصى للهيكل التنظيمي 6 مستويات' };
     }
     return { ok: true, error: null };
+}
+
+/* ── الإجازات (الترحيل 154) ───────────────────────────────────────────── */
+
+export const HR_LEAVE_STATUSES = Object.freeze({
+    pending: { label: 'معلق', pill: 'status-tone-warning' },
+    approved: { label: 'معتمَد', pill: 'status-tone-success' },
+    rejected: { label: 'مرفوض', pill: 'status-tone-danger' }
+});
+
+export function leaveStatusInfo(status) {
+    return HR_LEAVE_STATUSES[status] || { label: 'غير معروفة', pill: 'status-neutral' };
+}
+
+/** أيام تقويمية شاملة الطرفين بين تاريخين YYYY-MM-DD؛ null لتواريخ غير صالحة. */
+export function leaveDaysBetween(startDate, endDate) {
+    const s = new Date(`${startDate}T00:00:00Z`);
+    const e = new Date(`${endDate}T00:00:00Z`);
+    if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return null;
+    const days = Math.round((e - s) / 86400000) + 1;
+    return days > 0 ? days : null;
+}
+
+/** تحقق أولي من نموذج طلب إجازة (عرض أولي؛ القاعدة تفرضه فعليًا — ومنها
+ *  التداخل وفحص الرصيد عند الاعتماد، وهما خادمًا فقط). */
+export function validateLeaveRequestForm(values) {
+    const errors = {};
+    const v = values || {};
+    if (!v.employeeId) errors.employeeId = 'حدّد الموظف';
+    if (!v.leaveTypeId) errors.leaveTypeId = 'حدّد نوع الإجازة';
+    if (!v.startDate) errors.startDate = 'حدّد تاريخ البداية';
+    if (!v.endDate) errors.endDate = 'حدّد تاريخ النهاية';
+    if (v.startDate && v.endDate) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(v.startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(v.endDate)) {
+            errors.dates = 'التواريخ بصيغة YYYY-MM-DD';
+        } else if (v.endDate < v.startDate) {
+            errors.dates = 'تاريخ النهاية قبل تاريخ البداية';
+        } else if (v.startDate.slice(0, 4) !== v.endDate.slice(0, 4)) {
+            errors.dates = 'الطلب يجب أن يكون داخل سنة ميلادية واحدة';
+        }
+    }
+    return { isValid: Object.keys(errors).length === 0, errors,
+             days: v.startDate && v.endDate ? leaveDaysBetween(v.startDate, v.endDate) : null };
+}
+
+/** صف طلب إجازة للعرض في القائمة. */
+export function leaveRequestRowForDisplay(row) {
+    if (!row) return null;
+    return {
+        id: row.id || null,
+        employeeId: row.employee_id || null,
+        employeeName: row.employee_name || '—',
+        employeeNumber: row.employee_number || '',
+        leaveTypeId: row.leave_type_id || null,
+        typeName: row.type_name || '—',
+        typeCode: row.type_code || '',
+        startDate: row.start_date || null,
+        endDate: row.end_date || null,
+        days: Number(row.days) || 0,
+        status: row.status || 'pending',
+        statusInfo: leaveStatusInfo(row.status),
+        note: row.note || '',
+        requestedBy: row.requested_by || null,
+        decidedBy: row.decided_by || null,
+        decidedAt: row.decided_at || null,
+        decisionReason: row.decision_reason || '',
+        createdAt: row.created_at || null
+    };
+}
+
+/** صف رصيد للعرض: المتبقي محسوب خادمًا (remaining_days) ويُعاد حسابه هنا
+ *  كحماية عرض إن غاب. */
+export function leaveBalanceRowForDisplay(row) {
+    if (!row) return null;
+    const total = Number(row.total_days) || 0;
+    const used = Number(row.used_days) || 0;
+    const remaining = row.remaining_days == null ? Math.max(total - used, 0) : Number(row.remaining_days);
+    return {
+        id: row.id || null,
+        employeeId: row.employee_id || null,
+        employeeName: row.employee_name || '—',
+        employeeNumber: row.employee_number || '',
+        leaveTypeId: row.leave_type_id || null,
+        typeCode: row.type_code || '',
+        typeName: row.type_name || '—',
+        year: Number(row.year) || new Date().getFullYear(),
+        totalDays: total,
+        usedDays: used,
+        remainingDays: remaining
+    };
+}
+
+/** تحقق أولي من نموذج نوع إجازة جديد. */
+export function validateLeaveTypeForm(values) {
+    const errors = {};
+    const v = values || {};
+    if (!/^[a-z][a-z0-9_]*$/.test(String(v.code || ''))) {
+        errors.code = 'رمز النوع أحرف إنجليزية صغيرة وأرقام وشرطة سفلية، يبدأ بحرف';
+    }
+    const name = String(v.nameAr || '').trim();
+    if (name.length < 2 || name.length > 120) errors.nameAr = 'اسم النوع بين حرفين و120 حرفًا';
+    const days = Number(v.defaultDays);
+    if (!Number.isInteger(days) || days < 0 || days > 365) errors.defaultDays = 'الرصيد الافتراضي بين 0 و365 يومًا';
+    return { isValid: Object.keys(errors).length === 0, errors };
+}
+
+/* ── ربط الموظفين بالتذاكر (الترحيل 156 — قراءة فقط) ─────────────────── */
+
+/* حالات التذاكر كما يستعملها الكود (098/099)؛ بلا CHECK حيًا على العمود،
+   فأي حالة أخرى تُعرض «غير معروفة» بدل افتراض معنى لها. */
+export const HR_TICKET_STATUSES = Object.freeze({
+    open: { label: 'مفتوحة', pill: 'status-tone-warning' },
+    'in-progress': { label: 'قيد المعالجة', pill: 'status-tone-accent' },
+    resolved: { label: 'محلولة', pill: 'status-tone-success' },
+    confirmed: { label: 'مؤكدة', pill: 'status-tone-success' },
+    closed: { label: 'مغلقة', pill: 'status-neutral' },
+    rejected: { label: 'مرفوضة', pill: 'status-tone-danger' }
+});
+
+export function ticketStatusInfo(status) {
+    return HR_TICKET_STATUSES[status] || { label: 'غير معروفة', pill: 'status-neutral' };
+}
+
+/** ثوانٍ إلى مدة عربية مختصرة («45 دقيقة»، «5 ساعات و20 دقيقة»،
+ *  «3 أيام وساعتان»)؛ null أو سالب → '—'. */
+export function formatHrDuration(seconds) {
+    const s = Number(seconds);
+    if (!Number.isFinite(s) || s < 0) return '—';
+    if (s < 60) return `${Math.round(s)} ثانية`;
+    const totalMinutes = Math.round(s / 60);
+    if (totalMinutes < 60) return `${totalMinutes} دقيقة`;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours < 24) return minutes ? `${hours} ساعة و${minutes} دقيقة` : `${hours} ساعة`;
+    const days = Math.floor(hours / 24);
+    const restHours = hours % 24;
+    return restHours ? `${days} يوم و${restHours} ساعة` : `${days} يوم`;
+}
+
+/** صف تذكرة للعرض في تفاصيل الموظف. */
+export function ticketRowForDisplay(row) {
+    if (!row) return null;
+    return {
+        id: row.id || null,
+        ticketNumber: row.ticket_number ?? null,
+        title: row.title || '—',
+        status: row.status || 'open',
+        statusInfo: ticketStatusInfo(row.status),
+        priority: row.priority || '—',
+        category: row.category || '—',
+        createdAt: row.created_at || null,
+        firstResponseAt: row.first_response_at || null,
+        resolvedAt: row.resolved_at || null,
+        reopenCount: Number(row.reopen_count) || 0
+    };
+}
+
+/** نص خلية «التذاكر» في قائمة الموظفين: بلا حساب مرتبط → رسالة صريحة،
+ *  وإلا «مفتوحة X · أُغلقت Y» (Y إجمالي محلولة/مؤكدة/مغلقة). */
+export function employeeTicketSummaryText(summary) {
+    if (!summary) return '—';
+    if (summary.linked === false) return 'بلا حساب مرتبط';
+    const open = Number(summary.open_now) || 0;
+    const resolved = Number(summary.resolved_total) || 0;
+    return `مفتوحة ${open} · أُغلقت ${resolved}`;
+}
+
+/* ── الحضور والانصراف (الترحيل 155) ─────────────────────────────────────── */
+
+/** أيام الأسبوع بأرقام Postgres (dow: 0=الأحد … 6=السبت) — كما في hr_shifts. */
+export const HR_WEEKDAYS = Object.freeze([
+    { value: 0, label: 'الأحد' },
+    { value: 1, label: 'الاثنين' },
+    { value: 2, label: 'الثلاثاء' },
+    { value: 3, label: 'الأربعاء' },
+    { value: 4, label: 'الخميس' },
+    { value: 5, label: 'الجمعة' },
+    { value: 6, label: 'السبت' }
+]);
+
+/** تسميات أيام عمل وردية (مصفوفة أرقام) للعرض، مفصولة بـ«، ». */
+export function attendanceWorkingDaysLabel(workingDays) {
+    const days = Array.isArray(workingDays) ? workingDays : [];
+    if (!days.length) return '—';
+    const byValue = new Map(HR_WEEKDAYS.map(d => [d.value, d.label]));
+    return days.map(d => byValue.get(Number(d)) || String(d)).join('، ');
+}
+
+export const HR_ATTENDANCE_STATUSES = Object.freeze({
+    present: { label: 'حاضر', pill: 'status-tone-success' },
+    late: { label: 'متأخر', pill: 'status-tone-warning' },
+    absent: { label: 'غائب', pill: 'status-tone-danger' },
+    on_leave: { label: 'في إجازة', pill: 'status-tone-warning' }
+});
+
+export function attendanceStatusInfo(status) {
+    return HR_ATTENDANCE_STATUSES[status] || { label: 'غير معروفة', pill: 'status-neutral' };
+}
+
+/** دقائق عمل بصيغة «س ساعات ود دقيقة» (أو «—» بلا خروج بعد). */
+export function formatWorkedMinutes(minutes) {
+    if (minutes == null) return '—';
+    const m = Number(minutes) || 0;
+    const h = Math.floor(m / 60);
+    const rest = m % 60;
+    if (h === 0) return `${rest} دقيقة`;
+    return `${h} ساعة${rest ? ` و${rest} دقيقة` : ''}`;
+}
+
+/** وقت «HH:MM» من طابع ISO؛ «—» إن غاب. */
+export function attendanceTimeLabel(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+/** صف سجل حضور للعرض في القائمة. */
+export function attendanceRowForDisplay(row) {
+    if (!row) return null;
+    return {
+        id: row.id || null,
+        employeeId: row.employee_id || null,
+        employeeName: row.employee_name || '—',
+        employeeNumber: row.employee_number || '',
+        workDate: row.work_date || null,
+        checkInAt: row.check_in_at || null,
+        checkInLabel: attendanceTimeLabel(row.check_in_at),
+        checkOutAt: row.check_out_at || null,
+        checkOutLabel: attendanceTimeLabel(row.check_out_at),
+        status: row.status || 'present',
+        statusInfo: attendanceStatusInfo(row.status),
+        shiftId: row.shift_id || null,
+        shiftName: row.shift_name || 'بلا وردية',
+        workedMinutes: row.worked_minutes == null ? null : Number(row.worked_minutes),
+        workedLabel: formatWorkedMinutes(row.worked_minutes),
+        note: row.note || '',
+        createdAt: row.created_at || null
+    };
+}
+
+/** تحقق أولي من نموذج وردية جديدة (عرض أولي؛ القاعدة تفرضه فعليًا). */
+export function validateShiftForm(values) {
+    const errors = {};
+    const v = values || {};
+    const name = String(v.name || '').trim();
+    if (name.length < 2 || name.length > 120) errors.name = 'اسم الوردية بين حرفين و120 حرفًا';
+    if (!/^\d{2}:\d{2}(:\d{2})?$/.test(String(v.startTime || ''))) errors.startTime = 'وقت البداية بصيغة HH:MM';
+    if (!/^\d{2}:\d{2}(:\d{2})?$/.test(String(v.endTime || ''))) errors.endTime = 'وقت النهاية بصيغة HH:MM';
+    if (!errors.startTime && !errors.endTime && v.endTime <= v.startTime) {
+        errors.endTime = 'وقت النهاية يجب أن يكون بعد وقت البداية (بلا ورديات ليلية في هذا القسم)';
+    }
+    const days = Array.isArray(v.workingDays) ? v.workingDays : [];
+    if (!days.length || days.some(d => !Number.isInteger(Number(d)) || Number(d) < 0 || Number(d) > 6)) {
+        errors.workingDays = 'اختر يوم عمل واحدًا على الأقل (الأحد=0 … السبت=6)';
+    }
+    const grace = Number(v.graceMinutes);
+    if (!Number.isInteger(grace) || grace < 0 || grace > 120) errors.graceMinutes = 'فترة السماح بين 0 و120 دقيقة';
+    return { isValid: Object.keys(errors).length === 0, errors };
+}
+
+/* ── التقارير (الترحيل 157) ─────────────────────────────────────────────── */
+
+/** الفترة الافتراضية للتقارير: بداية الشهر الحالي حتى اليوم (بصيغة YYYY-MM-DD). */
+export function hrReportMonthDefaults(now = new Date()) {
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return { from: `${y}-${m}-01`, to: `${y}-${m}-${d}` };
+}
+
+/** تحقق أولي من فترة تقرير (عرض أولي؛ القاعدة تفرضه فعليًا — ومنها حد
+ *  366 يومًا). يرجع { isValid, errors } برسائل عربية. */
+export function validateReportPeriod(from, to) {
+    const errors = {};
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(from || ''))) errors.from = 'تاريخ البداية بصيغة YYYY-MM-DD';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(to || ''))) errors.to = 'تاريخ النهاية بصيغة YYYY-MM-DD';
+    if (Object.keys(errors).length) return { isValid: false, errors };
+    if (to < from) {
+        errors.dates = 'تاريخ النهاية قبل تاريخ البداية';
+    } else {
+        const days = Math.round((new Date(`${to}T00:00:00Z`) - new Date(`${from}T00:00:00Z`)) / 86400000) + 1;
+        if (days > 366) errors.dates = 'الفترة أطول من 366 يومًا';
+    }
+    return { isValid: Object.keys(errors).length === 0, errors };
+}
+
+/** نسبة مئوية بمنزلة عشرية واحدة؛ null حين المقام صفر (بلا أيام متوقعة مثلًا). */
+export function hrReportShare(part, whole) {
+    const w = Number(whole) || 0;
+    if (w <= 0) return null;
+    return Math.round((Number(part) / w) * 1000) / 10;
+}
+
+/** نص نسبة للعرض: «75.5%» أو «—» حين لا مقام. */
+export function hrReportShareLabel(value) {
+    return value == null ? '—' : `${Number(value)}%`;
+}
+
+/** صف عدد لبلوك التقارير: القسم + الإجمالي + تفصيل الحالات. */
+export function headcountRowForDisplay(row) {
+    if (!row) return null;
+    return {
+        departmentId: row.department_id || null,
+        departmentName: row.department_name || 'بلا قسم',
+        total: Number(row.total) || 0,
+        active: Number(row.active) || 0,
+        onLeave: Number(row.on_leave) || 0,
+        suspended: Number(row.suspended) || 0,
+        terminated: Number(row.terminated) || 0,
+        pendingData: Number(row.pending_data) || 0
+    };
+}
+
+/** صف حضور لبلوك التقارير: الأيام والنسب (قد تكون null بلا أيام متوقعة). */
+export function reportAttendanceRowForDisplay(row) {
+    if (!row) return null;
+    return {
+        departmentId: row.department_id || null,
+        departmentName: row.department_name || 'بلا قسم',
+        employeesCount: Number(row.employees_count) || 0,
+        employeesNoExpectedDays: Number(row.employees_no_expected_days) || 0,
+        expectedDays: Number(row.expected_days) || 0,
+        presentDays: Number(row.present_days) || 0,
+        lateDays: Number(row.late_days) || 0,
+        absentDays: Number(row.absent_days) || 0,
+        onLeaveDays: Number(row.on_leave_days) || 0,
+        totalWorkedMinutes: Number(row.total_worked_minutes) || 0,
+        presentRate: row.present_rate == null ? null : Number(row.present_rate),
+        lateRate: row.late_rate == null ? null : Number(row.late_rate),
+        absentRate: row.absent_rate == null ? null : Number(row.absent_rate),
+        onLeaveRate: row.on_leave_rate == null ? null : Number(row.on_leave_rate)
+    };
+}
+
+/** صف إجازات لبلوك التقارير: الأرصدة قد تكون null لنوع بلا رصيد. */
+export function reportLeaveRowForDisplay(row) {
+    if (!row) return null;
+    return {
+        departmentId: row.department_id || null,
+        departmentName: row.department_name || 'بلا قسم',
+        leaveTypeId: row.leave_type_id || null,
+        typeCode: row.type_code || '',
+        typeName: row.type_name || '—',
+        employeesCount: Number(row.employees_count) || 0,
+        totalDays: row.total_days == null ? null : Number(row.total_days),
+        usedDays: row.used_days == null ? null : Number(row.used_days),
+        remainingDays: row.remaining_days == null ? null : Number(row.remaining_days),
+        approvedDaysInRange: Number(row.approved_days_in_range) || 0,
+        approvedRequestsInRange: Number(row.approved_requests_in_range) || 0,
+        pendingRequestsInRange: Number(row.pending_requests_in_range) || 0
+    };
+}
+
+/** صف تذاكر موظف لبلوك التقارير: بلا حساب مرتبط linked=false وأصفار. */
+export function reportTicketEmployeeRowForDisplay(row) {
+    if (!row) return null;
+    return {
+        employeeId: row.employee_id || null,
+        employeeName: row.employee_name || '—',
+        employeeNumber: row.employee_number || '',
+        departmentId: row.department_id || null,
+        departmentName: row.department_name || 'بلا قسم',
+        linked: row.linked === true,
+        assignedInWindow: Number(row.assigned_in_window) || 0,
+        openNow: Number(row.open_now) || 0,
+        inProgressNow: Number(row.in_progress_now) || 0,
+        resolvedInWindow: Number(row.resolved_in_window) || 0,
+        resolvedTotal: Number(row.resolved_total) || 0,
+        rejectedInWindow: Number(row.rejected_in_window) || 0,
+        ticketsWithResponse: Number(row.tickets_with_response) || 0,
+        firstResponseRate: row.first_response_rate == null ? null : Number(row.first_response_rate),
+        avgFirstResponseSeconds: row.avg_first_response_seconds == null ? null : Number(row.avg_first_response_seconds),
+        medianFirstResponseSeconds: row.median_first_response_seconds == null ? null : Number(row.median_first_response_seconds),
+        avgResolutionSeconds: row.avg_resolution_seconds == null ? null : Number(row.avg_resolution_seconds),
+        medianResolutionSeconds: row.median_resolution_seconds == null ? null : Number(row.median_resolution_seconds)
+    };
+}
+
+/** صف تذاكر قسم لبلوك التقارير (من hr_department_ticket_stats في 156). */
+export function reportTicketDepartmentRowForDisplay(row) {
+    if (!row) return null;
+    return {
+        departmentId: row.department_id || null,
+        departmentName: row.department_name || 'بلا قسم',
+        employeesLinked: Number(row.employees_linked) || 0,
+        assignedInWindow: Number(row.assigned_in_window) || 0,
+        openNow: Number(row.open_now) || 0,
+        resolvedInWindow: Number(row.resolved_in_window) || 0,
+        rejectedInWindow: Number(row.rejected_in_window) || 0,
+        ticketsWithResponse: Number(row.tickets_with_response) || 0,
+        firstResponseRate: row.first_response_rate == null ? null : Number(row.first_response_rate),
+        avgFirstResponseSeconds: row.avg_first_response_seconds == null ? null : Number(row.avg_first_response_seconds),
+        medianFirstResponseSeconds: row.median_first_response_seconds == null ? null : Number(row.median_first_response_seconds),
+        avgResolutionSeconds: row.avg_resolution_seconds == null ? null : Number(row.avg_resolution_seconds),
+        medianResolutionSeconds: row.median_resolution_seconds == null ? null : Number(row.median_resolution_seconds)
+    };
 }

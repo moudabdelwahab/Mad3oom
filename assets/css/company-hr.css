@@ -417,6 +417,39 @@ body.company-app .hr-modal textarea {
     box-sizing: border-box;
 }
 
+/* ── الإجازات (الترحيل 154) ───────────────────────────────────────────── */
+
+/* شبكة النموذج والأنواع: عمودان على الواسع، عمود واحد على الضيق. */
+body.company-app .hr-leave-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-4);
+}
+
+@media (max-width: 900px) {
+    body.company-app .hr-leave-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* شريط المتبقي من الرصيد: خلفية محايدة + تعبئة بلون التمييز. */
+body.company-app .hr-balance-bar {
+    width: 7rem;
+    max-width: 100%;
+    height: .55rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--color-border);
+}
+
+body.company-app .hr-balance-bar > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--color-success, #2e7d32);
+}
+
 /* ── الجوال: تضييق مسافات البطاقات وشجرة أضيق ─────────────────────────── */
 @media (max-width: 640px) {
     body.company-app .hr-detail-card,
@@ -436,4 +469,86 @@ body.company-app .hr-modal textarea {
         width: 100%;
         margin: .15rem 0;
     }
+    /* ونفسها في جدول طلبات الإجازات */
+    body.company-app #hrLeaveBody .hr-table-sticky .report-table td:last-child .btn {
+        display: flex;
+        width: 100%;
+        margin: .15rem 0;
+    }
+    /* ونفسها في جدول سجلات الحضور */
+    body.company-app #hrAttendanceBody .hr-table-sticky .report-table td:last-child .btn {
+        display: flex;
+        width: 100%;
+        margin: .15rem 0;
+    }
+    body.company-app .hr-balance-bar {
+        width: 5rem;
+    }
+}
+
+/* ── التذاكر في تفاصيل الموظف (الترحيل 156) ─────────────────────────────
+   بطاقات KPI نفسها (.kpi-grid/.kpi) من اللوحة؛ هنا فقط تباعد القسم داخل
+   بطاقة التفاصيل، وخلية ملخص التذاكر في قائمة الموظفين (سطر واحد). */
+body.company-app .hr-detail-card .hr-ticket-kpis {
+    margin-bottom: var(--sp-4);
+}
+
+body.company-app .hr-tickets-cell {
+    white-space: nowrap;
+    font-size: var(--fs-sm);
+    color: var(--color-text-secondary);
+}
+
+/* ── الحضور والانصراف (الترحيل 155) ───────────────────────────────────── */
+
+/* شبكة تسجيل اليوم والورديات: عمودان على الواسع، عمود واحد على الضيق. */
+body.company-app .hr-attendance-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-4);
+}
+
+@media (max-width: 900px) {
+    body.company-app .hr-attendance-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* قائمة تعريف لوحة «تسجيل اليوم»: مصطلح وقيمة في صف واحد. */
+body.company-app .hr-detail-list {
+    display: grid;
+    gap: var(--sp-2);
+    margin: 0 0 var(--sp-4);
+}
+
+body.company-app .hr-detail-list > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: baseline;
+}
+
+body.company-app .hr-detail-list dt {
+    font-weight: 600;
+    min-width: 8rem;
+}
+
+body.company-app .hr-detail-list dd {
+    margin: 0;
+}
+
+/* مجموعة مربعات اختيار أيام العمل في نموذج الوردية. */
+body.company-app .hr-check-group {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md, .5rem);
+    padding: var(--sp-3);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2) var(--sp-4);
+}
+
+body.company-app .hr-check-group legend {
+    font-weight: 600;
+    padding: 0 var(--sp-2);
 }

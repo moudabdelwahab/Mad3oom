@@ -37,6 +37,28 @@
  * hr_departments/branches/positions list/create/update/archive,
  * hr_settings_get/update, hr_import_employees, hr_import_runs_list/detail,
  * hr_link_employee_account/unlink, hr_unlink_employee_account, hr_my_employee.
+ * RPCs used (154_hr_leave.sql): hr_leave_types_list, hr_leave_type_create/
+ * update/archive, hr_leave_balances_list, hr_leave_balance_set,
+ * hr_leave_request_create/decide, hr_leave_requests_list, hr_leave_request_detail.
+ * RPCs used (156_hr_tickets_link.sql): hr_employee_ticket_stats,
+ * hr_employee_tickets_list, hr_employees_ticket_summary,
+ * hr_department_ticket_stats — read-only ticket stats via
+ * hr_employees.user_id ←→ tickets.assigned_to (scope='company' only).
+ * RPCs used (157_hr_reports.sql): hr_reports_headcount, hr_reports_attendance,
+ * hr_reports_leave, hr_reports_tickets — read-only aggregations of 154/155/156
+ * (each takes a date range, default current month; each returns {rows, total}
+ * plus a company-wide totals object, and an available=false block when its
+ * source section is not entitled for read).
+ * RPCs used (158_hr_employee_account_unique.sql): no new RPC — partial UNIQUE
+ * index (company_id, user_id) on hr_employees + idempotent re-link in
+ * hr_link_employee_account; hr-data maps a raw unique-violation to the
+ * Arabic duplicate message.
+ * RPCs used (159_hr_link_registers_company_staff.sql): no new RPC — the link
+ * RPC now also registers the account in company_staff (role 'agent') so it
+ * shows as staff in the accounts tree and becomes eligible for ticket
+ * assignment, and returns staff_registered/staff_as; hr_employee_detail now
+ * returns linked_user_id/linked_account_name. Candidates for the link picker
+ * reuse company_members() (096/152) via fetchHrLinkCandidates below.
  * All are SECURITY DEFINER; the company is derived from the session inside
  * the database — no company_id parameter anywhere here.
  * Every function returns { ok, data, error } (company-data.js convention).
@@ -238,13 +260,219 @@ export async function fetchHrImportRunDetail(runId) {
 /* ── الربط بالحساب ──────────────────────────────────────────────────── */
 
 export async function linkHrEmployeeAccount(employeeId, userId, reason = null) {
-    return callRpc('hrLinkEmployeeAccount', 'hr_link_employee_account', {
+    const result = await callRpc('hrLinkEmployeeAccount', 'hr_link_employee_account', {
         p_employee_id: employeeId, p_user_id: userId, p_reason: reason
     });
+    /* سباق نادر: تحقق 143 (6) يمنع التكرار عادةً، لكن ربطين متزامنين قد
+       يتجاوزاه معًا فيرمي الفهرس الفريد 158 خطأ Postgres خامًا — نترجمه
+       للرسالة العربية نفسها قبل وصوله لأي واجهة تعرض result.error. */
+    if (!result.ok && result.error && result.error.includes('hr_employees_company_user_uidx')) {
+        return { ok: false, data: null, error: 'الحساب مرتبط بموظف آخر في الشركة بالفعل' };
+    }
+    return result;
 }
 
 export async function unlinkHrEmployeeAccount(employeeId, reason = null) {
     return callRpc('hrLinkEmployeeUnlink', 'hr_link_employee_unlink', {
         p_employee_id: employeeId, p_reason: reason
+    });
+}
+
+/** مرشحو الربط بالحساب: أعضاء الشركة من company_members() (096/152) —
+ *  نفس مسار قائمة الأعضاء، بلا RPC جديد. المالك يرى الكل؛ غير المالك
+ *  (كمدير HR) يرى نفسه والمالك فقط (خصوصية 085) — فالمنتقي كامل للمالك
+ *  ومحدود لغيره. الخادم يرفض أي اختيار بلا عضوية نشطة برسالة عربية
+ *  (تحقق 3 في hr_link_employee_account)، ويرفض المربوط أصلًا بموظف
+ *  آخر برسالة عربية (تحقق 6 + ترجمة 158 هنا). */
+export async function fetchHrLinkCandidates() {
+    return callRpc('hrLinkCandidates', 'company_members', {});
+}
+
+/* ── الإجازات (الترحيل 154) ───────────────────────────────────────────── */
+
+/* قوائم الإجازات ترجع مغلفًا {rows, total} لا مصفوفة عارية (نمط 143)؛
+   الربط هنا يبقي المغلف كما هو — لوحة العرض تفكّه (data.rows). */
+export async function fetchHrLeaveTypes(includeInactive = false) {
+    return callRpc('hrLeaveTypesList', 'hr_leave_types_list', { p_include_inactive: includeInactive === true });
+}
+
+export async function createHrLeaveType({ code, nameAr, defaultDays = 0, deductsBalance = true, sortOrder = 0 }) {
+    return callRpc('hrLeaveTypeCreate', 'hr_leave_type_create', {
+        p_code: code, p_name_ar: nameAr, p_default_days: defaultDays,
+        p_deducts_balance: deductsBalance, p_sort_order: sortOrder
+    });
+}
+
+export async function updateHrLeaveType(typeId, { nameAr = null, defaultDays = null, deductsBalance = null, isActive = null, sortOrder = null }) {
+    return callRpc('hrLeaveTypeUpdate', 'hr_leave_type_update', {
+        p_type_id: typeId, p_name_ar: nameAr, p_default_days: defaultDays,
+        p_deducts_balance: deductsBalance, p_is_active: isActive, p_sort_order: sortOrder
+    });
+}
+
+export async function archiveHrLeaveType(typeId, reason) {
+    return callRpc('hrLeaveTypeArchive', 'hr_leave_type_archive', { p_type_id: typeId, p_reason: reason });
+}
+
+export async function fetchHrLeaveBalances({ employeeId = null, year = null } = {}) {
+    return callRpc('hrLeaveBalancesList', 'hr_leave_balances_list', {
+        p_employee_id: employeeId || null, p_year: year || null
+    });
+}
+
+export async function setHrLeaveBalance(employeeId, leaveTypeId, year, totalDays) {
+    return callRpc('hrLeaveBalanceSet', 'hr_leave_balance_set', {
+        p_employee_id: employeeId, p_leave_type_id: leaveTypeId, p_year: year, p_total_days: totalDays
+    });
+}
+
+export async function createHrLeaveRequest({ employeeId, leaveTypeId, startDate, endDate, note = null }) {
+    return callRpc('hrLeaveRequestCreate', 'hr_leave_request_create', {
+        p_employee_id: employeeId, p_leave_type_id: leaveTypeId,
+        p_start_date: startDate, p_end_date: endDate, p_note: note || null
+    });
+}
+
+export async function decideHrLeaveRequest(requestId, approve, reason = null) {
+    return callRpc('hrLeaveRequestDecide', 'hr_leave_request_decide', {
+        p_request_id: requestId, p_approve: approve === true, p_reason: reason || null
+    });
+}
+
+export async function fetchHrLeaveRequests({ page = 1, pageSize = 20, employeeId = null, status = null, leaveTypeId = null, year = null } = {}) {
+    return callRpc('hrLeaveRequestsList', 'hr_leave_requests_list', {
+        p_page: page, p_page_size: pageSize,
+        p_employee_id: employeeId || null, p_status: status || null,
+        p_leave_type_id: leaveTypeId || null, p_year: year || null
+    });
+}
+
+export async function fetchHrLeaveRequestDetail(requestId) {
+    return callRpc('hrLeaveRequestDetail', 'hr_leave_request_detail', { p_request_id: requestId });
+}
+
+/* ── ربط الموظفين بالتذاكر (الترحيل 156 — قراءة فقط) ──────────────────── */
+
+/* إحصاءات موظف: مفتوحة الآن + نافذة (افتراضيًا آخر 30 يومًا) + متوسط/وسيط
+   أول استجابة وحل + أحدث 5 تذاكر. بلا حساب مرتبط ترجع linked=false. */
+export async function fetchHrEmployeeTicketStats(employeeId, { from = null, to = null } = {}) {
+    return callRpc('hrEmployeeTicketStats', 'hr_employee_ticket_stats', {
+        p_employee_id: employeeId, p_from: from || null, p_to: to || null
+    });
+}
+
+/* قائمة تذاكر موظف بترقيم؛ p_status حزمة: open أو resolved أو rejected. */
+export async function fetchHrEmployeeTickets({ employeeId, page = 1, pageSize = 20, status = null } = {}) {
+    return callRpc('hrEmployeeTicketsList', 'hr_employee_tickets_list', {
+        p_employee_id: employeeId, p_page: page, p_page_size: pageSize, p_status: status || null
+    });
+}
+
+/* ملخص جماعي (نداء واحد لصفحة القائمة): مفتوحة الآن + أُغلقت لكل موظف. */
+export async function fetchHrEmployeesTicketSummary(employeeIds) {
+    return callRpc('hrEmployeesTicketSummary', 'hr_employees_ticket_summary', {
+        p_employee_ids: Array.isArray(employeeIds) ? employeeIds : []
+    });
+}
+
+/* تجميع الأقسام للتقارير: صف لكل قسم + «بلا قسم» + إجماليات الشركة. */
+export async function fetchHrDepartmentTicketStats({ from = null, to = null } = {}) {
+    return callRpc('hrDepartmentTicketStats', 'hr_department_ticket_stats', {
+        p_from: from || null, p_to: to || null
+    });
+}
+
+/* ── الحضور والانصراف (الترحيل 155) ───────────────────────────────────── */
+
+/* قوائم الحضور ترجع مغلفًا {rows, total} لا مصفوفة عارية (نمط 143)؛
+   الربط هنا يبقي المغلف كما هو — لوحة العرض تفكّه (data.rows). */
+export async function fetchHrShifts(includeInactive = false) {
+    return callRpc('hrShiftsList', 'hr_shifts_list', { p_include_inactive: includeInactive === true });
+}
+
+export async function createHrShift({ name, startTime, endTime, workingDays = null, graceMinutes = 15, sortOrder = 0 }) {
+    return callRpc('hrShiftCreate', 'hr_shift_create', {
+        p_name: name, p_start_time: startTime, p_end_time: endTime,
+        p_working_days: workingDays, p_grace_minutes: graceMinutes, p_sort_order: sortOrder
+    });
+}
+
+export async function updateHrShift(shiftId, { name = null, startTime = null, endTime = null, workingDays = null, graceMinutes = null, isActive = null, sortOrder = null }) {
+    return callRpc('hrShiftUpdate', 'hr_shift_update', {
+        p_shift_id: shiftId, p_name: name, p_start_time: startTime, p_end_time: endTime,
+        p_working_days: workingDays, p_grace_minutes: graceMinutes,
+        p_is_active: isActive, p_sort_order: sortOrder
+    });
+}
+
+export async function assignHrShift(employeeId, shiftId, effectiveFrom = null) {
+    return callRpc('hrShiftAssign', 'hr_shift_assign', {
+        p_employee_id: employeeId, p_shift_id: shiftId, p_effective_from: effectiveFrom || null
+    });
+}
+
+export async function checkInHrAttendance(employeeId = null, note = null) {
+    return callRpc('hrAttendanceCheckIn', 'hr_attendance_check_in', {
+        p_employee_id: employeeId || null, p_note: note || null
+    });
+}
+
+export async function checkOutHrAttendance(employeeId = null, note = null) {
+    return callRpc('hrAttendanceCheckOut', 'hr_attendance_check_out', {
+        p_employee_id: employeeId || null, p_note: note || null
+    });
+}
+
+export async function correctHrAttendance(attendanceId, { checkInAt = null, checkOutAt = null, note = null, reason }) {
+    return callRpc('hrAttendanceCorrect', 'hr_attendance_correct', {
+        p_attendance_id: attendanceId, p_check_in_at: checkInAt || null,
+        p_check_out_at: checkOutAt || null, p_note: note, p_reason: reason
+    });
+}
+
+export async function fetchHrAttendanceToday(employeeId = null) {
+    return callRpc('hrAttendanceToday', 'hr_attendance_today', { p_employee_id: employeeId || null });
+}
+
+export async function fetchHrAttendanceList({ page = 1, pageSize = 20, employeeId = null, startDate = null, endDate = null, status = null } = {}) {
+    return callRpc('hrAttendanceList', 'hr_attendance_list', {
+        p_page: page, p_page_size: pageSize,
+        p_employee_id: employeeId || null, p_start_date: startDate || null,
+        p_end_date: endDate || null, p_status: status || null
+    });
+}
+
+export async function fetchHrAttendanceSummary({ employeeId = null, startDate = null, endDate = null } = {}) {
+    return callRpc('hrAttendanceSummary', 'hr_attendance_summary', {
+        p_employee_id: employeeId || null, p_start_date: startDate || null, p_end_date: endDate || null
+    });
+}
+
+/* ── التقارير (الترحيل 157 — قراءة فقط، تجميع 154/155/156) ─────────────── */
+
+/* كل تقرير يأخذ فترة (الافتراضي الشهر الحالي حتى اليوم) ويرجع مغلفًا
+   {rows, total} + إجماليات الشركة (totals)؛ وبلوك مصدره غير مفعّل يرجع
+   available=false بدل الفشل — الواجهة تعرض ملاحظة صريحة لذلك البلوك. */
+export async function fetchHrReportsHeadcount({ from = null, to = null } = {}) {
+    return callRpc('hrReportsHeadcount', 'hr_reports_headcount', {
+        p_from: from || null, p_to: to || null
+    });
+}
+
+export async function fetchHrReportsAttendance({ from = null, to = null } = {}) {
+    return callRpc('hrReportsAttendance', 'hr_reports_attendance', {
+        p_from: from || null, p_to: to || null
+    });
+}
+
+export async function fetchHrReportsLeave({ from = null, to = null } = {}) {
+    return callRpc('hrReportsLeave', 'hr_reports_leave', {
+        p_from: from || null, p_to: to || null
+    });
+}
+
+export async function fetchHrReportsTickets({ from = null, to = null } = {}) {
+    return callRpc('hrReportsTickets', 'hr_reports_tickets', {
+        p_from: from || null, p_to: to || null
     });
 }

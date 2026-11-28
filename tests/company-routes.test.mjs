@@ -45,14 +45,14 @@ test('المجالات الأحد عشر كما في هيكل المعلومات
         'التكاملات وواجهة API', 'التقارير والنشاط', 'الإشعارات', 'حساب الشركة', 'حسابي والأمان'
     ]);
     assert.equal(COMPANY_GROUPS.length, 11);
-    assert.deepEqual(groupOf('hrEmployees').pages, ['hrOverview', 'hrEmployees', 'hrDepartments', 'hrImport']);
+    assert.deepEqual(groupOf('hrEmployees').pages, ['hrOverview', 'hrEmployees', 'hrDepartments', 'hrImport', 'hrLeave']);
     // بيانات الشركة منفصلة عن الحساب الشخصي
     assert.notEqual(groupOf('company').key, groupOf('profile').key);
     assert.equal(groupOf('security').key, groupOf('profile').key);
 });
 
 test('صفحات الموارد البشرية: تُحجب بلا استحقاق وتظهر به (ctx.hr)', () => {
-    for (const page of ['hrOverview', 'hrEmployees', 'hrDepartments', 'hrImport']) {
+    for (const page of ['hrOverview', 'hrEmployees', 'hrDepartments', 'hrImport', 'hrLeave']) {
         assert.equal(pageAvailable(page, { viewerRole: 'admin' }), false, `${page} ظهرت بلا استحقاق`);
         assert.equal(pageAvailable(page, { viewerRole: 'admin', hr: false }), false, `${page} ظهرت مع hr:false`);
         assert.equal(pageAvailable(page, { viewerRole: 'admin', hr: true }), true, `${page} حُجبت مع hr:true`);

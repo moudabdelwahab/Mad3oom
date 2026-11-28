@@ -14,7 +14,9 @@ const {
     employeeStatusInfo, maskNationalId, employeeRowForDisplay, hrPageParams, hrPaginationView,
     validateEmployeeForm, parseHrEmployeesCsv, checkHrImportLimit, validateHrImportRows,
     summarizeHrImportResults, hrImportTemplateCsv, hrImportResultsToCsv, buildOrgTree,
-    checkOrgDepth, HR_SECTION_LABELS, hrCompanyStatusInfo, hrEntitlementSummary
+    checkOrgDepth, HR_SECTION_LABELS, hrCompanyStatusInfo, hrEntitlementSummary,
+    leaveStatusInfo, leaveDaysBetween, validateLeaveRequestForm, validateLeaveTypeForm,
+    leaveRequestRowForDisplay, leaveBalanceRowForDisplay
 } = await import('../assets/js/company/hr-model.js');
 
 /* ── التقنيع والحالات ─────────────────────────────────────────────────── */
@@ -276,4 +278,59 @@ test('hrEntitlementSummary: يعدّ الأقسام المفعّلة من الس
     const s = hrEntitlementSummary({ hr_employees: true, hr_leave: true, hr_payroll: false });
     assert.deepEqual(s, { enabled: 2, total: 6, allEnabled: false });
     assert.equal(hrEntitlementSummary({ hr_employees: true, hr_leave: true, hr_payroll: true, hr_tasks: true, hr_attendance: true, hr_reports: true }).allEnabled, true);
+});
+
+/* ── الإجازات (الترحيل 154) ─────────────────────────────────────────── */
+
+test('leaveStatusInfo: تسميات الحالات الثلاث', () => {
+    assert.equal(leaveStatusInfo('pending').label, 'معلق');
+    assert.equal(leaveStatusInfo('approved').label, 'معتمَد');
+    assert.equal(leaveStatusInfo('rejected').label, 'مرفوض');
+    assert.equal(leaveStatusInfo('nope').label, 'غير معروفة');
+});
+
+test('leaveDaysBetween: شامل الطرفين، ويوم واحد = 1', () => {
+    assert.equal(leaveDaysBetween('2026-06-01', '2026-06-05'), 5);
+    assert.equal(leaveDaysBetween('2026-06-01', '2026-06-01'), 1);
+    assert.equal(leaveDaysBetween('2026-06-10', '2026-06-09'), null);
+    assert.equal(leaveDaysBetween('bad', '2026-06-09'), null);
+});
+
+test('validateLeaveRequestForm: نهاية قبل البداية وسنة عابرة مرفوضتان', () => {
+    const base = { employeeId: 'e1', leaveTypeId: 't1', startDate: '2026-06-01', endDate: '2026-06-05' };
+    assert.equal(validateLeaveRequestForm(base).isValid, true);
+    assert.equal(validateLeaveRequestForm(base).days, 5);
+    assert.equal(validateLeaveRequestForm({ ...base, endDate: '2026-05-31' }).isValid, false);
+    assert.equal(validateLeaveRequestForm({ ...base, endDate: '2027-01-02' }).isValid, false);
+    assert.equal(validateLeaveRequestForm({ ...base, employeeId: null }).isValid, false);
+    assert.equal(validateLeaveRequestForm({ ...base, leaveTypeId: '' }).isValid, false);
+});
+
+test('validateLeaveTypeForm: رمز إنجليزي صغير ورصيد 0..365', () => {
+    assert.equal(validateLeaveTypeForm({ code: 'annual', nameAr: 'سنوية', defaultDays: 21 }).isValid, true);
+    assert.equal(validateLeaveTypeForm({ code: 'BAD CODE', nameAr: 'سنوية', defaultDays: 21 }).isValid, false);
+    assert.equal(validateLeaveTypeForm({ code: 'annual', nameAr: 'س', defaultDays: 21 }).isValid, false);
+    assert.equal(validateLeaveTypeForm({ code: 'annual', nameAr: 'سنوية', defaultDays: 366 }).isValid, false);
+});
+
+test('leaveRequestRowForDisplay: حالة وحبوب وعدد الأيام', () => {
+    const row = leaveRequestRowForDisplay({
+        id: 'r1', employee_id: 'e1', employee_name: 'أحمد', employee_number: 'EMP-0001',
+        leave_type_id: 't1', type_name: 'إجازة سنوية', start_date: '2026-06-01',
+        end_date: '2026-06-05', days: 5, status: 'pending'
+    });
+    assert.equal(row.employeeName, 'أحمد');
+    assert.equal(row.days, 5);
+    assert.equal(row.statusInfo.label, 'معلق');
+    assert.equal(leaveRequestRowForDisplay(null), null);
+});
+
+test('leaveBalanceRowForDisplay: المتبقي من الخادم أو محسوب', () => {
+    const row = leaveBalanceRowForDisplay({
+        id: 'b1', employee_id: 'e1', employee_name: 'أحمد', leave_type_id: 't1',
+        type_name: 'سنوية', year: 2026, total_days: 21, used_days: 5, remaining_days: 16
+    });
+    assert.equal(row.remainingDays, 16);
+    const fallback = leaveBalanceRowForDisplay({ total_days: 10, used_days: 12 });
+    assert.equal(fallback.remainingDays, 0);
 });

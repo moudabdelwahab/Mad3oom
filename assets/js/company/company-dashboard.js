@@ -44,8 +44,11 @@ import {
     initCompanyStore, loadStoreOverview, loadShopifyPage, loadStoreOrders, loadStoreRequests, loadStoreReports
 } from '/assets/js/company/company-store.js';
 // 143: وحدة الموارد البشرية (الترحيل 143) — صفحات hr-* تُحجب حين لا استحقاق
+// 154: صفحة الإجازات hrLeave (الأنواع والأرصدة والطلبات).
+// 155: صفحة الحضور والانصراف hrAttendance (الورديات والتسجيل والسجلات).
+// 157: صفحة التقارير hrReports (العدد والحضور والإجازات والتذاكر).
 import {
-    initHrDashboard, loadHrOverview, loadHrEmployees, loadHrDepartments, loadHrImport
+    initHrDashboard, loadHrOverview, loadHrEmployees, loadHrDepartments, loadHrImport, loadHrLeave, loadHrAttendance, loadHrReports
 } from '/assets/js/company/hr-dashboard.js';
 // 120: إدارة المتجر في Shopify (تظهر الأقسام حسب ihub_shopify_manage_status)
 import { loadStoreManage } from '/assets/js/company/store-manage.js';
@@ -360,7 +363,10 @@ const LOADERS = {
     hrOverview: () => loadHrOverview(),
     hrEmployees: () => loadHrEmployees(),
     hrDepartments: () => loadHrDepartments(),
-    hrImport: () => loadHrImport()
+    hrImport: () => loadHrImport(),
+    hrLeave: () => loadHrLeave(),
+    hrAttendance: () => loadHrAttendance(),
+    hrReports: () => loadHrReports()
 };
 
 const loadedOnce = new Set();

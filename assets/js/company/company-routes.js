@@ -40,6 +40,11 @@ export const COMPANY_PAGES = Object.freeze({
     hrEmployees:     { label: 'الموظفون' },
     hrDepartments:   { label: 'الأقسام والفروع والمسميات' },
     hrImport:        { label: 'استيراد الموظفين' },
+    hrLeave:         { label: 'الإجازات' },
+    // 155: صفحة الحضور والانصراف hrAttendance (الورديات والتسجيل والسجلات).
+    hrAttendance:    { label: 'الحضور والانصراف' },
+    // 157: صفحة التقارير hrReports (العدد والحضور والإجازات والتذاكر).
+    hrReports:       { label: 'التقارير' },
     permissions:     { label: 'الأدوار والصلاحيات' },
     accessLog:       { label: 'سجل وصول مدعوم' },
     subscriptions:   { label: 'الاشتراكات' },
@@ -78,8 +83,8 @@ export const COMPANY_GROUPS = Object.freeze([
     },
     {
         key: 'hr', label: 'الموارد البشرية',
-        description: 'ملفات الموظفين والأقسام والفروع والمسميات والاستيراد الجماعي.',
-        pages: ['hrOverview', 'hrEmployees', 'hrDepartments', 'hrImport']
+        description: 'ملفات الموظفين والأقسام والفروع والمسميات والاستيراد الجماعي والإجازات والأرصدة والحضور والانصراف والتقارير.',
+        pages: ['hrOverview', 'hrEmployees', 'hrDepartments', 'hrImport', 'hrLeave', 'hrAttendance', 'hrReports']
     },
     {
         key: 'billing', label: 'الاشتراك والفوترة',
@@ -111,7 +116,7 @@ export const COMPANY_ROUTES = Object.freeze(COMPANY_GROUPS.flatMap(g => g.pages)
 const ADMIN_PAGES = new Set(['permissions', 'accessLog', 'shopify']);
 
 /** صفحات الموارد البشرية: تُحجب كلها حين تكون ctx.hr غير true. */
-const HR_PAGES = new Set(['hrOverview', 'hrEmployees', 'hrDepartments', 'hrImport']);
+const HR_PAGES = new Set(['hrOverview', 'hrEmployees', 'hrDepartments', 'hrImport', 'hrLeave', 'hrAttendance', 'hrReports']);
 
 /**
  * هل تستحق الصفحة رابطًا لهذا الناظر؟
