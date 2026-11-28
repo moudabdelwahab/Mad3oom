@@ -29,6 +29,7 @@ export const VALID_INPUTS = Object.freeze({
     'shop.info': {},
     'location.list': { include_inactive: true },
     'product.list': { query: 'shirt', status: 'ACTIVE' },
+    'product.analytics': {},
     'product.get': { id: '101' },
     'collection.list': { query: 'summer' },
     'collection.get': { id: G.collection },
@@ -108,6 +109,7 @@ export function shopState(over = {}) {
 function productNode(st) {
     return {
         id: G.product, title: 'Linen shirt', handle: 'linen-shirt', status: st.productStatus, vendor: 'Mad3oom', productType: 'Shirts',
+        category: { name: 'Apparel & Accessories' },
         tags: ['summer'], descriptionHtml: '<p>Soft</p>', updatedAt: '2026-10-27T10:00:00Z', onlineStoreUrl: null, totalInventory: 10,
         variantsCount: { count: 1 },
         options: [{ id: 'gid://shopify/ProductOption/1', name: 'Size', optionValues: [{ id: 'gid://shopify/ProductOptionValue/1', name: 'M' }] }],
@@ -130,7 +132,7 @@ function orderNode(st) {
         shippingAddress: { firstName: 'Sara', lastName: 'Ali', company: null, address1: '1 Nile St', address2: null, city: 'Cairo',
                            provinceCode: 'C', zip: '11511', countryCodeV2: 'EG', phone: null },
         lineItems: { nodes: [{ id: 'gid://shopify/LineItem/1', title: 'Linen shirt', variantTitle: 'M', sku: 'SH-M', quantity: 2, currentQuantity: 2,
-                               variant: { id: G.variant }, originalUnitPriceSet: money('100.00') }] },
+                               variant: { id: G.variant, product: { id: G.product } }, originalUnitPriceSet: money('100.00') }] },
         fulfillmentOrders: { nodes: [{ id: G.fo, status: st.foStatus, requestStatus: 'UNSUBMITTED',
             assignedLocation: { name: 'Main', location: { id: G.location } }, supportedActions: [{ action: 'CREATE_FULFILLMENT' }],
             lineItems: { nodes: [{ id: G.foLine, totalQuantity: 2, remainingQuantity: st.foRemaining, productTitle: 'Linen shirt', variantTitle: 'M', sku: 'SH-M' }] } }] },

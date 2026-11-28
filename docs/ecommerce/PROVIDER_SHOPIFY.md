@@ -25,12 +25,12 @@ Code: `supabase/functions/_shared/integrations/shopify.js` (OAuth, reads, sync, 
 | Sync | Bounded incremental order sync, reconciliation every 6 h. |
 | Webhooks | 12 topics + 3 compliance topics, HMAC-verified, deduped, refetched by the worker. |
 
-### Store management (120 — feature `shopify_management`, off for every plan)
-61 operations, catalogued server-side in `_ihub_shopify_op_catalog()` (permission, risk, confirmation, Shopify scopes) and mirrored in `shopify-admin.js` (a test keeps the two identical). Full list in `SHOPIFY_MANAGEMENT_MATRIX.md` §2.
+### Store management (120 — feature `shopify_management`, off for every plan) + product analytics (152)
+62 operations, catalogued server-side in `_ihub_shopify_op_catalog()` (permission, risk, confirmation, Shopify scopes) and mirrored in `shopify-admin.js` (a test keeps the two identical). Full list in `SHOPIFY_MANAGEMENT_MATRIX.md` §2. The 62nd operation is the read `product.analytics` (152): one GraphQL query (shop currency + first 50 products + first 50 orders in the last 30 days, lines included) feeding the three cards above the Products table — average sell-through rate, products by days of inventory remaining, ABC analysis by revenue; exact definitions in `ARCHITECTURE.md` §10.1. Caps are explicit (50 products / 50 orders / 50 lines per order) and truncation is shown to the user; revenue is original-unit-price × quantity only (no shipping, tax or discounts) and cancelled orders are excluded.
 
 | Area | Reads | Writes (C = server-enforced confirmation, D = destructive) |
 |---|---|---|
-| Products & variants | list, detail (variants, collections, metafields), sales channels | create (always DRAFT), update, status ACTIVE/DRAFT (C), archive (C, D), delete (C, D), publish/unpublish (C), collections, variants create / update price-SKU-tracking-policy (C) / delete (C, D), metafields (typed allowlist) |
+| Products & variants | list (columns: product, status, inventory, **category, channels**, product type, vendor), detail (variants, collections, metafields), sales channels, **analytics cards (152)** | create (always DRAFT), update, status ACTIVE/DRAFT (C), archive (C, D), delete (C, D), publish/unpublish (C), collections, variants create / update price-SKU-tracking-policy (C) / delete (C, D), metafields (typed allowlist) |
 | Collections | list, detail | create/update (custom collections), delete (C, D) |
 | Orders | list with Shopify status filters, detail with **financial state exactly as Shopify reports it** | notes/tags, contact & shipping address (C), create with variant lines — **prices and currency read from Shopify**, `financialStatus: PENDING`, no transactions, receipt only if ticked (C), cancel **unpaid + unfulfilled only, never refunds**, result "submitted" (C, D) |
 | Draft orders | list, detail | create/update (variant lines, % discount), delete (C, D). **Completion is not offered** (it marks the order paid). |
@@ -50,7 +50,7 @@ Code: `supabase/functions/_shared/integrations/shopify.js` (OAuth, reads, sync, 
 - **Rate limits**: reads share the 60/min/user lookup limit; writes 20/min/user and 100/min/company; destructive 5/min/user; confirmations 30/min/user.
 - **Audit**: `ihub_audit_events` (`data.viewed`, `shopify.confirm.issued`, `shopify.write.requested/succeeded/submitted/failed`) and the operation journal `ihub_shopify_ops` (no customer data, no free text, ≤ 4 KB detail). The store admin sees it in «إدارة المتجر» → «سجل العمليات»; a `requested` row older than 10 minutes shows as "unknown outcome".
 - **Errors**: Shopify `userErrors` → `provider_rejected` with field path and code only (no Shopify text reaches the browser, logs or database); `THROTTLED`/429 → `rate_limited` + `retry_after`; `ACCESS_DENIED` with no payload → `forbidden_scope` (with a payload → the write ran; restricted reply fields are not a failure); expired token → refreshed once under the lease, a dead refresh token → `token_expired` + reconnect; missing scope → `missing_scope` before Shopify is called; a lost reply → `outcome: unknown` ("check Shopify before retrying").
-- **Secrets**: tokens are decrypted only inside the Edge Function for the call; never in responses, logs or the journal (tested for all 61 operations).
+- **Secrets**: tokens are decrypted only inside the Edge Function for the call; never in responses, logs or the journal (tested for all 62 operations).
 
 ## Scopes and purposes
 Requested only when the store has `shopify_management` (`api.js` asks `ihub_shopify_manage_status`; any error → the three read scopes, as before 120). The OAuth callback still requires only the three read scopes, so existing connections keep working read-only.
@@ -87,6 +87,7 @@ Not requested: `read_all_orders`, `write_fulfillments`, `*_assigned_fulfillment_
 - Draft-order fixed-amount discounts and custom (non-variant) line items are not offered.
 - `provider_rejected` shows the field, not Shopify's message (no provider text policy).
 - Shopify's "user must have permission X" checks for staff are not mirrored beyond Mad3oom permissions.
+- Product analytics (152) is capped, not complete: at most 50 products and 50 orders in the window (50 lines per order). A larger catalog or a busier 30 days is reported as truncated, never extrapolated. Revenue is line revenue only (original unit price × quantity); it is not Shopify's reported sales total and excludes shipping, taxes and discounts. Category shows «—» when the merchant never set a taxonomy category in Shopify.
 
 ## Unverified — must be confirmed on a development store
 Read integration (119): the queries in `Q` against `2026-10`, refresh response and rotation in practice, `expiring=1`, `use_legacy_install_flow = true` with app-managed OAuth on the CLI version used, real webhook headers/bodies, query costs, merchant scope changes.
@@ -100,6 +101,11 @@ Management (120) — schema-valid, never executed:
 - Collection writes on the dev store's plan; publication ids for Online Store.
 - The dashboard page against real data (only rendered with fixtures).
 - Re-authorizing an installed app with the larger scope list (consent screen, returned `scope` string), and whether a later re-authorization with only the read scopes narrows the grant.
+
+Product analytics (152) — node-tested against fake Shopify and render-tested in a browser, never executed against a real store:
+- `product.analytics` runs as one query on a development store (products + orders + lines in the window), its requested query cost stays under 1,000 points, and the `created_at:>=…` orders search filter behaves as expected.
+- The `category { name }` and `resourcePublicationsV2 { nodes { isPublished } }` fields in `product.list`/`product.get` **were** verified live on the mad3oom store (2026-11-28, via a separate Shopify connection, not Mad3oom's app): category «IT & Technology», 2 published channels, 1 product, 0 orders.
+- Re-run `integrations/shopify/schema-check.mjs` with a 2026-10 schema: the operation count is now 62, so the «61 operations, 99 documents» line above is stale until re-checked (the script was not runnable in this session — no schema file was available).
 - Opening the app from the Shopify admin / install link → `/shopify/install` → `#shopify` with the shop prefilled.
 
 ## Setup (Mad3oom platform owner, once)

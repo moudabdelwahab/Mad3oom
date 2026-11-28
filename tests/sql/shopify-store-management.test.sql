@@ -431,5 +431,37 @@ DO $$
 BEGIN
   PERFORM t.ok(to_regclass('public.ihub_shopify_ops') is not null and (select count(*) from public._ihub_shopify_op_catalog()) = 61, '⑪ إعادة التطبيق');
   RAISE NOTICE 'PASS ⑪ التراجع يرفض مع سجل، يعيد حالة 119، وإعادة التطبيق تنجح';
+END $$;
+
+-- ══ ⑫ 152: تحليلات المنتجات — كتالوج 62، وقراءة بلا تأكيد، والتراجع يعيد 61 ══
+\i migrations/152_shopify_product_analytics.sql
+\i migrations/152_shopify_product_analytics.sql
+SET search_path = public, extensions;
+DO $$
+DECLARE ca text := t.sv('cn_a'); r jsonb;
+BEGIN
+  PERFORM t.ok((select count(*) from public._ihub_shopify_op_catalog()) = 62, '⑫ الكتالوج 62 عملية بعد 152 (قابل لإعادة التطبيق)');
+  PERFORM t.ok(exists (select 1 from public._ihub_shopify_op_catalog()
+                       where key = 'product.analytics' and perm = 'store.catalog' and risk = 'read' and not confirm
+                         and scopes = array['read_products', 'read_orders']), '⑫ product.analytics قراءة بلا تأكيد وبالنطاقين');
+  r := t.call(t.s('ST'), format('public.ihub_shopify_manage_status(%L)', ca));
+  PERFORM t.ok(jsonb_array_length(r->'ops') = 62, '⑫ حالة الإدارة 62 عملية');
+  PERFORM t.ok((select (x->>'permitted')::boolean from jsonb_array_elements(r->'ops') x where x->>'key' = 'product.analytics')
+               and (select x->'missing_scopes' from jsonb_array_elements(r->'ops') x where x->>'key' = 'product.analytics') = '[]'::jsonb,
+               '⑫ التحليلات مسموحة لمدير المتجر بلا نطاقات ناقصة');
+END $$;
+\i migrations/_rollback/152_shopify_product_analytics.down.sql
+SET search_path = public, extensions;
+DO $$
+BEGIN
+  PERFORM t.ok((select count(*) from public._ihub_shopify_op_catalog()) = 61, '⑫ التراجع يعيد كتالوج 120');
+  PERFORM t.ok(not exists (select 1 from public._ihub_shopify_op_catalog() where key = 'product.analytics'), '⑫ product.analytics حُذفت بالتراجع');
+END $$;
+\i migrations/152_shopify_product_analytics.sql
+SET search_path = public, extensions;
+DO $$
+BEGIN
+  PERFORM t.ok((select count(*) from public._ihub_shopify_op_catalog()) = 62, '⑫ إعادة تطبيق 152');
+  RAISE NOTICE 'PASS ⑫ 152: تحليلات المنتجات في الكتالوج وحالة الإدارة، والتراجع يعيد 120';
   RAISE NOTICE 'ALL 120 SHOPIFY STORE MANAGEMENT TESTS PASSED';
 END $$;

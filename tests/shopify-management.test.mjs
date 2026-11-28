@@ -33,9 +33,11 @@ const ENV = {
     SHOPIFY_REDIRECT_URI: 'https://proj.supabase.co/functions/v1/integrations-inbound/shopify/callback'
 };
 
-/* ── كتالوج 120 من ملف الترحيل (مصدر الحقيقة) ───────────────────────────── */
+/* ── كتالوج 120 + 152 من ملف الترحيل (مصدر الحقيقة) ─────────────────────────
+ * 152 يعيد تعريف _ihub_shopify_op_catalog() مضيفًا product.analytics وحدها؛ فالملف
+ * الأحدث هو مصدر الحقيقة، وملف 120 يبقى مرجع التراجع. */
 function sqlCatalog() {
-    const sql = read('migrations/120_shopify_store_management.sql');
+    const sql = read('migrations/152_shopify_product_analytics.sql');
     const body = sql.slice(sql.indexOf('create or replace function public._ihub_shopify_op_catalog()'), sql.indexOf('-- النطاقات الناقصة'));
     const rows = [...body.matchAll(/\('([a-z_]+\.[a-z_]+)',\s*'([a-z_.]+)',\s*'(read|write|destructive)',\s*(true|false),\s*array\[([^\]]*)\]/g)];
     return Object.fromEntries(rows.map((m) => [m[1], { perm: m[2], risk: m[3], confirm: m[4] === 'true',
@@ -162,9 +164,9 @@ async function confirmAndRun(env, op, input) {
 
 /* ══ الكتالوج ═══════════════════════════════════════════════════════════════ */
 
-test('catalog: the Edge operations are exactly the 120 SQL catalog (risk, confirmation, permission, scopes)', () => {
+test('catalog: the Edge operations are exactly the 120+152 SQL catalog (risk, confirmation, permission, scopes)', () => {
     assert.deepEqual(Object.keys(CATALOG).sort(), A.OPERATION_KEYS);
-    assert.equal(A.OPERATION_KEYS.length, 61);
+    assert.equal(A.OPERATION_KEYS.length, 62);
     for (const k of A.OPERATION_KEYS) {
         const o = A.OPERATIONS[k];
         assert.deepEqual({ perm: o.perm, risk: o.risk, confirm: o.confirm, scopes: o.scopes }, CATALOG[k], k);

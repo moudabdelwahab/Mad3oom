@@ -220,9 +220,14 @@ function mapVariant(v) {
     };
 }
 function mapProductRow(p) {
+    // القنوات = عدد المنشورات التي يظهر فيها المنتج فعلًا (resourcePublicationsV2 مع isPublished).
+    // إن لم يرجع Shopify الحقل يبقى null («غير معروف») لا صفرًا مخترعًا.
+    const pubs = Array.isArray(p?.resourcePublicationsV2?.nodes) ? p.resourcePublicationsV2.nodes : null;
     return {
         id: p?.id, legacy_id: numId(p?.id), title: shortText(p?.title, 120), status: enumOf(p?.status),
         vendor: shortText(p?.vendor, 80), product_type: shortText(p?.productType, 80),
+        category: shortText(p?.category?.name, 80),
+        channels: pubs === null ? null : pubs.filter((x) => x?.isPublished === true).length,
         total_inventory: intOf(p?.totalInventory), variants_count: intOf(p?.variantsCount?.count),
         updated_at: isoUtc(p?.updatedAt, { assumeUtc: false })
     };
@@ -279,9 +284,22 @@ const D = Object.freeze({
       nodes { id name isActive fulfillsOnlineOrders address { city countryCode } } } }`,
     products: `query ($first: Int!, $after: String, $query: String) {
       products(first: $first, after: $after, query: $query, sortKey: UPDATED_AT, reverse: true) { ${PAGE}
-        nodes { id title status vendor productType totalInventory updatedAt variantsCount { count } } } }`,
+        nodes { id title status vendor productType category { name } totalInventory updatedAt variantsCount { count }
+          resourcePublicationsV2(first: 20) { nodes { isPublished } } } } }`,
+    // تحليلات المنتجات (152): استعلام واحد يجلب المتجر (العملة) + المنتجات (المخزون) + طلبات النافذة
+    // (أسطرها لربط المبيعات بالمنتج). الحدود الصريحة: 50 منتجًا و50 طلبًا و50 سطرًا للطلب — ما زاد
+    // عنها يُبلَّغ في coverage.truncated ولا يُخترع. category وresourcePublicationsV2 مُتحقق منهما
+    // على متجر mad3oom الحي (2026-11-28): التصنيف «IT & Technology» والقنوات 2.
+    productAnalytics: `query ($first: Int!, $ordersFirst: Int!, $since: String!) {
+      shop { currencyCode }
+      products(first: $first, sortKey: UPDATED_AT, reverse: true) { ${PAGE}
+        nodes { id title totalInventory } }
+      orders(first: $ordersFirst, query: $since, sortKey: CREATED_AT, reverse: true) { ${PAGE}
+        nodes { id cancelledAt lineItems(first: 50) { nodes { quantity
+          variant { id product { id } } originalUnitPriceSet { ${MONEY} } } } } } }`,
     product: `query ($id: ID!) { shop { currencyCode } product(id: $id) {
-      id title handle status vendor productType tags descriptionHtml updatedAt onlineStoreUrl totalInventory
+      id title handle status vendor productType category { name } tags descriptionHtml updatedAt onlineStoreUrl totalInventory
+      resourcePublicationsV2(first: 20) { nodes { isPublished } }
       options { id name optionValues { id name } }
       variants(first: 100) { nodes { id title sku price compareAtPrice inventoryPolicy inventoryQuantity taxable
         selectedOptions { name value } inventoryItem { id tracked } } }
@@ -610,6 +628,36 @@ export const OPERATIONS = Object.freeze({
                     value: typeof m?.value === 'string' ? m.value.slice(0, 2000) : null
                 })),
                 admin_url: adminUrl(ctx, `products/${numId(p.id)}`)
+            } };
+        }
+    },
+    /* تحليلات المنتجات (152): قراءة واحدة تجمع ما تحتاجه بطاقات قسم «المنتجات» — بلا كتابة وبلا تأكيد.
+     * النافذة يحددها الخادم من ساعته (window_days من المتصفح اختيارٌ بين 7/30/90، الافتراضي 30)؛
+     * الحساب نفسه (معدل البيع، أيام المخزون، ABC) في store-manage-model.js — دوال خالصة مُختبرة —
+     * فالخادم هنا يجلب البيانات المسموح بها فقط ويرجعها كما هي، والطلبات الملغاة تصل موسومة
+     * فيُستبعدها الحساب. لا مبالغ من المتصفح ولا من نصوص Shopify: الأسعار نصوص Decimal تُمرَّر كما هي. */
+    'product.analytics': {
+        ...R('store.catalog', ['read_products', 'read_orders']),
+        validate: (v) => (only(v, ['window_days']),
+            { window_days: present(v, 'window_days') ? oneOf(v.window_days, 'window_days', [7, 30, 90]) : 30 }),
+        async run(ctx, v) {
+            const nowMs = typeof ctx.now === 'function' ? ctx.now() : Date.now();
+            const since = new Date(nowMs - v.window_days * 864e5).toISOString().slice(0, 19) + 'Z';
+            const r = await read(ctx, D.productAnalytics, { first: 50, ordersFirst: 50, since: `created_at:>=${since}` });
+            const currency = /^[A-Z]{3}$/.test(String(r.data?.shop?.currencyCode || '')) ? r.data.shop.currencyCode : null;
+            return { result: {
+                currency, window_days: v.window_days, since,
+                products: nodes(r.data?.products).map((p) => ({ id: p?.id, title: shortText(p?.title, 120), total_inventory: intOf(p?.totalInventory) })),
+                orders: nodes(r.data?.orders).map((o) => ({
+                    id: o?.id, cancelled: !!o?.cancelledAt,
+                    lines: nodes(o?.lineItems).map((l) => ({
+                        quantity: intOf(l?.quantity), variant_id: l?.variant?.id || null, product_id: l?.variant?.product?.id || null,
+                        unit_price: moneyOf(l?.originalUnitPriceSet).amount
+                    }))
+                })),
+                coverage: { products_seen: nodes(r.data?.products).length, products_truncated: page(r.data?.products).has_next,
+                            orders_seen: nodes(r.data?.orders).length, orders_truncated: page(r.data?.orders).has_next,
+                            products_cap: 50, orders_cap: 50 }
             } };
         }
     },

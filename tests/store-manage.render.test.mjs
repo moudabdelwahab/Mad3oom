@@ -79,7 +79,13 @@ function storeFx({ status = manageStatus(), role = 'admin', byOp = {} } = {}) {
     };
 }
 
-const PRODUCT_LIST = { data: { op: 'product.list', result: { items: [{ id: PRODUCT, title: XSS, status: 'ACTIVE', total_inventory: 10, variants_count: 1 }], page: { has_next: false } } } };
+const PRODUCT_LIST = { data: { op: 'product.list', result: { items: [{ id: PRODUCT, title: XSS, status: 'ACTIVE', vendor: 'mad3oom', product_type: '',
+    category: 'IT & Technology', channels: 2, total_inventory: 1000, variants_count: 1 }], page: { has_next: false } } } };
+/** تحليلات المنتجات كما ترجعها product.analytics لمتجر mad3oom الحي: منتج واحد ومخزون 1,000 وبلا طلبات. */
+const PRODUCT_ANALYTICS = { data: { op: 'product.analytics', result: {
+    currency: 'EGP', window_days: 30, since: '2026-10-29T00:00:00Z',
+    products: [{ id: PRODUCT, title: 'باقة مدعوم', total_inventory: 1000 }], orders: [],
+    coverage: { products_seen: 1, products_truncated: false, orders_seen: 0, orders_truncated: false } } } };
 const PRODUCT_GET = { data: { op: 'product.get', result: { id: PRODUCT, title: 'قميص كتان', status: 'ACTIVE', vendor: 'مدعوم', tags: ['صيفي'], total_inventory: 10,
     collections: [], metafields: [], admin_url: 'https://admin.shopify.com/store/ward/products/101',
     variants: [{ id: 'gid://shopify/ProductVariant/201', title: 'M', sku: 'SH-M', price: '100.00', compare_at_price: null, inventory_quantity: 10 }] } } };
@@ -270,6 +276,28 @@ test('operations log (store admin) and mobile layout without horizontal scroll',
     assert.match(text, /تالف/);
     await page.waitForTimeout(150);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'no horizontal scroll at 390px');
+    assert.deepEqual(errors, []);
+    await context.close();
+});
+
+test('products: Shopify-style columns and analytics cards — the live mad3oom shape (0% sell-through, EGP 0.00)', { skip: !chromiumPath }, async () => {
+    const fx = storeFx({ byOp: { 'product.list': PRODUCT_LIST, 'product.analytics': PRODUCT_ANALYTICS } });
+    const { page, context, errors } = await openManage(fx);
+    await page.waitForSelector('[data-open-product]');
+    await page.waitForSelector('#smAnalytics .kpi');
+    const cells = page.locator('#smList tbody tr td');
+    assert.equal(await cells.nth(3).innerText(), 'IT & Technology', 'category column');
+    assert.equal(await cells.nth(4).innerText(), '2', 'channels column');
+    assert.equal(await cells.nth(6).innerText(), 'mad3oom', 'vendor column');
+    assert.match(await page.locator('#smList thead tr').innerText(), /التصنيف.*القنوات.*النوع.*المورّد/);
+    const cards = await page.textContent('#smAnalytics');
+    assert.match(cards, /متوسط معدل البيع/);
+    assert.match(cards, /0%/);
+    assert.match(cards, /المنتجات حسب أيام المخزون المتبقية/);
+    assert.match(cards, /لا توجد بيانات/);
+    assert.match(cards, /تحليل ABC/);
+    assert.match(cards, /EGP 0\.00/);
+    assert.equal(await page.evaluate(() => window.__XSS__), undefined, 'Shopify titles are escaped');
     assert.deepEqual(errors, []);
     await context.close();
 });

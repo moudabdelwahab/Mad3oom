@@ -154,3 +154,68 @@ test('upgrade path: the browser management scope list equals the server list, an
     assert.equal(SM.missingManagementScopes(S.SHOPIFY_SCOPES).length, 16, 'a read-only connection lacks every management scope');
     assert.doesNotMatch(SM.MANAGEMENT_SCOPE_SUMMARY, /مدفوع|استرداد مبلغ/);
 });
+
+/* ── تحليلات المنتجات (152) ─────────────────────────────────────────────── */
+
+test('product analytics: the live mad3oom shape — one product, 1,000 in stock, zero orders', () => {
+    const a = M.computeProductAnalytics({
+        currency: 'EGP', window_days: 30,
+        products: [{ id: 'gid://shopify/Product/1', title: 'باقة مدعوم', total_inventory: 1000 }],
+        orders: [], coverage: { products_seen: 1, products_truncated: false, orders_seen: 0, orders_truncated: false }
+    });
+    assert.equal(a.sell_through.rate, 0, '0 sold of 1,000 on hand = 0% sell-through, not "no data"');
+    assert.equal(a.sell_through.has_data, true);
+    assert.equal(a.days_remaining.has_data, false, 'no sales, so no days-remaining figure — "No data"');
+    assert.equal(a.days_remaining.buckets.no_sales.count, 1);
+    assert.equal(a.abc.total, 'EGP 0.00');
+    assert.equal(a.abc.has_data, false);
+    assert.deepEqual([a.abc.classes.A.count, a.abc.classes.B.count, a.abc.classes.C.count], [0, 0, 1]);
+    assert.equal(M.analyticsCoverageNote(a), null);
+    assert.equal(M.formatMoneyMinor(0, 'EGP'), 'EGP 0.00');
+});
+
+test('product analytics: sell-through, days-remaining buckets and ABC; cancelled orders excluded', () => {
+    const P = (id, title, inv) => ({ id: `gid://shopify/Product/${id}`, title, total_inventory: inv });
+    const a = M.computeProductAnalytics({
+        currency: 'EGP', window_days: 30,
+        products: [P(1, 'أ', 100), P(2, 'ب', 10), P(3, 'ج', 0)],
+        orders: [
+            { id: 'gid://shopify/Order/1', cancelled: false, lines: [
+                { quantity: 20, product_id: 'gid://shopify/Product/1', unit_price: '100.00' },
+                { quantity: 5, product_id: 'gid://shopify/Product/2', unit_price: '50.00' },
+                { quantity: 3, product_id: null, unit_price: '10.00' } ] },
+            { id: 'gid://shopify/Order/2', cancelled: true, lines: [
+                { quantity: 100, product_id: 'gid://shopify/Product/1', unit_price: '100.00' } ] }
+        ],
+        coverage: { products_seen: 3, products_truncated: false, orders_seen: 2, orders_truncated: false }
+    });
+    assert.equal(a.orders_count, 1, 'cancelled order does not count');
+    assert.equal(a.cancelled_orders, 1);
+    assert.equal(a.sell_through.units_sold, 28, 'unassigned lines still count as sold units');
+    assert.equal(a.sell_through.on_hand, 110);
+    assert.ok(Math.abs(a.sell_through.rate - 28 / 138) < 1e-9);
+    assert.deepEqual([a.days_remaining.buckets.lt7.count, a.days_remaining.buckets.d7_30.count,
+                      a.days_remaining.buckets.gt30.count, a.days_remaining.buckets.no_sales.count], [0, 0, 2, 1]);
+    assert.equal(a.abc.total, 'EGP 2250.00', 'attributed line revenue only; unassigned EGP 30.00 is separate');
+    assert.equal(a.abc.total_minor, 225000);
+    assert.equal(a.unassigned.revenue_minor, 3000);
+    assert.deepEqual(a.abc.classes.A.products.map((p) => p.title), ['أ'], 'the product crossing 80% stays in A');
+    assert.deepEqual(a.abc.classes.B.products.map((p) => p.title), ['ب']);
+    assert.deepEqual(a.abc.classes.C.products.map((p) => p.title), ['ج']);
+    assert.equal(M.decimalToMinor('100.00'), 10000);
+    assert.equal(M.decimalToMinor('0.5'), 50);
+    assert.equal(M.decimalToMinor('abc'), null);
+    assert.equal(M.decimalToMinor('-1.00'), null);
+});
+
+test('product analytics: empty catalog, malformed input, and truncated coverage are honest', () => {
+    assert.equal(M.computeProductAnalytics(null), null);
+    assert.equal(M.computeProductAnalytics({ products: [], orders: [] }).sell_through.has_data, false);
+    assert.equal(M.computeProductAnalytics({ products: [], orders: [] }).sell_through.rate, null);
+    const a = M.computeProductAnalytics({
+        currency: 'EGP', window_days: 30, products: [{ id: 'x', title: 'x', total_inventory: 5 }], orders: [],
+        coverage: { products_seen: 50, products_truncated: true, orders_seen: 50, orders_truncated: true }
+    });
+    assert.match(M.analyticsCoverageNote(a), /أول 50 منتجًا/);
+    assert.match(M.analyticsCoverageNote(a), /أول 50 طلبًا/);
+});
