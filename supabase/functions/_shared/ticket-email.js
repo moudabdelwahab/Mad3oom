@@ -55,6 +55,7 @@ export const TICKET_TYPES = Object.freeze({
 /** أسماء التصنيفات كما في لوحة الإدارة (assets/js/admin/tickets.js). غير المعروف يُعرض كما هو. */
 export const TICKET_CATEGORIES = Object.freeze({
     whatsapp: { ar: 'واتساب', en: 'WhatsApp' },
+    whatsapp_support: { ar: 'دعم واتساب', en: 'WhatsApp support' },
     tickets: { ar: 'تذاكر', en: 'Tickets' },
     subscription: { ar: 'اشتراك', en: 'Subscription' },
     whatsapp_wallet_topup: { ar: 'شحن رصيد واتساب', en: 'WhatsApp wallet top-up' },

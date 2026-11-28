@@ -4,7 +4,8 @@
  * يتأكد من:
  *   - كل دور يرى تبويبات روابطه القديمة فقط (Super User: «مستخدميني» وحده).
  *   - البحث والفلاتر تعمل، والنصوص غير الموثوقة تُعرض نصًا حرفيًا.
- *   - قائمة «خيارات» تحمل الإجراءات، والحظر يكتب نفس ما كانت تكتبه الصفحة.
+ *   - قائمة «خيارات» تحمل الإجراءات، والحظر ينادي Edge Function
+ *     `ban-user` بجسم الحظر (لا كتابة مباشرة في profiles — البند 6).
  *   - «المحظورون» قائمة مُفلترة من نفس الصفحة، والتبويب المستضاف يُحمَّل في
  *     وضع التضمين بلا قائمة جانبية مكررة.
  *   - لا تمرير أفقي على الجوال.
@@ -173,8 +174,12 @@ test('البحث والفلاتر، والنص غير الموثوق يُعرض 
     await context.close();
 });
 
-test('قائمة «خيارات»: الإجراءات كلها، والحظر يكتب ما كان يكتبه', { skip: !chromiumPath }, async () => {
-    const { page, context } = await openHub(fixtures('admin', { has_elevated_authority: true }));
+test('قائمة «خيارات»: الإجراءات كلها، والحظر ينادي ban-user لا كتابة مباشرة', { skip: !chromiumPath }, async () => {
+    // الحظر عبر Edge Function `ban-user` (البند 6، 2026-11-28) لا كتابة
+    // مباشرة في profiles: الدالة وحدها تكتب profiles وتضبط banned_until
+    // في Auth. الردّ الناجح بلا مرآة Auth ولا جلسات = بلا تنبيه.
+    const fx = { ...fixtures('admin', { has_elevated_authority: true }), functions: { 'ban-user': { data: { ok: true, auth_ban_applied: true } } } };
+    const { page, context } = await openHub(fx);
     await page.waitForSelector('#usersBody .uh-options-btn');
     await page.click('.uh-options-btn[data-user-id="u2"]');
     await page.waitForSelector('#uhMenu:not([hidden])');
@@ -191,10 +196,11 @@ test('قائمة «خيارات»: الإجراءات كلها، والحظر ي
     page.on('dialog', d => (d.type() === 'prompt' ? d.accept('إساءة استخدام متكررة') : d.accept()));
     await page.click('.uh-options-btn[data-user-id="u2"]');
     await page.click('#uhMenu .opt-menu-item.is-danger');
-    await page.waitForFunction(() => (window.__WRITES__ || []).length > 0);
-    // أعمدة الحظر الحقيقية (is_banned) بسبب مسجَّل — لا عمود status في profiles
-    assert.deepEqual(await page.evaluate(() => window.__WRITES__),
-        [{ op: 'update', table: 'profiles', row: { ban_status: 'permanent', ban_until: null, ban_reason: 'إساءة استخدام متكررة' } }]);
+    await page.waitForFunction(() => (window.__INVOCATIONS__ || []).some(i => i.name === 'ban-user'));
+    // جسم نداء ban-user: الحظر الدائم بلا ban_until، والسبب كما كُتب
+    assert.deepEqual(await page.evaluate(() => window.__INVOCATIONS__),
+        [{ name: 'ban-user', body: { user_id: 'u2', action: 'ban', reason: 'إساءة استخدام متكررة' } }]);
+    assert.deepEqual(await page.evaluate(() => window.__WRITES__ || []), [], 'لا كتابة مباشرة في profiles بعد البند 6');
 
     // المحظور: «إلغاء الحظر» بدل «حظر»
     await page.click('.uh-options-btn[data-user-id="u4"]');

@@ -150,21 +150,26 @@ test('① المستخدمون: تجميد المحفظة يتبع can_manage_ce
     }
 });
 
-test('③ المستخدمون: الحظر ورفعه يكتبان أعمدة الحظر الحقيقية، والرتب بلا super_user', { skip: !chromiumPath }, async () => {
-    const { page, context, dialogs } = await openAdmin(browser, baseUrl, 'users.html', fixtures('owner'), { prompt: 'إساءة استخدام متكررة' });
+test('③ المستخدمون: الحظر ورفعه يناديان ban-user بجسمي الحظر، والرتب بلا super_user', { skip: !chromiumPath }, async () => {
+    // الحظر/رفعه عبر Edge Function `ban-user` (البند 6، 2026-11-28) لا كتابة
+    // مباشرة في profiles: الدالة وحدها تكتب profiles وتضبط banned_until
+    // في Auth. الردّ الناجح بلا مرآة Auth ولا جلسات = بلا تنبيه.
+    const fx = { ...fixtures('owner'), functions: { 'ban-user': { data: { ok: true, auth_ban_applied: true } } } };
+    const { page, context, dialogs } = await openAdmin(browser, baseUrl, 'users.html', fx, { prompt: 'إساءة استخدام متكررة' });
     const actions = await menuActions(page, CUSTOMER);
     assert.ok(!actions.some(a => /super/i.test(a)), 'super_user ليست رتبة في القاعدة: ' + actions);
     await page.click('#uhMenu .opt-menu-item[data-action="ban"]');
-    await page.waitForFunction(() => (window.__WRITES__ || []).some(w => w.table === 'profiles'));
-    const [ban] = await writes(page, 'profiles');
-    assert.deepEqual(ban.row, { ban_status: 'permanent', ban_until: null, ban_reason: 'إساءة استخدام متكررة' });
+    await page.waitForFunction(() => (window.__INVOCATIONS__ || []).some(i => i.name === 'ban-user'));
+    assert.deepEqual(await page.evaluate(() => window.__INVOCATIONS__),
+        [{ name: 'ban-user', body: { user_id: CUSTOMER, action: 'ban', reason: 'إساءة استخدام متكررة' } }]);
+    assert.deepEqual(await page.evaluate(() => window.__WRITES__ || []), [], 'لا كتابة مباشرة في profiles بعد البند 6');
     assert.ok(dialogs.some(m => /سبب الحظر/.test(m)));
 
     await menuActions(page, 'b1');
     await page.click('#uhMenu .opt-menu-item[data-action="unban"]');
-    await page.waitForFunction(() => (window.__WRITES__ || []).filter(w => w.table === 'profiles').length >= 2);
-    const unban = (await writes(page, 'profiles'))[1];
-    assert.deepEqual(unban.row, { ban_status: 'none', ban_until: null, ban_reason: null });
+    await page.waitForFunction(() => (window.__INVOCATIONS__ || []).filter(i => i.name === 'ban-user').length >= 2);
+    const invocations = await page.evaluate(() => window.__INVOCATIONS__);
+    assert.deepEqual(invocations[1], { name: 'ban-user', body: { user_id: 'b1', action: 'unban' } });
     await context.close();
 });
 

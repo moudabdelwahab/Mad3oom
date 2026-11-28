@@ -131,6 +131,21 @@ async function openListAndModal(fx, { viewport, open = true } = {}) {
     const cdnDouble = fs.readFileSync(path.join(ROOT, 'tests/fixtures/supabase-cdn-double.js'), 'utf8');
     await page.route('**/cdn.jsdelivr.net/**', r =>
         r.fulfill({ contentType: 'text/javascript; charset=utf-8', body: cdnDouble }));
+    // جلسة الأدمن الوهمية للحارس: منذ إصلاحات الإدارة 134 صارت
+    // subscriptions.html تستدعي checkAdminAuth() قبل أي عرض، والحارس يمرّ
+    // عبر /auth-client.js و /api-config.js الحقيقيين — وبدون اعتراضهما يفشل
+    // تحميل الوحدة كلها (بديل الـCDN الكلاسيكي بلا أي تصدير ESM، فيسقط
+    // `import { createClient } from '...+esm'` في api-config.js) فلا تُبنى
+    // القائمة أبدًا. الاعتراض هنا يزوّد الحارس بجلسة أدمن من الفيكسچر،
+    // والحارس الإنتاجي نفسه (page-guard + classifyAccess الحقيقيان) هو من
+    // يقرر السماح — لا يُتجاوز ولا يُضعف، بل يُمارَس فعلًا في كل اختبار.
+    // نفس النمط المعمول به في openDetails وكل اختبارات العرض الأخرى.
+    const doubleSupabase = fs.readFileSync(path.join(ROOT, 'tests/fixtures/supabase-double.js'), 'utf8');
+    const doubleAuth = fs.readFileSync(path.join(ROOT, 'tests/fixtures/auth-client-double.js'), 'utf8');
+    await page.route('**/api-config.js', r =>
+        r.fulfill({ contentType: 'text/javascript; charset=utf-8', body: doubleSupabase }));
+    await page.route('**/auth-client.js', r =>
+        r.fulfill({ contentType: 'text/javascript; charset=utf-8', body: doubleAuth }));
     await page.route('https://fonts.googleapis.com/**', r => r.fulfill({ contentType: 'text/css', body: '' }));
 
     await page.addInitScript(data => { window.__FIXTURES__ = data; }, fx);

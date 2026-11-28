@@ -1083,7 +1083,23 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         tests/sql/account-gate-ban-160.test.sql و
     //         tests/ban-user-function.test.mjs و
     //         tests/account-gate-banned.test.mjs.
-    assert.equal(migrations[migrations.length - 1], '160_my_account_gate_banned_branch.sql',
+    //   161 — عقدة «تواصل → تذكرة» في الرد الآلي لواتساب (2026-11-28،
+    //         طلب محمود والقرارات الخمسة في §4.6 كلها محسومة: إعفاء
+    //         الحصة، وبعد التذكرة __ENDED__، والمرحلتان معًا، وفئة
+    //         «دعم واتساب»، والتفعيل على التدفق الحي مباشرة): جدول رابط
+    //         whatsapp_ticket_links بـ flow_run_id فريد (منع تكرار على
+    //         مستوى القاعدة)، وعمودا source/source_ref على tickets،
+    //         وmessages.ticket_id، وفرع إعفاء في enforce_ticket_quota
+    //         بمفتاح source='whatsapp_flow'، وRPC واحدة
+    //         wa_create_ticket_from_flow (SECURITY DEFINER، بمفتاح
+    //         الخدمة فقط) تنشئ التذكرة + أول رد + صف الربط في معاملة
+    //         واحدة وتعيد ticket_number. لا يمكن أن يكون تغيير واجهة:
+    //         الحصة يفرضها محفّز قبل الإدراج، ومنع التكرار يحتاج قيدًا
+    //         فريدًا ومعاملة ذرية على الخادم، والكتابة من الويبهوك
+    //         بمفتاح الخدمة لا من المتصفح. مقيسٌ في
+    //         tests/sql/whatsapp-ticket-161.test.sql. بلا تطبيق حي
+    //         (بناء فقط — لا دمج ولا دفع ولا نشر Edge Function).
+    assert.equal(migrations[migrations.length - 1], '161_whatsapp_ticket_links.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

@@ -72,6 +72,7 @@ const PRIORITY_MAP = {
 
 const CATEGORY_MAP = {
     'whatsapp': { label: 'واتساب', class: 'cat-whatsapp' },
+    'whatsapp_support': { label: 'دعم واتساب', class: 'cat-whatsapp' },
     'tickets': { label: 'تذاكر', class: 'cat-tickets' },
     'subscription': { label: 'اشتراك', class: 'cat-subscription' },
     'whatsapp_wallet_topup': { label: 'شحن رصيد واتساب', class: 'cat-subscription' },
