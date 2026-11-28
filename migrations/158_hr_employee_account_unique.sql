@@ -177,7 +177,7 @@ begin
   end if;
   if (select indexdef from pg_indexes where schemaname = 'public'
        and indexname = 'hr_employees_company_user_uidx')
-     not like '%WHERE user_id IS NOT NULL%' then
+     not like '%WHERE (user_id IS NOT NULL)%' then
     raise exception '158: الفهرس الفريد يجب أن يكون جزئيًا (WHERE user_id IS NOT NULL)';
   end if;
   if to_regprocedure('public.hr_link_employee_account(uuid,uuid,text)') is null then
