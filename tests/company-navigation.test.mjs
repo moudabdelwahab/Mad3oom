@@ -974,8 +974,7 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         تغيير خادم: دوال 102 قائمة وترد null والمفتاح
     //         company_inbox_enabled مطفأ، فتفعيله قرار مالك منفصل. بلا
     //         تطبيق حي. مقيسٌ في tests/sql/company-five-sections.test.sql.
-    //         (142 محجوز لفرع saas-cancel-refund-142 — غير مدموج؛
-    //         و143 مدموجة الآن؛ و145 مدموج.)
+    //         (142 و143 و145 مدموجة.)
     //   147 — دوال المالك لعرض لوحة المالك بلا تحويل إلى لوحة الإدارة
     //         (2026-11-26): سبع دوال مالك جديدة بالأسماء التي تناديها
     //         مجموعات الواجهة (حالة الخدمات وتغييرها، نظرة متجر شركة،
@@ -1001,7 +1000,17 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         الصلاحيات. بلا تطبيق حي. مقيسٌ في tests/store-model.test.mjs
     //         و tests/ecommerce-store.render.test.mjs (اختبار 149) و
     //         tests/sql/shopify-store-integration.test.sql (بلا definitions).
-    assert.equal(migrations[migrations.length - 1], '149_store_report_no_english_definitions.sql',
+    //   150 — محجوز لفرع owner-store-management-toggle (غير مدموج):
+    //         ترحيل إدارة اختبار المتجر (owner_store_test_status مع
+    //         shopify_management مفتاحًا رابعًا) أُعيد ترقيمه من 148 إلى
+    //         150، فلا يُعاد استخدام الرقم.
+    //   151 — حالة اختبار إدارة المتجر في صفحة المالك (2026-11-28،
+    //         بطلب المالك): owner_store_test_status() (من 133) تضم
+    //         'shopify_management' في قائمة امتيازات متجر الاختبار —
+    //         أربعة بدل ثلاثة — فتظهر حالته في صفحة المالك «المتاجر
+    //         وشوبيفاي» بلا نداء إضافي؛ بلا تغيير سياسات ولا منح.
+    //         مقيسٌ في tests/sql/owner-store-test-management-status.test.sql.
+    assert.equal(migrations[migrations.length - 1], '151_owner_store_test_management_status.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

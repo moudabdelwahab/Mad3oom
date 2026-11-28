@@ -123,10 +123,10 @@ async function loadCompanies() {
         companiesTotal = Number(data?.total || 0);
         const enabledCount = rows.filter(r => r.hr_enabled === true).length;
         $('hrKpis').innerHTML = kpis([
-            { label: 'شركات بهذه الصفحة', value: num(rows.length) },
-            { label: 'مفعَّلة في الصفحة', value: num(enabledCount) },
-            { label: 'إجمالي الشركات', value: num(companiesTotal) },
-            { label: 'مفتاح المنصة', value: switchEnabled === null ? '—' : (switchEnabled ? 'مفعَّل' : 'معطَّل') }
+            ['شركات بهذه الصفحة', num(rows.length)],
+            ['مفعَّلة في الصفحة', num(enabledCount)],
+            ['إجمالي الشركات', num(companiesTotal)],
+            ['مفتاح المنصة', switchEnabled === null ? '—' : (switchEnabled ? 'مفعَّل' : 'معطَّل')]
         ]);
         if (!rows.length) {
             box.innerHTML = stateBlock({ title: 'لا توجد شركات مطابقة', text: companiesSearch ? 'جرّب بحثًا آخر.' : 'لا توجد شركات بعد.' });
