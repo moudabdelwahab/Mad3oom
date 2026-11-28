@@ -475,6 +475,132 @@ export function paymentLabel(payment) {
 }
 export const fulfillmentLabel = (v) => statusLabel(FULFILLMENT_STATUS, v ? String(v).toLowerCase() : null) || '—';
 export const productStatusLabel = (v) => statusLabel(PRODUCT_STATUS, v ? String(v).toLowerCase() : null) || '—';
+
+/* ── تحليلات المنتجات (152) — دوال خالصة على ما ترجعه عملية product.analytics ──
+ * التعريفات (انظر docs/ecommerce/ARCHITECTURE.md §10.1):
+ *  • معدل البيع = الوحدات المباعة في النافذة / (المباعة + المخزون الحالي)، على مستوى الكتالوج كله.
+ *  • أيام المخزون المتبقية لكل منتج = المخزون الحالي / (مبيعاته اليومية في النافذة)؛ بلا مبيعات
+ *    يُصنَّف «بلا مبيعات في الفترة» لا رقمًا مخترعًا.
+ *  • ABC حسب الإيراد في النافذة: A تغطي أول 80% من الإيراد، B حتى 95%، C الباقي (ومنها بلا مبيعات).
+ * الإيراد هنا = مجموع (سعر الوحدة الأصلي × الكمية) لأسطر الطلبات غير الملغاة؛ لا يشمل الشحن
+ * والضرائب والخصومات. أسطر متغيرات محذوفة (بلا product_id) تُحسب في الإجمالي الكلي وفي معدل
+ * البيع، لكنها لا تُنسَب لمنتج في ABC — وتظهر في unassigned. كل المبالغ بوحدات العملة الصغرى
+ * (قروش/سنتات) كأعداد صحيحة حتى لا يلتفّ العشري. مدخل غير صالح ⇒ null (لا بطاقات بأرقام وهمية). */
+export const PRODUCT_ANALYTICS_WINDOW_DAYS = 30;
+export const PRODUCT_ANALYTICS_CAPS = Object.freeze({ products: 50, orders: 50, lines_per_order: 50 });
+export const DAYS_REMAINING_BUCKETS = Object.freeze([
+    { key: 'lt7', label: 'أقل من 7 أيام' },
+    { key: 'd7_30', label: '7–30 يومًا' },
+    { key: 'gt30', label: 'أكثر من 30 يومًا' },
+    { key: 'no_sales', label: 'بلا مبيعات في الفترة' }
+]);
+export const ABC_CLASS_LABELS = Object.freeze({ A: 'A — الأعلى إيرادًا', B: 'B — متوسط', C: 'C — الأقل إيرادًا' });
+
+/** نص Decimal من Shopify («100.00») ← قروش صحيحة؛ غير صالح ⇒ null. */
+export function decimalToMinor(amount) {
+    const m = typeof amount === 'string' ? amount.trim().match(/^([0-9]{1,10})(?:\.([0-9]{1,2}))?$/) : null;
+    if (!m) return null;
+    return Number(m[1]) * 100 + Number((m[2] || '0').padEnd(2, '0'));
+}
+/** قروش ← «EGP 0.00» (العملة أولًا كما في لوحة Shopify). */
+export function formatMoneyMinor(minor, currency) {
+    const cur = /^[A-Z]{3}$/.test(String(currency || '')) ? currency : '';
+    return `${cur ? cur + ' ' : ''}${(Math.trunc(minor) / 100).toFixed(2)}`;
+}
+
+export function computeProductAnalytics(input) {
+    const d = input || {};
+    if (!Array.isArray(d.products) || !Array.isArray(d.orders)) return null;
+    const windowDays = Number.isInteger(d.window_days) && d.window_days > 0 ? d.window_days : PRODUCT_ANALYTICS_WINDOW_DAYS;
+    const currency = /^[A-Z]{3}$/.test(String(d.currency || '')) ? d.currency : null;
+    const per = d.products.map((p) => ({
+        id: p?.id || null, title: typeof p?.title === 'string' ? p.title : '—',
+        on_hand: Number.isInteger(p?.total_inventory) && p.total_inventory >= 0 ? p.total_inventory : 0,
+        units_sold: 0, revenue_minor: 0
+    }));
+    const byId = new Map(per.filter((p) => p.id).map((p) => [p.id, p]));
+    let unitsSoldTotal = 0, unassignedUnits = 0, unassignedRevenueMinor = 0, cancelledOrders = 0;
+    for (const o of d.orders) {
+        if (!o || typeof o !== 'object') continue;
+        if (o.cancelled) { cancelledOrders++; continue; }
+        for (const l of Array.isArray(o.lines) ? o.lines : []) {
+            const qty = Number.isInteger(l?.quantity) && l.quantity > 0 ? l.quantity : 0;
+            if (!qty) continue;
+            const unitMinor = decimalToMinor(l?.unit_price);
+            const lineMinor = unitMinor === null ? 0 : unitMinor * qty;
+            unitsSoldTotal += qty;
+            const row = l?.product_id ? byId.get(l.product_id) : undefined;
+            if (row) { row.units_sold += qty; row.revenue_minor += lineMinor; }
+            else { unassignedUnits += qty; unassignedRevenueMinor += lineMinor; }
+        }
+    }
+    const onHandTotal = per.reduce((a, p) => a + p.on_hand, 0);
+    const revenueAttributed = per.reduce((a, p) => a + p.revenue_minor, 0);
+    const revenueTotalMinor = revenueAttributed + unassignedRevenueMinor;
+
+    const denom = unitsSoldTotal + onHandTotal;
+    const sellThrough = {
+        rate: denom > 0 ? unitsSoldTotal / denom : null,
+        units_sold: unitsSoldTotal, on_hand: onHandTotal,
+        has_data: denom > 0
+    };
+
+    const buckets = { lt7: [], d7_30: [], gt30: [], no_sales: [] };
+    for (const p of per) {
+        if (p.units_sold === 0) { buckets.no_sales.push(p); continue; }
+        const days = p.on_hand / (p.units_sold / windowDays);
+        (days < 7 ? buckets.lt7 : days <= 30 ? buckets.d7_30 : buckets.gt30).push(p);
+    }
+    const daysRemaining = {
+        buckets: Object.fromEntries(Object.entries(buckets).map(([k, v]) => [k, { count: v.length, products: v.map((p) => p.title) }])),
+        has_data: per.some((p) => p.units_sold > 0)
+    };
+
+    const ranked = per.filter((p) => p.revenue_minor > 0).sort((a, b) => b.revenue_minor - a.revenue_minor || String(a.title).localeCompare(String(b.title)));
+    const classes = { A: [], B: [], C: [] };
+    let cumulative = 0;
+    for (const p of ranked) {
+        // الفئة حسب التراكمي *قبل* إضافة المنتج: من يعبر حد 80% يبقى في A.
+        const before = revenueAttributed ? cumulative / revenueAttributed : 0;
+        (before < 0.8 ? classes.A : before < 0.95 ? classes.B : classes.C).push(p);
+        cumulative += p.revenue_minor;
+    }
+    for (const p of per.filter((p) => p.revenue_minor === 0)) classes.C.push(p);
+    const abc = {
+        total_minor: revenueAttributed, total: formatMoneyMinor(revenueAttributed, currency), currency,
+        has_data: revenueAttributed > 0,
+        classes: Object.fromEntries(Object.entries(classes).map(([k, v]) => [k, {
+            count: v.length, revenue_minor: v.reduce((a, p) => a + p.revenue_minor, 0),
+            products: v.map((p) => ({ id: p.id, title: p.title, revenue_minor: p.revenue_minor }))
+        }]))
+    };
+
+    const coverage = d.coverage || {};
+    return {
+        window_days: windowDays, currency,
+        products_count: per.length, orders_count: d.orders.filter((o) => o && !o.cancelled).length, cancelled_orders: cancelledOrders,
+        sell_through: sellThrough, days_remaining: daysRemaining, abc,
+        revenue_total_minor: revenueTotalMinor,
+        unassigned: { units: unassignedUnits, revenue_minor: unassignedRevenueMinor },
+        coverage: {
+            products_seen: Number.isInteger(coverage.products_seen) ? coverage.products_seen : per.length,
+            products_truncated: coverage.products_truncated === true,
+            orders_seen: Number.isInteger(coverage.orders_seen) ? coverage.orders_seen : d.orders.length,
+            orders_truncated: coverage.orders_truncated === true,
+            truncated: coverage.products_truncated === true || coverage.orders_truncated === true
+        }
+    };
+}
+
+/** ملاحظة التغطية حين تقطع الحدود الصريحة الحساب (50 منتجًا / 50 طلبًا) — وإلا null. */
+export function analyticsCoverageNote(a) {
+    if (!a?.coverage?.truncated) return null;
+    const parts = [];
+    if (a.coverage.products_truncated) parts.push(`أول ${PRODUCT_ANALYTICS_CAPS.products} منتجًا`);
+    if (a.coverage.orders_truncated) parts.push(`أول ${PRODUCT_ANALYTICS_CAPS.orders} طلبًا`);
+    return `محسوبة على ${parts.join(' و')} فقط في آخر ${a.window_days} يومًا — قد تكون هناك بيانات أكثر في Shopify.`;
+}
+
 export const DISCOUNT_STATUS = Object.freeze({ ACTIVE: 'فعّال', SCHEDULED: 'مجدول', EXPIRED: 'منتهٍ' });
 export const RETURN_STATUS_LABELS = Object.freeze({ REQUESTED: 'طلب إرجاع', OPEN: 'مفتوح', CLOSED: 'مغلق', DECLINED: 'مرفوض', CANCELED: 'ملغى' });
 export const OP_STATUS = Object.freeze({ succeeded: 'نُفّذت', submitted: 'أُرسلت لـShopify', failed: 'فشلت', requested: 'قيد التنفيذ', unknown: 'نتيجة غير معروفة' });

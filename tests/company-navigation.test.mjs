@@ -1010,7 +1010,19 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         أربعة بدل ثلاثة — فتظهر حالته في صفحة المالك «المتاجر
     //         وشوبيفاي» بلا نداء إضافي؛ بلا تغيير سياسات ولا منح.
     //         مقيسٌ في tests/sql/owner-store-test-management-status.test.sql.
-    assert.equal(migrations[migrations.length - 1], '151_owner_store_test_management_status.sql',
+    //   152 — تحليلات منتجات Shopify (2026-11-28، بطلب المالك لتطوير قسم
+    //         شوبيفاي في لوحة الشركة): عملية القراءة الجديدة
+    //         `product.analytics` تحتاج صفًا في كتالوج عمليات
+    //         `_ihub_shopify_op_catalog()` حتى يراها
+    //         `ihub_shopify_manage_status` ويقبلها، فالترحيل يعيد تعريف
+    //         الكتالوج بالصف الثاني والستين (صلاحية store.catalog، قراءة،
+    //         نطاقا read_products وread_orders). أُعيد ترقيمه من 150 إلى
+    //         152 لأن 150 محجوز على main لفرع owner-store-management-toggle.
+    //         بلا تطبيق حي. مقيسٌ في tests/shopify-management.test.mjs
+    //         (مزامنة الكتالوج 62) و tests/store-manage-model.test.mjs و
+    //         tests/store-manage.render.test.mjs و
+    //         tests/sql/shopify-store-management.test.sql (§⑫).
+    assert.equal(migrations[migrations.length - 1], '152_shopify_product_analytics.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

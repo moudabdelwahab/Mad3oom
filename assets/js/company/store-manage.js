@@ -3,6 +3,8 @@
  * والمخزون والخصومات والتنفيذ والإرجاع في Shopify من لوحة الشركة.
  * (139): تنبيهات مخزون (حد أدنى لكل متجر/متغير + فحص من بيانات Shopify الحية + إشعار
  * لمالك الشركة)، وقسما «طلبات مهملة» و«الشحن» بحالة صادقة — لا عملية لهما في كتالوج 120.
+ * (152): جدول المنتجات بأعمدة لوحة Shopify (التصنيف، القنوات، النوع، المورّد) وبطاقات
+ * تحليلات المنتجات فوقه (معدل البيع، أيام المخزون المتبقية، ABC) من product.analytics.
  *
  * لا قرار هنا: الأزرار من ihub_shopify_manage_status (صلاحية المستخدم ونطاقات Shopify الممنوحة)،
  * والخادم يتحقق من كل حقل، والقاعدة تفرض الصلاحية والتأكيد والحد وتسجّل كل عملية.
@@ -18,7 +20,8 @@ import {
     manageErrorText, previewView, isDestructive,
     ABANDONED_CHECKOUTS_UNAVAILABLE, SHIPPING_UNAVAILABLE, ALERT_STATUS_LABELS,
     validateThreshold, resolveThreshold, availableOf, evaluateInventoryAlerts, buildAlertReportItems,
-    storeThresholdReportItem
+    storeThresholdReportItem,
+    computeProductAnalytics, analyticsCoverageNote
 } from '/assets/js/company/store-manage-model.js';
 import { escapeHtml as esc, formatDateTime, renderState, renderSkeletonLines } from '/assets/js/customer/portal-ui.js';
 import { ui } from '/ui-service.js';
@@ -330,17 +333,60 @@ function renderProducts(box) {
     box.innerHTML = `${bar(actionButton('product.create', {}, { tone: 'primary', onDone: () => runProducts() }))}
         ${searchForm('smProdSearch', { placeholder: 'اسم المنتج', filters: `<label class="visually-hidden" for="smProdStatus">الحالة</label>
             <select id="smProdStatus" class="form-control"><option value="">كل الحالات</option><option value="ACTIVE">نشط</option><option value="DRAFT">مسودة</option><option value="ARCHIVED">مؤرشف</option></select>` })}
+        <div id="smAnalytics" aria-live="polite"></div>
         ${listBox}`;
     wireActions(box);
     $('smProdSearch').addEventListener('submit', (e) => { e.preventDefault(); runProducts(); });
+    loadProductAnalytics();
     runProducts();
+}
+/** بطاقات تحليلات المنتجات فوق الجدول (152) — من product.analytics، بلا أرقام مخترعة:
+ *  بلا مبيعات ⇒ معدل بيع 0% (إن وُجد مخزون) و«لا توجد بيانات» لأيام المخزون وEGP 0.00 لـABC. */
+async function loadProductAnalytics() {
+    const host = $('smAnalytics');
+    if (!host) return;
+    const avail = opAvailability(state.status, 'product.analytics');
+    if (!avail.visible) return;
+    if (!avail.enabled) {
+        host.innerHTML = `<p class="field-hint">تحليلات المنتجات غير متاحة الآن${avail.reason === 'missing_scope'
+            ? ' — صلاحية قراءة الطلبات غير ممنوحة؛ أعد التفويض من صفحة «Shopify».' : '.'}</p>`;
+        return;
+    }
+    const res = await readQuiet('product.analytics', {});
+    const a = res ? computeProductAnalytics(res) : null;
+    if (!a) {
+        host.innerHTML = '<p class="field-hint">تعذّرت قراءة تحليلات المنتجات من Shopify — جدول المنتجات أدناه يعمل كالمعتاد.</p>';
+        return;
+    }
+    const st = a.sell_through;
+    const sellValue = st.has_data ? `${Math.round(st.rate * 100)}%` : 'لا توجد بيانات';
+    const sellHint = st.has_data ? `${st.units_sold} وحدة مباعة من أصل ${st.units_sold + st.on_hand} (مباع + مخزون)` : 'لا منتجات ولا مبيعات في الفترة';
+    const dr = a.days_remaining;
+    const daysValue = dr.has_data ? `${dr.buckets.lt7.count + dr.buckets.d7_30.count + dr.buckets.gt30.count} منتجًا بمبيعات` : 'لا توجد بيانات';
+    const daysHint = dr.has_data
+        ? `أقل من 7 أيام: ${dr.buckets.lt7.count} · 7–30 يومًا: ${dr.buckets.d7_30.count} · أكثر من 30 يومًا: ${dr.buckets.gt30.count} · بلا مبيعات: ${dr.buckets.no_sales.count}`
+        : 'لا توجد مبيعات في آخر ' + a.window_days + ' يومًا تُحسب عليها الأيام المتبقية';
+    const abc = a.abc;
+    const abcHint = abc.has_data
+        ? `A: ${abc.classes.A.count} · B: ${abc.classes.B.count} · C: ${abc.classes.C.count} — من إيراد المنتجات المباعة`
+        : 'لا توجد مبيعات في آخر ' + a.window_days + ' يومًا';
+    const note = analyticsCoverageNote(a);
+    host.innerHTML = `<div class="kpi-grid" role="group" aria-label="تحليلات المنتجات — آخر ${a.window_days} يومًا">
+        <div class="kpi"><span class="kpi-label">متوسط معدل البيع — آخر ${a.window_days} يومًا</span>
+            <span class="kpi-value">${esc(sellValue)}</span><span class="kpi-hint">${esc(sellHint)}</span></div>
+        <div class="kpi"><span class="kpi-label">المنتجات حسب أيام المخزون المتبقية</span>
+            <span class="kpi-value">${esc(daysValue)}</span><span class="kpi-hint">${esc(daysHint)}</span></div>
+        <div class="kpi"><span class="kpi-label">تحليل ABC حسب الإيراد — آخر ${a.window_days} يومًا</span>
+            <span class="kpi-value" dir="ltr">${esc(abc.total)}</span><span class="kpi-hint">${esc(abcHint)}</span></div>
+    </div>${note ? `<p class="field-hint">${esc(note)}</p>` : ''}`;
 }
 async function runProducts(after = null) {
     const input = { query: $('smProdSearchQ')?.value.trim() || undefined, status: $('smProdStatus')?.value || undefined, after: after || undefined };
     const r = await read('product.list', input, $('smList'));
     if (!r) return;
-    $('smList').innerHTML = `${table(['المنتج', 'الحالة', 'المخزون', 'المتغيرات', ''], r.items.map((p) => [esc(p.title), esc(productStatusLabel(p.status)),
-        esc(p.total_inventory ?? '—'), esc(p.variants_count ?? '—'), `<button type="button" class="btn btn-ghost btn-sm" data-open-product="${esc(p.id)}">فتح</button>`]))}
+    $('smList').innerHTML = `${table(['المنتج', 'الحالة', 'المخزون', 'التصنيف', 'القنوات', 'النوع', 'المورّد', ''], r.items.map((p) => [esc(p.title), esc(productStatusLabel(p.status)),
+        esc(p.total_inventory ?? '—'), esc(p.category || '—'), esc(p.channels ?? '—'), esc(p.product_type || '—'), esc(p.vendor || '—'),
+        `<button type="button" class="btn btn-ghost btn-sm" data-open-product="${esc(p.id)}">فتح</button>`]))}
         ${r.page?.has_next ? '<button type="button" class="btn btn-secondary btn-sm" id="smMore">المزيد</button>' : ''}`;
     $('smList').querySelectorAll('[data-open-product]').forEach((b) => b.addEventListener('click', () => openProduct(b.dataset.openProduct)));
     $('smMore')?.addEventListener('click', () => runProducts(r.page.cursor));
@@ -355,7 +401,9 @@ async function openProduct(id) {
     box.innerHTML = `<section class="panel ihub-record" aria-labelledby="smProdTitle"><div class="panel-header"><div>
             <h2 class="panel-title" id="smProdTitle">${esc(p.title)}</h2><p class="panel-subtitle">${esc(productStatusLabel(p.status))} · بيانات حية من Shopify</p></div>
             ${p.admin_url ? `<a class="btn btn-secondary btn-sm" href="${esc(p.admin_url)}" target="_blank" rel="noopener noreferrer">فتح في Shopify</a>` : ''}</div>
-        ${facts([{ label: 'المورّد', value: p.vendor }, { label: 'النوع', value: p.product_type }, { label: 'الوسوم', value: (p.tags || []).join('، ') || '—' },
+        ${facts([{ label: 'المورّد', value: p.vendor }, { label: 'النوع', value: p.product_type }, { label: 'التصنيف', value: p.category },
+                 { label: 'قنوات البيع المنشور فيها', value: p.channels === null || p.channels === undefined ? null : String(p.channels) },
+                 { label: 'الوسوم', value: (p.tags || []).join('، ') || '—' },
                  { label: 'المخزون الكلي', value: p.total_inventory }, { label: 'المجموعات', value: (p.collections || []).map((c) => c.title).join('، ') || '—' }])}
         ${bar(actionButton('product.update', { id }, { record: p, onDone: reopen }),
               actionButton('product.set_status', { id }, { label: p.status === 'ACTIVE' ? 'تحويل إلى مسودة' : 'تفعيل', onDone: reopen }),
