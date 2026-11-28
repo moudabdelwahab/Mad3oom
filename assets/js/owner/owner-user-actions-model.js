@@ -1,23 +1,19 @@
 /**
  * owner-user-actions-model.js — منطق إجراءات المالك الأصلية على مستخدم (بلا DOM ولا شبكة).
  *
- * الإجراءات الأربعة (الترحيل 147، دوال SECURITY DEFINER + _owner_require() +
- * owner_critical_ok() + تدقيق) — بلا «عرض الحساب (الدخول كمستخدم)»: التقمّص
- * إداري السياق وحده (auth-client.js) ولا يُبنى للمالك، وبلا SIE (لمن ترجع له
- * is_sie_admin() وحدها):
+ * الإجراءات الأربعة — الرتبة والنقاط والتجميد عبر دوال الترحيل 147
+ * (SECURITY DEFINER + _owner_require() + owner_critical_ok() + تدقيق)،
+ * أما الحظر/إلغاء الحظر فعبر Edge Function `ban-user` (من البند 6،
+ * 2026-11-28): الدالة تكتب profiles **وتضبط `auth.users.banned_until`
+ * عبر Auth Admin API** فيمنع الدخول وتحديث الرمز. دالة
+ * `owner_ban_user` (147) ما زالت موجودة في القاعدة للتوافق، لكن
+ * الواجهة لم تعد تناديها — ومن يناديها مباشرةً يكتب profiles وحدها
+ * بلا مرآة Auth (نفس فجوة المسار القديم؛ إهمالها لاحقًا قرار منفصل).
  *
- *   owner_set_user_role(p_user uuid, p_role text)          — مستخدم ↔ مدير فقط
- *   owner_ban_user(p_user uuid, p_reason text, p_until timestamptz)
- *   owner_set_user_points(p_user uuid, p_points int)        — قيمة مطلقة
- *   manage_user_points(target_user_email, 0, 'freeze'|'unfreeze') — كما هي (134)
- *
- * ملاحظتان على العقد (الترحيل 147 ليس في هذا الفرع بعد — يُراجَعان مع مجموعة SQL):
- *   • إلغاء الحظر: لا دالة إلغاء منفصلة في العقد، فيُرسَل owner_ban_user بسبب
- *     «إلغاء الحظر» وp_until = الآن — حظر منتهٍ أصلًا ليس حظرًا عند is_banned()
- *     (ban_status خارج ('none','active') و(ban_until فارغ أو > الآن)).
- *   • التجميد: manage_user_points (134) ترفض كل من ليس بريده support@mad3oom.online
- *     (UNAUTHORIZED)، بينما can_manage_central_wallet() (117) تسمح للمالك في
- *     سياقه — فزر التجميد قد يفشل للمالك حتى تُطابَق الدالة مع المُسنَد.
+ * ملاحظة على العقد: التجميد manage_user_points (134) يرفض كل من ليس
+ * بريده support@mad3oom.online (UNAUTHORIZED)، بينما
+ * can_manage_central_wallet() (117) تسمح للمالك في سياقه — فزر التجميد
+ * قد يفشل للمالك حتى تُطابَق الدالة مع المُسنَد.
  */
 import { isBanned } from '../admin/users-hub-model.js';
 
@@ -79,14 +75,43 @@ export function ownerUserActionList(target, ctx = {}) {
     return actions;
 }
 
-/** حمولة الحظر: حتى فارغ = دائم (p_until null). */
-export function banPayload(userId, reason, until) {
-    return { p_user: userId, p_reason: reason, p_until: until ? new Date(until).toISOString() : null };
+/** جسم الحظر لـ Edge Function `ban-user`: حتى فارغ = دائم (ban_until null). */
+export function banUserBody(userId, reason, until) {
+    return { user_id: userId, action: 'ban', reason, ban_until: until ? new Date(until).toISOString() : null };
 }
 
-/** حمولة إلغاء الحظر: نفس الدالة، بسبب الإلغاء وحظر ينتهي الآن — انظر ملاحظة العقد أعلاه. */
-export function unbanPayload(userId) {
-    return { p_user: userId, p_reason: 'إلغاء الحظر', p_until: new Date().toISOString() };
+/** جسم إلغاء الحظر لـ Edge Function `ban-user`. */
+export function unbanUserBody(userId) {
+    return { user_id: userId, action: 'unban' };
+}
+
+/**
+ * نتيجة `ban-user` إلى { ok, message?, note? } كما يفهمها runWrite:
+ * خطأ النقل أو ok=false رسالة رفض؛ والنجاح بلا مرآة Auth أو بلا إلغاء
+ * جلسات يُرفَق به تنبيه (note) يعرضه runWrite بدل «تم التنفيذ» وحده.
+ * الجلسات لا تُلغى فورًا من الخادم أصلًا (لا نقطة نهاية Admin لذلك) —
+ * التنبيه يذكّر بذلك كل مرة، فلا يُقرأ النجاح إلغاءً كاملًا للجلسات.
+ */
+export function banUserResult(data, error) {
+    if (error) return { ok: false, message: error.message || 'تعذّر تنفيذ العملية.' };
+    if (!data || data.ok !== true) {
+        return { ok: false, message: (data && data.error) || 'تعذّر تنفيذ العملية.' };
+    }
+    if (data.auth_ban_applied !== true) {
+        return {
+            ok: true,
+            note: data.action === 'unban'
+                ? 'رُفع الحظر في قاعدة البيانات، لكن إزالة الحظر من المصادقة (Auth) فشلت — أعد المحاولة من زر رفع الحظر.'
+                : 'تم الحظر في قاعدة البيانات، لكن ضبط الحظر في المصادقة (Auth) فشل — أعد المحاولة من زر الحظر.',
+        };
+    }
+    if (data.sessions && data.sessions.revoked === false && data.action === 'ban') {
+        return {
+            ok: true,
+            note: 'تم الحظر. ملاحظة: جلسات الحساب الحالية لا تُلغى فورًا من الخادم، لكن الحساب محجوب عن كل البيانات الآن ولن يستطيع الدخول أو تحديث جلسته بعد انتهاء رمزه الحالي.',
+        };
+    }
+    return { ok: true };
 }
 
 /** حمولة تغيير الرتبة. */

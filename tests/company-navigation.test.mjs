@@ -1072,7 +1072,18 @@ test('لا ترحيل جديد بلا قرار صريح', () => {
     //         في company_staff بدور agent فيظهر في شجرة الحسابات كموظف
     //         شركة ويصبح مؤهلًا لإسناد التذاكر؛ وفك الربط لا يلغي صف
     //         الفريق. بلا اختبارات بأمر المالك. بلا تطبيق حي.
-    assert.equal(migrations[migrations.length - 1], '159_hr_link_registers_company_staff.sql',
+    //   160 — فرع 'banned' في my_account_gate() (2026-11-28، البند 6 من
+    //         دفعة محمود): المحظور كان يرى 'needs_phone' المضللة رغم أن
+    //         البوابة الحقيقية (144) تمنعه؛ الفرع أولًا في CASE الحالة
+    //         مع banned_until/ban_reason للعرض، بلا مساس بـ 144 ولا 029
+    //         ولا الإعفاء ولا أي سياسة. ومعه Edge Function `ban-user`
+    //         (حظر/رفع عبر Auth Admin API: ban_duration) بدل التحديث
+    //         المباشر من لوحة الأدمن الذي لم يكن يلغي جلسة ولا يضبط
+    //         banned_until في Auth. مقيسٌ في
+    //         tests/sql/account-gate-ban-160.test.sql و
+    //         tests/ban-user-function.test.mjs و
+    //         tests/account-gate-banned.test.mjs.
+    assert.equal(migrations[migrations.length - 1], '160_my_account_gate_banned_branch.sql',
         'ظهر ترحيل جديد غير مخطَّط له — راجع السبب');
 });
 

@@ -19,8 +19,9 @@
 --      (067)، وحظر المالك محمي من المنبع بمحفِّز 053.
 --   ⑦ إعادة تطبيق 144 آمنة ولا تُضاعف السياسات؛ وملف التراجع يعيد جسم
 --      042 (المحظور يمرّ ثانيةً)، وإعادة تطبيق 144 بعده تعيد المنع.
---   ⑧ `my_account_gate()` لم تتغيّر بنيتها: المحظور يرى `'needs_phone'`
---      (لا فرع `'banned'` — فجوة عرض موثَّقة، خارج نطاق 144).
+--   ⑧ `my_account_gate()` — ألغاه الترحيل 160 (فرع 'banned'): القسم
+--      هنا يثبّت أن المحظور يرى `'banned'` لا `'needs_phone'`، والمصفوفة
+--      الكاملة في `tests/sql/account-gate-ban-160.test.sql`.
 --
 -- يحمّل 042 ثم `is_banned()` (نص 029 حرفيًا) ثم 144 — أي أن الاختبار يمرّ
 -- عبر ملف الترحيل نفسه، لا عبر نسخة منسوخة من جسمه.
@@ -48,7 +49,7 @@ GRANT USAGE ON SCHEMA auth, public, extensions TO authenticated, anon;
 CREATE TABLE public.profiles (
   id uuid PRIMARY KEY, email text, full_name text, phone text,
   role text DEFAULT 'user', super_user_id uuid,
-  ban_status text, ban_until timestamptz,
+  ban_status text, ban_until timestamptz, ban_reason text,
   created_at timestamptz DEFAULT now()
 );
 CREATE UNIQUE INDEX profiles_phone_unique ON public.profiles (phone) WHERE phone IS NOT NULL;
@@ -389,8 +390,12 @@ BEGIN
 END $$;
 
 -- ════════════════════════════════════════════════════════════════════════
--- ⑧ my_account_gate() لم تتغيّر بنيتها (لا فرع 'banned' — فجوة عرض موثَّقة)
+-- ⑧ my_account_gate() — ألغاه 160: الفرع 'banned' (المصفوفة الكاملة في
+--    account-gate-ban-160.test.sql). هذا القسم هنا يثبّت أن المحظور لم
+--    يعد يرى 'needs_phone' المضللة بعد 160.
 -- ════════════════════════════════════════════════════════════════════════
+\i migrations/160_my_account_gate_banned_branch.sql
+
 DO $$
 DECLARE v_status text;
 BEGIN
@@ -400,11 +405,10 @@ BEGIN
   SET LOCAL ROLE authenticated;
   SELECT public.my_account_gate()->>'status' INTO v_status;
   RESET ROLE;
-  -- المحظور في القائمة البيضاء وبهاتف: الحالة المعروضة 'needs_phone' —
-  -- مضللة (مشكلته الحظر لا الهاتف)، لكنها خارج نطاق 144 عمدًا.
-  IF v_status <> 'needs_phone' THEN
-    RAISE EXCEPTION 'FAIL 8: حالة البوابة للمحظور جاءت % لا needs_phone — تغيّرت بنية my_account_gate()', v_status; END IF;
-  RAISE NOTICE 'PASS 8 (موثَّق): my_account_gate() بلا فرع banned كما قبل 144 (needs_phone)';
+  -- بعد 160: المحظور في القائمة البيضاء وبهاتف يرى 'banned'، لا 'needs_phone'.
+  IF v_status <> 'banned' THEN
+    RAISE EXCEPTION 'FAIL 8: حالة البوابة للمحظور جاءت % لا banned (160)', v_status; END IF;
+  RAISE NOTICE 'PASS 8: my_account_gate() بفرع banned منذ 160 (كان needs_phone قبلها)';
   UPDATE public.profiles SET ban_status = 'none', ban_until = NULL
    WHERE id = '00000000-0000-0000-0000-0000000000b1';
 END $$;

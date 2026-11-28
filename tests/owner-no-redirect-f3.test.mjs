@@ -6,8 +6,10 @@
  *         قائمة المالك ولا في قسم المستخدمين بلوحة المالك.
  *   B10 — قسم MCP المالك: قراءة عبر owner_list_mcp_servers()، وكتابة
  *         التعريف لمالكه وحده، والاعتماد/الاختبار/OAuth عبر دوال الحافة.
- *   B11 — إجراءات المالك على مستخدم: رتبة/حظر/نقاط عبر دوال 147، والتجميد
- *         عبر manage_user_points كما هي — بلا تقمّص وبلا تعديل باقة.
+ *   B11 — إجراءات المالك على مستخدم: رتبة/نقاط عبر دوال 147، والتجميد
+ *         عبر manage_user_points كما هي، والحظر/إلغاؤه عبر Edge Function
+ *         `ban-user` (من البند 6 — الدالة وحدها تضبط banned_until في
+ *         Auth) — بلا تقمّص وبلا تعديل باقة.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,7 +18,7 @@ import path from 'node:path';
 import { visibleHubTabs, HUB_TABS } from '../assets/js/admin/users-hub-model.js';
 import {
     OWNER_USER_ROLES, BAN_REASON_MIN, validateBanReason, validatePointsInput,
-    ownerUserActionList, banPayload, unbanPayload, rolePayload, pointsPayload,
+    ownerUserActionList, banUserBody, unbanUserBody, banUserResult, rolePayload, pointsPayload,
     freezePayload, rpcJsonResult, isBanned
 } from '../assets/js/owner/owner-user-actions-model.js';
 import {
@@ -101,12 +103,20 @@ test('B11: قائمة الإجراءات — بلا تقمّص وبلا SIE، و
 test('B11: حمولات دوال 147 والتجميد — بأسماء المعاملات المتفق عليها حرفيًا', () => {
     assert.deepEqual(rolePayload('u1', 'admin'), { p_user: 'u1', p_role: 'admin' });
     assert.deepEqual(pointsPayload('u1', 42), { p_user: 'u1', p_points: 42 });
-    assert.deepEqual(banPayload('u1', 'إساءة', null), { p_user: 'u1', p_reason: 'إساءة', p_until: null });
-    assert.equal(banPayload('u1', 'إساءة', '2026-12-01T10:00').p_until, new Date('2026-12-01T10:00').toISOString());
-    const unban = unbanPayload('u1');
-    assert.equal(unban.p_user, 'u1');
-    assert.equal(unban.p_reason, 'إلغاء الحظر');
-    assert.ok(unban.p_until && new Date(unban.p_until).getTime() <= Date.now(), 'إلغاء الحظر = حظر ينتهي الآن (ليس حظرًا عند is_banned)');
+    // الحظر/إلغاؤه عبر Edge Function `ban-user` لا RPC owner_ban_user
+    // (البند 6): الجسم بصيغة الدالة، لا بصيغة RPC 147 القديمة.
+    assert.deepEqual(banUserBody('u1', 'إساءة', null), { user_id: 'u1', action: 'ban', reason: 'إساءة', ban_until: null });
+    assert.equal(banUserBody('u1', 'إساءة', '2026-12-01T10:00').ban_until, new Date('2026-12-01T10:00').toISOString());
+    assert.deepEqual(unbanUserBody('u1'), { user_id: 'u1', action: 'unban' });
+    // نتيجة الدالة: رفض النقل أو ok=false رسالة؛ والنجاح بلا مرآة Auth
+    // تنبيه لا «تم» صامت؛ ونجاح الحظر بلا إلغاء جلسات تنبيه آخر.
+    assert.deepEqual(banUserResult(null, { message: 'شبكة' }), { ok: false, message: 'شبكة' });
+    assert.deepEqual(banUserResult({ ok: false, error: 'مرفوض' }, null), { ok: false, message: 'مرفوض' });
+    assert.equal(banUserResult({ ok: true, action: 'ban', auth_ban_applied: false, auth_error: 'x', sessions: { revoked: false } }, null).ok, true);
+    assert.ok(banUserResult({ ok: true, action: 'ban', auth_ban_applied: false, auth_error: 'x', sessions: { revoked: false } }, null).note.includes('المصادقة'));
+    assert.ok(banUserResult({ ok: true, action: 'ban', auth_ban_applied: true, sessions: { revoked: false } }, null).note.includes('لا تُلغى فورًا'));
+    assert.deepEqual(banUserResult({ ok: true, action: 'unban', auth_ban_applied: true, sessions: { revoked: false } }, null), { ok: true });
+    assert.deepEqual(banUserResult({ ok: true, action: 'ban', auth_ban_applied: true, sessions: { revoked: true } }, null), { ok: true });
     assert.deepEqual(freezePayload('a@x.com', true), { target_user_email: 'a@x.com', amount_change: 0, action_type: 'unfreeze' });
     assert.deepEqual(freezePayload('a@x.com', false), { target_user_email: 'a@x.com', amount_change: 0, action_type: 'freeze' });
     assert.equal(isBanned(bannedUser), true);
@@ -123,9 +133,13 @@ test('B11: الروابط المعاد توجيهها تصل إلى قسم ال�
     assert.ok(!read('owner/accounts.html').includes('/admin/users.html'));
     assert.ok(read('assets/js/owner/pages/accounts.js').includes('data-action="user-actions"'));
     const src = read('assets/js/owner/owner-user-actions.js');
-    for (const rpc of ['owner_set_user_role', 'owner_ban_user', 'owner_set_user_points', 'manage_user_points']) {
+    for (const rpc of ['owner_set_user_role', 'owner_set_user_points', 'manage_user_points']) {
         assert.ok(src.includes(rpc), rpc);
     }
+    // الحظر/إلغاؤه عبر Edge Function `ban-user` لا RPC owner_ban_user
+    // (البند 6 — الدالة وحدها تضبط banned_until في Auth).
+    assert.ok(src.includes("functions.invoke('ban-user'"), 'ban/unban must go through ban-user');
+    assert.ok(!src.includes("rpc('owner_ban_user'"), 'UI must not call owner_ban_user anymore');
     assert.ok(!src.includes('impersonate') && !src.includes('/admin/*.html'), 'بلا تقمّص وبلا روابط لصفحات /admin/');
 });
 

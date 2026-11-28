@@ -66,6 +66,7 @@
     margin: 0 auto 1rem;
   }
   .icon-wait { background: rgba(245,158,11,0.12); color: #d97706; }
+  .icon-banned { background: rgba(220,38,38,0.12); color: #dc2626; }
   .icon-phone { background: rgba(22,119,255,0.1); color: var(--primary); }
   .icon-done { background: rgba(34,197,94,0.12); color: var(--success); }
 
@@ -225,6 +226,23 @@
       <button type="button" class="btn-ghost" id="phone-logout">تسجيل الخروج</button>
     </section>
 
+    <!-- ══ محظور (الترحيل 160) ══ -->
+    <!-- يعرض سبب الحظر ونهايته بدل رسالة «أضف رقم هاتفك» المضللة: المحظور
+         موثَّق الهاتف أصلًا، ومشكلته الحظر لا الهاتف. -->
+    <section class="step" id="step-banned">
+      <div class="icon-badge icon-banned">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8" fill="none"/>
+          <line x1="8" y1="8" x2="16" y2="16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h1>حسابك محظور</h1>
+      <p class="sub" id="banned-reason">تم إيقاف حسابك من إدارة المنصة.</p>
+      <p class="sub" id="banned-until" style="display:none;"></p>
+      <p class="sub">إن كنت ترى أن هذا خطأ، تواصل مع إدارة المنصة.</p>
+      <button type="button" class="btn-ghost" id="banned-logout">تسجيل الخروج</button>
+    </section>
+
     <!-- ══ تم ══ -->
     <section class="step" id="step-done">
       <div class="icon-badge icon-done">
@@ -324,6 +342,26 @@
       const raw = data?.message || DEFAULT_WAITING_MESSAGE;
       $('waiting-message').textContent = String(raw).replaceAll('{{launch_date}}', launch);
       showStep('step-waiting');
+      return;
+    }
+
+    // المحظور (160): سبب الحظر ونهايته من my_account_gate()، لا شاشة الهاتف.
+    if (status === 'banned') {
+      const reason = data?.ban_reason ? String(data.ban_reason) : '';
+      $('banned-reason').textContent = reason
+        ? `سبب الحظر: ${reason}`
+        : 'تم إيقاف حسابك من إدارة المنصة.';
+      const untilEl = $('banned-until');
+      if (data?.banned_until) {
+        const until = new Date(data.banned_until);
+        untilEl.textContent = Number.isNaN(until.getTime())
+          ? ''
+          : `ينتهي الحظر في ${until.toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' })}`;
+        untilEl.style.display = untilEl.textContent ? '' : 'none';
+      } else {
+        untilEl.style.display = 'none';
+      }
+      showStep('step-banned');
       return;
     }
 
@@ -432,6 +470,7 @@
 
   $('waiting-logout').addEventListener('click', signOutAndLeave);
   $('phone-logout').addEventListener('click', signOutAndLeave);
+  $('banned-logout').addEventListener('click', signOutAndLeave);
 
   evaluate();
 </script>
